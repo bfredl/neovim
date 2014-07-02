@@ -37,7 +37,7 @@ msgstr "E520: Inte tillåtet i en lägesrad"
 
 #: ../option.c:2761
 msgid "E846: Key code not set"
-msgstr ""
+msgstr "E846: Teckenkoden är inte inställd"
 
 #: ../option.c:2870
 msgid "E521: Number required after ="
@@ -62,11 +62,11 @@ msgstr "E589: 'backuptext' och 'patchmode' är lika"
 
 #: ../option.c:3909
 msgid "E834: Conflicts with value of 'listchars'"
-msgstr ""
+msgstr "E834: Krockar med värdet av 'listchars'"
 
 #: ../option.c:3911
 msgid "E835: Conflicts with value of 'fillchars'"
-msgstr ""
+msgstr "E835: Krockar med värdet av 'fillchars'"
 
 #: ../option.c:4096
 msgid "E524: Missing colon"
@@ -146,9 +146,9 @@ msgstr "E355: Okänd flagga: %s"
 #. * is empty.  In both cases, we are trying to set a
 #. * num option using a string.
 #: ../option.c:5970
-#, fuzzy, c-format
+#, c-format
 msgid "E521: Number required: &%s = '%s'"
-msgstr "E521: Nummer krävs efter ="
+msgstr "E521: Nummer krävs: &%s = '%s'"
 
 #: ../option.c:6082
 msgid ""
@@ -321,18 +321,17 @@ msgid "E435: Couldn't find tag, just guessing!"
 msgstr "E435: Kunde inte hitta tagg, gissar bara!"
 
 #: ../tag.c:2776
-#, fuzzy, c-format
+#, c-format
 msgid "Duplicate field name: %s"
-msgstr "Duplicerad affix i %s rad %d: %s"
+msgstr "Duplicerat fältnamn: %s"
 
 #: ../ex_getln.c:1614
 msgid "E788: Not allowed to edit another buffer now"
-msgstr "E788: Inte tillåtet att redigera en annan buffert nu"
+msgstr "E788: Ej tillåtet att redigera en annan buffert nu"
 
 #: ../ex_getln.c:1627
-#, fuzzy
 msgid "E811: Not allowed to change buffer information now"
-msgstr "E788: Inte tillåtet att redigera en annan buffert nu"
+msgstr "E788: Ej tillåtet att ändra buffertinformation nu"
 
 #: ../ex_getln.c:3138
 msgid "tagname"
@@ -380,9 +379,8 @@ msgid "E199: Active window or buffer deleted"
 msgstr "E199: Aktivt fönster eller buffert borttagen"
 
 #: ../fileio.c:185
-#, fuzzy
 msgid "E812: Autocommands changed buffer or buffer name"
-msgstr "E135: *Filter*-Autokommandon får inte ändra aktuell buffert"
+msgstr "E135: Autokommandon bytte buffer eller ändrade buffert namn"
 
 #: ../fileio.c:416
 msgid "Illegal file name"
@@ -446,9 +444,8 @@ msgstr "[uttag]"
 
 #. or character special
 #: ../fileio.c:1849
-#, fuzzy
 msgid "[character special]"
-msgstr "1 tecken"
+msgstr "[teckenvis enhet]"
 
 #: ../fileio.c:1855 ../screen.c:4822 ../buffer.c:2478 ../buffer.c:3187
 msgid "[RO]"
@@ -574,12 +571,11 @@ msgstr ""
 "E513: skrivfel, konvertering misslyckades (gör 'fenc' tom för att tvinga)"
 
 #: ../fileio.c:3487
-#, fuzzy, c-format
 msgid ""
 "E513: write error, conversion failed in line %<PRId64> (make 'fenc' empty to "
 "override)"
 msgstr ""
-"E513: skrivfel, konvertering misslyckades (gör 'fenc' tom för att tvinga)"
+"E513: skrivfel, konvertering misslyckades vid rad %<PRId64> (gör 'fenc' tom för att tvinga)"
 
 #: ../fileio.c:3494
 msgid "E514: write error (file system full?)"
@@ -590,9 +586,8 @@ msgid " CONVERSION ERROR"
 msgstr " KONVERTERINGSFEL"
 
 #: ../fileio.c:3555
-#, fuzzy, c-format
 msgid " in line %<PRId64>;"
-msgstr "rad %<PRId64>"
+msgstr " vid rad %<PRId64>"
 
 #: ../fileio.c:3565
 msgid "[Device]"
@@ -961,9 +956,8 @@ msgid "%3d  %s %s  line %<PRId64>"
 msgstr "%3d  %s %s  rad %<PRId64>"
 
 #: ../ex_cmds2.c:940
-#, fuzzy
 msgid "E750: First use \":profile start {fname}\""
-msgstr "E750: Använd :profile start <fnamn> först"
+msgstr "E750: Använd :profile start {fnamn} först"
 
 #: ../ex_cmds2.c:1265
 #, c-format
@@ -1175,9 +1169,8 @@ msgid "E461: Illegal variable name: %s"
 msgstr "E461: Otillåtet variabelnamn: %s"
 
 #: ../eval.c:159
-#, fuzzy
 msgid "E806: using Float as a String"
-msgstr "E730: använder Lista som en Sträng"
+msgstr "E730: använder Flyttal som en Sträng"
 
 #: ../eval.c:1382
 msgid "E687: Less targets than List items"
@@ -1243,9 +1236,8 @@ msgid "E691: Can only compare List with List"
 msgstr "E691: Kan bara jämföra Lista med Lista"
 
 #: ../eval.c:3438
-#, fuzzy
 msgid "E692: Invalid operation for List"
-msgstr "E692: Ogiltig operation för Listor"
+msgstr "E692: Ogiltig operation för Lista"
 
 #: ../eval.c:3459
 msgid "E735: Can only compare Dictionary with Dictionary"
@@ -1264,9 +1256,8 @@ msgid "E694: Invalid operation for Funcrefs"
 msgstr "E694: Ogiltig operation för Funcrefs"
 
 #: ../eval.c:3821
-#, fuzzy
 msgid "E804: Cannot use '%' with Float"
-msgstr "E719: Kan inte använda [:] med en Tabell"
+msgstr "E719: Kan inte använda '%' med ett flyttal"
 
 #: ../eval.c:4022
 msgid "E110: Missing ')'"
@@ -1331,14 +1322,14 @@ msgid "E724: variable nested too deep for displaying"
 msgstr "E724: variabel nästlad för djupt för att visas"
 
 #: ../eval.c:6686
-#, fuzzy, c-format
+#, c-format
 msgid "E740: Too many arguments for function %s"
-msgstr "E118: För många argument till funktion: %s"
+msgstr "E740: För många argument till funktion: %s"
 
 #: ../eval.c:6688
-#, fuzzy, c-format
+#, c-format
 msgid "E116: Invalid arguments for function %s"
-msgstr "E118: För många argument till funktion: %s"
+msgstr "E116: Ogiltiga argument till funktion: %s"
 
 #: ../eval.c:6875
 #, c-format
@@ -1361,14 +1352,12 @@ msgid "E725: Calling dict function without Dictionary: %s"
 msgstr "E725: Anropar tabell-funktion utan Tabell: %s"
 
 #: ../eval.c:6950
-#, fuzzy
 msgid "E808: Number or Float required"
-msgstr "E521: Nummer krävs efter ="
+msgstr "E521: heltal eller flyttal krävs"
 
 #: ../eval.c:7000
-#, fuzzy
 msgid "add() argument"
-msgstr "-c argument"
+msgstr "argument till add()"
 
 #: ../eval.c:7402
 msgid "E699: Too many arguments"
@@ -1388,19 +1377,16 @@ msgid "E737: Key already exists: %s"
 msgstr "E737: Tangenten finns redan: %s"
 
 #: ../eval.c:8187
-#, fuzzy
 msgid "extend() argument"
-msgstr "--cmd argument"
+msgstr "argument till extend()"
 
 #: ../eval.c:8404
-#, fuzzy
 msgid "map() argument"
-msgstr "-c argument"
+msgstr "argument till map()"
 
 #: ../eval.c:8405
-#, fuzzy
 msgid "filter() argument"
-msgstr "-c argument"
+msgstr "argument till filter()"
 
 #: ../eval.c:8717
 #, c-format
@@ -1417,9 +1403,8 @@ msgid "called inputrestore() more often than inputsave()"
 msgstr "anropade inputrestore() oftare än inputsave()"
 
 #: ../eval.c:10250
-#, fuzzy
 msgid "insert() argument"
-msgstr "-c argument"
+msgstr "argument till insert()"
 
 #: ../eval.c:10320
 msgid "E786: Range not allowed"
@@ -1442,41 +1427,36 @@ msgid "<empty>"
 msgstr "<tom>"
 
 #: ../eval.c:11712
-#, fuzzy
 msgid "remove() argument"
-msgstr "--cmd argument"
+msgstr "argument till remove()"
 
 #: ../eval.c:11893
 msgid "E655: Too many symbolic links (cycle?)"
 msgstr "E655: För många symboliska länkar (slinga?)"
 
 #: ../eval.c:12013
-#, fuzzy
 msgid "reverse() argument"
-msgstr "-c argument"
+msgstr "argument till reverse()"
 
 #: ../eval.c:12568
 msgid "Error converting the call result"
-msgstr ""
+msgstr "Fel vid konvertering av resultat från anrop"
 
 #: ../eval.c:13189
-#, fuzzy
 msgid "sort() argument"
-msgstr "-c argument"
+msgstr "argument till sort()"
 
 #: ../eval.c:13189
-#, fuzzy
 msgid "uniq() argument"
-msgstr "-c argument"
+msgstr "argument till uniq()"
 
 #: ../eval.c:13244
 msgid "E702: Sort compare function failed"
 msgstr "E702: Jämförelsefunktionen för sortering misslyckades"
 
 #: ../eval.c:13274
-#, fuzzy
 msgid "E882: Uniq compare function failed"
-msgstr "E702: Jämförelsefunktionen för sortering misslyckades"
+msgstr "E702: Jämförelsefunktionen för Uniq misslyckades"
 
 #: ../eval.c:13548
 msgid "(Invalid)"
@@ -1487,9 +1467,8 @@ msgid "E677: Error writing temp file"
 msgstr "E677: Fel vid skrivning av temporär fil"
 
 #: ../eval.c:15603
-#, fuzzy
 msgid "E805: Using a Float as a Number"
-msgstr "E745: Använder en Lista som en siffra"
+msgstr "E805: Användning av ett flyttal som ett heltal"
 
 #: ../eval.c:15606
 msgid "E703: Using a Funcref as a Number"
@@ -1554,9 +1533,9 @@ msgid "E698: variable nested too deep for making a copy"
 msgstr "E698: variabel nästlad för djupt för att skapa en kopia"
 
 #: ../eval.c:16690
-#, fuzzy, c-format
+#, c-format
 msgid "E123: Undefined function: %s"
-msgstr "E130: Okänd funktion: %s"
+msgstr "E130: Odefinierad funktion: %s"
 
 #: ../eval.c:16701
 #, c-format
@@ -1564,9 +1543,8 @@ msgid "E124: Missing '(': %s"
 msgstr "E124: Saknar '(': %s"
 
 #: ../eval.c:16731
-#, fuzzy
 msgid "E862: Cannot use g: here"
-msgstr "E284: Kan inte ställa in IC-värden"
+msgstr "E284: Kan inte använda g: här"
 
 #: ../eval.c:16750
 #, c-format
@@ -1574,23 +1552,20 @@ msgid "E125: Illegal argument: %s"
 msgstr "E125: Otillåtet argument: %s"
 
 #: ../eval.c:16761
-#, fuzzy, c-format
 msgid "E853: Duplicate argument name: %s"
-msgstr "E125: Otillåtet argument: %s"
+msgstr "E853: Dubblicerat argumentsnamn: %s"
 
 #: ../eval.c:16854
 msgid "E126: Missing :endfunction"
 msgstr "E126: Saknar :endfunction"
 
 #: ../eval.c:16975
-#, fuzzy, c-format
 msgid "E707: Function name conflicts with variable: %s"
-msgstr "E746: Funktionsnamn matchar inte skriptfilnamn: %s"
+msgstr "E707: Funktionsnamn krockar med variabelnamn: %s"
 
 #: ../eval.c:16987
-#, fuzzy, c-format
 msgid "E127: Cannot redefine function %s: It is in use"
-msgstr "E131: Kan inte ta bort funktion %s: Den används"
+msgstr "E131: Kan inte omdefiniera funktion %s: Den används"
 
 #: ../eval.c:17040
 #, c-format
@@ -1602,16 +1577,14 @@ msgid "E129: Function name required"
 msgstr "E129: Funktionsnamn krävs"
 
 #: ../eval.c:17256
-#, fuzzy, c-format
 msgid "E128: Function name must start with a capital or \"s:\": %s"
 msgstr ""
-"E128: Funktionsnamn måste börja med en versal eller innehålla ett kolon: %s"
+"E128: Funktionsnamn måste börja med en versal eller \"s:\": %s"
 
 #: ../eval.c:17265
-#, fuzzy, c-format
 msgid "E884: Function name cannot contain a colon: %s"
 msgstr ""
-"E128: Funktionsnamn måste börja med en versal eller innehålla ett kolon: %s"
+"E884: Funktionsnamn får inte innehälla kolon: %s"
 
 #: ../eval.c:17762
 #, c-format
@@ -1663,88 +1636,82 @@ msgstr ""
 "\tSenast satt från "
 
 #: ../eval.c:18683
-#, fuzzy
 msgid "No old files"
-msgstr "Inga inkluderade filer"
+msgstr "Inga gamla filer"
 
 #. This happens when the FileChangedRO autocommand changes the
 #. * file in a way it becomes shorter.
 #: ../undo.c:355
-#, fuzzy
 msgid "E881: Line count changed unexpectedly"
-msgstr "E787: Buffert ändrades oväntat"
+msgstr "E881: Radantal ändrades oväntat"
 
 #: ../undo.c:603
-#, fuzzy, c-format
+#, c-format
 msgid "E828: Cannot open undo file for writing: %s"
-msgstr "E212: Kan inte öppna fil för skrivning"
+msgstr "E212: Kan inte öppna ångra-fil för skrivning"
 
 #: ../undo.c:693
 #, c-format
 msgid "E825: Corrupted undo file (%s): %s"
-msgstr ""
+msgstr "E825: Korrumperad ångra-fil"
 
 #: ../undo.c:1015
 msgid "Cannot write undo file in any directory in 'undodir'"
-msgstr ""
+msgstr "Kan ej skriva ångra-fil i någon katalog i 'undodir'"
 
 #: ../undo.c:1050
 #, c-format
 msgid "Will not overwrite with undo file, cannot read: %s"
-msgstr ""
+msgstr "Kommer inte att skriva över med ångra-fil, kan ej läsa %s"
 
 #: ../undo.c:1068
 #, c-format
 msgid "Will not overwrite, this is not an undo file: %s"
-msgstr ""
+msgstr "Kommer inte att skriva över, detta är inte en ångra-fil"
 
 #: ../undo.c:1084
 msgid "Skipping undo file write, nothing to undo"
-msgstr ""
+msgstr "Hoppar över att skriva ångra-fil, inget att ångra"
 
 #: ../undo.c:1097
-#, fuzzy, c-format
 msgid "Writing undo file: %s"
-msgstr "Skriver viminfo-fil \"%s\""
+msgstr "Skriver ångra-fil %s"
 
 #: ../undo.c:1189
-#, fuzzy, c-format
 msgid "E829: write error in undo file: %s"
-msgstr "E297: Skrivfel i växelfil"
+msgstr "E297: Skrivfel i ångra-fil"
 
 #: ../undo.c:1256
 #, c-format
 msgid "Not reading undo file, owner differs: %s"
-msgstr ""
+msgstr "Läser inte ångra-fil, filen har annan ägare: %s"
 
 #: ../undo.c:1268
-#, fuzzy, c-format
+#, c-format
 msgid "Reading undo file: %s"
-msgstr "Läser ordfil %s ..."
+msgstr "Läser ångra-fil %s"
 
 #: ../undo.c:1275
-#, fuzzy, c-format
+#, c-format
 msgid "E822: Cannot open undo file for reading: %s"
-msgstr "E195: Kan inte öppna viminfo-fil för läsning"
+msgstr "E822: Kan inte öppna ångra-fil för läsning"
 
 #: ../undo.c:1284
-#, fuzzy, c-format
 msgid "E823: Not an undo file: %s"
-msgstr "E753: Hittades inte: %s"
+msgstr "E823: Inte en ångra-fil: %s"
 
 #: ../undo.c:1289
-#, fuzzy, c-format
 msgid "E824: Incompatible undo file: %s"
-msgstr "E484: Kan inte öppna fil %s"
+msgstr "E824: Inkompatibel ångra-fil: %s"
 
 #: ../undo.c:1304
 msgid "File contents changed, cannot use undo info"
-msgstr ""
+msgstr "Filens innehåll har ändrat, kan ej använda ångra-data"
 
 #: ../undo.c:1473
-#, fuzzy, c-format
+#, c-format
 msgid "Finished reading undo file %s"
-msgstr "läste klart %s"
+msgstr "läste klart ångra-fil: %s"
 
 #: ../undo.c:1562 ../undo.c:1788
 msgid "Already at oldest change"
@@ -1755,9 +1722,9 @@ msgid "Already at newest change"
 msgstr "Redan vid nyaste ändring"
 
 #: ../undo.c:1782
-#, fuzzy, c-format
+#, c-format
 msgid "E830: Undo number %<PRId64> not found"
-msgstr "Ångra-nummer %<PRId64> hittades inte"
+msgstr "E830: Ångra-nummer %<PRId64> hittades inte"
 
 #: ../undo.c:1955
 msgid "E438: u_undo: line numbers wrong"
@@ -1806,7 +1773,7 @@ msgstr "Inget att ångra"
 
 #: ../undo.c:2304
 msgid "number changes  when               saved"
-msgstr ""
+msgstr "nummer ändras när               sparades"
 
 #: ../undo.c:2334
 #, c-format
@@ -1905,12 +1872,11 @@ msgid "E395: contains argument not accepted here"
 msgstr "E395: innehåller argument som inte är tillåtna här"
 
 #: ../syntax.c:3987
-#, fuzzy
 msgid "E844: invalid cchar value"
-msgstr "E474: Ogiltigt argument"
+msgstr "E474: Ogiltigt cchar-värde"
 
 #: ../syntax.c:3998
-msgid "E393: group[t]here not accepted here"
+msgid "E393: group[ ]here not accepted here"
 msgstr "E393: grupper inte tillåtna här"
 
 #: ../syntax.c:4018
@@ -1923,9 +1889,8 @@ msgid "E397: Filename required"
 msgstr "E397: Filnamn krävs"
 
 #: ../syntax.c:4113
-#, fuzzy
 msgid "E847: Too many syntax includes"
-msgstr "E77: För många filnamn"
+msgstr "E77: För många syntax-inkluderingar"
 
 #: ../syntax.c:4195
 #, c-format
@@ -1943,9 +1908,8 @@ msgid "E399: Not enough arguments: syntax region %s"
 msgstr "E399: Inte tillräckliga argument: syntaxregion %s"
 
 #: ../syntax.c:4750
-#, fuzzy
 msgid "E848: Too many syntax clusters"
-msgstr "E391: Inget sådant syntax-kluster: %s"
+msgstr "E391: För många syntax-kluster: %s"
 
 #: ../syntax.c:4830
 msgid "E400: No cluster specified"
@@ -2533,9 +2497,8 @@ msgid " marks"
 msgstr " märken"
 
 #: ../ex_cmds.c:1456
-#, fuzzy
 msgid " oldfiles"
-msgstr "Inga inkluderade filer"
+msgstr " oldfiles"
 
 #: ../ex_cmds.c:1457
 msgid " FAILED"
@@ -2629,9 +2592,9 @@ msgid ""
 msgstr ""
 
 #: ../ex_cmds.c:2445
-#, fuzzy, c-format
+#, c-format
 msgid "E505: \"%s\" is read-only (add ! to override)"
-msgstr "är skrivskyddad (lägg till ! för att tvinga)"
+msgstr "E505: \"%s\" är skrivskyddad (lägg till ! för att tvinga)"
 
 #: ../ex_cmds.c:3114
 #, c-format
@@ -2700,9 +2663,9 @@ msgid "Pattern found in every line: %s"
 msgstr "Mönster funnet i varje rad: %s"
 
 #: ../ex_cmds.c:4504
-#, fuzzy, c-format
+#, c-format
 msgid "Pattern not found: %s"
-msgstr "Mönster hittades inte"
+msgstr "Mönster hittades inte: %s"
 
 #: ../ex_cmds.c:4581
 msgid ""
@@ -2829,14 +2792,12 @@ msgid "E444: Cannot close last window"
 msgstr "E444: Kan inte stänga senaste fönstret"
 
 #: ../window.c:1756
-#, fuzzy
 msgid "E813: Cannot close autocmd window"
-msgstr "E444: Kan inte stänga senaste fönstret"
+msgstr "E444: Kan inte stänga autokommando-fönster"
 
 #: ../window.c:1760
-#, fuzzy
 msgid "E814: Cannot close window, only autocmd window would remain"
-msgstr "E444: Kan inte stänga senaste fönstret"
+msgstr "E444: Kan inte stänga fönster, endast autokommando-fönster skulle återstå"
 
 #: ../window.c:2663
 msgid "E445: Other window contains changes"
@@ -3056,9 +3017,8 @@ msgid "E622: Could not fork for cscope"
 msgstr "E622: Kunde inte grena för cscope"
 
 #: ../if_cscope.c:813
-#, fuzzy
 msgid "cs_create_connection setpgid failed"
-msgstr "cs_create_connection-exekvering misslyckades"
+msgstr "cs_create_connection-setpgid misslyckades"
 
 #: ../if_cscope.c:817 ../if_cscope.c:853
 msgid "cs_create_connection exec failed"
@@ -3095,9 +3055,8 @@ msgid "cscope commands:\n"
 msgstr "cscope-kommandon:\n"
 
 #: ../if_cscope.c:1114
-#, fuzzy, c-format
 msgid "%-5s: %s%*s (Usage: %s)"
-msgstr "%-5s: %-30s (Användning: %s)"
+msgstr "%-5s: %s%*s (Användning: %s)"
 
 #: ../if_cscope.c:1119
 msgid ""
@@ -3174,11 +3133,10 @@ msgstr ""
 "Inkluderade patchar: "
 
 #: ../version.c:666
-#, fuzzy
 msgid ""
 "\n"
 "Extra patches: "
-msgstr "Externa underträffar:\n"
+msgstr "Externa patchar:\n"
 
 #: ../version.c:678 ../version.c:902
 msgid "Modified by "
@@ -3546,9 +3504,8 @@ msgid "E389: Couldn't find pattern"
 msgstr "E389: Kunde inte hitta mönster"
 
 #: ../search.c:4645
-#, fuzzy
 msgid "Substitute "
-msgstr "1 ersättning"
+msgstr "Ersätt "
 
 #: ../search.c:4658
 #, c-format
@@ -3695,9 +3652,8 @@ msgid "E872: (NFA regexp) Too many '('"
 msgstr ""
 
 #: ../regexp_nfa.c:2069
-#, fuzzy
 msgid "E879: (NFA regexp) Too many \\z("
-msgstr "E50: För många \\z("
+msgstr "E879: (NFA-regexp) För många \\z("
 
 #: ../regexp_nfa.c:2093
 msgid "E873: (NFA regexp) proper termination error"
@@ -3728,9 +3684,8 @@ msgid "(NFA) COULD NOT OPEN %s !"
 msgstr ""
 
 #: ../regexp_nfa.c:6007
-#, fuzzy
 msgid "Could not open temporary log file for writing "
-msgstr "E214: Kan inte hitta temporär fil för skrivning"
+msgstr "Kunde inte hitta temporär logg-fil för skrivning"
 
 #: ../path.c:1450
 #, c-format
@@ -3844,9 +3799,8 @@ msgstr ""
 "Definiera COMPOUNDPERMITFLAG efter PFX-post kan ge fel resultat i %s rad %d"
 
 #: ../spell.c:4559
-#, fuzzy, c-format
 msgid "Wrong COMPOUNDRULES value in %s line %d: %s"
-msgstr "Fel COMPOUNDMIN-värde i %s rad %d: %s"
+msgstr "Fel COMPOUNDRULES-värde i %s rad %d: %s"
 
 #: ../spell.c:4583
 #, c-format
@@ -4110,14 +4064,12 @@ msgid "E765: 'spellfile' does not have %<PRId64> entries"
 msgstr "E765: 'spellfile' har inte %<PRId64> poster"
 
 #: ../spell.c:7877
-#, fuzzy, c-format
 msgid "Word '%.*s' removed from %s"
-msgstr "Ord borttaget från %s"
+msgstr "Ord '%.*s' togs bort från %s"
 
 #: ../spell.c:7920
-#, fuzzy, c-format
 msgid "Word '%.*s' added to %s"
-msgstr "Ord lagd till %s"
+msgstr "Ord '%.*s' lades till %s"
 
 #: ../spell.c:8184
 msgid "E763: Word characters differ between spell files"
@@ -4375,18 +4327,16 @@ msgid "E96: Can not diff more than %<PRId64> buffers"
 msgstr "E96: Kan inte skilja fler än %<PRId64> buffertar"
 
 #: ../diff.c:737
-#, fuzzy
 msgid "E810: Cannot read or write temp files"
-msgstr "E557: Kan inte öppna termcap-fil"
+msgstr "E810: Kan inte läsa eller skriva temporära filer"
 
 #: ../diff.c:739
 msgid "E97: Cannot create diffs"
 msgstr "E97: Kan inte skapa skiljare"
 
 #: ../diff.c:950
-#, fuzzy
 msgid "E816: Cannot read patch output"
-msgstr "E98: Kan inte läsa skiljeutdata"
+msgstr "E98: Kan inte läsa patch-utdata"
 
 #: ../diff.c:1204
 msgid "E98: Cannot read diff output"
@@ -4637,9 +4587,8 @@ msgid "E766: Insufficient arguments for printf()"
 msgstr "E766: Otillräckliga argument för printf()"
 
 #: ../message.c:3074
-#, fuzzy
 msgid "E807: Expected Float argument for printf()"
-msgstr "E766: Otillräckliga argument för printf()"
+msgstr "E807: Förväntade flyttalsargument för printf()"
 
 #: ../message.c:3827
 msgid "E767: Too many arguments to printf()"
@@ -4750,9 +4699,8 @@ msgid "E17: \"%s\" is a directory"
 msgstr "E17: \"%s\" är en katalog"
 
 #: ../globals.h:1006
-#, fuzzy
 msgid "E900: Invalid job id"
-msgstr "E49: Ogiltig rullningsstorlek"
+msgstr "E900: Ogiltigt jobb-id"
 
 #: ../globals.h:1007
 msgid "E901: Job table is full"
@@ -4875,9 +4823,8 @@ msgstr ""
 "E37: Ingen skrivning sedan senaste ändring (lägg till ! för att tvinga)"
 
 #: ../globals.h:1039
-#, fuzzy
 msgid "E37: No write since last change"
-msgstr "[Ingen skrivning sedan senaste ändring]\n"
+msgstr "E37: Ingen skrivning sedan senaste ändring"
 
 #: ../globals.h:1040
 msgid "E38: Null argument"
@@ -5054,9 +5001,8 @@ msgid "E764: Option '%s' is not set"
 msgstr "E764: Flagga '%s' är inte satt"
 
 #: ../globals.h:1095
-#, fuzzy
 msgid "E850: Invalid register name"
-msgstr "E354: Otillåtet registernamn: '%s'"
+msgstr "E850: Ogiltigt registernamn"
 
 #: ../globals.h:1098
 msgid "search hit TOP, continuing at BOTTOM"
@@ -5283,9 +5229,8 @@ msgid "    line=%<PRId64>  id=%d  name=%s"
 msgstr "    line=%<PRId64>  id=%d  namn=%s"
 
 #: ../api/private/helpers.c:197
-#, fuzzy
 msgid "Unable to get option value"
-msgstr "Skräp efter flaggargument"
+msgstr "Kunde inte komma åt flagg-värde"
 
 #: ../api/private/helpers.c:200
 msgid "internal error: unknown option type"
@@ -5312,14 +5257,12 @@ msgid "W10: Warning: Changing a readonly file"
 msgstr "W10: Varning: Ändrar en skrivskyddad fil"
 
 #: ../misc1.c:2516
-#, fuzzy
 msgid "Type number and <Enter> or click with mouse (empty cancels): "
-msgstr "Skriv siffra eller klicka med musen (<Retur> avbryter): "
+msgstr "Skriv siffra och <Retur>, eller klicka med musen (tom inmatning avbryter): "
 
 #: ../misc1.c:2518
-#, fuzzy
 msgid "Type number and <Enter> (empty cancels): "
-msgstr "Välj siffra (<Retur> avbryter): "
+msgstr "Skriv siffra och <Retur> (tom inmatning avbryter): "
 
 #: ../misc1.c:2564
 msgid "1 more line"
@@ -5472,9 +5415,8 @@ msgid "E183: User defined commands must start with an uppercase letter"
 msgstr "E183: Användardefinierade kommandon måste börja med en stor bokstav"
 
 #: ../ex_docmd.c:4539
-#, fuzzy
 msgid "E841: Reserved name, cannot be used for user defined command"
-msgstr "E464: Otydlig användning av användardefinierat kommando"
+msgstr "E841: Reserverat namn, kan ej användas för andvändardefinierat kommando"
 
 #: ../ex_docmd.c:4593
 #, c-format
@@ -5495,9 +5437,8 @@ msgid "E467: Custom completion requires a function argument"
 msgstr "E467: Specialkomplettering kräver ett funktionsargument"
 
 #: ../ex_docmd.c:5099
-#, fuzzy, c-format
 msgid "E185: Cannot find color scheme '%s'"
-msgstr "E185: Kan inte hitta färgschema %s"
+msgstr "E185: Kan inte hitta färgschema '%s'"
 
 #: ../ex_docmd.c:5105
 msgid "Greetings, Vim user!"
@@ -5592,9 +5533,8 @@ msgid "E498: no :source file name to substitute for \"<sfile>\""
 msgstr "E498: inget :source-filnamn att byta ut \"<sfile>\" med"
 
 #: ../ex_docmd.c:7717
-#, fuzzy
 msgid "E842: no line number to use for \"<slnum>\""
-msgstr "E498: inget :source-filnamn att byta ut \"<sfile>\" med"
+msgstr "E498: inget radnummer att använda till \"<slnum>\""
 
 #: ../ex_docmd.c:7744
 #, c-format
@@ -6075,23 +6015,21 @@ msgstr ""
 "(Du kanske vill spara den här filen under ett annat namn\n"
 
 #: ../memline.c:1224
-#, fuzzy
 msgid "and run diff with the original file to check for changes)"
 msgstr ""
-"och kör diff med orginalfilen för att kontrollera efter förändringar)\n"
+"och kör diff mot orginalfilen för att kontrollera förändringar)\n"
 
 #: ../memline.c:1226
 msgid "Recovery completed. Buffer contents equals file contents."
 msgstr ""
 
 #: ../memline.c:1227
-#, fuzzy
 msgid ""
 "\n"
 "You may want to delete the .swp file now.\n"
 "\n"
 msgstr ""
-"Ta bort .swp-filen efteråt.\n"
+"Du vill kanske ta bort .swp-filen efteråt.\n"
 "\n"
 
 #. use msg() to start the scrolling properly
@@ -6302,7 +6240,6 @@ msgid "      NEWER than swap file!\n"
 msgstr "      NYARE än växelfil!\n"
 
 #: ../memline.c:3197
-#, fuzzy
 msgid ""
 "\n"
 "(1) Another program may be editing the same file.  If this is the case,\n"
@@ -6312,19 +6249,15 @@ msgstr ""
 "\n"
 "(1) Ett annat program kan redigera samma fil.\n"
 "    Om så är fallet, var försiktig så att det inte slutar med två\n"
-"    versioner av samma fil vid förändringar.\n"
+"    versioner av samma fil med olika ändringar.\n"
 
 #: ../memline.c:3198
-#, fuzzy
 msgid "  Quit, or continue with caution.\n"
-msgstr "    Avsluta, eller fortsätt på egen risk.\n"
+msgstr "  Avsluta, eller fortsätt på egen risk.\n"
 
 #: ../memline.c:3199
-#, fuzzy
 msgid "(2) An edit session for this file crashed.\n"
-msgstr ""
-"\n"
-"(2) En redigeringssession för den här filen kraschade.\n"
+msgstr "(2) En redigeringssession för denna fil kraschade.\n"
 
 #: ../memline.c:3200
 msgid "    If this is the case, use \":recover\" or \"vim -r "
