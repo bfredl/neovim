@@ -327,11 +327,11 @@ msgstr "Duplicerat fältnamn: %s"
 
 #: ../ex_getln.c:1614
 msgid "E788: Not allowed to edit another buffer now"
-msgstr "E788: Ej tillåtet att redigera en annan buffert nu"
+msgstr "E788: Ej tillåtet att redigera en annan buffert just nu"
 
 #: ../ex_getln.c:1627
 msgid "E811: Not allowed to change buffer information now"
-msgstr "E788: Ej tillåtet att ändra buffertinformation nu"
+msgstr "E811: Ej tillåtet att ändra buffertinformation just nu"
 
 #: ../ex_getln.c:3138
 msgid "tagname"
@@ -380,7 +380,7 @@ msgstr "E199: Aktivt fönster eller buffert borttagen"
 
 #: ../fileio.c:185
 msgid "E812: Autocommands changed buffer or buffer name"
-msgstr "E135: Autokommandon bytte buffer eller ändrade buffert namn"
+msgstr "E812: Autokommandon bytte buffert eller ändrade buffertnamn"
 
 #: ../fileio.c:416
 msgid "Illegal file name"
@@ -445,7 +445,7 @@ msgstr "[uttag]"
 #. or character special
 #: ../fileio.c:1849
 msgid "[character special]"
-msgstr "[teckenvis enhet]"
+msgstr "[teckenenhet]"
 
 #: ../fileio.c:1855 ../screen.c:4822 ../buffer.c:2478 ../buffer.c:3187
 msgid "[RO]"
@@ -957,7 +957,7 @@ msgstr "%3d  %s %s  rad %<PRId64>"
 
 #: ../ex_cmds2.c:940
 msgid "E750: First use \":profile start {fname}\""
-msgstr "E750: Använd :profile start {fnamn} först"
+msgstr "E750: Använd \":profile start {fnamn} först\""
 
 #: ../ex_cmds2.c:1265
 #, c-format
@@ -1170,7 +1170,7 @@ msgstr "E461: Otillåtet variabelnamn: %s"
 
 #: ../eval.c:159
 msgid "E806: using Float as a String"
-msgstr "E730: använder Flyttal som en Sträng"
+msgstr "E806: använder Flyttal som en Sträng"
 
 #: ../eval.c:1382
 msgid "E687: Less targets than List items"
@@ -1257,7 +1257,7 @@ msgstr "E694: Ogiltig operation för Funcrefs"
 
 #: ../eval.c:3821
 msgid "E804: Cannot use '%' with Float"
-msgstr "E719: Kan inte använda '%' med ett flyttal"
+msgstr "E804: Kan inte använda '%' med flyttal"
 
 #: ../eval.c:4022
 msgid "E110: Missing ')'"
@@ -1353,7 +1353,7 @@ msgstr "E725: Anropar tabell-funktion utan Tabell: %s"
 
 #: ../eval.c:6950
 msgid "E808: Number or Float required"
-msgstr "E521: heltal eller flyttal krävs"
+msgstr "E808: heltal eller flyttal krävs"
 
 #: ../eval.c:7000
 msgid "add() argument"
@@ -1440,7 +1440,7 @@ msgstr "argument till reverse()"
 
 #: ../eval.c:12568
 msgid "Error converting the call result"
-msgstr "Fel vid konvertering av resultat från anrop"
+msgstr "Fel vid konvertering av anropsresultat"
 
 #: ../eval.c:13189
 msgid "sort() argument"
@@ -1456,7 +1456,7 @@ msgstr "E702: Jämförelsefunktionen för sortering misslyckades"
 
 #: ../eval.c:13274
 msgid "E882: Uniq compare function failed"
-msgstr "E702: Jämförelsefunktionen för Uniq misslyckades"
+msgstr "E882: Jämförelsefunktionen för Uniq misslyckades"
 
 #: ../eval.c:13548
 msgid "(Invalid)"
@@ -1468,7 +1468,7 @@ msgstr "E677: Fel vid skrivning av temporär fil"
 
 #: ../eval.c:15603
 msgid "E805: Using a Float as a Number"
-msgstr "E805: Användning av ett flyttal som ett heltal"
+msgstr "E805: Användning av ett flyttal som heltal"
 
 #: ../eval.c:15606
 msgid "E703: Using a Funcref as a Number"
@@ -1535,7 +1535,7 @@ msgstr "E698: variabel nästlad för djupt för att skapa en kopia"
 #: ../eval.c:16690
 #, c-format
 msgid "E123: Undefined function: %s"
-msgstr "E130: Odefinierad funktion: %s"
+msgstr "E123: Odefinierad funktion: %s"
 
 #: ../eval.c:16701
 #, c-format
@@ -1544,7 +1544,7 @@ msgstr "E124: Saknar '(': %s"
 
 #: ../eval.c:16731
 msgid "E862: Cannot use g: here"
-msgstr "E284: Kan inte använda g: här"
+msgstr "E862: Kan inte använda g: här"
 
 #: ../eval.c:16750
 #, c-format
@@ -1553,7 +1553,7 @@ msgstr "E125: Otillåtet argument: %s"
 
 #: ../eval.c:16761
 msgid "E853: Duplicate argument name: %s"
-msgstr "E853: Dubblicerat argumentsnamn: %s"
+msgstr "E853: Dublicerat argumentsnamn: %s"
 
 #: ../eval.c:16854
 msgid "E126: Missing :endfunction"
@@ -1565,7 +1565,7 @@ msgstr "E707: Funktionsnamn krockar med variabelnamn: %s"
 
 #: ../eval.c:16987
 msgid "E127: Cannot redefine function %s: It is in use"
-msgstr "E131: Kan inte omdefiniera funktion %s: Den används"
+msgstr "E127: Kan inte omdefiniera funktion %s: Den används"
 
 #: ../eval.c:17040
 #, c-format
@@ -1578,13 +1578,11 @@ msgstr "E129: Funktionsnamn krävs"
 
 #: ../eval.c:17256
 msgid "E128: Function name must start with a capital or \"s:\": %s"
-msgstr ""
-"E128: Funktionsnamn måste börja med en versal eller \"s:\": %s"
+msgstr "E128: Funktionsnamn måste börja med en versal eller \"s:\": %s"
 
 #: ../eval.c:17265
 msgid "E884: Function name cannot contain a colon: %s"
-msgstr ""
-"E884: Funktionsnamn får inte innehälla kolon: %s"
+msgstr "E884: Funktionsnamn får inte innehälla kolon: %s"
 
 #: ../eval.c:17762
 #, c-format
@@ -1643,17 +1641,17 @@ msgstr "Inga gamla filer"
 #. * file in a way it becomes shorter.
 #: ../undo.c:355
 msgid "E881: Line count changed unexpectedly"
-msgstr "E881: Radantal ändrades oväntat"
+msgstr "E881: Antalet rader ändrades oväntat"
 
 #: ../undo.c:603
 #, c-format
 msgid "E828: Cannot open undo file for writing: %s"
-msgstr "E212: Kan inte öppna ångra-fil för skrivning"
+msgstr "E828: Kan inte öppna ångra-fil för skrivning"
 
 #: ../undo.c:693
 #, c-format
 msgid "E825: Corrupted undo file (%s): %s"
-msgstr "E825: Korrumperad ångra-fil"
+msgstr "E825: Korrumperad ångra-fil (%s): %s"
 
 #: ../undo.c:1015
 msgid "Cannot write undo file in any directory in 'undodir'"
@@ -1662,12 +1660,12 @@ msgstr "Kan ej skriva ångra-fil i någon katalog i 'undodir'"
 #: ../undo.c:1050
 #, c-format
 msgid "Will not overwrite with undo file, cannot read: %s"
-msgstr "Kommer inte att skriva över med ångra-fil, kan ej läsa %s"
+msgstr "Kommer inte att skriva över med ångra-fil, kan ej läsa: %s"
 
 #: ../undo.c:1068
 #, c-format
 msgid "Will not overwrite, this is not an undo file: %s"
-msgstr "Kommer inte att skriva över, detta är inte en ångra-fil"
+msgstr "Kommer inte att skriva över, detta är inte en ångra-fil: %s"
 
 #: ../undo.c:1084
 msgid "Skipping undo file write, nothing to undo"
@@ -1675,11 +1673,11 @@ msgstr "Hoppar över att skriva ångra-fil, inget att ångra"
 
 #: ../undo.c:1097
 msgid "Writing undo file: %s"
-msgstr "Skriver ångra-fil %s"
+msgstr "Skriver ångra-fil: %s"
 
 #: ../undo.c:1189
 msgid "E829: write error in undo file: %s"
-msgstr "E297: Skrivfel i ångra-fil"
+msgstr "E829: Skrivfel i ångra-fil: %s"
 
 #: ../undo.c:1256
 #, c-format
@@ -1711,7 +1709,7 @@ msgstr "Filens innehåll har ändrat, kan ej använda ångra-data"
 #: ../undo.c:1473
 #, c-format
 msgid "Finished reading undo file %s"
-msgstr "läste klart ångra-fil: %s"
+msgstr "Läste klart ångra-fil: %s"
 
 #: ../undo.c:1562 ../undo.c:1788
 msgid "Already at oldest change"
@@ -1772,8 +1770,8 @@ msgid "Nothing to undo"
 msgstr "Inget att ångra"
 
 #: ../undo.c:2304
-msgid "number changes  when               saved"
-msgstr "nummer ändras när               sparades"
+msgid  "number changes  when               saved"
+msgstr "nummer  ändras  när             sparades"
 
 #: ../undo.c:2334
 #, c-format
@@ -1873,11 +1871,11 @@ msgstr "E395: innehåller argument som inte är tillåtna här"
 
 #: ../syntax.c:3987
 msgid "E844: invalid cchar value"
-msgstr "E474: Ogiltigt cchar-värde"
+msgstr "E844: Ogiltigt cchar-värde"
 
 #: ../syntax.c:3998
-msgid "E393: group[ ]here not accepted here"
-msgstr "E393: grupper inte tillåtna här"
+msgid "E393: group[t]here not accepted here"
+msgstr "E393: group[t]here ej tillåtet här"
 
 #: ../syntax.c:4018
 #, c-format
@@ -1890,7 +1888,7 @@ msgstr "E397: Filnamn krävs"
 
 #: ../syntax.c:4113
 msgid "E847: Too many syntax includes"
-msgstr "E77: För många syntax-inkluderingar"
+msgstr "E847: För många syntax-inkluderingar"
 
 #: ../syntax.c:4195
 #, c-format
@@ -1909,7 +1907,7 @@ msgstr "E399: Inte tillräckliga argument: syntaxregion %s"
 
 #: ../syntax.c:4750
 msgid "E848: Too many syntax clusters"
-msgstr "E391: För många syntax-kluster: %s"
+msgstr "E848: För många syntax-kluster"
 
 #: ../syntax.c:4830
 msgid "E400: No cluster specified"
@@ -2665,7 +2663,7 @@ msgstr "Mönster funnet i varje rad: %s"
 #: ../ex_cmds.c:4504
 #, c-format
 msgid "Pattern not found: %s"
-msgstr "Mönster hittades inte: %s"
+msgstr "Mönstret hittades inte: %s"
 
 #: ../ex_cmds.c:4581
 msgid ""
@@ -2793,11 +2791,11 @@ msgstr "E444: Kan inte stänga senaste fönstret"
 
 #: ../window.c:1756
 msgid "E813: Cannot close autocmd window"
-msgstr "E444: Kan inte stänga autokommando-fönster"
+msgstr "E813: Kan inte stänga autokommando-fönster"
 
 #: ../window.c:1760
 msgid "E814: Cannot close window, only autocmd window would remain"
-msgstr "E444: Kan inte stänga fönster, endast autokommando-fönster skulle återstå"
+msgstr "E814: Kan inte stänga fönster, endast autokommando-fönster skulle återstå"
 
 #: ../window.c:2663
 msgid "E445: Other window contains changes"
@@ -3018,7 +3016,7 @@ msgstr "E622: Kunde inte grena för cscope"
 
 #: ../if_cscope.c:813
 msgid "cs_create_connection setpgid failed"
-msgstr "cs_create_connection-setpgid misslyckades"
+msgstr "cs_create_connection: setpgid misslyckades"
 
 #: ../if_cscope.c:817 ../if_cscope.c:853
 msgid "cs_create_connection exec failed"
@@ -3610,46 +3608,46 @@ msgstr "E777: Sträng eller Lista förväntades"
 
 #: ../regexp_nfa.c:239
 msgid "E865: (NFA) Regexp end encountered prematurely"
-msgstr ""
+msgstr "E865: (NFA) Regexp-slut påträffades för tidigt"
 
 #: ../regexp_nfa.c:240
 #, c-format
 msgid "E866: (NFA regexp) Misplaced %c"
-msgstr ""
+msgstr "E866: (NFA regexp) Felplacerat %c"
 
 #: ../regexp_nfa.c:242
 #, c-format
 msgid "E877: (NFA regexp) Invalid character class: %<PRId64>"
-msgstr ""
+msgstr "E877: (NFA-regexp) Ogiltig teckenklass: %<PRId64>"
 
 #: ../regexp_nfa.c:1288
 #, c-format
 msgid "E867: (NFA) Unknown operator '\\z%c'"
-msgstr ""
+msgstr "E867: (NFA) Okänd operator '\\z%c'"
 
 #: ../regexp_nfa.c:1414
 #, c-format
 msgid "E867: (NFA) Unknown operator '\\%%%c'"
-msgstr ""
+msgstr "E867: (NFA) Okänd operator '\\%%%c'"
 
 #: ../regexp_nfa.c:1829
 #, c-format
 msgid "E869: (NFA) Unknown operator '\\@%c'"
-msgstr ""
+msgstr "E869: (NFA) Okänd operator '\\@%c'"
 
 #: ../regexp_nfa.c:1858
 msgid "E870: (NFA regexp) Error reading repetition limits"
-msgstr ""
+msgstr "E870: (NFA-regexp) Fel vid läsning av upprepningsgräns"
 
 #. Can't have a multi follow a multi.
 #: ../regexp_nfa.c:1922
 msgid "E871: (NFA regexp) Can't have a multi follow a multi !"
-msgstr ""
+msgstr "E871: (NFA-regexp) en multi kan inte följa på en multi!"
 
 #. Too many `('
 #: ../regexp_nfa.c:2064
 msgid "E872: (NFA regexp) Too many '('"
-msgstr ""
+msgstr "E872: (NFA-regexp) För många '('"
 
 #: ../regexp_nfa.c:2069
 msgid "E879: (NFA regexp) Too many \\z("
@@ -3657,31 +3655,33 @@ msgstr "E879: (NFA-regexp) För många \\z("
 
 #: ../regexp_nfa.c:2093
 msgid "E873: (NFA regexp) proper termination error"
-msgstr ""
+msgstr "E873: (NFA regexp) Felagtigt avslut"
 
 #: ../regexp_nfa.c:2605
 msgid "E874: (NFA) Could not pop the stack !"
-msgstr ""
+msgstr "E874: (NFA) Kunde inte plocka från stacken!"
 
 #: ../regexp_nfa.c:3304
 msgid ""
 "E875: (NFA regexp) (While converting from postfix to NFA), too many states "
 "left on stack"
 msgstr ""
+"E875: (NFA-regexp) (Vid konvertering från postfix till NFA), "
+"för många tillstånd lämnade på stacken"
 
 #: ../regexp_nfa.c:3308
 msgid "E876: (NFA regexp) Not enough space to store the whole NFA "
-msgstr ""
+msgstr "E876: (NFA-regexp) Otillräckligt utrymme för att lagra hela NFA:n"
 
 #: ../regexp_nfa.c:4532 ../regexp_nfa.c:4827
 msgid ""
 "Could not open temporary log file for writing, displaying on stderr ... "
-msgstr ""
+msgstr "Kunde inte öppna temporär loggfil för skrivning, visar på stderr..."
 
 #: ../regexp_nfa.c:4798
 #, c-format
 msgid "(NFA) COULD NOT OPEN %s !"
-msgstr ""
+msgstr "(NFA) KUNDE INTE ÖPPNA %s!"
 
 #: ../regexp_nfa.c:6007
 msgid "Could not open temporary log file for writing "
@@ -4336,7 +4336,7 @@ msgstr "E97: Kan inte skapa skiljare"
 
 #: ../diff.c:950
 msgid "E816: Cannot read patch output"
-msgstr "E98: Kan inte läsa patch-utdata"
+msgstr "E816: Kan inte läsa patch-utdata"
 
 #: ../diff.c:1204
 msgid "E98: Cannot read diff output"
@@ -4704,7 +4704,7 @@ msgstr "E900: Ogiltigt jobb-id"
 
 #: ../globals.h:1007
 msgid "E901: Job table is full"
-msgstr ""
+msgstr "E901: Jobbtabellen är full"
 
 #: ../globals.h:1008
 #, c-format
@@ -4824,7 +4824,7 @@ msgstr ""
 
 #: ../globals.h:1039
 msgid "E37: No write since last change"
-msgstr "E37: Ingen skrivning sedan senaste ändring"
+msgstr "E37: Ingen skrivning efter senaste ändring"
 
 #: ../globals.h:1040
 msgid "E38: Null argument"
@@ -5234,7 +5234,7 @@ msgstr "Kunde inte komma åt flagg-värde"
 
 #: ../api/private/helpers.c:200
 msgid "internal error: unknown option type"
-msgstr ""
+msgstr "internt fel: okänd flagg-typ"
 
 #: ../cursor_shape.c:68
 msgid "E545: Missing colon"
@@ -5258,11 +5258,11 @@ msgstr "W10: Varning: Ändrar en skrivskyddad fil"
 
 #: ../misc1.c:2516
 msgid "Type number and <Enter> or click with mouse (empty cancels): "
-msgstr "Skriv siffra och <Retur>, eller klicka med musen (tom inmatning avbryter): "
+msgstr "Skriv nummer och <Retur>, eller klicka med musen (tom inmatning avbryter): "
 
 #: ../misc1.c:2518
 msgid "Type number and <Enter> (empty cancels): "
-msgstr "Skriv siffra och <Retur> (tom inmatning avbryter): "
+msgstr "Skriv nummer och <Retur> (tom inmatning avbryter): "
 
 #: ../misc1.c:2564
 msgid "1 more line"
@@ -5438,7 +5438,7 @@ msgstr "E467: Specialkomplettering kräver ett funktionsargument"
 
 #: ../ex_docmd.c:5099
 msgid "E185: Cannot find color scheme '%s'"
-msgstr "E185: Kan inte hitta färgschema '%s'"
+msgstr "E185: Kan inte hitta färgschemat '%s'"
 
 #: ../ex_docmd.c:5105
 msgid "Greetings, Vim user!"
@@ -5534,7 +5534,7 @@ msgstr "E498: inget :source-filnamn att byta ut \"<sfile>\" med"
 
 #: ../ex_docmd.c:7717
 msgid "E842: no line number to use for \"<slnum>\""
-msgstr "E498: inget radnummer att använda till \"<slnum>\""
+msgstr "E842: inget radnummer att använda till \"<slnum>\""
 
 #: ../ex_docmd.c:7744
 #, c-format
@@ -6017,7 +6017,7 @@ msgstr ""
 #: ../memline.c:1224
 msgid "and run diff with the original file to check for changes)"
 msgstr ""
-"och kör diff mot orginalfilen för att kontrollera förändringar)\n"
+"och kör diff mot orginalfilen för att upptäcka förändringar)\n"
 
 #: ../memline.c:1226
 msgid "Recovery completed. Buffer contents equals file contents."
@@ -6029,7 +6029,7 @@ msgid ""
 "You may want to delete the .swp file now.\n"
 "\n"
 msgstr ""
-"Du vill kanske ta bort .swp-filen efteråt.\n"
+"Du vill kanske ta bort .swp-filen nu.\n"
 "\n"
 
 #. use msg() to start the scrolling properly
