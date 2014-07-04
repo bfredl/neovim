@@ -4616,11 +4616,11 @@ msgstr ""
 
 #: ../message.c:3017
 msgid "E766: Insufficient arguments for printf()"
-msgstr "E766: Otillräckliga argument för printf()"
+msgstr "E766: För få argument till printf()"
 
 #: ../message.c:3074
 msgid "E807: Expected Float argument for printf()"
-msgstr "E807: Förväntade Float-argument för printf()"
+msgstr "E807: Förväntade Float-argument till printf()"
 
 #: ../message.c:3827
 msgid "E767: Too many arguments to printf()"
@@ -4741,7 +4741,7 @@ msgstr "E901: Jobbtabellen är full"
 #: ../globals.h:1008
 #, c-format
 msgid "E902: \"%s\" is not an executable"
-msgstr "E902: \"%s\" är inte exekverbar"
+msgstr "E902: \"%s\" är inte körbar"
 
 #: ../globals.h:1009
 #, c-format
@@ -5485,7 +5485,7 @@ msgstr "Välkommen, Vim-användare!"
 
 #: ../ex_docmd.c:5273
 msgid "E784: Cannot close last tab page"
-msgstr "E784: Kan inte stänga sista fliken"
+msgstr "E784: Det går inte att stänga sista fliken"
 
 #: ../ex_docmd.c:5304
 msgid "Already only one tab page"
@@ -5520,8 +5520,8 @@ msgstr "E465: :winsize kräver två heltalsargument"
 #: ../ex_docmd.c:6496
 msgid "E188: Obtaining window position not implemented for this platform"
 msgstr ""
-"E188: Att ta reda på fönsterposition är inte implementerat för den här "
-"plattformen"
+"E188: Det går inte att hämta fönsterposition på den här "
+"plattformen (Ej implementerat)"
 
 #: ../ex_docmd.c:6503
 msgid "E466: :winpos requires two number arguments"
@@ -5872,7 +5872,7 @@ msgstr "-i <viminfo>\t\tAnvänd <viminfo> istället för .viminfo"
 
 #: ../main.c:2221
 msgid "--api-msgpack-metadata\tDump API metadata information and exit"
-msgstr "--api-msgpack-metadata\tDumpa API-metadata och avsluta"
+msgstr "--api-msgpack-metadata\tSkriv ut API-metadata och avsluta"
 
 #: ../main.c:2222
 msgid "-h  or  --help\tPrint Help (this message) and exit"
