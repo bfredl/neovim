@@ -9,6 +9,7 @@
 #include "nvim/cursor.h"
 #include "nvim/window.h"
 #include "nvim/screen.h"
+#include "nvim/move.h"
 #include "nvim/misc2.h"
 
 
@@ -83,6 +84,15 @@ void window_set_cursor(Window window, ArrayOf(Integer, 2) pos, Error *err)
   win->w_cursor.coladd = 0;
   // When column is out of range silently correct it.
   check_cursor_col_win(win);
+
+  // make sure cursor is in visible range even if win != curwin
+  win_T *savewin = curwin;
+  curwin = win;
+  curbuf = curwin->w_buffer;
+  update_topline();
+  curwin = savewin;
+  curbuf = curwin->w_buffer;
+
   update_screen(VALID);
 }
 
