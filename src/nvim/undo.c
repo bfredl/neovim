@@ -1116,7 +1116,8 @@ void u_write_undo(char_u *name, int forceit, buf_T *buf, char_u *hash)
    */
   FileInfo file_info_old;
   FileInfo file_info_new;
-  if (os_fileinfo((char *)buf->b_ffname, &file_info_old)
+  if (buf->b_ffname != NULL
+      && os_fileinfo((char *)buf->b_ffname, &file_info_old)
       && os_fileinfo((char *)file_name, &file_info_new)
       && file_info_old.stat.st_gid != file_info_new.stat.st_gid
       && os_fchown(fd, -1, file_info_old.stat.st_gid) != 0) {
