@@ -60,7 +60,7 @@ install_prebuilt_deps() {
 	# install prebuilt dependencies
 	if [ ! -d /opt/neovim-deps ]; then
 		cd /opt
-		sudo git clone --depth=1 git://github.com/neovim/deps neovim-deps
+		sudo git clone --depth=1 -b msgpack2.0 git://github.com/tarruda/neovim-deps neovim-deps
 		cd -
 	fi
 }
