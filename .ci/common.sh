@@ -67,7 +67,7 @@ install_prebuilt_deps() {
 
 install_vroom() {
 	(
-	sudo pip install neovim
+	sudo pip install https://github.com/tarruda/python-client/archive/msgpack2.0.zip
 	git clone git://github.com/google/vroom
 	cd vroom
 	python setup.py build

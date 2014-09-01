@@ -6,7 +6,7 @@ sudo apt-get install expect valgrind
 
 $MAKE_CMD
 
-git clone --depth=1 -b master git://github.com/neovim/python-client
+git clone --depth=1 -b msgpack2.0 git://github.com/tarruda/python-client
 cd python-client
 sudo pip install .
 sudo pip install nose
