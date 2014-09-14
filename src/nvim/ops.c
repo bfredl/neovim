@@ -5229,7 +5229,14 @@ static void get_clipboard(int name)
 
   struct yankreg *reg = &y_regs[CLIP_REGISTER];
   free_register(reg);
+
   Array args = ARRAY_DICT_INIT;
+  char regname[] = { (char)name, '\0' };
+  if(!name) {
+    regname[0] = '+';
+  }
+  ADD(args, STRING_OBJ(cstr_to_string(regname)));
+
   Object result = provider_call("clipboard_get", args);
 
   if (result.type != kObjectTypeArray) {
@@ -5274,6 +5281,7 @@ static void set_clipboard(int name)
   if (!name && p_unc) {
     // copy from the unnamed register
     copy_register(reg, &y_regs[0]);
+    name = '+';
   }
 
   Array lines = ARRAY_DICT_INIT;
@@ -5284,6 +5292,9 @@ static void set_clipboard(int name)
 
   Array args = ARRAY_DICT_INIT;
   ADD(args, ARRAY_OBJ(lines));
+
+  char regname[] = { (char)name, '\0' };
+  ADD(args, STRING_OBJ(cstr_to_string(regname)));
 
   Object result = provider_call("clipboard_set", args);
   api_free_object(result);
