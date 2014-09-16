@@ -5207,13 +5207,41 @@ static void get_clipboard(int name)
   char regname[] = { name ? (char)name : '"', NUL };
   ADD(args, STRING_OBJ(cstr_to_string(regname)));
 
-  Object result = provider_call("clipboard_get", args);
+  Object res = provider_call("clipboard_get", args);
 
-  if (result.type != kObjectTypeArray) {
+  if (res.type != kObjectTypeArray) {
     goto err;
   }
 
-  Array lines = result.data.array;
+  Array result = res.data.array, lines;
+  if (result.size == 2 && result.items[0].type == kObjectTypeArray) {
+    lines = result.items[0].data.array;
+    if (result.items[1].type != kObjectTypeString) {
+      goto err;
+    }
+    String regtype = result.items[1].data.string;
+    if (regtype.size < 1) {
+      goto err;
+    }
+    switch (regtype.data[0]) {
+    case 'v': case 'c':
+      reg->y_type = MCHAR;
+      break;
+    case 'V': case 'l':
+      reg->y_type = MLINE;
+      break;
+    case 'b': case Ctrl_V:
+      reg->y_type = MBLOCK;
+      break;
+    default:
+      goto err;
+    }
+  } else {
+    lines = result;
+    // provider did not specify regtype, use sane defaults
+    reg->y_type = lines.size > 1 ? MLINE : MCHAR;
+  }
+
   reg->y_array = xcalloc(lines.size, sizeof(uint8_t *));
   reg->y_size = lines.size;
 
@@ -5224,11 +5252,10 @@ static void get_clipboard(int name)
     reg->y_array[i] = (uint8_t *)lines.items[i].data.string.data;
   }
 
- 
   return;
 
 err:
-  api_free_object(result);
+  api_free_object(res);
   free(reg->y_array);
   reg->y_array = NULL;
   reg->y_size = 0;
@@ -5256,6 +5283,17 @@ static void set_clipboard(int name)
 
   Array args = ARRAY_DICT_INIT;
   ADD(args, ARRAY_OBJ(lines));
+
+  char regtype[] = { NUL, NUL };
+  switch (reg->y_type) {
+  case MLINE:
+    regtype[0] = 'V'; break;
+  case MCHAR:
+    regtype[0] = 'v'; break;
+  case MBLOCK:
+    regtype[0] = 'b'; break;
+  }
+  ADD(args, STRING_OBJ(cstr_to_string(regtype)));
 
   char regname[] = { name ? (char)name : '"', NUL };
   ADD(args, STRING_OBJ(cstr_to_string(regname)));
