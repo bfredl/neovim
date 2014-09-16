@@ -1303,18 +1303,6 @@ cmdline_paste_reg (
   return OK;
 }
 
-bool adjust_clipboard_register(int *rp)
-{
-  // If no reg. specified and 'unnamedclip' is set, use the
-  // clipboard register.
-  if (*rp == 0 && p_unc && provider_has_feature("clipboard")) {
-    *rp = '+';
-    return true;
-  }
-
-  return false;
-}
-
 /*
  * Handle a delete operation.
  *
@@ -1329,7 +1317,6 @@ int op_delete(oparg_T *oap)
   struct block_def bd;
   linenr_T old_lcount = curbuf->b_ml.ml_line_count;
   int did_yank = FALSE;
-  int orig_regname = oap->regname;
 
   if (curbuf->b_ml.ml_flags & ML_EMPTY)             /* nothing to do */
     return OK;
@@ -1342,8 +1329,6 @@ int op_delete(oparg_T *oap)
     EMSG(_(e_modifiable));
     return FAIL;
   }
-
-  bool adjusted = adjust_clipboard_register(&oap->regname);
 
   if (has_mbyte)
     mb_adjust_opend(oap);
@@ -1394,9 +1379,9 @@ int op_delete(oparg_T *oap)
    * register.  For the black hole register '_' don't yank anything.
    */
   if (oap->regname != '_') {
-    if (oap->regname != 0) {
+    if (oap->regname != 0 || p_unc) {
       /* check for read-only register */
-      if (!valid_yank_reg(oap->regname, TRUE)) {
+      if (!( valid_yank_reg(oap->regname, TRUE) || (p_unc && oap->regname == 0) )) {
         beep_flush();
         return OK;
       }
@@ -1408,10 +1393,8 @@ int op_delete(oparg_T *oap)
     /*
      * Put deleted text into register 1 and shift number registers if the
      * delete contains a line break, or when a regname has been specified.
-     * Use the register name from before adjust_clip_reg() may have
-     * changed it.
      */
-    if (orig_regname != 0 || oap->motion_type == MLINE
+    if (oap->regname != 0 || oap->motion_type == MLINE
         || oap->line_count > 1 || oap->use_reg_one) {
       y_current = &y_regs[9];
       free_yank_all();                          /* free register nine */
@@ -1425,9 +1408,7 @@ int op_delete(oparg_T *oap)
 
     /* Yank into small delete register when no named register specified
      * and the delete is within one line. */
-    if ((
-          adjusted ||
-          oap->regname == 0) && oap->motion_type != MLINE
+    if (oap->regname == 0 && oap->motion_type != MLINE
         && oap->line_count == 1) {
       oap->regname = '-';
       get_yank_register(oap->regname, TRUE);
@@ -2623,7 +2604,6 @@ do_put (
   int allocated = FALSE;
   long cnt;
 
-  adjust_clipboard_register(&regname);
   get_clipboard(regname);
 
   if (flags & PUT_FIXINDENT)
@@ -3215,7 +3195,6 @@ void ex_display(exarg_T *eap)
         )
       continue;             /* did not ask for this register */
 
-    adjust_clipboard_register(&name);
     get_clipboard(name);
 
     if (i == -1) {
@@ -5244,10 +5223,7 @@ static void get_clipboard(int name)
   free_register(reg);
 
   Array args = ARRAY_DICT_INIT;
-  char regname[] = { (char)name, '\0' };
-  if(!name) {
-    regname[0] = '+';
-  }
+  char regname[] = { name ? (char)name : '+', NUL };
   ADD(args, STRING_OBJ(cstr_to_string(regname)));
 
   Object result = provider_call("clipboard_get", args);
@@ -5294,7 +5270,6 @@ static void set_clipboard(int name)
   if (!name && p_unc) {
     // copy from the unnamed register
     copy_register(reg, &y_regs[0]);
-    name = '+';
   }
 
   Array lines = ARRAY_DICT_INIT;
@@ -5306,7 +5281,7 @@ static void set_clipboard(int name)
   Array args = ARRAY_DICT_INIT;
   ADD(args, ARRAY_OBJ(lines));
 
-  char regname[] = { (char)name, '\0' };
+  char regname[] = { name ? (char)name : '+', NUL };
   ADD(args, STRING_OBJ(cstr_to_string(regname)));
 
   Object result = provider_call("clipboard_set", args);
