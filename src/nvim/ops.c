@@ -752,7 +752,7 @@ void get_yank_register(int regname, int writing)
   int i;
 
   y_append = FALSE;
-  if ((regname == 0 || regname == '"') && !writing && y_previous != NULL) {
+  if ((regname == 0 || regname == '"') && !p_unc && !writing && y_previous != NULL) {
     y_current = y_previous;
     return;
   }
@@ -5202,24 +5202,18 @@ static void free_register(struct yankreg *reg)
   y_current = curr;
 }
 
-static void copy_register(struct yankreg *dest, struct yankreg *src)
-{
-  free_register(dest);
-  *dest = *src;
-  dest->y_array = xcalloc(src->y_size, sizeof(uint8_t *));
-  for (int j = 0; j < src->y_size; ++j) {
-    dest->y_array[j] = (uint8_t *)xstrdup((char *)src->y_array[j]);
-  }
-}
-
 static void get_clipboard(int name)
 {
-  if (!(name == '*' || name == '+'
-        || (p_unc && !name && provider_has_feature("clipboard")))) {
+  int ireg;
+  if (name == '*' || name == '+') {
+      ireg = CLIP_REGISTER;
+  } else if (p_unc && !name && provider_has_feature("clipboard")) {
+      ireg = 0; //unnamed register
+  } else {
     return;
   }
 
-  struct yankreg *reg = &y_regs[CLIP_REGISTER];
+  struct yankreg *reg = &y_regs[ireg];
   free_register(reg);
 
   Array args = ARRAY_DICT_INIT;
@@ -5243,11 +5237,7 @@ static void get_clipboard(int name)
     reg->y_array[i] = (uint8_t *)lines.items[i].data.string.data;
   }
 
-  if (!name && p_unc) {
-    // copy to the unnamed register
-    copy_register(&y_regs[0], reg);
-  }
-
+ 
   return;
 
 err:
@@ -5260,17 +5250,16 @@ err:
 
 static void set_clipboard(int name)
 {
-  if (!(name == '*' || name == '+'
-        || (p_unc && !name && provider_has_feature("clipboard")))) {
+  int ireg;
+  if (name == '*' || name == '+') {
+      ireg = CLIP_REGISTER;
+  } else if (p_unc && !name && provider_has_feature("clipboard")) {
+      ireg = 0; //unnamed register
+  } else {
     return;
   }
 
-  struct yankreg *reg = &y_regs[CLIP_REGISTER];
-
-  if (!name && p_unc) {
-    // copy from the unnamed register
-    copy_register(reg, &y_regs[0]);
-  }
+  struct yankreg *reg = &y_regs[ireg];
 
   Array lines = ARRAY_DICT_INIT;
 
