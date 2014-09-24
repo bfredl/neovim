@@ -1365,9 +1365,9 @@ int op_delete(oparg_T *oap)
    * register.  For the black hole register '_' don't yank anything.
    */
   if (oap->regname != '_') {
-    if (oap->regname != 0) {
+    if (oap->regname != 0 || p_unc) {
       /* check for read-only register */
-      if (!valid_yank_reg(oap->regname, TRUE)) {
+      if (!( valid_yank_reg(oap->regname, TRUE) || (p_unc && oap->regname == 0) )) {
         beep_flush();
         return OK;
       }
