@@ -42,3 +42,9 @@ first test without provider
   words
 
   :1,$d
+
+  :set unnamedclip
+  % 1: some text
+
+  > ^v$"*yWdwp
+  1: tsome ext
