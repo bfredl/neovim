@@ -1,0 +1,44 @@
+Test the usage of registers and clipboards.
+
+  @macro (basic_register_test)
+  % some words
+
+  > ^dwP
+  some words
+
+  > veyP
+  some words words
+
+delete specific register:
+  > ^dwywe"-p
+  wordssome  words
+
+  > p
+  wordssome words  words
+cleanup
+  :1,$d
+  @endmacro
+
+first test without provider
+  @do (basic_register_test)
+
+  :call rpcstart("python2", ["test/provider/clipboard_provider.py"])
+  :sleep 1
+  @do (basic_register_test)
+
+  % some words
+
+  > ^"*dwdw"*P
+  some 
+
+  :1,$d
+
+  :set unnamedclip
+  @do (basic_register_test)
+
+  % some words
+
+  > ^"*dwdw"*P
+  words
+
+  :1,$d
