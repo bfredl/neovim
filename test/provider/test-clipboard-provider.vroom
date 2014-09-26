@@ -1,0 +1,85 @@
+Test the usage of registers and clipboards.
+
+  @macro (basic_register_test)
+  % some words
+
+  > ^dwP
+  some words
+
+  > veyP
+  some words words
+
+delete specific register:
+  > ^dwywe"-p
+  wordssome  words
+
+  > p
+  wordssome words  words
+
+line mode yank/paste
+  > yyp
+  wordssome words  words
+  wordssome words  words
+cleanup
+  :1,$d
+  @endmacro
+
+first test without provider
+  @do (basic_register_test)
+
+rerun tests with provider
+  :let g:clip_id = rpcstart("python2", ["test/provider/clipboard_provider.py"])
+  :call rpcrequest(g:clip_id, 'clipboard_get', '+')
+  @do (basic_register_test)
+
+without 'unnamedclip' unnamed yanks/deletes shouldn't affect clipboard
+  % some words
+
+  > ^"*dwdw"*P
+  some 
+
+  :1,$d
+
+test indepedent * and + clipboards:
+  % text:<cr>
+  % first line<cr>
+  % secound line<cr>
+  % third line
+
+  > "+dd"*dddd
+  > "+p"*pp
+
+  text:
+  third line
+  secound line
+  first line
+
+  :1,$d
+
+rerun basic tests with unnamedclip:
+  :set unnamedclip
+  @do (basic_register_test)
+
+  % some words
+
+with 'unnamedclip' unnamed delete may clobber clipboard
+  > ^"*dwdw"*P
+  words
+
+  :1,$d
+
+  :set unnamedclip
+  % 1: some text
+
+  > ^v$"*yWdwp
+  1: tsome ext
+
+test handling of characterwise/linewise put
+  :call rpcrequest(g:clip_id, 'clipboard_set', ['more text '], 'v', '"')
+  > p
+  1: tsome more text ext
+
+  :call rpcrequest(g:clip_id, 'clipboard_set', ['secound line'], 'V', '"')
+  > p
+  1: tsome more text ext
+  secound line
