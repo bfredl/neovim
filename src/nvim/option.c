@@ -4869,49 +4869,6 @@ char_u *check_stl_option(char_u *s)
 }
 
 /*
- * Extract the items in the 'clipboard' option and set global values.
- */
-    static char_u *
-check_clipboard_option()
-{
-    int		new_unnamed = 0;
-    int		new_html = FALSE;
-    regprog_T	*new_exclude_prog = NULL;
-    char_u	*errmsg = NULL;
-    char_u	*p;
-
-    for (p = p_cb; *p != NUL; )
-    {
-      if (STRNCMP(p, "unnamed", 7) == 0 && (p[7] == ',' || p[7] == NUL))
-      {
-        new_unnamed = '*';
-        p += 7;
-      }
-      else if (STRNCMP(p, "unnamedplus", 11) == 0
-          && (p[11] == ',' || p[11] == NUL))
-      {
-        new_unnamed = '*';
-        p += 11;
-      }
-      else
-      {
-        errmsg = e_invarg;
-        break;
-      }
-      if (*p == ',')
-        ++p;
-    }
-    if (errmsg == NULL)
-    {
-      clip_unnamed = new_unnamed;
-    }
-
-    return errmsg;
-}
-#endif
-
-
-/*
  * Set curbuf->b_cap_prog to the regexp program for 'spellcapcheck'.
  * Return error message when failed, NULL when OK.
  */
