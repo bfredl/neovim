@@ -1488,8 +1488,6 @@ A jump table for the options with a short description can be found at |Q_op|.
 						  for X-windows, "" otherwise)
 			global
 			{not in Vi}
-			{only in GUI versions or when the |+xterm_clipboard|
-			feature is included}
 	This option is a list of comma separated names.
 	These names are recognized:
 
@@ -1547,28 +1545,6 @@ A jump table for the options with a short description can be found at |Q_op|.
 			possibly use BufEnter autocommands.
 			Only supported for GTK version 2 and later.
 			Only available with the |+multi_byte| feature.
-
-						*clipboard-exclude*
-	exclude:{pattern}
-			Defines a pattern that is matched against the name of
-			the terminal 'term'.  If there is a match, no
-			connection will be made to the X server.  This is
-			useful in this situation:
-			- Running Vim in a console.
-			- $DISPLAY is set to start applications on another
-			  display.
-			- You do not want to connect to the X server in the
-			  console, but do want this in a terminal emulator.
-			To never connect to the X server use: >
-				exclude:.*
-<			This has the same effect as using the |-X| argument.
-			Note that when there is no connection to the X server
-			the window title won't be restored and the clipboard
-			cannot be accessed.
-			The value of 'magic' is ignored, {pattern} is
-			interpreted as if 'magic' was on.
-			The rest of the option value will be used for
-			{pattern}, this must be the last entry.
 
 						*'cmdheight'* *'ch'*
 'cmdheight' 'ch'	number	(default 1)
@@ -7632,13 +7608,6 @@ A jump table for the options with a short description can be found at |Q_op|.
 
 	Note that this causes the whole buffer to be stored in memory.  Set
 	this option to a lower value if you run out of memory.
-
-			                          {Nvim} *'unnamedclip'* *ucp'*
-'unnamedclip' 'ucp'	boolean	(default off)
-			global
-	Use the unnamed register to access the clipboard(when available).
-	This option has the same effect of setting 'clipboard' to
-	'unnamed/unnamedplus' in Vim.
 
 						*'updatecount'* *'uc'*
 'updatecount' 'uc'	number	(default: 200)
