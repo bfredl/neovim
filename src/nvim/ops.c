@@ -5220,7 +5220,7 @@ static void get_clipboard(int name)
       goto err;
     }
     String regtype = result.items[1].data.string;
-    if (regtype.size < 1) {
+    if (regtype.size != 1) {
       goto err;
     }
     switch (regtype.data[0]) {
