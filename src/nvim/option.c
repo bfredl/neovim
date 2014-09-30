@@ -529,7 +529,7 @@ static struct vimoption
     (char_u *)0L}
    SCRIPTID_INIT},
   {"clipboard",   "cb",   P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
-   (char_u *)NULL, PV_NONE,
+   (char_u *)&p_cb, PV_NONE,
    {(char_u *)"", (char_u *)0L}
    SCRIPTID_INIT},
   {"cmdheight",   "ch",   P_NUM|P_VI_DEF|P_RALL,
@@ -4297,6 +4297,10 @@ did_set_string_option (
     if (check_opt_strings(p_ead, p_ead_values, FALSE) != OK)
       errmsg = e_invarg;
   }
+  else if (varp == &p_cb) {
+    if (opt_strings_flags(p_cb, p_cb_values, &cb_flags, TRUE) != OK)
+      errmsg = e_invarg;
+  }
   /* When 'spelllang' or 'spellfile' is set and there is a window for this
    * buffer in which 'spell' is set load the wordlists. */
   else if (varp == &(curbuf->b_s.b_p_spl) || varp == &(curbuf->b_s.b_p_spf)) {
@@ -4863,6 +4867,48 @@ char_u *check_stl_option(char_u *s)
     return (char_u *)N_("E542: unbalanced groups");
   return NULL;
 }
+
+/*
+ * Extract the items in the 'clipboard' option and set global values.
+ */
+    static char_u *
+check_clipboard_option()
+{
+    int		new_unnamed = 0;
+    int		new_html = FALSE;
+    regprog_T	*new_exclude_prog = NULL;
+    char_u	*errmsg = NULL;
+    char_u	*p;
+
+    for (p = p_cb; *p != NUL; )
+    {
+      if (STRNCMP(p, "unnamed", 7) == 0 && (p[7] == ',' || p[7] == NUL))
+      {
+        new_unnamed = '*';
+        p += 7;
+      }
+      else if (STRNCMP(p, "unnamedplus", 11) == 0
+          && (p[11] == ',' || p[11] == NUL))
+      {
+        new_unnamed = '*';
+        p += 11;
+      }
+      else
+      {
+        errmsg = e_invarg;
+        break;
+      }
+      if (*p == ',')
+        ++p;
+    }
+    if (errmsg == NULL)
+    {
+      clip_unnamed = new_unnamed;
+    }
+
+    return errmsg;
+}
+#endif
 
 
 /*
