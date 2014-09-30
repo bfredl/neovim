@@ -22,26 +22,58 @@ by Nvim):
 - Create a ~/.vim/pythonx/nvim_clipboard.py file with the following contents:
   >
     import xerox
-     
+
     class NvimClipboard(object):
         def __init__(self, vim):
             self.provides = ['clipboard']
-     
-        def clipboard_get(self):
-            return xerox.paste().split('\n')
-        
-        def clipboard_set(self, lines):
-            xerox.copy(u'\n'.join([line.decode('utf-8') for line in lines]))
-<
-This should enable the '+' and '*' registers. As an optional step, set the
-'unnamedclip' option to transparently access clipboard using the unnamed
-register. If you use the same |vimrc| for both Vim and Nvim, make sure you
-only set the option when `has('nvim')` is true:
->
-    if has('nvim')
-      set unnamedclip
-    endif
-<
+
+        def clipboard_get(self, reg):
+            txt = xerox.paste()
+            if txt.endswith('\n'):
+                txt = txt[:-1]
+                regtype = 'V'
+            else:
+                regtype = 'v'
+            return txt.split('\n'), regtype
+
+        def clipboard_set(self, lines, regtype, reg):
+            txt = u'\n'.join([line.decode('utf-8') for line in lines])
+            if regtype == 'V':
+                txt = txt + u'\n'
+            xerox.copy(txt)
+
+This should enable the '+' and '*' registers. In X11 envirionments, the
+following provider could be used to access the primary selection and the
+clipboard, as '*' and '+' respectively:
+
+    from subprocess import Popen, PIPE
+
+    class NvimClipboard(object):
+        def __init__(self, vim):
+            self.provides = ['clipboard']
+
+        def sel_name(self, reg):
+            return 'clipboard' if reg == '+' else 'primary'
+
+        def clipboard_get(self, reg):
+            txt = Popen(['xclip', '-selection', self.sel_name(reg), '-o'], stdout=PIPE).communicate()[0]
+            # emulate vim behavior
+            if txt.endswith('\n'):
+                txt = txt[:-1]
+                regtype = 'V'
+            else:
+                regtype = 'v'
+            return txt.split('\n'), regtype
+
+        def clipboard_set(self, lines, regtype, reg):
+            txt = '\n'.join([line for line in lines])
+            if regtype == 'V':
+                txt = txt + '\n'
+            _cmd = ['xclip', '-selection', self.sel_name(reg)]
+            Popen(_cmd, stdin=PIPE).communicate(txt)
+
+As an optional step, set the 'clipboard=unnamed' option to transparently
+access clipboard using the unnamed register.
 
 ==============================================================================
  vim:tw=78:ts=8:noet:ft=help:norl:
