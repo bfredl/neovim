@@ -5265,6 +5265,8 @@ static void get_clipboard(int name)
     default:
       goto err;
     }
+    api_free_string(regtype);
+    result.items[1] = NIL;
   } else {
     lines = result;
     // provider did not specify regtype, use sane defaults
@@ -5279,6 +5281,10 @@ static void get_clipboard(int name)
       goto err;
     }
     reg->y_array[i] = (uint8_t *)lines.items[i].data.string.data;
+  }
+  free(lines.items);
+  if (result.items != lines.items) {
+      free(result.items);
   }
 
   return;
