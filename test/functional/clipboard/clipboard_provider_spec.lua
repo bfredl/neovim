@@ -41,11 +41,13 @@ describe('clipboard usage', function()
     enable_provider()
     basic_register_test()
 
+    -- "* and unnamed should function as independent registes
     insert("some words")
     feed('^"*dwdw"*P')
     expect('some ')
     clear()
 
+    -- "* and "+ should be independent when the provider supports it
     insert([[
       text:
       first line
@@ -61,8 +63,12 @@ describe('clipboard usage', function()
     clear()
 
     execute('set clipboard=unnamed')
+
+    -- the basic behavior of unnamed register should be the same
+    -- even when handled by clipboard provider
     basic_register_test()
 
+    -- with cb=unnamed, "* and unnamed will be the same register
     insert("some words")
     feed('^"*dwdw"*P')
     expect('words')
