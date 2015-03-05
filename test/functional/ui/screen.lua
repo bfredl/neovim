@@ -131,6 +131,8 @@ for name, rgb in pairs(colors) do
     colornames[rgb] = name
 end
 
+local dbginfo
+
 Screen.colors = colors
 
 function Screen.debug(command)
@@ -192,6 +194,7 @@ function Screen:try_resize(columns, rows)
 end
 
 function Screen:expect(expected, attr_ids, attr_ignore)
+  dbginfo = debug.getinfo(2)
   -- remove the last line and dedent
   expected = dedent(expected:gsub('\n[ ]+$', ''))
   local expected_rows = {}
@@ -418,6 +421,11 @@ function Screen:_row_repr(row, attr_ids, attr_ignore)
     end
     if self._rows[self._cursor.row] == row and self._cursor.col == i then
       table.insert(rv, '^')
+      if dbginfo then
+          print(dbginfo.source)
+          print(dbginfo.currentline)
+          dbginfo = nil
+      end
     else
       table.insert(rv, row[i].text)
     end
