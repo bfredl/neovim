@@ -131,6 +131,8 @@ for name, rgb in pairs(colors) do
     colornames[rgb] = name
 end
 
+local curinfo
+
 Screen.colors = colors
 
 function Screen.debug(command)
@@ -194,6 +196,7 @@ end
 function Screen:expect(expected, attr_ids, attr_ignore)
   -- remove the last line and dedent
   expected = dedent(expected:gsub('\n[ ]+$', ''))
+  curinfo = nil
   local expected_rows = {}
   for row in expected:gmatch('[^\n]+') do
     -- the last character should be the screen delimiter
@@ -205,13 +208,44 @@ function Screen:expect(expected, attr_ids, attr_ignore)
   self:wait(function()
     for i = 1, self._height do
       local expected_row = expected_rows[i]
-      local actual_row = self:_row_repr(self._rows[i], ids, ignore)
+      local actual_row = self:_row_repr(self._rows[i], ids, ignore, i)
       if expected_row ~= actual_row then
         return 'Row '..tostring(i)..' didnt match.\nExpected: "'..
                expected_row..'"\nActual:   "'..actual_row..'"'
       end
     end
   end)
+  local dbginfo = debug.getinfo(2,'lS')
+  if os.getenv("DOIT") and dbginfo and curinfo then
+      doit(dbginfo.source, dbginfo.currentline, unpack(curinfo))
+      dbginfo = nil
+  end
+end
+
+local count = 0
+function doit(src, srcline, curline, curcol, curchar)
+  if string.sub(src, 1, 1) ~= "@" then
+    return
+  end
+  local fn = string.sub(src, 2)
+  print(fn)
+  local f = io.open(fn, 'r')
+  local lines = {}
+  for line in f:lines() do 
+    lines[#lines + 1] = line
+  end
+
+  print(lines[srcline+curline])
+  local l = lines[srcline+curline]
+  local pos = string.find(l, "%^")
+  local newl = string.sub(l,1,pos) .. curchar .. string.sub(l,pos+1)
+  lines[srcline+curline] = newl
+  print(lines[srcline+curline])
+  local f = io.open(fn, 'w')
+  f:write(table.concat(lines, '\n') .. '\n')
+  f:close()
+  count = count + 1
+  print(count)
 end
 
 function Screen:wait(check, timeout)
@@ -399,7 +433,7 @@ function Screen:_clear_row_section(rownum, startcol, stopcol)
   end
 end
 
-function Screen:_row_repr(row, attr_ids, attr_ignore)
+function Screen:_row_repr(row, attr_ids, attr_ignore, rowi)
   local rv = {}
   local current_attr_id
   for i = 1, self._width do
@@ -418,6 +452,13 @@ function Screen:_row_repr(row, attr_ids, attr_ignore)
     end
     if self._rows[self._cursor.row] == row and self._cursor.col == i then
       table.insert(rv, '^')
+      if rowi then
+          curinfo = {rowi, i, row[i].text}
+      end
+      if os.getenv("TESTIT") then
+          table.insert(rv, row[i].text)
+      end
+
     else
       table.insert(rv, row[i].text)
     end
