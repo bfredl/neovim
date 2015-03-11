@@ -2169,7 +2169,7 @@ win_line (
 
   int syntax_flags    = 0;
   int syntax_seqnr    = 0;
-  int prev_syntax_id  = 0;
+  int prev_syntax_id  = -1;
   int conceal_attr    = hl_attr(HLF_CONCEAL);
   int is_concealing   = FALSE;
   int boguscols       = 0;              /* nonexistent columns added to force
@@ -3572,7 +3572,7 @@ win_line (
         } else
           mb_utf8 = FALSE;              /* don't draw as UTF-8 */
       } else {
-        prev_syntax_id = 0;
+        prev_syntax_id = -1;
         is_concealing = FALSE;
       }
     }
