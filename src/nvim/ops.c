@@ -57,9 +57,10 @@
  * 10..35 = registers 'a' to 'z'
  *     36 = delete register '-'
  */
-#define NUM_REGISTERS 38
+#define NUM_REGISTERS 39
 #define DELETION_REGISTER 36
-#define CLIP_REGISTER 37
+#define STAR_REGISTER 37
+#define PLUS_REGISTER 38
 
 #define CB_UNNAMEDMASK (CB_UNNAMED | CB_UNNAMEDPLUS)
 #define CB_LATEST (-1)
@@ -770,8 +771,10 @@ void get_yank_register(int regname, int writing)
     y_append = TRUE;
   } else if (regname == '-')
     i = DELETION_REGISTER;
-  else if (regname == '*' || regname == '+')
-    i = CLIP_REGISTER;
+  else if (regname == '*')
+    i = STAR_REGISTER;
+  else if (regname == '+')
+    i = PLUS_REGISTER;
   else                  /* not 0-9, a-z, A-Z or '-': use register 0 */
     i = 0;
   y_current = &(y_regs[i]);
@@ -3173,6 +3176,10 @@ int get_register_name(int num)
     return num + '0';
   else if (num == DELETION_REGISTER)
     return '-';
+  else if (num == STAR_REGISTER)
+    return '*';
+  else if (num == PLUS_REGISTER)
+    return '+';
   else {
     return num + 'a' - 10;
   }
@@ -4553,7 +4560,7 @@ void write_viminfo_registers(FILE *fp)
     if (y_regs[i].y_array == NULL)
       continue;
     // Skip '*'/'+' register, we don't want them back next time
-    if (i == CLIP_REGISTER)
+    if (i == STAR_REGISTER || i == PLUS_REGISTER)
       continue;
     /* Skip empty registers. */
     num_lines = y_regs[i].y_size;
@@ -5276,12 +5283,18 @@ static void free_register(struct yankreg *reg)
 
 // return target register
 static struct yankreg* adjust_clipboard_name(int *name) {
-  if (*name == '*' || *name == '+') {
+  if (*name == '*') {
     if(!eval_has_provider("clipboard")) {
       EMSG("clipboard: provider is not available");
       return NULL;
     }
-    return &y_regs[CLIP_REGISTER];
+    return &y_regs[STAR_REGISTER];
+  } else if (*name == '+') {
+    if(!eval_has_provider("clipboard")) {
+      EMSG("clipboard: provider is not available");
+      return NULL;
+    }
+    return &y_regs[PLUS_REGISTER];
   } else if ((*name == NUL || *name == CB_LATEST) && (cb_flags & CB_UNNAMEDMASK)) {
     if(!eval_has_provider("clipboard")) {
       if (!clipboard_didwarn_unnamed) {
