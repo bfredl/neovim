@@ -62,7 +62,8 @@ local function basic_register_test()
 end
 
 describe('clipboard usage', function()
-  setup(reset)
+  before_each(reset)
+
   it("works", function()
     basic_register_test()
 
@@ -71,9 +72,9 @@ describe('clipboard usage', function()
     feed('^"*dwdw"*P')
     expect('some ')
     eq({'some '}, eval("g:test_clip['*']"))
-    reset()
+  end)
 
-    -- "* and "+ should be independent when the provider supports it
+  it('supports separate "* and "+ when the provider supports it', function()
     insert([[
       text:
       first line
@@ -89,9 +90,9 @@ describe('clipboard usage', function()
     -- linewise selection should be encoded as an extra newline
     eq({'third line', ''}, eval("g:test_clip['+']"))
     eq({'secound line', ''}, eval("g:test_clip['*']"))
-    reset()
+  end)
 
-    -- handle null bytes
+  it('handles null bytes', function()
     insert("some\022000text\n\022000very binary\022000")
     feed('"*y-+"*p')
     eq({'some\ntext', '\nvery binary\n',''}, eval("g:test_clip['*']"))
@@ -100,9 +101,9 @@ describe('clipboard usage', function()
     -- test getreg/getregtype
     eq('some\ntext\n\nvery binary\n\n', eval("getreg('*', 1)"))
     eq("V", eval("getregtype('*')"))
-    reset()
+  end)
 
-    -- blockwise paste
+  it('support blockwise operations', function()
     insert([[
       much
       text]])
@@ -113,9 +114,9 @@ describe('clipboard usage', function()
       very much
       blocktext]])
     eq("\0225", eval("getregtype('*')"))
-    reset()
+  end)
 
-    -- test setreg
+  it('supports setreg', function()
     execute('call setreg("*", "setted\\ntext", "c")')
     execute('call setreg("+", "explicitly\\nlines", "l")')
     feed('"+P"*p')
@@ -124,9 +125,9 @@ describe('clipboard usage', function()
         textxplicitly
         lines
         ]])
-    reset()
+  end)
 
-    -- test let @+ (issue #1427)
+  it('supports let @+ (issue #1427)', function()
     execute("let @+ = 'some'")
     execute("let @* = ' other stuff'")
     eq({'some'}, eval("g:test_clip['+']"))
@@ -136,8 +137,9 @@ describe('clipboard usage', function()
     execute("let @+ .= ' more'")
     feed('dd"+p')
     expect('some more')
-    reset()
+  end)
 
+  it('supports clipboard=unnamed', function()
     -- the basic behavior of unnamed register should be the same
     -- even when handled by clipboard provider
     execute('set clipboard=unnamed')
@@ -155,7 +157,6 @@ describe('clipboard usage', function()
     expect([[
       words
       linewise stuff]])
-    reset()
+  end)
 
-    end)
 end)
