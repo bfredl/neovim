@@ -72,6 +72,12 @@ static yankreg_T y_regs[NUM_REGISTERS];
 static yankreg_T   *y_previous = NULL; /* ptr to last written yankreg */
 
 static bool clipboard_didwarn_unnamed = false;
+
+static bool clipboard_needs_update = true;  // clipboard needs to be updated
+static int global_change_count = 0;  // if set, inside global changes
+                                     //(start_global_changes() ... end_global_changes())
+static bool clip_did_set_selection = true;  // the clipboard was updated
+
 /*
  * structure used by block_prep, op_delete and op_yank for blockwise operators
  * also op_change, op_shift, op_insert, op_replace - AKelly
@@ -5260,6 +5266,10 @@ int get_default_register_name(void)
 /// if the register isn't a clipboard or provider isn't available.
 static yankreg_T *adjust_clipboard_name(int *name, bool quiet)
 {
+  if (clipboard_needs_update == false) {
+    return NULL;
+  }
+
   if (*name == '*' || *name == '+') {
     if(!eval_has_provider("clipboard")) {
       if (!quiet) {
@@ -5404,9 +5414,54 @@ err:
   return false;
 }
 
+
+/*
+ * Prevent the clipboard being accesed before doing possibly many changes.
+ * Otherwise, Nvim might slow down considerably.
+*/
+
+
+/*
+ * When doing global changes, we shouldn't try to update the clipboard.
+ */
+void start_global_changes(void)
+{
+  if (++global_change_count > 1) {
+    return;
+  }
+  clipboard_needs_update = false;
+
+  if (clip_did_set_selection) {
+    clip_did_set_selection = false;
+  }
+}
+
+/*
+ * Update the clipboard once the global changes are done.
+ */
+void end_global_changes(void)
+{
+  if (--global_change_count > 0) {
+    // recursive
+    return;
+  }
+  clipboard_needs_update = true;
+  if (!clip_did_set_selection) {
+    if (cb_flags & CB_UNNAMED)
+    {
+	set_clipboard('*', y_previous);
+    }
+    if (cb_flags & CB_UNNAMEDPLUS)
+    {
+	set_clipboard('+', y_previous);
+    }
+    clip_did_set_selection = true;
+  }
+}
+
 static void set_clipboard(int name, yankreg_T *reg)
 {
-  if(!adjust_clipboard_name(&name, false)) {
+  if (!adjust_clipboard_name(&name, false)) {
     return;
   }
 
