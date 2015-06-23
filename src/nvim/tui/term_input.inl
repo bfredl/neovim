@@ -261,7 +261,11 @@ static TermInput *term_input_new(void)
   if (!term) {
     term = "";  // termkey_new_abstract assumes non-null (#2745)
   }
-  rv->tk = termkey_new_abstract(term, 0);
+
+  //TODO
+  int enc_flag = TERMKEY_FLAG_UTF8;
+
+  rv->tk = termkey_new_abstract(term, enc_flag);
   int curflags = termkey_get_canonflags(rv->tk);
   termkey_set_canonflags(rv->tk, curflags | TERMKEY_CANON_DELBS);
   // setup input handle
@@ -289,11 +293,4 @@ static void term_input_destroy(TermInput *input)
   termkey_destroy(input->tk);
   event_poll(0);  // Run once to remove references to input/timer handles
   xfree(input);
-}
-
-static void term_input_set_encoding(TermInput *input, char* enc)
-{
-  int enc_flag = strcmp(enc, "utf-8") == 0 ? TERMKEY_FLAG_UTF8
-                                           : TERMKEY_FLAG_RAW;
-  termkey_set_flags(input->tk, enc_flag);
 }

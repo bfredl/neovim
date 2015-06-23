@@ -3691,12 +3691,6 @@ did_set_string_option (
         }
       }
     }
-
-    if (errmsg == NULL) {
-      if (varp == &p_enc) {
-        ui_update_encoding();
-      }
-    }
   } else if (varp == &p_penc) {
     /* Canonize printencoding if VIM standard one */
     p = enc_canonize(p_penc);
