@@ -521,65 +521,28 @@ void set_init_1(void)
   /* Parse default for 'listchars'. */
   (void)set_chars_option(&p_lcs);
 
-  /* enc_locale() will try to find the encoding of the current locale. */
-  p = enc_locale();
-  if (p != NULL) {
-    char_u *save_enc;
-
-    /* Try setting 'encoding' and check if the value is valid.
-     * If not, go back to the default "utf-8". */
-    save_enc = p_enc;
-    p_enc = p;
-    if (STRCMP(p_enc, "gb18030") == 0) {
-      /* We don't support "gb18030", but "cp936" is a good substitute
-       * for practical purposes, thus use that.  It's not an alias to
-       * still support conversion between gb18030 and utf-8. */
-      p_enc = vim_strsave((char_u *)"cp936");
-      xfree(p);
-    }
-    if (mb_init() == NULL) {
-      opt_idx = findoption((char_u *)"encoding");
-      if (opt_idx >= 0) {
-        options[opt_idx].def_val[VI_DEFAULT] = p_enc;
-        options[opt_idx].flags |= P_DEF_ALLOCED;
-      }
+  // set up multibyte (utf-8) handling
+  // TODO: already in early_init() ?
+  mb_init();
+  // TODO: initialize p_fenc with enc_locale() ?
 
 #if defined(MSWIN) || defined(MACOS)
-      if (STRCMP(p_enc, "latin1") == 0
-          || enc_utf8
-          ) {
-        /* Adjust the default for 'isprint' and 'iskeyword' to match
-         * latin1. */
-        set_string_option_direct((char_u *)"isp", -1,
-            ISP_LATIN1, OPT_FREE, SID_NONE);
-        set_string_option_direct((char_u *)"isk", -1,
-            ISK_LATIN1, OPT_FREE, SID_NONE);
-        opt_idx = findoption((char_u *)"isp");
-        if (opt_idx >= 0)
-          options[opt_idx].def_val[VIM_DEFAULT] = ISP_LATIN1;
-        opt_idx = findoption((char_u *)"isk");
-        if (opt_idx >= 0)
-          options[opt_idx].def_val[VIM_DEFAULT] = ISK_LATIN1;
-        (void)init_chartab();
-      }
+  if (STRCMP(p_enc, "latin1") == 0 || enc_utf8) {
+    /* Adjust the default for 'isprint' and 'iskeyword' to match
+     * latin1. */
+    set_string_option_direct((char_u *)"isp", -1,
+        ISP_LATIN1, OPT_FREE, SID_NONE);
+    set_string_option_direct((char_u *)"isk", -1,
+        ISK_LATIN1, OPT_FREE, SID_NONE);
+    opt_idx = findoption((char_u *)"isp");
+    if (opt_idx >= 0)
+      options[opt_idx].def_val[VIM_DEFAULT] = ISP_LATIN1;
+    opt_idx = findoption((char_u *)"isk");
+    if (opt_idx >= 0)
+      options[opt_idx].def_val[VIM_DEFAULT] = ISK_LATIN1;
+    (void)init_chartab();
+  }
 #endif
-
-    } else {
-      xfree(p_enc);
-      // mb_init() failed; fallback to utf8 and try again.
-      p_enc = save_enc;
-      mb_init();
-    }
-  } else {
-    // enc_locale() failed; initialize the default (utf8).
-    mb_init();
-  }
-
-  // Don't change &encoding when resetting to defaults with ":set all&".
-  opt_idx = findoption((char_u *)"encoding");
-  if (opt_idx >= 0) {
-    options[opt_idx].flags |= P_NODEFAULT;
-  }
 
   /* Set the default for 'helplang'. */
   set_helplang_default(get_mess_lang());
@@ -2279,9 +2242,7 @@ did_set_string_option (
       errmsg = e_invarg;
   /* 'encoding' and 'fileencoding' */
   } else if (varp == &p_enc || gvarp == &p_fenc) {
-    if (varp == &p_enc && did_source_startup_scripts) {
-       errmsg = e_afterinit;
-    } else if (gvarp == &p_fenc) {
+    if (gvarp == &p_fenc) {
       if (!MODIFIABLE(curbuf) && opt_flags != OPT_GLOBAL)
         errmsg = e_modifiable;
       else if (vim_strchr(*varp, ',') != NULL)
@@ -2302,16 +2263,11 @@ did_set_string_option (
       xfree(*varp);
       *varp = p;
       if (varp == &p_enc) {
-        errmsg = mb_init();
-        redraw_titles();
+        // only encoding=utf-8 allowed
+        if (STRCMP(p_enc, "utf-8") != 0) {
+          errmsg = e_invarg;
+        }
       }
-    }
-
-    if (errmsg == NULL) {
-      /* When 'keymap' is used and 'encoding' changes, reload the keymap
-       * (with another encoding). */
-      if (varp == &p_enc && *curbuf->b_p_keymap != NUL)
-        (void)keymap_init();
     }
   } else if (varp == &p_penc) {
     /* Canonize printencoding if VIM standard one */
