@@ -747,34 +747,8 @@ EXTERN int enc_latin1like INIT(= TRUE);         /* 'encoding' is latin1 comp. */
 EXTERN int has_mbyte INIT(= 0);                 /* any multi-byte encoding */
 
 
-/*
- * To speed up BYTELEN() we fill a table with the byte lengths whenever
- * enc_utf8 or enc_dbcs changes.
- */
-EXTERN char mb_bytelen_tab[256];
-
-/*
- * Function pointers, used to quickly get to the right function.  Each has
- * three possible values: latin_ (8-bit), utfc_ or utf_ (utf-8) and dbcs_
- * (DBCS).
- * The value is set in mb_init();
- */
-/* length of char in bytes, including following composing chars */
-EXTERN int (*mb_ptr2len)(const char_u *p) INIT(= latin_ptr2len);
-/* idem, with limit on string length */
-EXTERN int (*mb_ptr2len_len)(const char_u *p, int size) INIT(= latin_ptr2len_len);
-/* byte length of char */
-EXTERN int (*mb_char2len)(int c) INIT(= latin_char2len);
-/* convert char to bytes, return the length */
-EXTERN int (*mb_char2bytes)(int c, char_u *buf) INIT(= latin_char2bytes);
-EXTERN int (*mb_ptr2cells)(const char_u *p) INIT(= latin_ptr2cells);
-EXTERN int (*mb_ptr2cells_len)(const char_u *p, int size) INIT(
-      = latin_ptr2cells_len);
-EXTERN int (*mb_char2cells)(int c) INIT(= latin_char2cells);
-EXTERN int (*mb_off2cells)(unsigned off, unsigned max_off) INIT(
-      = latin_off2cells);
-EXTERN int (*mb_ptr2char)(const char_u *p) INIT(= latin_ptr2char);
-EXTERN int (*mb_head_off)(const char_u *base, const char_u *p) INIT(= latin_head_off);
+// To speed up BYTELEN() we keep a table with the byte lengths for utf-8
+EXTERN char utf8len_tab[256];
 
 # if defined(USE_ICONV) && defined(DYNAMIC_ICONV)
 /* Pointers to functions and variables to be loaded at runtime */
