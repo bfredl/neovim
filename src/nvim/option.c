@@ -522,7 +522,6 @@ void set_init_1(void)
   (void)set_chars_option(&p_lcs);
 
   // set up multibyte (utf-8) handling
-  // TODO: already in early_init() ?
   mb_init();
   // TODO: initialize p_fenc with enc_locale() ?
 
