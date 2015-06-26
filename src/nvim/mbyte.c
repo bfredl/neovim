@@ -116,7 +116,7 @@ struct interval {
  * Bytes which are illegal when used as the first byte have a 1.
  * The NUL byte has length 1.
  */
-static char utf8len_tab[256] =
+char utf8len_tab[256] =
 {
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -386,181 +386,23 @@ int enc_canon_props(const char_u *name)
 }
 
 /*
- * Set up for using multi-byte characters.
- * Called in three cases:
- * - by main() to initialize (p_enc == NULL)
- * - by set_init_1() after 'encoding' was set to its default.
- * - by do_set() when 'encoding' has been set.
- * p_enc must have been passed through enc_canonize() already.
+ * Set up for using multi-byte characters with utf-8 encoding
  * Sets the "enc_unicode", "enc_utf8", "enc_dbcs" and "has_mbyte" flags.
- * Fills mb_bytelen_tab[] and returns NULL when there are no problems.
+ * Returns NULL when there are no problems.
  * When there is something wrong: Returns an error message and doesn't change
  * anything.
  */
 char_u * mb_init(void)
 {
-  int i;
-  int idx;
-  int n;
-  int enc_dbcs_new = 0;
-#if defined(USE_ICONV) && !defined(WIN3264) && !defined(WIN32UNIX) \
-  && !defined(MACOS)
-# define LEN_FROM_CONV
-  vimconv_T vimconv;
-  char_u      *p;
-#endif
+  enc_utf8 = true;
+  enc_unicode = 0;
 
-  if (p_enc == NULL) {
-    /* Just starting up: set the whole table to one's. */
-    for (i = 0; i < 256; ++i)
-      mb_bytelen_tab[i] = 1;
-    return NULL;
-  } else if (STRNCMP(p_enc, "8bit-", 5) == 0
-      || STRNCMP(p_enc, "iso-8859-", 9) == 0) {
-    /* Accept any "8bit-" or "iso-8859-" name. */
-    enc_unicode = 0;
-    enc_utf8 = false;
-  } else if (STRNCMP(p_enc, "2byte-", 6) == 0) {
-    /* Unix: accept any "2byte-" name, assume current locale. */
-    enc_dbcs_new = DBCS_2BYTE;
-  } else if ((idx = enc_canon_search(p_enc)) >= 0) {
-    i = enc_canon_table[idx].prop;
-    if (i & ENC_UNICODE) {
-      /* Unicode */
-      enc_utf8 = true;
-      if (i & (ENC_2BYTE | ENC_2WORD))
-        enc_unicode = 2;
-      else if (i & ENC_4BYTE)
-        enc_unicode = 4;
-      else
-        enc_unicode = 0;
-    } else if (i & ENC_DBCS) {
-      /* 2byte, handle below */
-      enc_dbcs_new = enc_canon_table[idx].codepage;
-    } else {
-      /* Must be 8-bit. */
-      enc_unicode = 0;
-      enc_utf8 = false;
-    }
-  } else    /* Don't know what encoding this is, reject it. */
-    return e_invarg;
-
-  if (enc_dbcs_new != 0) {
-    enc_unicode = 0;
-    enc_utf8 = false;
-  }
-  enc_dbcs = enc_dbcs_new;
-  has_mbyte = (enc_dbcs != 0 || enc_utf8);
+  enc_dbcs = 0;
+  has_mbyte = true;
 
 
   /* Detect an encoding that uses latin1 characters. */
-  enc_latin1like = (enc_utf8 || STRCMP(p_enc, "latin1") == 0
-      || STRCMP(p_enc, "iso-8859-15") == 0);
-
-  /*
-   * Set the function pointers.
-   */
-  if (enc_utf8) {
-    mb_ptr2len = utfc_ptr2len;
-    mb_ptr2len_len = utfc_ptr2len_len;
-    mb_char2len = utf_char2len;
-    mb_char2bytes = utf_char2bytes;
-    mb_ptr2cells = utf_ptr2cells;
-    mb_ptr2cells_len = utf_ptr2cells_len;
-    mb_char2cells = utf_char2cells;
-    mb_off2cells = utf_off2cells;
-    mb_ptr2char = utf_ptr2char;
-    mb_head_off = utf_head_off;
-  } else if (enc_dbcs != 0) {
-    mb_ptr2len = dbcs_ptr2len;
-    mb_ptr2len_len = dbcs_ptr2len_len;
-    mb_char2len = dbcs_char2len;
-    mb_char2bytes = dbcs_char2bytes;
-    mb_ptr2cells = dbcs_ptr2cells;
-    mb_ptr2cells_len = dbcs_ptr2cells_len;
-    mb_char2cells = dbcs_char2cells;
-    mb_off2cells = dbcs_off2cells;
-    mb_ptr2char = dbcs_ptr2char;
-    mb_head_off = dbcs_head_off;
-  } else {
-    mb_ptr2len = latin_ptr2len;
-    mb_ptr2len_len = latin_ptr2len_len;
-    mb_char2len = latin_char2len;
-    mb_char2bytes = latin_char2bytes;
-    mb_ptr2cells = latin_ptr2cells;
-    mb_ptr2cells_len = latin_ptr2cells_len;
-    mb_char2cells = latin_char2cells;
-    mb_off2cells = latin_off2cells;
-    mb_ptr2char = latin_ptr2char;
-    mb_head_off = latin_head_off;
-  }
-
-  /*
-   * Fill the mb_bytelen_tab[] for MB_BYTE2LEN().
-   */
-#ifdef LEN_FROM_CONV
-  /* When 'encoding' is different from the current locale mblen() won't
-   * work.  Use conversion to "utf-8" instead. */
-  vimconv.vc_type = CONV_NONE;
-  if (enc_dbcs) {
-    p = enc_locale();
-    if (p == NULL || STRCMP(p, p_enc) != 0) {
-      convert_setup(&vimconv, p_enc, (char_u *)"utf-8");
-      vimconv.vc_fail = true;
-    }
-    xfree(p);
-  }
-#endif
-
-  for (i = 0; i < 256; ++i) {
-    /* Our own function to reliably check the length of UTF-8 characters,
-     * independent of mblen(). */
-    if (enc_utf8)
-      n = utf8len_tab[i];
-    else if (enc_dbcs == 0)
-      n = 1;
-    else {
-      char buf[MB_MAXBYTES + 1];
-      if (i == NUL)             /* just in case mblen() can't handle "" */
-        n = 1;
-      else {
-        buf[0] = i;
-        buf[1] = 0;
-#ifdef LEN_FROM_CONV
-        if (vimconv.vc_type != CONV_NONE) {
-          /*
-           * string_convert() should fail when converting the first
-           * byte of a double-byte character.
-           */
-          p = string_convert(&vimconv, (char_u *)buf, NULL);
-          if (p != NULL) {
-            xfree(p);
-            n = 1;
-          } else
-            n = 2;
-        } else
-#endif
-        {
-          /*
-           * mblen() should return -1 for invalid (means the leading
-           * multibyte) character.  However there are some platforms
-           * where mblen() returns 0 for invalid character.
-           * Therefore, following condition includes 0.
-           */
-          ignored = mblen(NULL, 0);             /* First reset the state. */
-          if (mblen(buf, (size_t)1) <= 0)
-            n = 2;
-          else
-            n = 1;
-        }
-      }
-    }
-    mb_bytelen_tab[i] = n;
-  }
-
-#ifdef LEN_FROM_CONV
-  convert_setup(&vimconv, NULL, NULL);
-#endif
+  enc_latin1like = true;
 
   /* The cell width depends on the type of multi-byte characters. */
   (void)init_chartab();
@@ -1008,7 +850,7 @@ int latin_ptr2cells_len(const char_u *p, int size)
   return 1;
 }
 
-static int utf_ptr2cells_len(const char_u *p, int size)
+int utf_ptr2cells_len(const char_u *p, int size)
 {
   int c;
 
