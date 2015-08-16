@@ -5447,14 +5447,7 @@ void end_global_changes(void)
   }
   clipboard_needs_update = true;
   if (!clip_did_set_selection) {
-    if (cb_flags & CB_UNNAMED)
-    {
-	set_clipboard('*', y_previous);
-    }
-    if (cb_flags & CB_UNNAMEDPLUS)
-    {
-	set_clipboard('+', y_previous);
-    }
+    set_clipboard(NUL, y_previous);
     clip_did_set_selection = true;
   }
 }
