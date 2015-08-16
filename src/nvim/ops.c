@@ -5250,7 +5250,7 @@ void cursor_pos_info(void)
 int get_default_register_name(void)
 {
   int name = NUL;
-  adjust_clipboard_name(&name, true);
+  adjust_clipboard_name(&name, true, false);
   return name;
 }
 
@@ -5264,12 +5264,8 @@ int get_default_register_name(void)
 ///
 /// @returns the yankreg that should be written into, or `NULL`
 /// if the register isn't a clipboard or provider isn't available.
-static yankreg_T *adjust_clipboard_name(int *name, bool quiet)
+static yankreg_T *adjust_clipboard_name(int *name, bool quiet, bool writing)
 {
-  if (clipboard_needs_update == false) {
-    return NULL;
-  }
-
   if (*name == '*' || *name == '+') {
     if(!eval_has_provider("clipboard")) {
       if (!quiet) {
@@ -5286,6 +5282,14 @@ static yankreg_T *adjust_clipboard_name(int *name, bool quiet)
       }
       return NULL;
     }
+    if (writing && !clipboard_needs_update) {
+      clip_did_set_selection = true;
+      return NULL;
+    } else if (!writing && clip_did_set_selection) {
+      // use the internal value
+      return NULL;
+    }
+
     yankreg_T *target;
     if (cb_flags & CB_UNNAMEDPLUS) {
       *name = cb_flags & CB_UNNAMED ? '"': '+';
@@ -5305,7 +5309,7 @@ static bool get_clipboard(int name, yankreg_T **target, bool quiet)
   // show message on error
   bool errmsg = true;
 
-  yankreg_T *reg = adjust_clipboard_name(&name, quiet);
+  yankreg_T *reg = adjust_clipboard_name(&name, quiet, false);
   if (reg == NULL) {
     return false;
   }
@@ -5430,10 +5434,7 @@ void start_global_changes(void)
     return;
   }
   clipboard_needs_update = false;
-
-  if (clip_did_set_selection) {
-    clip_did_set_selection = false;
-  }
+  clip_did_set_selection = false;
 }
 
 /*
@@ -5446,15 +5447,15 @@ void end_global_changes(void)
     return;
   }
   clipboard_needs_update = true;
-  if (!clip_did_set_selection) {
+  if (clip_did_set_selection) {
     set_clipboard(NUL, y_previous);
-    clip_did_set_selection = true;
+    clip_did_set_selection = false;
   }
 }
 
 static void set_clipboard(int name, yankreg_T *reg)
 {
-  if (!adjust_clipboard_name(&name, false)) {
+  if (!adjust_clipboard_name(&name, false, true)) {
     return;
   }
 
