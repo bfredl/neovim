@@ -395,23 +395,12 @@ int enc_canon_props(const char_u *name)
 
 /*
  * Set up for using multi-byte characters with utf-8 encoding
- * Sets the "enc_unicode", "enc_utf8", "enc_dbcs" and "has_mbyte" flags.
  * Returns NULL when there are no problems.
  * When there is something wrong: Returns an error message and doesn't change
  * anything.
  */
 char_u * mb_init(void)
 {
-  enc_utf8 = true;
-  enc_unicode = 0;
-
-  enc_dbcs = 0;
-  has_mbyte = true;
-
-
-  /* Detect an encoding that uses latin1 characters. */
-  enc_latin1like = true;
-
   /* The cell width depends on the type of multi-byte characters. */
   (void)init_chartab();
 
@@ -450,10 +439,7 @@ int bomb_size(void)
   if (curbuf->b_p_bomb && !curbuf->b_p_bin) {
     if (*curbuf->b_p_fenc == NUL) {
       if (enc_utf8) {
-        if (enc_unicode != 0)
-          n = enc_unicode;
-        else
-          n = 3;
+        n = 3;
       }
     } else if (STRCMP(curbuf->b_p_fenc, "utf-8") == 0)
       n = 3;

@@ -4168,9 +4168,8 @@ static int need_conversion(char_u *fenc)
     same_encoding = (enc_flags != 0 && fenc_flags == enc_flags);
   }
   if (same_encoding) {
-    /* Specified encoding matches with 'encoding'.  This requires
-     * conversion when 'encoding' is Unicode but not UTF-8. */
-    return enc_unicode != 0;
+    // Specified encoding matches with 'encoding'.
+    return false;
   }
 
   /* Encodings differ.  However, conversion is not needed when 'enc' is any

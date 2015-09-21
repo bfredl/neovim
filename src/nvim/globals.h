@@ -746,12 +746,9 @@ EXTERN int vr_lines_changed INIT(= 0);      /* #Lines changed by "gR" so far */
 # define DBCS_2BYTE     1       /* 2byte- */
 # define DBCS_DEBUG     -1
 
-EXTERN int enc_dbcs INIT(= 0);                  /* One of DBCS_xxx values if
-                                                   DBCS encoding */
-EXTERN int enc_unicode INIT(= 0);       /* 2: UCS-2 or UTF-16, 4: UCS-4 */
-EXTERN bool enc_utf8 INIT(= false);             /* UTF-8 encoded Unicode */
-EXTERN int enc_latin1like INIT(= TRUE);         /* 'encoding' is latin1 comp. */
-EXTERN int has_mbyte INIT(= 0);                 /* any multi-byte encoding */
+EXTERN int enc_dbcs INIT(= 0);      ///< Deprecated: always zero
+EXTERN bool enc_utf8 INIT(= true);  ///< UTF-8 encoded Unicode
+EXTERN bool has_mbyte INIT(= true); ///< Any multi-byte encoding
 
 
 // To speed up BYTELEN() we keep a table with the byte lengths for utf-8
