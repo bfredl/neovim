@@ -746,10 +746,9 @@ EXTERN int vr_lines_changed INIT(= 0);      /* #Lines changed by "gR" so far */
 # define DBCS_2BYTE     1       /* 2byte- */
 # define DBCS_DEBUG     -1
 
-EXTERN int enc_dbcs INIT(= 0);      ///< Deprecated: always zero
-EXTERN bool enc_utf8 INIT(= true);  ///< UTF-8 encoded Unicode
-EXTERN bool has_mbyte INIT(= true); ///< Any multi-byte encoding
-
+#define enc_dbcs 0     ///< Deprecated: always zero 
+#define enc_utf8 true  ///< UTF-8 encoded Unicode   
+#define has_mbyte true ///< Any multi-byte encoding 
 
 // To speed up BYTELEN() we keep a table with the byte lengths for utf-8
 EXTERN char utf8len_tab[256];
