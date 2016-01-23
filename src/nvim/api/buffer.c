@@ -51,6 +51,13 @@ Integer buffer_line_count(Buffer buffer, Error *err)
 String buffer_get_line(Buffer buffer, Integer index, Error *err)
 {
   String rv = {.size = 0};
+
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!inbounds(buf, index)) {
+    api_set_error(err, Validation, _("Index out of bounds"));
+    return rv;
+  }
+
   Array slice = buffer_get_line_slice(buffer, index, index, true, true, err);
 
   if (!err->set && slice.size) {
@@ -70,6 +77,12 @@ String buffer_get_line(Buffer buffer, Integer index, Error *err)
 /// @param[out] err Details of an error that may have occurred
 void buffer_set_line(Buffer buffer, Integer index, String line, Error *err)
 {
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!inbounds(buf, index)) {
+    api_set_error(err, Validation, _("Index out of bounds"));
+    return;
+  }
+
   Object l = STRING_OBJ(line);
   Array array = {.items = &l, .size = 1};
   buffer_set_line_slice(buffer, index, index, true, true, array, err);
@@ -82,6 +95,12 @@ void buffer_set_line(Buffer buffer, Integer index, String line, Error *err)
 /// @param[out] err Details of an error that may have occurred
 void buffer_del_line(Buffer buffer, Integer index, Error *err)
 {
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!inbounds(buf, index)) {
+    api_set_error(err, Validation, _("Index out of bounds"));
+    return;
+  }
+
   Array array = ARRAY_DICT_INIT;
   buffer_set_line_slice(buffer, index, index, true, true, array, err);
 }
@@ -109,6 +128,7 @@ ArrayOf(String) buffer_get_line_slice(Buffer buffer,
     return rv;
   }
 
+  include_start = include_start && (start < buf->b_ml.ml_line_count);
   start = normalize_index(buf, start) + (include_start ? 0 : 1);
   include_end = include_end || (end >= buf->b_ml.ml_line_count);
   end = normalize_index(buf, end) + (include_end ? 1 : 0);
@@ -175,11 +195,7 @@ void buffer_set_line_slice(Buffer buffer,
     return;
   }
 
-  if (!inbounds(buf, start)) {
-    api_set_error(err, Validation, _("Index out of bounds"));
-    return;
-  }
-
+  include_start = include_start && (start < buf->b_ml.ml_line_count);
   start = normalize_index(buf, start) + (include_start ? 0 : 1);
   include_end = include_end || (end >= buf->b_ml.ml_line_count);
   end = normalize_index(buf, end) + (include_end ? 1 : 0);
