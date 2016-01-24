@@ -124,14 +124,12 @@ ArrayOf(String) buffer_get_line_slice(Buffer buffer,
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
 
-  if (!buf || !inbounds(buf, start)) {
+  if (!buf) {
     return rv;
   }
 
-  include_start = include_start && (start < buf->b_ml.ml_line_count);
-  start = normalize_index(buf, start) + (include_start ? 0 : 1);
-  include_end = include_end || (end >= buf->b_ml.ml_line_count);
-  end = normalize_index(buf, end) + (include_end ? 1 : 0);
+  start = normalize_index(buf, start, !include_start);
+  end = normalize_index(buf, end, include_end);
 
   if (start >= end) {
     // Return 0-length array
@@ -195,11 +193,8 @@ void buffer_set_line_slice(Buffer buffer,
     return;
   }
 
-  include_start = include_start && (start < buf->b_ml.ml_line_count);
-  start = normalize_index(buf, start) + (include_start ? 0 : 1);
-  include_end = include_end || (end >= buf->b_ml.ml_line_count);
-  end = normalize_index(buf, end) + (include_end ? 1 : 0);
-
+  start = normalize_index(buf, start, !include_start);
+  end = normalize_index(buf, end, include_end);
   if (start > end) {
     api_set_error(err,
                   Validation,
@@ -554,14 +549,24 @@ static void fix_cursor(linenr_T lo, linenr_T hi, linenr_T extra)
 }
 
 // Normalizes 0-based indexes to buffer line numbers
-static int64_t normalize_index(buf_T *buf, int64_t index)
+static int64_t normalize_index(buf_T *buf, int64_t index, bool next)
 {
+  int64_t line_count = buf->b_ml.ml_line_count;
   // Fix if < 0
-  index = index < 0 ?  buf->b_ml.ml_line_count + index : index;
+  index = index < 0 ? line_count + index : index;
+
+  if (next) {
+    index++;
+  }
+
+  // Check for oob
+  if(index > line_count) {
+    index = line_count;
+  } else if(index < 0) {
+    index = 0;
+  }
   // Convert the index to a vim line number
   index++;
-  // Fix if > line_count
-  index = index > buf->b_ml.ml_line_count ? buf->b_ml.ml_line_count : index;
   return index;
 }
 
