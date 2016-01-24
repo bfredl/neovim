@@ -52,7 +52,7 @@ String buffer_get_line(Buffer buffer, Integer index, Error *err)
 {
   String rv = {.size = 0};
 
-  Array slice = buffer_get_line_slice_ex(buffer, index, index, true, true, true, err);
+  Array slice = buffer_get_range(buffer, index, next_index(index), true, err);
 
   if (!err->set && slice.size) {
     rv = slice.items[0].data.string;
@@ -73,7 +73,7 @@ void buffer_set_line(Buffer buffer, Integer index, String line, Error *err)
 {
   Object l = STRING_OBJ(line);
   Array array = {.items = &l, .size = 1};
-  buffer_set_line_slice_ex(buffer, index, index, true, true, true, array, err);
+  buffer_set_range(buffer, index, next_index(index), true,  array, err);
 }
 
 /// Deletes a buffer line
@@ -84,7 +84,7 @@ void buffer_set_line(Buffer buffer, Integer index, String line, Error *err)
 void buffer_del_line(Buffer buffer, Integer index, Error *err)
 {
   Array array = ARRAY_DICT_INIT;
-  buffer_set_line_slice_ex(buffer, index, index, true, true, true, array, err);
+  buffer_set_range(buffer, index, next_index(index), true, array, err);
 }
 
 /// Retrieves a line range from the buffer
@@ -103,16 +103,21 @@ ArrayOf(String) buffer_get_line_slice(Buffer buffer,
                                  Boolean include_end,
                                  Error *err)
 {
-  return buffer_get_line_slice_ex(buffer, start, end, include_start, include_end, false, err);
+  if (!include_start) {
+    start = next_index(start);
+  }
+  if (include_end) {
+    end = next_index(end);
+  }
+  return buffer_get_range(buffer, start, end, false, err);
 }
 
-ArrayOf(String) buffer_get_line_slice_ex(Buffer buffer,
-                                 Integer start,
-                                 Integer end,
-                                 Boolean include_start,
-                                 Boolean include_end,
-                                 Boolean strict_indexing,
-                                 Error *err)
+
+ArrayOf(String) buffer_get_range(Buffer buffer,
+                      Integer start,
+                      Integer end,
+                      Boolean strict_indexing,
+                      Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -122,8 +127,8 @@ ArrayOf(String) buffer_get_line_slice_ex(Buffer buffer,
   }
 
   bool oob = false;
-  start = normalize_index(buf, start, !include_start, &oob);
-  end = normalize_index(buf, end, include_end, &oob);
+  start = normalize_index(buf, start, &oob);
+  end = normalize_index(buf, end, &oob);
 
   if (strict_indexing && oob) {
     api_set_error(err, Validation, _("Index out of bounds"));
@@ -168,6 +173,7 @@ end:
   return rv;
 }
 
+
 /// Replaces a line range on the buffer
 ///
 /// @param buffer The buffer handle
@@ -186,14 +192,19 @@ void buffer_set_line_slice(Buffer buffer,
                       ArrayOf(String) replacement,
                       Error *err)
 {
-  buffer_set_line_slice_ex(buffer, start, end, include_start, include_end, false, replacement, err);
+  if (!include_start) {
+    start = next_index(start);
+  }
+  if (include_end) {
+    end = next_index(end);
+  }
+  buffer_set_range(buffer, start, end, false, replacement, err);
 }
 
-void buffer_set_line_slice_ex(Buffer buffer,
+
+void buffer_set_range(Buffer buffer,
                       Integer start,
                       Integer end,
-                      Boolean include_start,
-                      Boolean include_end,
                       Boolean strict_indexing,
                       ArrayOf(String) replacement,
                       Error *err)
@@ -205,13 +216,14 @@ void buffer_set_line_slice_ex(Buffer buffer,
   }
 
   bool oob = false;
-  start = normalize_index(buf, start, !include_start, &oob);
-  end = normalize_index(buf, end, include_end, &oob);
+  start = normalize_index(buf, start, &oob);
+  end = normalize_index(buf, end, &oob);
 
   if (strict_indexing && oob) {
     api_set_error(err, Validation, _("Index out of bounds"));
     return;
   }
+
 
   if (start > end) {
     api_set_error(err,
@@ -495,8 +507,10 @@ void buffer_insert(Buffer buffer,
                    ArrayOf(String) lines,
                    Error *err)
 {
-  bool end_start = lnum < 0;
-  buffer_set_line_slice_ex(buffer, lnum, lnum, !end_start, end_start, true, lines, err);
+  // "lnum" will be the index of the line after inserting,
+  // no matter if it is negative or not
+  if (lnum < 0) lnum = next_index(lnum);
+  buffer_set_range(buffer, lnum, lnum, true, lines, err);
 }
 
 /// Return a tuple (row,col) representing the position of the named mark
@@ -567,15 +581,14 @@ static void fix_cursor(linenr_T lo, linenr_T hi, linenr_T extra)
 }
 
 // Normalizes 0-based indexes to buffer line numbers
-static int64_t normalize_index(buf_T *buf, int64_t index, bool next, bool *oob)
+static int64_t normalize_index(buf_T *buf, int64_t index, bool *oob)
 {
   int64_t line_count = buf->b_ml.ml_line_count;
+  if (index == MAXLNUM) {
+    index = line_count;
+  }
   // Fix if < 0
   index = index < 0 ? line_count + index : index;
-
-  if (next) {
-    index++;
-  }
 
   // Check for oob
   if(index > line_count) {
@@ -585,8 +598,13 @@ static int64_t normalize_index(buf_T *buf, int64_t index, bool next, bool *oob)
     *oob = true;
     index = 0;
   }
-
   // Convert the index to a vim line number
   index++;
   return index;
 }
+
+static int64_t next_index(int64_t index)
+{
+  return (index == -1) ? MAXLNUM : index+1;
+}
+

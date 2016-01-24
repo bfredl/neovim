@@ -37,6 +37,7 @@ describe('buffer_* functions #thetest', function()
 
     it('get_line: out-of-bounds is an error', function()
       curbuf('set_line', 0, 'line1.a')
+      eq(1, curbuf('line_count')) -- sanity
       eq(false, pcall(curbuf, 'get_line', 1))
       eq(false, pcall(curbuf, 'get_line', -2))
     end)
