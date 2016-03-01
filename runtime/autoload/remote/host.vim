@@ -215,9 +215,7 @@ function! s:RequirePythonHost(host) abort
   try
     let channel_id = rpcstart((ver == '2' ?
           \ provider#python#Prog() : provider#python3#Prog()), args)
-    if rpcrequest(channel_id, 'poll') == 'ok'
-      return channel_id
-    endif
+    return channel_id
   catch
     echomsg v:throwpoint
     echomsg v:exception

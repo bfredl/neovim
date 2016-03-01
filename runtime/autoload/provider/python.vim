@@ -31,10 +31,7 @@ let s:plugin_path = expand('<sfile>:p:h').'/script_host.py'
 call remote#host#RegisterClone('legacy-python-provider', 'python')
 call remote#host#RegisterPlugin('legacy-python-provider', s:plugin_path, [])
 
-function! provider#python#Call(method, args)
-  if s:err != ''
-    return
-  endif
+function! provider#python#Require()
   if !exists('s:host')
     let s:rpcrequest = function('rpcrequest')
 
@@ -49,5 +46,12 @@ function! provider#python#Call(method, args)
       return
     endtry
   endif
+endfunction
+
+function! provider#python#Call(method, args)
+  if s:err != ''
+    return
+  endif
+  call provider#python#Require()
   return call(s:rpcrequest, insert(insert(a:args, 'python_'.a:method), s:host))
 endfunction
