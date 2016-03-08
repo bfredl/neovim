@@ -143,6 +143,11 @@ void ui_set_icon(char *icon)
   UI_CALL(flush);
 }
 
+void ui_event(char* name, Array args)
+{
+  UI_CALL(event, name, args);
+}
+
 // May update the shape of the cursor.
 void ui_cursor_shape(void)
 {
@@ -519,3 +524,4 @@ static void ui_mode_change(void)
   UI_CALL(mode_change, mode);
   conceal_check_cursur_line();
 }
+

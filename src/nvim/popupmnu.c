@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "nvim/vim.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/ascii.h"
 #include "nvim/popupmnu.h"
 #include "nvim/charset.h"
@@ -21,6 +22,7 @@
 #include "nvim/memory.h"
 #include "nvim/window.h"
 #include "nvim/edit.h"
+#include "nvim/ui.h"
 
 static pumitem_T *pum_array = NULL; // items of displayed pum
 static int pum_size;                // nr of items in "pum_array"
@@ -38,6 +40,8 @@ static int pum_col;                 // left column of pum
 
 static int pum_do_redraw = FALSE;   // do redraw anyway
 
+static bool pum_external = false;
+static bool pum_wants_external = false;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "popupmnu.c.generated.h"
@@ -53,7 +57,7 @@ static int pum_do_redraw = FALSE;   // do redraw anyway
 /// @param array
 /// @param size
 /// @param selected index of initially selected item, none if out of range
-void pum_display(pumitem_T *array, int size, int selected)
+void pum_display(pumitem_T *array, int size, int selected, bool array_changed)
 {
   int w;
   int def_width;
@@ -67,6 +71,34 @@ void pum_display(pumitem_T *array, int size, int selected)
   int col;
   int above_row = cmdline_row;
   int redo_count = 0;
+
+  if (pum_array == NULL) {
+    // To keep the code simple, we only allow changing the
+    // draw mode when the popup menu is not being displayed
+    pum_external = pum_wants_external;
+  }
+
+  if (pum_external) {
+    Array args = ARRAY_DICT_INIT;
+    if (array_changed) {
+      Array arr = ARRAY_DICT_INIT;
+      for (i = 0; i < size; ++i) {
+        Array item = ARRAY_DICT_INIT;
+        ADD(item, STRING_OBJ(cstr_to_string((char *)array[i].pum_text)));
+        ADD(item, STRING_OBJ(cstr_to_string((char *)array[i].pum_kind)));
+        ADD(item, STRING_OBJ(cstr_to_string((char *)array[i].pum_extra)));
+        ADD(item, STRING_OBJ(cstr_to_string((char *)array[i].pum_info)));
+        ADD(arr, ARRAY_OBJ(item));
+      }
+      ADD(args, ARRAY_OBJ(arr));
+      ADD(args, INTEGER_OBJ(selected));
+      ui_event("popupmenu_show", args);
+    } else {
+      ADD(args, INTEGER_OBJ(selected));
+      ui_event("popupmenu_select", args);
+    }
+    return;
+  }
 
 redo:
   def_width = PUM_DEF_WIDTH;
@@ -268,6 +300,7 @@ redo:
   if (pum_set_selected(selected, redo_count) && (++redo_count <= 2)) {
     goto redo;
   }
+
 }
 
 /// Redraw the popup menu, using "pum_first" and "pum_selected".
@@ -673,9 +706,15 @@ static int pum_set_selected(int n, int repeat)
 void pum_undisplay(void)
 {
   pum_array = NULL;
-  redraw_all_later(SOME_VALID);
-  redraw_tabline = TRUE;
-  status_redraw_all();
+
+  if (pum_external) {
+    Array args = ARRAY_DICT_INIT;
+    ui_event("popupmenu_hide", args);
+  } else {
+    redraw_all_later(SOME_VALID);
+    redraw_tabline = TRUE;
+    status_redraw_all();
+  }
 }
 
 /// Clear the popup menu.  Currently only resets the offset to the first
@@ -693,6 +732,14 @@ int pum_visible(void)
   return !pum_do_redraw && pum_array != NULL;
 }
 
+/// Overruled when "pum_do_redraw" is set, used to redraw the status lines.
+///
+/// @return TRUE if the popup menu is displayed.
+int pum_drawn(void)
+{
+  return pum_visible() && !pum_external;
+}
+
 /// Gets the height of the menu.
 ///
 /// @return the height of the popup menu, the number of entries visible.
@@ -700,4 +747,9 @@ int pum_visible(void)
 int pum_get_height(void)
 {
   return pum_height;
+}
+
+void pum_set_external(bool external)
+{
+  pum_wants_external = external;
 }

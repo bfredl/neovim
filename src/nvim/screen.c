@@ -421,7 +421,7 @@ void update_screen(int type)
   }
   end_search_hl();
   /* May need to redraw the popup menu. */
-  if (pum_visible())
+  if (pum_drawn())
     pum_redraw();
 
   /* Reset b_mod_set flags.  Going through all windows is probably faster
@@ -4824,7 +4824,7 @@ void win_redr_status(win_T *wp)
   } else if (!redrawing()
              /* don't update status line when popup menu is visible and may be
               * drawn over it */
-             || pum_visible()
+             || pum_drawn()
              ) {
     /* Don't redraw right now, do it later. */
     wp->w_redr_status = TRUE;
@@ -7073,7 +7073,7 @@ void showruler(int always)
 {
   if (!always && !redrawing())
     return;
-  if (pum_visible()) {
+  if (pum_drawn()) {
     /* Don't redraw right now, do it later. */
     curwin->w_redr_status = TRUE;
     return;
@@ -7112,7 +7112,7 @@ static void win_redr_ruler(win_T *wp, int always)
     if (edit_submode != NULL)
       return;
   /* Don't draw the ruler when the popup menu is visible, it may overlap. */
-  if (pum_visible())
+  if (pum_drawn())
     return;
 
   if (*p_ruf) {
@@ -7363,7 +7363,7 @@ void screen_resize(int width, int height)
         redrawcmdline();
       } else {
         update_topline();
-        if (pum_visible()) {
+        if (pum_drawn()) {
           redraw_later(NOT_VALID);
           ins_compl_show_pum();           /* This includes the redraw. */
         } else
