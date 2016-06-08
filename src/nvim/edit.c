@@ -179,6 +179,10 @@ static expand_T compl_xp;
 
 static int compl_opt_refresh_always = FALSE;
 
+static int pum_selected_item = -1;
+static int pum_request_wanted_item = -1;
+static int pum_request_mode = -1;
+
 typedef struct insert_state {
   VimState state;
   cmdarg_T *ca;
@@ -970,6 +974,19 @@ static int insert_handle_key(InsertState *s)
 
   case K_EVENT:       // some event
     multiqueue_process_events(main_loop.events);
+    // not sure this indirection is necessary
+    // but ensures we only do completion
+    // in a valid state
+    if (pum_request_mode >= 0) {
+      if (pum_visible()) {
+        insert_do_complete(s);
+        if (pum_request_mode == 2) {
+          // accept the item and stop completion
+          ins_compl_prep(Ctrl_Y);
+        }
+      }
+      pum_request_mode = -1;
+    }
     break;
 
   case K_FOCUSGAINED:  // Neovim has been given focus
@@ -2593,6 +2610,7 @@ void ins_compl_show_pum(void)
   // Use the cursor to get all wrapping and other settings right.
   col = curwin->w_cursor.col;
   curwin->w_cursor.col = compl_col;
+  pum_selected_item = cur;
   pum_display(compl_match_array, compl_match_arraysize, cur, array_changed);
   curwin->w_cursor.col = col;
 }
@@ -4213,6 +4231,14 @@ ins_compl_next (
   return num_matches;
 }
 
+void pum_external_select_item(int item, int mode) {
+  if (!pum_visible() || item < -1 || item >= compl_match_arraysize) {
+    pum_request_mode = -1;
+  }
+  pum_request_wanted_item = item;
+  pum_request_mode = mode;
+}
+
 // Call this while finding completions, to check whether the user has hit a key
 // that should change the currently displayed completion, or exit completion
 // mode.  Also, when compl_pending is not zero, show a completion as soon as
@@ -4273,6 +4299,9 @@ void ins_compl_check_keys(int frequency, int in_compl_func)
  */
 static int ins_compl_key2dir(int c)
 {
+  if (c == K_EVENT) {
+    return pum_request_wanted_item < pum_selected_item ? BACKWARD : FORWARD;
+  }
   if (c == Ctrl_P || c == Ctrl_L
       || c == K_PAGEUP || c == K_KPAGEUP
       || c == K_S_UP || c == K_UP) {
@@ -4300,6 +4329,11 @@ static int ins_compl_key2count(int c)
 {
   int h;
 
+  if (c == K_EVENT) {
+    int offset = pum_request_wanted_item - pum_selected_item;
+    return abs(offset);
+  }
+
   if (ins_compl_pum_key(c) && c != K_UP && c != K_DOWN) {
     h = pum_get_height();
     if (h > 3)
@@ -4326,6 +4360,8 @@ static bool ins_compl_use_match(int c)
   case K_KPAGEUP:
   case K_S_UP:
     return false;
+  case K_EVENT:
+    return pum_request_mode > 0;
   }
   return true;
 }

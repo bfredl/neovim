@@ -11,6 +11,7 @@
 #include "nvim/api/ui.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
+#include "nvim/edit.h"
 #include "nvim/popupmnu.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -182,6 +183,24 @@ static void ui_set_option(UI *ui, String name, Object value, Error *error) {
   } else {
     api_set_error(error, Validation, _("No such ui option"));
   }
+}
+
+/// mode:
+///  0: select only
+///  1: select and insert
+///  2: insert and close popup menu
+void nvim_ui_popupmenu_select_item(uint64_t channel_id, Integer item, Integer mode, Error *error)
+{
+  if (!pmap_has(uint64_t)(connected_uis, channel_id)) {
+    api_set_error(error, Exception, _("UI is not attached for channel"));
+    return;
+  }
+  if (mode < 0 || mode > 2) {
+    api_set_error(error, Validation, _("Expected 0 <= mode <= 2"));
+    return;
+  }
+
+  pum_external_select_item(item, mode);
 }
 
 static void push_call(UI *ui, char *name, Array args)
