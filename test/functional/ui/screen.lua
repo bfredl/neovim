@@ -106,7 +106,7 @@
 -- use `screen:snapshot_util({},true)`
 
 local helpers = require('test.functional.helpers')(nil)
-local request, run = helpers.request, helpers.run
+local request, run, uimeths = helpers.request, helpers.run, helpers.uimeths
 local dedent = helpers.dedent
 
 local Screen = {}
@@ -196,15 +196,15 @@ function Screen:attach(rgb)
   if rgb == nil then
     rgb = true
   end
-  request('ui_attach', self._width, self._height, rgb)
+  uimeths.attach(self._width, self._height, rgb)
 end
 
 function Screen:detach()
-  request('ui_detach')
+  uimeths.detach()
 end
 
 function Screen:try_resize(columns, rows)
-  request('ui_try_resize', columns, rows)
+  uimeths.try_resize(columns, rows)
 end
 
 function Screen:expect(expected, attr_ids, attr_ignore)
@@ -301,10 +301,18 @@ function Screen:_redraw(updates)
     local method = update[1]
     for i = 2, #update do
       local handler = self['_handle_'..method]
-      handler(self, unpack(update[i]))
+      if handler ~= nil then
+        handler(self, unpack(update[i]))
+      else
+        self._on_event(method, update[i])
+      end
     end
     -- print(self:_current_screen())
   end
+end
+
+function Screen:on_event(callback)
+  self._on_event = callback
 end
 
 function Screen:_handle_resize(width, height)

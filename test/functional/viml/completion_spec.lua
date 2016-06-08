@@ -1,6 +1,6 @@
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
-local clear, feed = helpers.clear, helpers.feed
+local clear, feed, uimeths = helpers.clear, helpers.feed, helpers.uimeths
 local eval, eq, neq = helpers.eval, helpers.eq, helpers.neq
 local execute, source, expect = helpers.execute, helpers.source, helpers.expect
 
@@ -761,4 +761,50 @@ describe('completion', function()
       ]], {[8] = {reverse = true}, [9] = {bold = true, reverse = true}})
     end)
   end)
+
+  describe('with external popupmenu', function()
+    local visible = false
+    local items, selected
+    before_each(function()
+      screen:on_event(function(name, data)
+        if name == "popupmenu_show" then
+          visible = true
+          items, selected = unpack(data)
+        elseif name == "popupmenu_select" then
+          selected = data[1]
+        elseif name == "popupmenu_hide" then
+          visible = false
+        end
+      end)
+      uimeths.set_popupmenu_external(true)
+    end)
+
+    it('works', function()
+      source([[
+      function! TestComplete() abort
+        call complete(1, ['foo', 'bar', 'spam'])
+        return ''
+      endfunction
+      ]])
+      feed('o<C-r>=TestComplete()<CR>')
+      screen:expect([[
+                                                                    |
+        foo^                                                         |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        {3:-- INSERT --}                                                |
+      ]])
+      eq({
+        {'foo', '', '', ''},
+        {'bar', '', '', ''},
+        {'spam', '', '', ''},
+      }, items)
+      eq(0, selected)
+      -- MORE
+    end)
+  end)
+
 end)
