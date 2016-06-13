@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <math.h>
 
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
@@ -64,6 +65,9 @@
  */
 typedef struct sign sign_T;
 
+// boolean to know if we have to undo
+static int EVENT_SUB = 0;
+static int sub_done = 0;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ex_cmds.c.generated.h"
@@ -2915,14 +2919,15 @@ void do_sub(exarg_T *eap)
   linenr_T lnum;
   long i = 0;
   regmmatch_T regmatch;
-  static int do_all = FALSE;            /* do multiple substitutions per line */
-  static int do_ask = FALSE;            /* ask for confirmation */
-  static bool do_count = false;         /* count only */
-  static int do_error = TRUE;           /* if false, ignore errors */
-  static int do_print = FALSE;          /* print last line with subs. */
-  static int do_list = FALSE;           /* list last line with subs. */
-  static int do_number = FALSE;         /* list last line with line nr*/
-  static int do_ic = 0;                 /* ignore case flag */
+  static int do_all = false;            // do multiple substitutions per line
+  static int do_ask = false;            // ask for confirmation
+  static bool do_count = false;         // count only
+  // if live mode, ignore errors
+  static int do_error = false;          // if false, ignore errors
+  static int do_print = false;          // print last line with subs.
+  static int do_list = false;           // list last line with subs.
+  static int do_number = false;         // list last line with line nr
+  static int do_ic = 0;                 // ignore case flag
   int save_do_all;                      // remember user specified 'g' flag
   int save_do_ask;                      // remember user specified 'c' flag
   char_u      *pat = NULL, *sub = NULL;         /* init for GCC */
@@ -2945,6 +2950,16 @@ void do_sub(exarg_T *eap)
   pos_T old_cursor = curwin->w_cursor;
   int start_nsubs;
   int save_ma = 0;
+
+  sub_done = 0;
+  bool last_is_slash = false;
+  char_u *c = eap->arg;
+
+  // checking if the last char of the cmdline is a '/'
+  while (*c != '\0') {
+    c++;
+  }
+  last_is_slash = (*(c-1) == '/');
 
   cmd = eap->arg;
   if (!global_busy) {
@@ -3030,7 +3045,7 @@ void do_sub(exarg_T *eap)
 
   // Recognize ":%s/\n//" and turn it into a join command, which is much
   // more efficient.
-  // TODO: find a generic solution to make line-joining operations more
+  // TODO(brammool): find a generic solution to make line-joining operations more
   // efficient, avoid allocating a string that grows in size.
   if (pat != NULL
       && strcmp((const char *)pat, "\\n") == 0
@@ -3078,9 +3093,9 @@ void do_sub(exarg_T *eap)
     // default is global on
     do_all = p_gd ? TRUE : FALSE;
 
-    do_ask = FALSE;
-    do_error = TRUE;
-    do_print = FALSE;
+    do_ask = false;
+    do_error = (EVENT_COLON == 1) ? false : true;
+    do_print = false;
     do_count = false;
     do_number = FALSE;
     do_ic = 0;
@@ -3147,8 +3162,10 @@ void do_sub(exarg_T *eap)
     }
   }
 
-  if (eap->skip)            /* not executing commands, only parsing */
+  // not executing commands, only parsing
+  if (eap->skip) {
     return;
+  }
 
   if (!do_count && !MODIFIABLE(curbuf)) {
     /* Substitution is not allowed in non-'modifiable' buffer */
@@ -3156,10 +3173,12 @@ void do_sub(exarg_T *eap)
     return;
   }
 
-  if (search_regcomp(pat, RE_SUBST, which_pat, SEARCH_HIS,
-          &regmatch) == FAIL) {
-    if (do_error)
+  int searchRC_option = (EVENT_COLON) ? 0 : SEARCH_HIS;
+  if (search_regcomp(pat, RE_SUBST, which_pat, searchRC_option,
+                     &regmatch) == FAIL) {
+    if (do_error) {
       EMSG(_(e_invcmd));
+    }
     return;
   }
 
@@ -3182,6 +3201,11 @@ void do_sub(exarg_T *eap)
   /*
    * Check for a match on each line.
    */
+
+  //  list to save matched lines
+  //  Note: Could not use nolint with rule, line would be > 100 chars
+  klist_t(matchedline_T) *lmatch = kl_init(matchedline_T); // NOLINT
+
   line2 = eap->line2;
   for (lnum = eap->line1; lnum <= line2 && !(got_quit
                                              || aborting()
@@ -3251,6 +3275,8 @@ void do_sub(exarg_T *eap)
       sub_firstlnum = lnum;
       copycol = 0;
       matchcol = 0;
+      // the current match
+      matchedline_T cmatch = { 0, 0, NULL, kl_init(colnr_T) };
 
       /* At first match, remember current cursor position. */
       if (!got_match) {
@@ -3285,7 +3311,11 @@ void do_sub(exarg_T *eap)
         /* Save the line number of the last change for the final
          * cursor position (just like Vi). */
         curwin->w_cursor.lnum = lnum;
-        do_again = FALSE;
+        do_again = false;
+
+        // increment number of match on the line and store the column
+        cmatch.nmatch++;
+        kl_push(colnr_T, cmatch.start_col, regmatch.startpos[0].col);
 
         /*
          * 1. Match empty string does not count, except for first
@@ -3336,7 +3366,7 @@ void do_sub(exarg_T *eap)
             goto skip;
         }
 
-        if (do_ask) {
+        if (do_ask && !EVENT_COLON) {
           int typed = 0;
 
           /* change State to CONFIRM, so that the mouse works
@@ -3507,24 +3537,26 @@ void do_sub(exarg_T *eap)
          * use "\=col("."). */
         curwin->w_cursor.col = regmatch.startpos[0].col;
 
-        /*
-         * 3. substitute the string.
-         */
-        if (do_count) {
-          /* prevent accidentally changing the buffer by a function */
-          save_ma = curbuf->b_p_ma;
-          curbuf->b_p_ma = FALSE;
-          sandbox++;
-        }
-        /* get length of substitution part */
-        sublen = vim_regsub_multi(&regmatch,
-            sub_firstlnum - regmatch.startpos[0].lnum,
-            sub, sub_firstline, FALSE, p_magic, TRUE);
-        if (do_count) {
-          curbuf->b_p_ma = save_ma;
-          sandbox--;
-          goto skip;
-        }
+        //
+        // 3. substitute the string. don't do this while live_substitution and
+        //    there's no word to replace by eg : ":%s/pattern"
+        //
+        if (!(EVENT_COLON && sub[0] == '\0' && !last_is_slash)) {
+          if (do_count) {
+            // prevent accidentally changing the buffer by a function
+            save_ma = curbuf->b_p_ma;
+            curbuf->b_p_ma = false;
+            sandbox++;
+          }
+          // get length of substitution part
+          sublen = vim_regsub_multi(&regmatch,
+                                    sub_firstlnum - regmatch.startpos[0].lnum,
+                                    sub, sub_firstline, false, p_magic, true);
+          if (do_count) {
+            curbuf->b_p_ma = save_ma;
+            sandbox--;
+            goto skip;
+          }
 
         /* When the match included the "$" of the last line it may
          * go beyond the last line of the buffer. */
@@ -3533,122 +3565,126 @@ void do_sub(exarg_T *eap)
           skip_match = TRUE;
         }
 
-        /* Need room for:
-         * - result so far in new_start (not for first sub in line)
-         * - original text up to match
-         * - length of substituted part
-         * - original text after match
-         */
-        if (nmatch == 1)
-          p1 = sub_firstline;
-        else {
-          p1 = ml_get(sub_firstlnum + nmatch - 1);
-          nmatch_tl += nmatch - 1;
-        }
-        copy_len = regmatch.startpos[0].col - copycol;
-        needed_len = copy_len + ((unsigned)STRLEN(p1)
-                                 - regmatch.endpos[0].col) + sublen + 1;
-        if (new_start == NULL) {
-          /*
-           * Get some space for a temporary buffer to do the
-           * substitution into (and some extra space to avoid
-           * too many calls to xmalloc()/free()).
-           */
-          new_start_len = needed_len + 50;
-          new_start = xmalloc(new_start_len);
-          *new_start = NUL;
-          new_end = new_start;
-        } else {
-          /*
-           * Check if the temporary buffer is long enough to do the
-           * substitution into.  If not, make it larger (with a bit
-           * extra to avoid too many calls to xmalloc()/free()).
-           */
-          len = (unsigned)STRLEN(new_start);
-          needed_len += len;
-          if (needed_len > (int)new_start_len) {
-            new_start_len = needed_len + 50;
-            new_start = xrealloc(new_start, new_start_len);
+          // Need room for:
+          // - result so far in new_start (not for first sub in line)
+          // - original text up to match
+          // - length of substituted part
+          // - original text after match
+          //
+          if (nmatch == 1) {
+            p1 = sub_firstline;
+          } else {
+            p1 = ml_get(sub_firstlnum + nmatch - 1);
+            nmatch_tl += nmatch - 1;
           }
-          new_end = new_start + len;
-        }
-
-        /*
-         * copy the text up to the part that matched
-         */
-        memmove(new_end, sub_firstline + copycol, (size_t)copy_len);
-        new_end += copy_len;
-
-        (void)vim_regsub_multi(&regmatch,
-            sub_firstlnum - regmatch.startpos[0].lnum,
-            sub, new_end, TRUE, p_magic, TRUE);
-        sub_nsubs++;
-        did_sub = TRUE;
-
-        /* Move the cursor to the start of the line, to avoid that it
-         * is beyond the end of the line after the substitution. */
-        curwin->w_cursor.col = 0;
-
-        /* For a multi-line match, make a copy of the last matched
-         * line and continue in that one. */
-        if (nmatch > 1) {
-          sub_firstlnum += nmatch - 1;
-          xfree(sub_firstline);
-          sub_firstline = vim_strsave(ml_get(sub_firstlnum));
-          /* When going beyond the last line, stop substituting. */
-          if (sub_firstlnum <= line2)
-            do_again = TRUE;
-          else
-            do_all = FALSE;
-        }
-
-        /* Remember next character to be copied. */
-        copycol = regmatch.endpos[0].col;
-
-        if (skip_match) {
-          /* Already hit end of the buffer, sub_firstlnum is one
-           * less than what it ought to be. */
-          xfree(sub_firstline);
-          sub_firstline = vim_strsave((char_u *)"");
-          copycol = 0;
-        }
-
-        /*
-         * Now the trick is to replace CTRL-M chars with a real line
-         * break.  This would make it impossible to insert a CTRL-M in
-         * the text.  The line break can be avoided by preceding the
-         * CTRL-M with a backslash.  To be able to insert a backslash,
-         * they must be doubled in the string and are halved here.
-         * That is Vi compatible.
-         */
-        for (p1 = new_end; *p1; ++p1) {
-          if (p1[0] == '\\' && p1[1] != NUL)            /* remove backslash */
-            STRMOVE(p1, p1 + 1);
-          else if (*p1 == CAR) {
-            if (u_inssub(lnum) == OK) {             /* prepare for undo */
-              *p1 = NUL;                            /* truncate up to the CR */
-              ml_append(lnum - 1, new_start,
-                  (colnr_T)(p1 - new_start + 1), FALSE);
-              mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L);
-              if (do_ask)
-                appended_lines(lnum - 1, 1L);
-              else {
-                if (first_line == 0)
-                  first_line = lnum;
-                last_line = lnum + 1;
-              }
-              /* All line numbers increase. */
-              ++sub_firstlnum;
-              ++lnum;
-              ++line2;
-              /* move the cursor to the new line, like Vi */
-              ++curwin->w_cursor.lnum;
-              /* copy the rest */
-              STRMOVE(new_start, p1 + 1);
-              p1 = new_start - 1;
+          copy_len = regmatch.startpos[0].col - copycol;
+          needed_len = copy_len + ((unsigned)STRLEN(p1)
+                                   - regmatch.endpos[0].col) + sublen + 1;
+          if (new_start == NULL) {
+            //
+            // Get some space for a temporary buffer to do the
+            // substitution into (and some extra space to avoid
+            // too many calls to xmalloc()/free()).
+            //
+            new_start_len = needed_len + 50;
+            new_start = xmalloc(new_start_len);
+            *new_start = NUL;
+            new_end = new_start;
+          } else {
+            //
+            // Check if the temporary buffer is long enough to do the
+            // substitution into.  If not, make it larger (with a bit
+            // extra to avoid too many calls to xmalloc()/free()).
+            //
+            len = (unsigned)STRLEN(new_start);
+            needed_len += len;
+            if (needed_len > (int)new_start_len) {
+              new_start_len = needed_len + 50;
+              new_start = xrealloc(new_start, new_start_len);
             }
-          } else if (has_mbyte)
-            p1 += (*mb_ptr2len)(p1) - 1;
+            new_end = new_start + len;
+          }
+
+          //
+          // copy the text up to the part that matched
+          //
+          memmove(new_end, sub_firstline + copycol, (size_t)copy_len);
+          new_end += copy_len;
+
+          (void)vim_regsub_multi(&regmatch,
+                                 sub_firstlnum - regmatch.startpos[0].lnum,
+                                 sub, new_end, true, p_magic, true);
+          sub_nsubs++;
+          did_sub = true;
+
+          // Move the cursor to the start of the line, to avoid that it
+          // is beyond the end of the line after the substitution.
+          curwin->w_cursor.col = 0;
+
+          // For a multi-line match, make a copy of the last matched
+          // line and continue in that one.
+          if (nmatch > 1) {
+            sub_firstlnum += nmatch - 1;
+            xfree(sub_firstline);
+            sub_firstline = vim_strsave(ml_get(sub_firstlnum));
+            // When going beyond the last line, stop substituting.
+            if (sub_firstlnum <= line2) {
+              do_again = true;
+            } else {
+              do_all = false;
+            }
+          }
+
+          // Remember next character to be copied.
+          copycol = regmatch.endpos[0].col;
+
+          if (skip_match) {
+            // Already hit end of the buffer, sub_firstlnum is one
+            // less than what it ought to be.
+            xfree(sub_firstline);
+            sub_firstline = vim_strsave((char_u *) "");
+            copycol = 0;
+          }
+
+          //
+          // Now the trick is to replace CTRL-M chars with a real line
+          // break.  This would make it impossible to insert a CTRL-M in
+          // the text.  The line break can be avoided by preceding the
+          // CTRL-M with a backslash.  To be able to insert a backslash,
+          // they must be doubled in the string and are halved here.
+          // That is Vi compatible.
+          //
+          for (p1 = new_end; *p1; p1++) {
+            if (p1[0] == '\\' && p1[1] != NUL) {            // remove backslash
+              STRMOVE(p1, p1 + 1);
+            } else if (*p1 == CAR) {
+              if (u_inssub(lnum) == OK) {             // prepare for undo
+                *p1 = NUL;                            // truncate up to the CR
+                ml_append(lnum - 1, new_start,
+                          (colnr_T)(p1 - new_start + 1), false);
+                mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L);
+                if (do_ask) {
+                  appended_lines(lnum - 1, 1L);
+                } else {
+                  if (first_line == 0) {
+                    first_line = lnum;
+                  }
+                  last_line = lnum + 1;
+                }
+                // All line numbers increase.
+                sub_firstlnum++;
+                lnum++;
+                line2++;
+                // move the cursor to the new line, like Vi
+                curwin->w_cursor.lnum++;
+                // copy the rest
+                STRMOVE(new_start, p1 + 1);
+                p1 = new_start - 1;
+              }
+            } else if (has_mbyte) {
+              p1 += (*mb_ptr2len)(p1) - 1;
+            }
+          }
         }
 
         /*
@@ -3769,6 +3805,12 @@ skip:
       xfree(new_start);              /* for when substitute was cancelled */
       xfree(sub_firstline);          /* free the copy of the original line */
       sub_firstline = NULL;
+
+      // saving info about the matched line
+      cmatch.lnum = lnum;
+      cmatch.line = vim_strsave(ml_get(lnum));
+
+      kl_push(matchedline_T, lmatch, cmatch);
     }
 
     line_breakcheck();
@@ -3801,12 +3843,17 @@ skip:
         else
           beginline(BL_WHITE | BL_FIX);
       }
-      if (!do_sub_msg(do_count) && do_ask)
-        MSG("");
-    } else
-      global_need_beginline = TRUE;
-    if (do_print)
+      if (EVENT_COLON != 1) {  // live_mode : no message in command line
+        if (!do_sub_msg(do_count) && do_ask) {
+          MSG("");
+        }
+      }
+    } else {
+      global_need_beginline = true;
+    }
+    if (do_print) {
       print_line(curwin->w_cursor.lnum, do_number, do_list);
+    }
   } else if (!global_busy) {
     if (got_int)                /* interrupted */
       EMSG(_(e_interr));
@@ -3826,6 +3873,20 @@ skip:
   // Restore the flag values, they can be used for ":&&".
   do_all = save_do_all;
   do_ask = save_do_ask;
+
+
+  // live_sub if sub on the whole file and there are results to display
+  if (!kl_empty(lmatch)) {
+    // we did a livesub only if we had no word to replace by and no slash to end
+    if (!(EVENT_COLON && sub[0] == '\0' && !last_is_slash)) {
+      sub_done = 1;
+    }
+    if (pat != NULL && p_lsu) {
+      ex_window_live_sub(pat, sub, lmatch, eap[0].cmdlinep[0][0] != 's');
+    }
+  }
+
+  kl_destroy(matchedline_T, lmatch);
 }
 
 /*
@@ -5844,5 +5905,293 @@ void set_context_in_sign_cmd(expand_T *xp, char_u *arg)
       default:
         xp->xp_context = EXPAND_NOTHING;
     }
+  }
+}
+
+/// function called after a live command to get back to
+/// a normal state
+/// validate can take two values :
+///     0 if the live_command has not been validated
+///     1 if the user has validated the command
+void finish_live_cmd(int save_state,
+                     garray_T *winsizes,
+                     int save_exmode,
+                     int save_restart_edit,
+                     int save_cmdmsg_rl,
+                     int validate) {
+  block_autocmds();
+
+  if (validate == 0 && sub_done == 1) {
+    do_cmdline_cmd(":u");
+    sub_done = 0;
+  }
+
+  // Restore window sizes.
+  if (winsizes != NULL) {
+    win_size_restore(winsizes);
+    ga_clear(winsizes);
+  }
+
+  unblock_autocmds();
+
+  char_u typestr[2];
+  typestr[0] = cmdwin_type;
+  typestr[1] = NUL;
+  apply_autocmds(EVENT_CMDWINLEAVE, typestr, typestr, false, curbuf);
+
+  exmode_active = save_exmode;
+  restart_edit = save_restart_edit;
+  cmdmsg_rl = save_cmdmsg_rl;
+
+  cmdwin_type = 0;
+  RedrawingDisabled = 0;
+
+  State = save_state;
+  setmouse();
+  update_screen(0);
+}
+
+/// ex_window_live_sub()
+/// Open a window for future displaying of the live_sub mode.
+///
+/// Does not allow editing in the window.
+/// Returns when the window is closed.
+///
+/// @param pat the pattern word
+/// @param sub the replacement word
+/// @param lmatch the list containing our data
+void ex_window_live_sub(char_u * pat,
+                        char_u * sub,
+                        klist_t(matchedline_T) *lmatch, // NOLINT
+                        bool split)
+FUNC_ATTR_NONNULL_ARG(1, 2, 3)
+{
+  garray_T winsizes;
+  int save_restart_edit = restart_edit;
+  int save_State = State;
+  int save_exmode = exmode_active;
+  int save_cmdmsg_rl = cmdmsg_rl;
+
+  // Can't do this recursively.  Can't do it when typing a password.
+  if (cmdline_star > 0) {
+    beep_flush();
+    return;
+  }
+
+  // Save current window sizes.
+  win_size_save(&winsizes);
+
+  // Save the current window to restore it later
+  win_T *oldwin = curwin;
+
+  if (split) {
+    // Don't execute autocommands while creating the window.
+    block_autocmds();
+    // don't use a new tab page
+    cmdmod.tab = 0;
+
+    // Create a window for the command-line buffer.
+    if (win_split((int)p_cwh, WSP_BOT) == FAIL) {
+      beep_flush();
+      unblock_autocmds();
+      return;
+    }
+    cmdwin_type = get_cmdline_type();
+
+    // Create the command-line buffer empty.
+    (void)do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE, NULL);
+    (void)setfname(curbuf, (char_u *) "[live_sub]", NULL, true);
+    set_option_value((char_u *) "bt", 0L, (char_u *) "nofile", OPT_LOCAL);
+    set_option_value((char_u *) "swf", 0L, NULL, OPT_LOCAL);
+    curbuf->b_p_ma = false;  // Not Modifiable
+    curwin->w_p_fen = false;
+    curwin->w_p_rl = cmdmsg_rl;
+    cmdmsg_rl = false;
+    RESET_BINDING(curwin);
+
+    // Do execute autocommands for setting the filetype (load syntax).
+    unblock_autocmds();
+
+    // Showing the prompt may have set need_wait_return, reset it.
+    need_wait_return = false;
+
+    // Reset 'textwidth' after setting 'filetype'
+    // (the Vim filetype plugin sets 'textwidth' to 78).
+    curbuf->b_p_tw = 0;
+
+    // Save the buffer used in the split
+    livebuf = curbuf;
+
+    // Initialize line and highlight variables
+    int line = 0;
+    int src_id_highlight = 0;
+    long sub_size = STRLEN(sub);
+    long pat_size = STRLEN(pat);
+
+    // Get the width of the column which display the number of the line
+    linenr_T highest_num_line = 0;
+    kl_iter(matchedline_T, lmatch, current) {
+      highest_num_line = (*current)->data.lnum;
+    }
+
+    // computing the length of the column that will display line number
+    int col_width = log10(highest_num_line) + 1 + 3;
+
+    // will be allocated in the loop
+    char *str = NULL;
+
+    size_t old_line_size = 0;
+    size_t line_size;
+
+    // Append the lines to our buffer
+    kl_iter(matchedline_T, lmatch, current) {
+      matchedline_T mat = (*current)->data;
+      line_size = STRLEN(mat.line) + col_width + 1;
+
+      // Reallocation if str not long enough
+      if (line_size > old_line_size) {
+        str = xrealloc(str, line_size * sizeof(char));
+        old_line_size = line_size;
+      }
+
+      // put ' [ lnum]line' into str and append it to the livesub buffer
+      snprintf(str, line_size, " [%*ld]%s", col_width - 3, mat.lnum, mat.line);
+      ml_append(line++, (char_u *)str, (colnr_T)line_size, false);
+
+      // highlight the replaced part
+      if (sub_size > 0) {
+        int i = 0;
+        int hlgroup_ls = syn_check_group((char_u *)"LiveSub", 7);
+
+        kl_iter(colnr_T, mat.start_col, col) {
+          src_id_highlight =
+          bufhl_add_hl(curbuf,
+                       src_id_highlight,
+                       hlgroup_ls,  // id of our highlight
+                       line,
+                       (*col)->data + col_width + i * (sub_size - pat_size) + 1,
+                       (*col)->data + col_width + i * (sub_size - pat_size) +
+                       sub_size);
+        }
+        i++;
+      }
+    }
+    xfree(str);
+  }
+
+  redraw_later(SOME_VALID);
+
+  // Restore the old window
+  win_enter(oldwin, false);
+  finish_live_cmd(save_State, &winsizes, save_exmode,
+                  save_restart_edit, save_cmdmsg_rl, 1);
+
+  return;
+}
+
+/// Parse the substitution command line
+//
+/// @param eap arguments of the substitution
+/// @return cmdl_progress
+/// @see LiveSub_state definition
+LiveSub_state parse_sub_cmd(exarg_T *eap) {
+  int i = 0;
+  LiveSub_state cmdl_progress;
+
+  //TODO: bfredl's comment
+  //TODO: https://github.com/neovim/neovim/pull/4915#discussion_r67362812
+  if (eap->arg[i++] != '/') {
+    return LS_NO_WD;
+  }
+
+  if (eap->arg[i++] == 0) {
+    return LS_NO_WD;
+  } else {
+    cmdl_progress = LS_ONE_WD;
+    while (eap->arg[i] != 0) {
+      if (eap->arg[i] == '/' && eap->arg[i-1] != '\\') {
+        cmdl_progress = (eap->arg[i+1] == 0) ? LS_TWO_SLASH_ONE_WD : LS_TWO_WD;
+        break;
+      }
+      i++;
+    }
+  }
+  return cmdl_progress;
+}
+
+/// This function is called when CMD_SUBSTITUTE is detected
+/// It will then proceed to launch do_sub() and ':u'
+/// at every new character typed in the cmdbuff according to the
+/// actual state of the live_substitution
+void do_live_sub(exarg_T *eap) {
+  // if livesub disabled, do it the classical way
+  if (!p_lsu) {
+    do_sub(eap);
+    return;
+  }
+
+  // count the number of '/' to know how many words can be parsed
+  LiveSub_state cmdl_progress = parse_sub_cmd(eap);
+
+  char_u *arg;
+  char_u *tmp;
+
+  switch (cmdl_progress) {
+    case LS_NO_WD:
+      if (!EVENT_COLON) {
+        do_sub(eap);
+      }
+      break;
+    case LS_ONE_WD:
+      if (EVENT_SUB == 1 && sub_done == 1) {
+        //TODO: bfredl's comment
+        //TODO: https://github.com/neovim/neovim/pull/4915#discussion_r67365823
+        do_cmdline_cmd(":u");
+        sub_done = 0;
+        EVENT_SUB = 0;
+      }
+      // The lengh of the new arg is lower than twice the length of the command
+      arg = xcalloc(2 * STRLEN(eap->arg) + 1, sizeof(char_u));
+
+      // Save the state of eap
+      tmp = eap->arg;
+
+      // Highlight the word and open the split
+      do_sub(eap);
+      if (sub_done == 1) {
+        do_cmdline_cmd(":u");  // to not polue the undo history
+        sub_done = 0;
+      }
+      // Put back eap in first state
+      eap->arg = tmp;
+
+      xfree(arg);
+
+      break;
+
+    case LS_TWO_SLASH_ONE_WD:  // live_sub will remove the arg
+    case LS_TWO_WD:  // live_sub needs to undo
+      if (EVENT_SUB == 1 && sub_done == 1) {
+        do_cmdline_cmd(":u");
+        sub_done = 0;
+      }
+      do_sub(eap);
+      EVENT_SUB = 1;
+      break;
+
+    default:
+      break;
+  }
+
+  update_screen(0);
+  if (livebuf != NULL && buf_valid(livebuf)) {
+    close_windows(livebuf, false);
+    close_buffer(NULL, livebuf, DOBUF_WIPE, false);
+  }
+  redraw_later(SOME_VALID);
+
+  if (!EVENT_COLON) {
+    EVENT_SUB = 0;
+    normal_enter(false, false);
   }
 }

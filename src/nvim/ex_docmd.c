@@ -271,8 +271,13 @@ do_exmode (
  */
 int do_cmdline_cmd(char *cmd)
 {
+  if (EVENT_COLON == 1) {
+    return do_cmdline((char_u *)cmd, NULL, NULL,
+                      DOCMD_NOWAIT|DOCMD_KEYTYPED);
+  } else {
   return do_cmdline((char_u *)cmd, NULL, NULL,
-      DOCMD_VERBOSE|DOCMD_NOWAIT|DOCMD_KEYTYPED);
+                    DOCMD_VERBOSE|DOCMD_NOWAIT|DOCMD_KEYTYPED);
+  }
 }
 
 /*
@@ -597,11 +602,17 @@ int do_cmdline(char_u *cmdline, LineGetter fgetline,
      *    do_one_cmd() will return NULL if there is no trailing '|'.
      *    "cmdline_copy" can change, e.g. for '%' and '#' expansion.
      */
-    ++recursive;
-    next_cmdline = do_one_cmd(&cmdline_copy, flags & DOCMD_VERBOSE,
-        &cstack,
-        cmd_getline, cmd_cookie);
-    --recursive;
+    recursive++;
+    if (EVENT_COLON == 1) {  // in live mode, no verbose
+      next_cmdline = do_one_cmd(&cmdline_copy, flags,
+                                &cstack,
+                                cmd_getline, cmd_cookie);
+      } else {
+      next_cmdline = do_one_cmd(&cmdline_copy, flags & DOCMD_VERBOSE,
+                                &cstack,
+                                cmd_getline, cmd_cookie);
+    }
+    recursive--;
 
     if (cmd_cookie == (void *)&cmd_loop_cookie)
       /* Use "current_line" from "cmd_loop_cookie", it may have been
@@ -9531,4 +9542,27 @@ static void ex_terminal(exarg_T *eap)
   if (mustfree) {
     xfree(name);
   }
+}
+    
+/// is_live()
+/// Returns true if cmd corresponds
+/// to a live command.
+/// At the moment, only substitute has a live command.
+
+bool is_live (char_u *cmd_live)
+{
+  exarg_T ea;
+  ea.cmd = access_cmdline();
+  int full;
+
+  // parse the command line
+  if (ea.cmd != NULL) {
+    ea.cmd = skip_range(ea.cmd, NULL);
+    if (*ea.cmd == '*') {
+      ea.cmd = skipwhite(ea.cmd + 1);
+    }
+    find_command(&ea, &full);
+  }
+
+  return (ea.cmdidx == CMD_substitute);
 }
