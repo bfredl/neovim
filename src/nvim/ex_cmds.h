@@ -53,8 +53,14 @@ typedef struct {
   klist_t(colnr_T) *start_col;
 } matchedline_T;
 
+#define _dealloc_matchedline_T(x) \
+do { \
+  if (x->data.line) { xfree(x->data.line); } \
+  if (x->data.start_col) { kl_destroy(colnr_T, x->data.start_col); } \
+} while (0)
+
 /// initializer for a list of matched lines
-KLIST_INIT(matchedline_T, matchedline_T, _noop)
+KLIST_INIT(matchedline_T, matchedline_T, _dealloc_matchedline_T)
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ex_cmds.h.generated.h"
