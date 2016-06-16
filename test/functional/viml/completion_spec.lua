@@ -776,7 +776,7 @@ describe('completion', function()
           visible = false
         end
       end)
-      uimeths.set_popupmenu_external(true)
+      uimeths.set_option("popupmenu_external", true)
     end)
 
     it('works', function()

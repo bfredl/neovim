@@ -8,6 +8,7 @@
 #include "nvim/memory.h"
 #include "nvim/map.h"
 #include "nvim/msgpack_rpc/channel.h"
+#include "nvim/api/ui.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/popupmnu.h"
@@ -65,6 +66,7 @@ void ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->width = (int)width;
   ui->height = (int)height;
   ui->rgb = enable_rgb;
+  ui->pum_external = false;
   ui->data = data;
   ui->resize = remote_ui_resize;
   ui->clear = remote_ui_clear;
@@ -95,6 +97,22 @@ void ui_attach(uint64_t channel_id, Integer width, Integer height,
   return;
 }
 
+void ui_attach_options(uint64_t channel_id, Integer width, Integer height,
+               Dictionary options, Error *err)
+{
+  ui_attach(channel_id, width, height, false, err);
+  if (err->set) {
+    return;
+  }
+  for (size_t i = 0; i < options.size; i++) {
+    ui_set_option(channel_id, options.items[i].key, options.items[i].value, err);
+    if (err->set) {
+      ui_detach(channel_id, err);
+      return;
+    }
+  }
+}
+
 void ui_detach(uint64_t channel_id, Error *err)
 {
   if (!pmap_has(uint64_t)(connected_uis, channel_id)) {
@@ -123,18 +141,30 @@ Object ui_try_resize(uint64_t channel_id, Integer width,
   return NIL;
 }
 
-void ui_set_popupmenu_external(uint64_t channel_id, Boolean external,
-                               Error *error)
-{
-  // Technically this is not needed right now,
-  // but futher on we might implement smarter behavior when multiple
-  // ui:s are attached with different draw modes
+void ui_set_option(uint64_t channel_id, String name, Object value, Error *error) {
   if (!pmap_has(uint64_t)(connected_uis, channel_id)) {
     api_set_error(error, Exception, _("UI is not attached for channel"));
     return;
   }
+  UI *ui = pmap_get(uint64_t)(connected_uis, channel_id);
 
-  pum_set_external(external);
+  if (strcmp(name.data, "rgb") == 0) {
+    if (value.type != kObjectTypeBoolean) {
+      api_set_error(error, Validation, _("rgb must be a Boolean"));
+      return;
+    }
+    ui->rgb = value.data.boolean;
+  } else if (strcmp(name.data, "popupmenu_external") == 0) {
+    if (value.type != kObjectTypeBoolean) {
+      api_set_error(error, Validation, _("pum_external must be a Boolean"));
+      return;
+    }
+    ui->pum_external = value.data.boolean;
+  } else {
+    api_set_error(error, Validation, _("No such ui option"));
+    return;
+  }
+  ui_refresh();
 }
 
 static void push_call(UI *ui, char *name, Array args)
