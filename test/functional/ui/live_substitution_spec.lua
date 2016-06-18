@@ -487,6 +487,54 @@ describe('Live Substitution', function()
             with colorful text (ARE)                |
             {6:-- INSERT --}                            |
        ]])
+
+       feed('<esc>')
+       execute('set livesub')
+       execute('1,1000s/ARE/nut/g')
+       feed(':%s/ARE/to')
+       screen:expect([[
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         these to nothing                        |
+         with colorful text (to)                 |
+         example of insertionthese to nothing    |
+         with colorful text (to)                 |
+         with colorful text (to)                 |
+         {11:[No Name] [+]                           }|
+          [1001]with colorful text (to)          |
+          [1002]these to nothing                 |
+          [1003]with colorful text (to)          |
+          [1004]these to nothing                 |
+          [1005]with colorful text (to)          |
+          [1006]these to nothing                 |
+          [1007]with colorful text (to)          |
+         {10:[live_sub]                              }|
+         :%s/ARE/to^                              |
+       ]])
+
         
     end)
 
