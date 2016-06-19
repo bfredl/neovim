@@ -2956,10 +2956,10 @@ void do_sub(exarg_T *eap)
   char_u *c = eap->arg;
 
   // checking if the last char of the cmdline is a '/'
-  while (*c != '\0') {
-    c++;
+  if (*c != '\0') {
+    do { c++; } while (*c != '\0');
+    last_is_slash = (*(c-1) == '/');
   }
-  last_is_slash = (*(c-1) == '/');
 
   cmd = eap->arg;
   if (!global_busy) {
