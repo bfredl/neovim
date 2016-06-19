@@ -4016,7 +4016,6 @@ A jump table for the options with a short description can be found at |Q_op|.
 	matches. The replacement text in the split is hightlighted using
 	|hl-Livesub|. Note: Only '/' is supported as a delimiter.
 
-
 			*'lpl'* *'nolpl'* *'loadplugins'* *'noloadplugins'*
 'loadplugins' 'lpl'	boolean	(default on)
 			global

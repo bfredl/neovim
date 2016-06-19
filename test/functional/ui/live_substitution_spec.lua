@@ -13,6 +13,7 @@ describe('Substitution', function()
     execute("syntax on")
     execute("set livesub")
     execute('set nohlsearch')
+    execute("hi LiveSub guifg=red guibg=yellow")
     screen = Screen.new(40, 20)  -- 40 lines of 40 char
     screen:attach()
     screen:set_default_attr_ignore( {{bold=true, foreground=Screen.colors.Blue}} )
@@ -28,6 +29,7 @@ describe('Substitution', function()
       [9]  = {background = Screen.colors.Yellow},
       [10] = {reverse = true},
       [11] = {reverse = true, bold=true},
+      [12] = {foreground = Screen.colors.Red, background = Screen.colors.Yellow}
     })
   end)
 
@@ -211,8 +213,8 @@ describe('Substitution', function()
       ~                                       |
       ~                                       |
       {11:[No Name] [+]                           }|
-       [1]these to some lines                 |
-       [2]with colorful text (to)             |
+       [1]these {12:to} some lines                 |
+       [2]with colorful text ({12:to})             |
                                               |
       ~                                       |
       ~                                       |
@@ -329,13 +331,13 @@ describe('Substitution', function()
      with colorful text (to)                 |
      with colorful text (to)                 |
      {11:[No Name] [+]                           }|
-      [1001]with colorful text (to)          |
-      [1002]these to nothing                 |
-      [1003]with colorful text (to)          |
-      [1004]these to nothing                 |
-      [1005]with colorful text (to)          |
-      [1006]these to nothing                 |
-      [1007]with colorful text (to)          |
+      [1001]with colorful text ({12:to})          |
+      [1002]these {12:to} nothing                 |
+      [1003]with colorful text ({12:to})          |
+      [1004]these {12:to} nothing                 |
+      [1005]with colorful text ({12:to})          |
+      [1006]these {12:to} nothing                 |
+      [1007]with colorful text ({12:to})          |
      {10:[live_sub]                              }|
      :%s/ARE/to^                              |
    ]])
