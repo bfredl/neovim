@@ -50,7 +50,7 @@ typedef struct {
   linenr_T lnum;
   long nmatch;
   char_u *line;
-  klist_t(colnr_T) *start_col;
+  klist_t(colnr_T) *start_col;  // NOLINT(whitespace/cast)
 } matchedline_T;
 
 #define _dealloc_matchedline_T(x) \

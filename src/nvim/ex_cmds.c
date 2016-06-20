@@ -3045,8 +3045,8 @@ void do_sub(exarg_T *eap)
 
   // Recognize ":%s/\n//" and turn it into a join command, which is much
   // more efficient.
-  // TODO(brammool): find a generic solution to make line-joining operations more
-  // efficient, avoid allocating a string that grows in size.
+  // TODO(brammool): find a generic solution to make line-joining operations
+  // more efficient, avoid allocating a string that grows in size.
   if (pat != NULL
       && strcmp((const char *)pat, "\\n") == 0
       && *sub == NUL
@@ -3887,7 +3887,7 @@ skip:
   }
 
   kl_destroy(matchedline_T, lmatch);
-}
+}  // NOLINT(readability/fn_size)
 
 /*
  * Give message for number of substitutions.
@@ -6098,8 +6098,8 @@ LiveSub_state parse_sub_cmd(exarg_T *eap) {
   int i = 0;
   LiveSub_state cmdl_progress;
 
-  //TODO: bfredl's comment
-  //TODO: https://github.com/neovim/neovim/pull/4915#discussion_r67362812
+  // TODO(KillTheMule, bfredl): Make livesub work with other delimiters
+  // like normal substitution, see line 2977 of this file
   if (eap->arg[i++] != '/') {
     return LS_NO_WD;
   }
@@ -6144,8 +6144,8 @@ void do_live_sub(exarg_T *eap) {
       break;
     case LS_ONE_WD:
       if (EVENT_SUB == 1 && sub_done == 1) {
-        //TODO: bfredl's comment
-        //TODO: https://github.com/neovim/neovim/pull/4915#discussion_r67365823
+        // TODO(KillTheMule, bfredl): Find another way to cancel the last
+        // action, this screws up g+ and g-
         do_cmdline_cmd(":u");
         sub_done = 0;
         EVENT_SUB = 0;
