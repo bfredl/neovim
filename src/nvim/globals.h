@@ -999,16 +999,16 @@ EXTERN int redir_reg INIT(= 0);             // message redirection register
 EXTERN int redir_vname INIT(= 0);           // message redirection variable
 EXTERN garray_T *capture_ga INIT(= NULL);   // capture() buffer
 
-EXTERN char_u langmap_mapchar[256];     /* mapping for language keys */
+EXTERN char_u langmap_mapchar[256];         // mapping for language keys
 
-EXTERN int save_p_ls INIT(= -1);        /* Save 'laststatus' setting */
-EXTERN int save_p_wmh INIT(= -1);       /* Save 'winminheight' setting */
+EXTERN int save_p_ls INIT(= -1);            // Save 'laststatus' setting
+EXTERN int save_p_wmh INIT(= -1);           // Save 'winminheight' setting
 EXTERN int wild_menu_showing INIT(= 0);
-# define WM_SHOWN       1               /* wildmenu showing */
-# define WM_SCROLLED    2               /* wildmenu showing with scroll */
+# define WM_SHOWN       1                   // wildmenu showing
+# define WM_SCROLLED    2                   // wildmenu showing with scroll
 
 
-EXTERN char breakat_flags[256];         /* which characters are in 'breakat' */
+EXTERN char breakat_flags[256];             // which characters are in 'breakat'
 
 /*
  * Some file names are stored in pathdef.c, which is generated from the
