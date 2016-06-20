@@ -1203,6 +1203,14 @@ return {
       defaults={if_true={vi=false, vim=true}}
     },
     {
+      full_name='incsubstitute', abbreviation='ics',
+      type='bool', scope={'global'},
+      vi_def=true,
+      redraw={'everything'},
+      varname='p_ics',
+      defaults={if_true={vi=false, vim=false}}
+    },
+    {
       full_name='indentexpr', abbreviation='inde',
       type='string', scope={'buffer'},
       vi_def=true,
@@ -1406,14 +1414,6 @@ return {
       redraw={'all_windows'},
       varname='p_lcs',
       defaults={if_true={vi="eol:$", vim="tab:> ,trail:-,nbsp:+"}}
-    },
-    {
-      full_name='livesub', abbreviation='lsu',
-      type='bool', scope={'global'},
-      vi_def=true,
-      redraw={'everything'},
-      varname='p_lsu',
-      defaults={if_true={vi=false, vim=false}}
     },
     {
       full_name='loadplugins', abbreviation='lpl',

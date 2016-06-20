@@ -3538,7 +3538,7 @@ void do_sub(exarg_T *eap)
         curwin->w_cursor.col = regmatch.startpos[0].col;
 
         //
-        // 3. substitute the string. don't do this while live_substitution and
+        // 3. substitute the string. don't do this while incsubstitution and
         //    there's no word to replace by eg : ":%s/pattern"
         //
         if (!(EVENT_COLON && sub[0] == '\0' && !last_is_slash)) {
@@ -3875,14 +3875,14 @@ skip:
   do_ask = save_do_ask;
 
 
-  // live_sub if sub on the whole file and there are results to display
+  // inc_sub if sub on the whole file and there are results to display
   if (!kl_empty(lmatch)) {
-    // we did a livesub only if we had no word to replace by and no slash to end
+    // we did a incsubstitute only if we had no word to replace by and no slash to end
     if (!(EVENT_COLON && sub[0] == '\0' && !last_is_slash)) {
       sub_done = 1;
     }
-    if (pat != NULL && p_lsu) {
-      ex_window_live_sub(pat, sub, lmatch, eap[0].cmdlinep[0][0] != 's');
+    if (pat != NULL && p_ics) {
+      ex_window_inc_sub(pat, sub, lmatch, eap[0].cmdlinep[0][0] != 's');
     }
   }
 
@@ -5951,8 +5951,8 @@ void finish_live_cmd(int save_state,
   update_screen(0);
 }
 
-/// ex_window_live_sub()
-/// Open a window for future displaying of the live_sub mode.
+/// ex_window_inc_sub()
+/// Open a window for future displaying of the inc_sub mode.
 ///
 /// Does not allow editing in the window.
 /// Returns when the window is closed.
@@ -5960,10 +5960,10 @@ void finish_live_cmd(int save_state,
 /// @param pat the pattern word
 /// @param sub the replacement word
 /// @param lmatch the list containing our data
-void ex_window_live_sub(char_u * pat,
-                        char_u * sub,
-                        klist_t(matchedline_T) *lmatch, // NOLINT
-                        bool split)
+void ex_window_inc_sub(char_u * pat,
+                       char_u * sub,
+                       klist_t(matchedline_T) *lmatch, // NOLINT
+                       bool split)
 FUNC_ATTR_NONNULL_ARG(1, 2, 3)
 {
   garray_T winsizes;
@@ -6000,7 +6000,7 @@ FUNC_ATTR_NONNULL_ARG(1, 2, 3)
 
     // Create the command-line buffer empty.
     (void)do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE, NULL);
-    (void)setfname(curbuf, (char_u *) "[live_sub]", NULL, true);
+    (void)setfname(curbuf, (char_u *) "[inc_sub]", NULL, true);
     set_option_value((char_u *) "bt", 0L, (char_u *) "nofile", OPT_LOCAL);
     set_option_value((char_u *) "swf", 0L, NULL, OPT_LOCAL);
     curbuf->b_p_ma = false;  // Not Modifiable
@@ -6054,14 +6054,14 @@ FUNC_ATTR_NONNULL_ARG(1, 2, 3)
         old_line_size = line_size;
       }
 
-      // put ' [ lnum]line' into str and append it to the livesub buffer
+      // put ' [ lnum]line' into str and append it to the incsubstitute buffer
       snprintf(str, line_size, " [%*ld]%s", col_width - 3, mat.lnum, mat.line);
       ml_append(line++, (char_u *)str, (colnr_T)line_size, false);
 
       // highlight the replaced part
       if (sub_size > 0) {
         int i = 0;
-        int hlgroup_ls = syn_check_group((char_u *)"LiveSub", 7);
+        int hlgroup_ls = syn_check_group((char_u *)"IncSubstitute", 13);
 
         kl_iter(colnr_T, mat.start_col, col) {
           src_id_highlight =
@@ -6093,24 +6093,24 @@ FUNC_ATTR_NONNULL_ARG(1, 2, 3)
 //
 /// @param eap arguments of the substitution
 /// @return cmdl_progress
-/// @see LiveSub_state definition
-LiveSub_state parse_sub_cmd(exarg_T *eap) {
+/// @see IncSubstitute_state definition
+IncSubstitute_state parse_sub_cmd(exarg_T *eap) {
   int i = 0;
-  LiveSub_state cmdl_progress;
+  IncSubstitute_state cmdl_progress;
 
-  // TODO(KillTheMule, bfredl): Make livesub work with other delimiters
+  // TODO(KillTheMule, bfredl): Make incsubstitute work with other delimiters
   // like normal substitution, see line 2977 of this file
   if (eap->arg[i++] != '/') {
-    return LS_NO_WD;
+    return ICS_NO_WD;
   }
 
   if (eap->arg[i++] == 0) {
-    return LS_NO_WD;
+    return ICS_NO_WD;
   } else {
-    cmdl_progress = LS_ONE_WD;
+    cmdl_progress = ICS_ONE_WD;
     while (eap->arg[i] != 0) {
       if (eap->arg[i] == '/' && eap->arg[i-1] != '\\') {
-        cmdl_progress = (eap->arg[i+1] == 0) ? LS_TWO_SLASH_ONE_WD : LS_TWO_WD;
+        cmdl_progress = (eap->arg[i+1] == 0) ? ICS_TWO_SLASH_ONE_WD : ICS_TWO_WD;
         break;
       }
       i++;
@@ -6122,27 +6122,27 @@ LiveSub_state parse_sub_cmd(exarg_T *eap) {
 /// This function is called when CMD_SUBSTITUTE is detected
 /// It will then proceed to launch do_sub() and ':u'
 /// at every new character typed in the cmdbuff according to the
-/// actual state of the live_substitution
-void do_live_sub(exarg_T *eap) {
-  // if livesub disabled, do it the classical way
-  if (!p_lsu) {
+/// actual state of the incsubstitution
+void do_inc_sub(exarg_T *eap) {
+  // if incsubstitute disabled, do it the classical way
+  if (!p_ics) {
     do_sub(eap);
     return;
   }
 
   // count the number of '/' to know how many words can be parsed
-  LiveSub_state cmdl_progress = parse_sub_cmd(eap);
+  IncSubstitute_state cmdl_progress = parse_sub_cmd(eap);
 
   char_u *arg;
   char_u *tmp;
 
   switch (cmdl_progress) {
-    case LS_NO_WD:
+    case ICS_NO_WD:
       if (!EVENT_COLON) {
         do_sub(eap);
       }
       break;
-    case LS_ONE_WD:
+    case ICS_ONE_WD:
       if (EVENT_SUB == 1 && sub_done == 1) {
         // TODO(KillTheMule, bfredl): Find another way to cancel the last
         // action, this screws up g+ and g-
@@ -6169,8 +6169,8 @@ void do_live_sub(exarg_T *eap) {
 
       break;
 
-    case LS_TWO_SLASH_ONE_WD:  // live_sub will remove the arg
-    case LS_TWO_WD:  // live_sub needs to undo
+    case ICS_TWO_SLASH_ONE_WD:  // inc_sub will remove the arg
+    case ICS_TWO_WD:  // inc_sub needs to undo
       if (EVENT_SUB == 1 && sub_done == 1) {
         do_cmdline_cmd(":u");
         sub_done = 0;

@@ -21,17 +21,17 @@
 #define ECMD_LAST       (linenr_T)-1    /* use last position in all files */
 #define ECMD_ONE        (linenr_T)1     /* use first line */
 
-/// for cmdl_progress in live substitution
+/// for cmdl_progress in incsubstitute
 typedef enum {
-  LS_NO_WD,                 /// state of cmdline when none words are typed
+  ICS_NO_WD,                 /// state of cmdline when none words are typed
                               /// ":%s" or ":%s/"
-  LS_ONE_WD,                /// state of cmd line when only pattern word began
+  ICS_ONE_WD,                /// state of cmd line when only pattern word began
                               /// to be typed : ":%s/patt"
-  LS_TWO_SLASH_ONE_WD,      /// Second / has been typed but not the second
+  ICS_TWO_SLASH_ONE_WD,      /// Second / has been typed but not the second
                               /// word yet : "%s/pattern/"
-  LS_TWO_WD                /// state of cmd line when pattern has been completed
+  ICS_TWO_WD                /// state of cmd line when pattern has been completed
                             /// and substitue is being typed : ":%s/pattern/sub"
-} LiveSub_state;
+} IncSubstitute_state;
 
 /// Previous :substitute replacement string definition
 typedef struct {
@@ -40,12 +40,12 @@ typedef struct {
   list_T *additional_elements;  ///< Additional data left from ShaDa file.
 } SubReplacementString;
 
-/// Defs for live_sub functionality
+/// Defs for inc_sub functionality
 #define _noop(x)
 /// initializer for a list of match in a line
 KLIST_INIT(colnr_T, colnr_T, _noop)
 
-/// structure to backup and display matched lines in live_substitution
+/// structure to backup and display matched lines in incsubstitution
 typedef struct {
   linenr_T lnum;
   long nmatch;

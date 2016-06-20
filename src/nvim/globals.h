@@ -492,7 +492,7 @@ typedef enum {
   , HLF_CUC         // 'cursurcolumn'
   , HLF_CUL         // 'cursurline'
   , HLF_MC          // 'colorcolumn'
-  , HLF_LS          // LiveSub
+  , HLF_ICS         // IncSubstitute
   , HLF_COUNT       // MUST be the last one
 } hlf_T;
 

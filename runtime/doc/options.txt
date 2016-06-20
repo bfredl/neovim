@@ -4005,14 +4005,14 @@ A jump table for the options with a short description can be found at |Q_op|.
 	"precedes".  "SpecialKey" for "nbsp", "space", "tab" and "trail".
 	|hl-NonText| |hl-SpecialKey|
 
-						*'livesub'* *'lsu'* *'nolivesub'* *'nolsu'*
-'livesub' 'lsu'		boolean	(default off)
+						*'incsubstitute'* *'ics'* *'noincsubstitute'* *'noics'*
+'incsubstitute' 'ics'		boolean	(default off)
 			global
 			
 	If set, substitutions (|:s|) are updated live while the user types the 
 	command.  A split is open which displays the lines where the search 
 	matches. The replacement text in the split is hightlighted using
-	|hl-Livesub|. Note: Only '/' is supported as a delimiter.
+	|hl-IncSubstitute|. Note: Only '/' is supported as a delimiter.
 
 			*'lpl'* *'nolpl'* *'loadplugins'* *'noloadplugins'*
 'loadplugins' 'lpl'	boolean	(default on)

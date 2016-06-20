@@ -11,9 +11,9 @@ describe('Substitution', function()
   before_each(function()
     clear()
     execute("syntax on")
-    execute("set livesub")
+    execute("set incsubstitute")
     execute('set nohlsearch')
-    execute("hi LiveSub guifg=red guibg=yellow")
+    execute("hi IncSubstitute guifg=red guibg=yellow")
     screen = Screen.new(40, 20)  -- 40 lines of 40 char
     screen:attach()
     screen:set_default_attr_ignore( {{bold=true, foreground=Screen.colors.Blue}} )
@@ -41,12 +41,12 @@ describe('Substitution', function()
   -- simple tests
   -- ----------------------------------------------------------------------
 
-  it('old behavior if :set nolivesub', function()
+  it('old behavior if :set noincsubstitute', function()
     insert([[
       these are some lines
       with colorful text (are)]])
 
-    feed(':set nolivesub\n')
+    feed(':set noincsubstitute\n')
     feed(':%s/are/ARE')
 
     screen:expect([[
@@ -157,7 +157,7 @@ describe('Substitution', function()
       ~                                       |
       ~                                       |
       ~                                       |
-      {10:[live_sub]                              }|
+      {10:[inc_sub]                               }|
       :%s/are^                                 |
     ]])
   end)
@@ -188,7 +188,7 @@ describe('Substitution', function()
       ~                                       |
       ~                                       |
       ~                                       |
-      {10:[live_sub]                              }|
+      {10:[inc_sub]                               }|
       :%s/are/^                                |
     ]])
   end)
@@ -220,7 +220,7 @@ describe('Substitution', function()
       ~                                       |
       ~                                       |
       ~                                       |
-      {10:[live_sub]                              }|
+      {10:[inc_sub]                               }|
       :%s/are/to^                              |
     ]])
   end)
@@ -315,7 +315,7 @@ describe('Substitution', function()
    ]])
 
    feed('<esc>')
-   execute('set livesub')
+   execute('set incsubstitute')
    execute('1,1000s/ARE/nut/g')
    feed(':%s/ARE/to')
 
@@ -338,7 +338,7 @@ describe('Substitution', function()
       [1005]with colorful text ({12:to})          |
       [1006]these {12:to} nothing                 |
       [1007]with colorful text ({12:to})          |
-     {10:[live_sub]                              }|
+     {10:[inc_sub]                               }|
      :%s/ARE/to^                              |
    ]])
   end)
