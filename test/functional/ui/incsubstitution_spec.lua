@@ -11,7 +11,7 @@ describe('Substitution', function()
   before_each(function()
     clear()
     execute("syntax on")
-    execute("set incsubstitute")
+    execute("set incsubstitute=2")
     execute('set nohlsearch')
     execute("hi IncSubstitute guifg=red guibg=yellow")
     screen = Screen.new(40, 20)  -- 40 lines of 40 char
@@ -41,12 +41,12 @@ describe('Substitution', function()
   -- simple tests
   -- ----------------------------------------------------------------------
 
-  it('old behavior if :set noincsubstitute', function()
+  it('old behavior if :set incsubstitute=0', function()
     insert([[
       these are some lines
       with colorful text (are)]])
 
-    feed(':set noincsubstitute\n')
+    feed(':set incsubstitute=0\n')
     feed(':%s/are/ARE')
 
     screen:expect([[
@@ -225,6 +225,39 @@ describe('Substitution', function()
     ]])
   end)
 
+  it('with set incsubstitute=1', function()
+    execute('set incsubstitute=1')
+    insert([[
+      these are some lines
+      with colorful text (are)]])
+
+    feed(':%s/are/to')
+
+    screen:expect([[
+      these to some lines                     |
+      with colorful text (to)                 |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      ~                                       |
+      :%s/are/to^                              |
+    ]])
+
+  end)
+
   -- ----------------------------------------------------------------------
   -- complex tests
   -- ----------------------------------------------------------------------
@@ -315,7 +348,7 @@ describe('Substitution', function()
    ]])
 
    feed('<esc>')
-   execute('set incsubstitute')
+   execute('set incsubstitute=2')
    execute('1,1000s/ARE/nut/g')
    feed(':%s/ARE/to')
 

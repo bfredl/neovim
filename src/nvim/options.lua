@@ -1204,11 +1204,11 @@ return {
     },
     {
       full_name='incsubstitute', abbreviation='ics',
-      type='bool', scope={'global'},
+      type='number', scope={'global'},
       vi_def=true,
       redraw={'everything'},
       varname='p_ics',
-      defaults={if_true={vi=false, vim=false}}
+      defaults={if_true={vi=0, vim=0}}
     },
     {
       full_name='indentexpr', abbreviation='inde',

@@ -3877,12 +3877,19 @@ skip:
 
   // inc_sub if sub on the whole file and there are results to display
   if (!kl_empty(lmatch)) {
-    // we did a incsubstitute only if we had no word to replace by and no slash to end
+    // we did incsubstitute only if we had no word to replace by
+    // by and no ending slash
     if (!(EVENT_COLON && sub[0] == '\0' && !last_is_slash)) {
       sub_done = 1;
     }
-    if (pat != NULL && p_ics) {
-      ex_window_inc_sub(pat, sub, lmatch, eap[0].cmdlinep[0][0] != 's');
+    if (pat != NULL && p_ics != 0) {
+      bool split = true;
+
+      if (p_ics == 1 || eap[0].cmdlinep[0][0] == 's') {
+        split = false;
+      }
+
+      ex_window_inc_sub(pat, sub, lmatch, split);
     }
   }
 
@@ -6110,7 +6117,8 @@ IncSubstitute_state parse_sub_cmd(exarg_T *eap) {
     cmdl_progress = ICS_ONE_WD;
     while (eap->arg[i] != 0) {
       if (eap->arg[i] == '/' && eap->arg[i-1] != '\\') {
-        cmdl_progress = (eap->arg[i+1] == 0) ? ICS_TWO_SLASH_ONE_WD : ICS_TWO_WD;
+        cmdl_progress = (eap->arg[i+1] == 0) ? ICS_TWO_SLASH_ONE_WD
+                                               : ICS_TWO_WD;
         break;
       }
       i++;
@@ -6125,7 +6133,7 @@ IncSubstitute_state parse_sub_cmd(exarg_T *eap) {
 /// actual state of the incsubstitution
 void do_inc_sub(exarg_T *eap) {
   // if incsubstitute disabled, do it the classical way
-  if (!p_ics) {
+  if (p_ics == 0) {
     do_sub(eap);
     return;
   }

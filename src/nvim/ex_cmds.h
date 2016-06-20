@@ -29,7 +29,7 @@ typedef enum {
                               /// to be typed : ":%s/patt"
   ICS_TWO_SLASH_ONE_WD,      /// Second / has been typed but not the second
                               /// word yet : "%s/pattern/"
-  ICS_TWO_WD                /// state of cmd line when pattern has been completed
+  ICS_TWO_WD                /// state of cmd line when pattern was completed
                             /// and substitue is being typed : ":%s/pattern/sub"
 } IncSubstitute_state;
 

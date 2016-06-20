@@ -65,7 +65,7 @@ getkey:
 
     // close buffer and windows if we leave the inc_sub mode
     // and undo
-    if (p_ics && EVENT_COLON && (key == ESC || key == Ctrl_C)
+    if (p_ics != 0 && EVENT_COLON && (key == ESC || key == Ctrl_C)
         && is_live(access_cmdline())) {
       EVENT_COLON = 0;
       finish_live_cmd(NORMAL, NULL, 0, 0, 0, 0);
@@ -75,7 +75,7 @@ getkey:
       break;
     } else if (execute_result == -1) {
       goto getkey;
-    } else if (p_ics && EVENT_COLON == 1 && is_live(access_cmdline())) {
+    } else if (p_ics != 0 && EVENT_COLON == 1 && is_live(access_cmdline())) {
       // compute a live action
       do_cmdline(access_cmdline(), NULL, NULL, DOCMD_KEEPLINE);
       redrawcmdline();
