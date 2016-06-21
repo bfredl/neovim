@@ -7270,6 +7270,17 @@ static void ex_undo(exarg_T *eap)
     u_undo(1);
 }
 
+/*
+ * ":regret".
+ */
+static void ex_regret(exarg_T *eap)
+{
+  if (eap->addr_count == 1)         /* :regret 123 */
+    u_undo_and_forget(eap->line2);
+  else
+    u_undo_and_forget(1);
+}
+
 static void ex_wundo(exarg_T *eap)
 {
   char_u hash[UNDO_HASH_SIZE];

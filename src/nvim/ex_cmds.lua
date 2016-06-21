@@ -2101,6 +2101,12 @@ return {
     func='ex_display',
   },
   {
+    command='regret',
+    flags=bit.bor(RANGE, NOTADR, COUNT, ZEROR, TRLBAR, CMDWIN),
+    addr_type=ADDR_LINES,
+    func='ex_regret',
+  },
+  {
     command='resize',
     flags=bit.bor(RANGE, NOTADR, TRLBAR, WORD1),
     addr_type=ADDR_LINES,

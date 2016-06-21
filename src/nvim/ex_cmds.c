@@ -5929,7 +5929,7 @@ void finish_live_cmd(int save_state,
   block_autocmds();
 
   if (validate == 0 && sub_done == 1) {
-    do_cmdline_cmd(":u");
+    u_undo_and_forget(1);
     sub_done = 0;
   }
 
@@ -6154,7 +6154,7 @@ void do_inc_sub(exarg_T *eap) {
       if (EVENT_SUB == 1 && sub_done == 1) {
         // TODO(KillTheMule, bfredl): Find another way to cancel the last
         // action, this screws up g+ and g-
-        do_cmdline_cmd(":u");
+        u_undo_and_forget(1);
         sub_done = 0;
         EVENT_SUB = 0;
       }
@@ -6167,7 +6167,7 @@ void do_inc_sub(exarg_T *eap) {
       // Highlight the word and open the split
       do_sub(eap);
       if (sub_done == 1) {
-        do_cmdline_cmd(":u");  // to not polue the undo history
+        u_undo_and_forget(1);
         sub_done = 0;
       }
       // Put back eap in first state
@@ -6180,7 +6180,7 @@ void do_inc_sub(exarg_T *eap) {
     case ICS_TWO_SLASH_ONE_WD:  // inc_sub will remove the arg
     case ICS_TWO_WD:  // inc_sub needs to undo
       if (EVENT_SUB == 1 && sub_done == 1) {
-        do_cmdline_cmd(":u");
+        u_undo_and_forget(1);
         sub_done = 0;
       }
       do_sub(eap);
