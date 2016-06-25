@@ -6141,8 +6141,6 @@ void do_inc_sub(exarg_T *eap) {
   // count the number of '/' to know how many words can be parsed
   IncSubstitute_state cmdl_progress = parse_sub_cmd(eap);
 
-  char_u *arg;
-  char_u *tmp;
 
   switch (cmdl_progress) {
     case ICS_NO_WD:
@@ -6158,11 +6156,9 @@ void do_inc_sub(exarg_T *eap) {
         sub_done = 0;
         EVENT_SUB = 0;
       }
-      // The lengh of the new arg is lower than twice the length of the command
-      arg = xcalloc(2 * STRLEN(eap->arg) + 1, sizeof(char_u));
 
       // Save the state of eap
-      tmp = eap->arg;
+      char_u *tmp = eap->arg;
 
       // Highlight the word and open the split
       do_sub(eap);
@@ -6172,8 +6168,6 @@ void do_inc_sub(exarg_T *eap) {
       }
       // Put back eap in first state
       eap->arg = tmp;
-
-      xfree(arg);
 
       break;
 

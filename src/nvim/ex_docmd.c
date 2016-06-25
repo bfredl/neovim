@@ -9552,8 +9552,7 @@ static void ex_terminal(exarg_T *eap)
 bool is_live(char_u *cmd_live)
 {
   exarg_T ea;
-  ea.cmd = access_cmdline();
-  int full;
+  ea.cmd = cmd_live;
 
   // parse the command line
   if (ea.cmd != NULL) {
@@ -9561,7 +9560,7 @@ bool is_live(char_u *cmd_live)
     if (*ea.cmd == '*') {
       ea.cmd = skipwhite(ea.cmd + 1);
     }
-    find_command(&ea, &full);
+    find_command(&ea, NULL);
   }
 
   return (ea.cmdidx == CMD_substitute);

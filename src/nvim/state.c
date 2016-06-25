@@ -22,8 +22,6 @@
 
 void state_enter(VimState *s)
 {
-  // a string to save the command.
-
   for (;;) {
     int check_result = s->check ? s->check(s) : 1;
 
