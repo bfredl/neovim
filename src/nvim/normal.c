@@ -1145,10 +1145,6 @@ static int normal_execute(VimState *state, int key)
   (nv_cmds[s->idx].cmd_func)(&s->ca);
 
 finish:
-  if (event_colon) {
-    event_colon = 0;
-    finish_live_cmd(NORMAL, NULL, 0, 0, 0, true);
-  }
   normal_finish_command(s);
   return 1;
 }
@@ -4467,9 +4463,6 @@ static void nv_colon(cmdarg_T *cap)
 {
   int old_p_im;
   bool cmd_result;
-
-  // starting the live actions (eg : for live sub)
-  event_colon = 1;
 
   if (VIsual_active)
     nv_operator(cap);
