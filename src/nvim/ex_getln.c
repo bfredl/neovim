@@ -248,6 +248,12 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
     }
   }
 
+  if (s->firstc == ':') {
+    // NB: rename/eliminate
+    EVENT_COLON = 1;
+  }
+
+
   setmouse();
   ui_cursor_shape();               // may show different cursor shape
 
@@ -286,6 +292,12 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
     validate_cursor();          // needed for TAB
     redraw_later(SOME_VALID);
   }
+
+  // NB: this should just be a variable if(s->live_active) 
+  if (EVENT_COLON && is_live(ccline.cmdbuff)) {
+    finish_live_cmd(0);
+  }
+  EVENT_COLON = 0; //FIXME: eliminate
 
   if (ccline.cmdbuff != NULL) {
     // Put line in history buffer (":" and "=" only when it was typed).
@@ -706,8 +718,7 @@ static int command_line_execute(VimState *state, int key)
       || s->c == K_KENTER
       || (s->c == ESC
           && (!KeyTyped || vim_strchr(p_cpo, CPO_ESC) != NULL))) {
-    // End any live action
-    EVENT_COLON = 0;
+
     // In Ex mode a backslash escapes a newline.
     if (exmode_active
         && s->c != ESC
@@ -1594,6 +1605,10 @@ static int command_line_changed(CommandLineState *s)
     msg_starthere();
     redrawcmdline();
     s->did_incsearch = true;
+  } else if (p_ics != 0 && s->firstc == ':' && is_live(ccline.cmdbuff)) {
+    // compute a live action
+    do_cmdline(ccline.cmdbuff, NULL, NULL, DOCMD_KEEPLINE);
+    redrawcmdline();
   }
 
   if (cmdmsg_rl || (p_arshape && !p_tbidi && enc_utf8)) {
@@ -5343,8 +5358,4 @@ histentry_T *hist_get_array(const uint8_t history_type, int **const new_hisidx,
   *new_hisidx = &(hisidx[history_type]);
   *new_hisnum = &(hisnum[history_type]);
   return history[history_type];
-}
-
-char_u *access_cmdline(void) {
-  return ccline.cmdbuff;
 }

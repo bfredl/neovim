@@ -5920,12 +5920,7 @@ void set_context_in_sign_cmd(expand_T *xp, char_u *arg)
 /// validate can take two values :
 ///     0 if the live_command has not been validated
 ///     1 if the user has validated the command
-void finish_live_cmd(int save_state,
-                     garray_T *winsizes,
-                     int save_exmode,
-                     int save_restart_edit,
-                     int save_cmdmsg_rl,
-                     int validate) {
+void finish_live_cmd(int validate) {
   block_autocmds();
 
   if (validate == 0 && sub_done == 1) {
@@ -5933,29 +5928,8 @@ void finish_live_cmd(int save_state,
     sub_done = 0;
   }
 
-  // Restore window sizes.
-  if (winsizes != NULL) {
-    win_size_restore(winsizes);
-    ga_clear(winsizes);
-  }
-
   unblock_autocmds();
 
-  char_u typestr[2];
-  typestr[0] = cmdwin_type;
-  typestr[1] = NUL;
-  apply_autocmds(EVENT_CMDWINLEAVE, typestr, typestr, false, curbuf);
-
-  exmode_active = save_exmode;
-  restart_edit = save_restart_edit;
-  cmdmsg_rl = save_cmdmsg_rl;
-
-  cmdwin_type = 0;
-  RedrawingDisabled = 0;
-
-  State = save_state;
-  setmouse();
-  update_screen(0);
 }
 
 /// ex_window_inc_sub()
@@ -6090,8 +6064,26 @@ FUNC_ATTR_NONNULL_ARG(1, 2, 3)
 
   // Restore the old window
   win_enter(oldwin, false);
-  finish_live_cmd(save_State, &winsizes, save_exmode,
-                  save_restart_edit, save_cmdmsg_rl, 1);
+  finish_live_cmd(1);
+  win_size_restore(&winsizes);
+  ga_clear(&winsizes);
+  exmode_active = save_exmode;
+  restart_edit = save_restart_edit;
+  cmdmsg_rl = save_cmdmsg_rl;
+  State = save_State;
+
+  char_u typestr[2];
+  typestr[0] = cmdwin_type;
+  typestr[1] = NUL;
+  apply_autocmds(EVENT_CMDWINLEAVE, typestr, typestr, false, curbuf);
+
+  cmdwin_type = 0;
+  int save_rd = RedrawingDisabled;
+  RedrawingDisabled = 0;
+  update_screen(0);
+  RedrawingDisabled = save_rd;
+
+  setmouse();
 
   return;
 }
@@ -6194,6 +6186,5 @@ void do_inc_sub(exarg_T *eap) {
 
   if (!EVENT_COLON) {
     EVENT_SUB = 0;
-    normal_enter(false, false);
   }
 }
