@@ -435,11 +435,6 @@ EXTERN int did_check_timestamps INIT(= FALSE);      /* did check timestamps
 EXTERN int no_check_timestamps INIT(= 0);       /* Don't check timestamps */
 
 
-// When typing a live action starting by a ':'
-// (eg: substitution), need to know when to start
-// checking for a live command (=1) and end it (=0)
-EXTERN int event_colon INIT(= 0);
-
 /*
  * Values for index in highlight_attr[].
  * When making changes, also update HL_FLAGS below!  And update the default

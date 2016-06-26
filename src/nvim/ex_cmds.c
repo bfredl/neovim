@@ -3088,7 +3088,7 @@ void do_sub(exarg_T *eap)
     do_all = p_gd ? TRUE : FALSE;
 
     do_ask = false;
-    do_error = (event_colon != 1);
+    do_error = !eap->is_live;
     do_print = false;
     do_count = false;
     do_number = FALSE;
@@ -3167,7 +3167,7 @@ void do_sub(exarg_T *eap)
     return;
   }
 
-  int searchRC_option = (event_colon) ? 0 : SEARCH_HIS;
+  int searchRC_option = eap->is_live ? 0 : SEARCH_HIS;
   if (search_regcomp(pat, RE_SUBST, which_pat, searchRC_option,
                      &regmatch) == FAIL) {
     if (do_error) {
@@ -3360,7 +3360,7 @@ void do_sub(exarg_T *eap)
             goto skip;
         }
 
-        if (do_ask && !event_colon) {
+        if (do_ask && !eap->is_live) {
           int typed = 0;
 
           /* change State to CONFIRM, so that the mouse works
@@ -3533,8 +3533,7 @@ void do_sub(exarg_T *eap)
 
         // 3. Substitute the string. Don't do this while incsubstitution and
         //    there's no word to replace by eg : ":%s/pattern"
-
-        if (!(event_colon && sub[0] == '\0' && !last_is_slash)) {
+        if (!(eap->is_live && sub[0] == '\0' && !last_is_slash)) {
           if (do_count) {
             // prevent accidentally changing the buffer by a function
             save_ma = curbuf->b_p_ma;
@@ -3836,7 +3835,7 @@ skip:
         else
           beginline(BL_WHITE | BL_FIX);
       }
-      if (event_colon != 1) {  // live_mode : no message in command line
+      if (eap->is_live != 1) {  // live_mode : no message in command line
         if (!do_sub_msg(do_count) && do_ask) {
           MSG("");
         }
@@ -3872,7 +3871,7 @@ skip:
   if (!kl_empty(lmatch)) {
     // we did incsubstitute only if we had no word to replace by
     // by and no ending slash
-    if (!(event_colon && sub[0] == '\0' && !last_is_slash)) {
+    if (!(eap->is_live && sub[0] == '\0' && !last_is_slash)) {
       sub_done = 1;
     }
     if (pat != NULL && *p_ics != NUL) {
@@ -6131,7 +6130,7 @@ void do_inc_sub(exarg_T *eap)
 
   switch (cmdl_progress) {
     case kICSPatternStart:
-      if (!event_colon) {
+      if (!eap->is_live) {
         do_sub(eap);
       }
       break;
@@ -6179,7 +6178,7 @@ void do_inc_sub(exarg_T *eap)
   }
   redraw_later(SOME_VALID);
 
-  if (!event_colon) {
+  if (!eap->is_live) {
     event_sub = 0;
   }
 }
