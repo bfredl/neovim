@@ -248,12 +248,6 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
     }
   }
 
-  if (s->firstc == ':') {
-    // NB: rename/eliminate
-    EVENT_COLON = 1;
-  }
-
-
   setmouse();
   ui_cursor_shape();               // may show different cursor shape
 
@@ -293,11 +287,8 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
     redraw_later(SOME_VALID);
   }
 
-  // NB: this should just be a variable if(s->live_active) 
-  if (EVENT_COLON && is_live(ccline.cmdbuff)) {
-    finish_live_cmd(0);
-  }
-  EVENT_COLON = 0; //FIXME: eliminate
+  // NB: this is ok in any case right now but should be guarded
+  finish_live_cmd(0);
 
   if (ccline.cmdbuff != NULL) {
     // Put line in history buffer (":" and "=" only when it was typed).
@@ -1607,7 +1598,7 @@ static int command_line_changed(CommandLineState *s)
     s->did_incsearch = true;
   } else if (p_ics != 0 && s->firstc == ':' && is_live(ccline.cmdbuff)) {
     // compute a live action
-    do_cmdline(ccline.cmdbuff, NULL, NULL, DOCMD_KEEPLINE);
+    do_cmdline(ccline.cmdbuff, NULL, NULL, DOCMD_KEEPLINE|DOCMD_LIVE_PREVIEW);
     redrawcmdline();
   }
 

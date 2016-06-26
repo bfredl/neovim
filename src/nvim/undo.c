@@ -1757,7 +1757,7 @@ static void u_doit(int startcount, bool forget)
       curbuf->b_u_curhead = curbuf->b_u_curhead->uh_prev.ptr;
     }
   }
-  u_undo_end(undo_undoes, FALSE);
+  u_undo_end(undo_undoes, FALSE, forget);
 }
 
 /*
@@ -2070,7 +2070,7 @@ void undo_time(long step, int sec, int file, int absolute)
       }
     }
   }
-  u_undo_end(did_undo, absolute);
+  u_undo_end(did_undo, absolute, false);
 }
 
 /*
@@ -2322,7 +2322,8 @@ static void u_undoredo(int undo)
 static void 
 u_undo_end (
     int did_undo,                   /* just did an undo */
-    int absolute                   /* used ":undo N" */
+    int absolute,                   /* used ":undo N" */
+    bool quiet
 )
 {
   char        *msgstr;
@@ -2334,7 +2335,7 @@ u_undo_end (
 
   if (global_busy           // no messages now, wait until global is finished
       || !messaging()       // 'lazyredraw' set, don't do messages now
-      || EVENT_COLON == 1) {  // livemode doesn't show messages
+      || quiet) {  // livemode doesn't show messages
     return;
   }
 
