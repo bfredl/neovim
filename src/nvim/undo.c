@@ -1677,8 +1677,10 @@ void u_undo(int count)
  */
 void u_redo(int count)
 {
-  if (vim_strchr(p_cpo, CPO_UNDO) == NULL)
-    undo_undoes = FALSE;
+  if (vim_strchr(p_cpo, CPO_UNDO) == NULL) {
+    undo_undoes = false;
+  }
+
   u_doit(count, false);
 }
 
@@ -1732,7 +1734,7 @@ static void u_doit(int startcount, bool forget)
         break;
       }
 
-      u_undoredo(TRUE);
+      u_undoredo(true);
       if (forget) {
         curbuf->b_u_newhead = curbuf->b_u_curhead->uh_next.ptr;
         u_freeheader(curbuf, curbuf->b_u_curhead, NULL);
@@ -1757,7 +1759,7 @@ static void u_doit(int startcount, bool forget)
       curbuf->b_u_curhead = curbuf->b_u_curhead->uh_prev.ptr;
     }
   }
-  u_undo_end(undo_undoes, FALSE, forget);
+  u_undo_end(undo_undoes, false, forget);
 }
 
 /*
@@ -2319,10 +2321,10 @@ static void u_undoredo(int undo)
  * Otherwise, report the number of changes (this may be incorrect
  * in some cases, but it's better than nothing).
  */
-static void 
-u_undo_end (
-    int did_undo,                   /* just did an undo */
-    int absolute,                   /* used ":undo N" */
+static void
+u_undo_end(
+    int did_undo,                   // just did an undo
+    int absolute,                   // used ":undo N"
     bool quiet
 )
 {

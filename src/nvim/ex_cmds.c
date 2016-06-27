@@ -2983,20 +2983,22 @@ void do_sub(exarg_T *eap)
         EMSG(_(e_backslash));
         return;
       }
-      if (*cmd != '&')
-        which_pat = RE_SEARCH;              /* use last '/' pattern */
-      pat = (char_u *)"";                   /* empty search pattern */
-      delimiter = *cmd++;                   /* remember delimiter character */
+      if (*cmd != '&') {
+        which_pat = RE_SEARCH;              // use last '/' pattern
+      }
+      pat = (char_u *)"";                   // empty search pattern
+      delimiter = *cmd++;                   // remember delimiter character
       has_second_delim = true;
-    } else {          /* find the end of the regexp */
-      if (p_altkeymap && curwin->w_p_rl)
+    } else {          // find the end of the regexp
+      if (p_altkeymap && curwin->w_p_rl) {
         lrF_sub(cmd);
-      which_pat = RE_LAST;                  /* use last used regexp */
-      delimiter = *cmd++;                   /* remember delimiter character */
-      pat = cmd;                            /* remember start of search pat */
+      }
+      which_pat = RE_LAST;                  // use last used regexp
+      delimiter = *cmd++;                   // remember delimiter character
+      pat = cmd;                            // remember start of search pat
       cmd = skip_regexp(cmd, delimiter, p_magic, &eap->arg);
-      if (cmd[0] == delimiter) {             /* end delimiter found */
-        *cmd++ = NUL;                       /* replace it with a NUL */
+      if (cmd[0] == delimiter) {             // end delimiter found
+        *cmd++ = NUL;                       // replace it with a NUL
         has_second_delim = true;
       }
     }
@@ -3039,8 +3041,8 @@ void do_sub(exarg_T *eap)
 
   // Recognize ":%s/\n//" and turn it into a join command, which is much
   // more efficient.
-  // TODO: find a generic solution to make line-joining operations more
-  // efficient, avoid allocating a string that grows in size.
+  // TODO(brammool): find a generic solution to make line-joining operations
+  // more efficient, avoid allocating a string that grows in size.
   if (pat != NULL
       && strcmp((const char *)pat, "\\n") == 0
       && *sub == NUL
@@ -3070,11 +3072,11 @@ void do_sub(exarg_T *eap)
       ex_may_print(eap);
     }
 
-    if(!eap->is_live) {
+    if (!eap->is_live) {
       if (!cmdmod.keeppatterns) {
         save_re_pat(RE_SUBST, pat, p_magic);
       }
-      add_to_history(HIST_SEARCH, pat, TRUE, NUL);
+      add_to_history(HIST_SEARCH, pat, true, NUL);
     }
 
     return;
@@ -3158,8 +3160,10 @@ void do_sub(exarg_T *eap)
     }
   }
 
-  if (eap->skip)            /* not executing commands, only parsing */
+  // not executing commands, only parsing
+  if (eap->skip) {
     return;
+  }
 
   if (!do_count && !MODIFIABLE(curbuf)) {
     /* Substitution is not allowed in non-'modifiable' buffer */
@@ -6097,7 +6101,7 @@ void do_inc_sub(exarg_T *eap)
 
   // Highlight the word and open the split
   save_search_patterns();
-  emsg_off++; // No error messages for live commands
+  emsg_off++;  // No error messages for live commands
   do_sub(eap);
   emsg_off--;
   if (sub_done == 1) {
