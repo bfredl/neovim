@@ -5,6 +5,8 @@
 
 #include "nvim/os/time.h"
 #include "nvim/eval_defs.h"
+#include "nvim/pos.h"
+#include "nvim/lib/klist.h"
 
 /* flags for do_ecmd() */
 #define ECMD_HIDE       0x01    /* don't free the current buffer */
@@ -19,12 +21,54 @@
 #define ECMD_LAST       (linenr_T)-1    /* use last position in all files */
 #define ECMD_ONE        (linenr_T)1     /* use first line */
 
+/// for cmdl_progress in incsubstitute
+typedef enum {
+  kICSPatternStart,         ///<  No words have been typed:
+                            ///<  ":%s" or ":%s/"
+  kICSPattern,              ///<  Typing the first word has begun:
+                            ///<  ":%s/patt"
+  kICSReplacementStart,     ///<  Second slash / has been typed:
+                            ///<  "%s/pattern/
+  kICSReplacement           ///<  Pattern completed, substitute is being typed:
+                            ///<  ":%s/pattern/sub"
+} IncSubstituteState;
+
 /// Previous :substitute replacement string definition
 typedef struct {
   char *sub;            ///< Previous replacement string.
   Timestamp timestamp;  ///< Time when it was last set.
   list_T *additional_elements;  ///< Additional data left from ShaDa file.
 } SubReplacementString;
+
+/// Defs for inc_sub functionality
+#define _noop(x)
+/// initializer for a list of match in a line
+KLIST_INIT(colnr_T, colnr_T, _noop)
+typedef klist_t(colnr_T) klist_colnr_T;
+
+#undef _noop
+
+/// Structure to backup and display matched lines in incsubstitution
+typedef struct {
+  linenr_T lnum;
+  long nmatch;
+  char_u *line;
+  klist_colnr_T *start_col;
+} MatchedLine;
+
+#define _dealloc_MatchedLine(x) \
+do { \
+  if (x->data.line) { xfree(x->data.line); } \
+  if (x->data.start_col) { kl_destroy(colnr_T, x->data.start_col); } \
+  } while (0)
+
+/// initializer for a list of matched lines
+KLIST_INIT(MatchedLine, MatchedLine, _dealloc_MatchedLine)
+typedef klist_t(MatchedLine) klist_MatchedLine;
+
+#undef _dealloc_MatchedLine
+
+// End defs for inc_sub functionality
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ex_cmds.h.generated.h"

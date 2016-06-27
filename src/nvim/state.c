@@ -9,6 +9,12 @@
 #include "nvim/ui.h"
 #include "nvim/os/input.h"
 
+#include "nvim/ex_getln.h"
+#include "nvim/ex_docmd.h"
+#include "nvim/window.h"
+#include "nvim/buffer.h"
+#include "nvim/ascii.h"
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "state.c.generated.h"
 #endif
@@ -54,10 +60,24 @@ getkey:
     }
 
     int execute_result = s->execute(s, key);
+
+    // Close buffer and windows if we leave the inc_sub mode
+    // and undo. p_ics is "", "split" or "nosplit"
+    if (*p_ics != NUL && event_colon && (key == ESC || key == Ctrl_C)
+        && is_live(access_cmdline())) {
+      event_colon = 0;
+      finish_live_cmd(NORMAL, NULL, 0, 0, 0, false);
+      return;
+    }
     if (!execute_result) {
       break;
     } else if (execute_result == -1) {
       goto getkey;
+    } else if (*p_ics != NUL && event_colon == 1
+               && is_live(access_cmdline())) {
+      // compute a live action
+      do_cmdline(access_cmdline(), NULL, NULL, DOCMD_KEEPLINE);
+      redrawcmdline();
     }
   }
 }
