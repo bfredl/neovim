@@ -21,7 +21,9 @@
 #define ECMD_LAST       (linenr_T)-1    /* use last position in all files */
 #define ECMD_ONE        (linenr_T)1     /* use first line */
 
-/// for cmdl_progress in incsubstitute
+// Defs for inc_sub functionality
+
+/// State of commandline for cmdl_progress in incsubstitute
 typedef enum {
   kICSPatternStart,         ///<  No words have been typed:
                             ///<  ":%s" or ":%s/"
@@ -35,14 +37,14 @@ typedef enum {
 
 /// Previous :substitute replacement string definition
 typedef struct {
-  char *sub;            ///< Previous replacement string.
-  Timestamp timestamp;  ///< Time when it was last set.
+  char *sub;                    ///< Previous replacement string.
+  Timestamp timestamp;          ///< Time when it was last set.
   list_T *additional_elements;  ///< Additional data left from ShaDa file.
 } SubReplacementString;
 
-/// Defs for inc_sub functionality
 #define _noop(x)
-/// initializer for a list of match in a line
+
+// List of matches in a line
 KLIST_INIT(colnr_T, colnr_T, _noop)
 typedef klist_t(colnr_T) klist_colnr_T;
 
@@ -62,7 +64,7 @@ do { \
   if (x->data.start_col) { kl_destroy(colnr_T, x->data.start_col); } \
   } while (0)
 
-/// initializer for a list of matched lines
+// List of matched lines
 KLIST_INIT(MatchedLine, MatchedLine, _dealloc_MatchedLine)
 typedef klist_t(MatchedLine) klist_MatchedLine;
 

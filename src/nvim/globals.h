@@ -446,53 +446,53 @@ EXTERN int event_colon INIT(= 0);
  * value of 'highlight' in option.c.
  */
 typedef enum {
-  HLF_8 = 0         /* Meta & special keys listed with ":map", text that is
-                       displayed different from what it is */
-  , HLF_EOB         //< after the last line in the buffer
-  , HLF_TERM        //< terminal cursor focused
-  , HLF_TERMNC      //< terminal cursor unfocused
-  , HLF_AT          /* @ characters at end of screen, characters that
-                       don't really exist in the text */
-  , HLF_D           /* directories in CTRL-D listing */
-  , HLF_E           /* error messages */
-  , HLF_I           /* incremental search */
-  , HLF_L           /* last search string */
-  , HLF_M           /* "--More--" message */
-  , HLF_CM          /* Mode (e.g., "-- INSERT --") */
-  , HLF_N           /* line number for ":number" and ":#" commands */
-  , HLF_CLN         /* current line number */
-  , HLF_R           /* return to continue message and yes/no questions */
-  , HLF_S           /* status lines */
-  , HLF_SNC         /* status lines of not-current windows */
-  , HLF_C           /* column to separate vertically split windows */
-  , HLF_T           /* Titles for output from ":set all", ":autocmd" etc. */
-  , HLF_V           /* Visual mode */
-  , HLF_VNC         /* Visual mode, autoselecting and not clipboard owner */
-  , HLF_W           /* warning messages */
-  , HLF_WM          /* Wildmenu highlight */
-  , HLF_FL          /* Folded line */
-  , HLF_FC          /* Fold column */
-  , HLF_ADD         /* Added diff line */
-  , HLF_CHD         /* Changed diff line */
-  , HLF_DED         /* Deleted diff line */
-  , HLF_TXD         /* Text Changed in diff line */
-  , HLF_CONCEAL     /* Concealed text */
-  , HLF_SC          /* Sign column */
-  , HLF_SPB         /* SpellBad */
-  , HLF_SPC         /* SpellCap */
-  , HLF_SPR         /* SpellRare */
-  , HLF_SPL         /* SpellLocal */
-  , HLF_PNI         /* popup menu normal item */
-  , HLF_PSI         /* popup menu selected item */
-  , HLF_PSB         /* popup menu scrollbar */
-  , HLF_PST         /* popup menu scrollbar thumb */
-  , HLF_TP          /* tabpage line */
-  , HLF_TPS         /* tabpage line selected */
-  , HLF_TPF         /* tabpage line filler */
-  , HLF_CUC         /* 'cursurcolumn' */
-  , HLF_CUL         /* 'cursurline' */
-  , HLF_MC          /* 'colorcolumn' */
-  , HLF_COUNT       /* MUST be the last one */
+  HLF_8 = 0         ///< Meta & special keys listed with ":map", text that is
+                    ///< displayed different from what it is
+  , HLF_EOB         ///< after the last line in the buffer
+  , HLF_TERM        ///< terminal cursor focused
+  , HLF_TERMNC      ///< terminal cursor unfocused
+  , HLF_AT          ///< @ characters at end of screen, characters that
+                    ///< don't really exist in the text
+  , HLF_D           ///< directories in CTRL-D listing
+  , HLF_E           ///< error messages
+  , HLF_I           ///< incremental search
+  , HLF_L           ///< last search string
+  , HLF_M           ///< "--More--" message
+  , HLF_CM          ///< Mode (e.g., "-- INSERT --")
+  , HLF_N           ///< line number for ":number" and ":#" commands
+  , HLF_CLN         ///< current line number
+  , HLF_R           ///< return to continue message and yes/no questions
+  , HLF_S           ///< status lines
+  , HLF_SNC         ///< status lines of not-current windows
+  , HLF_C           ///< column to separate vertically split windows
+  , HLF_T           ///< Titles for output from ":set all", ":autocmd" etc.
+  , HLF_V           ///< Visual mode
+  , HLF_VNC         ///< Visual mode, autoselecting and not clipboard owner
+  , HLF_W           ///< warning messages
+  , HLF_WM          ///< Wildmenu highlight
+  , HLF_FL          ///< Folded line
+  , HLF_FC          ///< Fold column
+  , HLF_ADD         ///< Added diff line
+  , HLF_CHD         ///< Changed diff line
+  , HLF_DED         ///< Deleted diff line
+  , HLF_TXD         ///< Text Changed in diff line
+  , HLF_CONCEAL     ///< Concealed text
+  , HLF_SC          ///< Sign column
+  , HLF_SPB         ///< SpellBad
+  , HLF_SPC         ///< SpellCap
+  , HLF_SPR         ///< SpellRare
+  , HLF_SPL         ///< SpellLocal
+  , HLF_PNI         ///< popup menu normal item
+  , HLF_PSI         ///< popup menu selected item
+  , HLF_PSB         ///< popup menu scrollbar
+  , HLF_PST         ///< popup menu scrollbar thumb
+  , HLF_TP          ///< tabpage line
+  , HLF_TPS         ///< tabpage line selected
+  , HLF_TPF         ///< tabpage line filler
+  , HLF_CUC         ///< 'cursurcolumn'
+  , HLF_CUL         ///< 'cursurline'
+  , HLF_MC          ///< 'colorcolumn'
+  , HLF_COUNT       ///< MUST be the last one
 } hlf_T;
 
 /* The HL_FLAGS must be in the same order as the HLF_ enums!
@@ -500,7 +500,7 @@ typedef enum {
 #define HL_FLAGS {'8', '~', 'z', 'Z', '@', 'd', 'e', 'i', 'l', 'm', 'M', 'n', \
                   'N', 'r', 's', 'S', 'c', 't', 'v', 'V', 'w', 'W', 'f', 'F', \
                   'A', 'C', 'D', 'T', '-', '>', 'B', 'P', 'R', 'L', '+', '=', \
-                  'x', 'X', '*', '#', '_', '!', '.', 'o'}
+                  'x', 'X', '*', '#', '_', '!', '.', 'o' }
 
 EXTERN int highlight_attr[HLF_COUNT];       /* Highl. attr for each context. */
 EXTERN int highlight_user[9];                   /* User[1-9] attributes */
@@ -998,16 +998,16 @@ EXTERN int redir_reg INIT(= 0);             // message redirection register
 EXTERN int redir_vname INIT(= 0);           // message redirection variable
 EXTERN garray_T *capture_ga INIT(= NULL);   // capture() buffer
 
-EXTERN char_u langmap_mapchar[256];     /* mapping for language keys */
+EXTERN char_u langmap_mapchar[256];         // mapping for language keys
 
-EXTERN int save_p_ls INIT(= -1);        /* Save 'laststatus' setting */
-EXTERN int save_p_wmh INIT(= -1);       /* Save 'winminheight' setting */
+EXTERN int save_p_ls INIT(= -1);            // Save 'laststatus' setting
+EXTERN int save_p_wmh INIT(= -1);           // Save 'winminheight' setting
 EXTERN int wild_menu_showing INIT(= 0);
-# define WM_SHOWN       1               /* wildmenu showing */
-# define WM_SCROLLED    2               /* wildmenu showing with scroll */
+# define WM_SHOWN       1                   // wildmenu showing
+# define WM_SCROLLED    2                   // wildmenu showing with scroll
 
 
-EXTERN char breakat_flags[256];         /* which characters are in 'breakat' */
+EXTERN char breakat_flags[256];             // which characters are in 'breakat'
 
 /*
  * Some file names are stored in pathdef.c, which is generated from the

@@ -607,7 +607,7 @@ int do_cmdline(char_u *cmdline, LineGetter fgetline,
       next_cmdline = do_one_cmd(&cmdline_copy, flags,
                                 &cstack,
                                 cmd_getline, cmd_cookie);
-      } else {
+    } else {
       next_cmdline = do_one_cmd(&cmdline_copy, flags & DOCMD_VERBOSE,
                                 &cstack,
                                 cmd_getline, cmd_cookie);
@@ -9543,13 +9543,14 @@ static void ex_terminal(exarg_T *eap)
     xfree(name);
   }
 }
-    
-/// is_live()
-/// Returns true if cmd corresponds
-/// to a live command.
-/// At the moment, only substitute has a live command.
 
-bool is_live (char_u *cmd_live)
+/// Check whether commandline starts with a live command
+///
+/// @param[in] cmd_live Commandline to check. May start with a range.
+///
+/// @return True if first command is a live command
+///         Currently :s is the only one
+bool is_live(char_u *cmd_live)
 {
   exarg_T ea;
   ea.cmd = cmd_live;
