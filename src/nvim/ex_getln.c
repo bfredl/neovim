@@ -1605,7 +1605,7 @@ static int command_line_changed(CommandLineState *s)
     msg_starthere();
     redrawcmdline();
     s->did_incsearch = true;
-  } else if (p_ics != 0 && s->firstc == ':' && is_live(ccline.cmdbuff)) {
+  } else if (*p_ics != NUL && s->firstc == ':' && is_live(ccline.cmdbuff)) {
     // compute a live action
     do_cmdline(ccline.cmdbuff, NULL, NULL, DOCMD_KEEPLINE);
     redrawcmdline();

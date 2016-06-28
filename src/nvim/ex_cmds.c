@@ -5918,7 +5918,7 @@ void finish_live_cmd(int validate) {
   block_autocmds();
 
   if (validate == 0 && sub_done == 1) {
-    do_cmdline_cmd(":u");
+    u_undo_and_forget(1);
     sub_done = 0;
   }
 
@@ -6139,7 +6139,7 @@ void do_inc_sub(exarg_T *eap)
       if (event_sub == 1 && sub_done == 1) {
         // TODO(KillTheMule, bfredl): Find another way to cancel the last
         // action, this screws up g+ and g-
-        do_cmdline_cmd(":u");
+        u_undo_and_forget(1);
         sub_done = 0;
         event_sub = 0;
       }
@@ -6150,7 +6150,7 @@ void do_inc_sub(exarg_T *eap)
       // Highlight the word and open the split
       do_sub(eap);
       if (sub_done == 1) {
-        do_cmdline_cmd(":u");  // To not polute the undo history
+        u_undo_and_forget(1);
         sub_done = 0;
       }
       // Put back eap in first state
@@ -6161,7 +6161,7 @@ void do_inc_sub(exarg_T *eap)
     case kICSReplacementStart:  // inc_sub will remove the arg
     case kICSReplacement:  // inc_sub needs to undo
       if (event_sub == 1 && sub_done == 1) {
-        do_cmdline_cmd(":u");
+        u_undo_and_forget(1);
         sub_done = 0;
       }
       do_sub(eap);
