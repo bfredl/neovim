@@ -5910,13 +5910,13 @@ void set_context_in_sign_cmd(expand_T *xp, char_u *arg)
 
 /// Called after a live command to get back to
 /// a normal state
-/// validate can take two values :
-///     0 if the live_command has not been validated
-///     1 if the user has validated the command
-void finish_live_cmd(int validate) {
+/// validated can take two values :
+///     false if the live_command has not been validated
+///     true  if the user has validated the command
+void finish_live_cmd(bool validated) {
   block_autocmds();
 
-  if (validate == 0 && sub_done == 1) {
+  if (!validated && sub_done == 1) {
     u_undo_and_forget(1);
     sub_done = 0;
   }
