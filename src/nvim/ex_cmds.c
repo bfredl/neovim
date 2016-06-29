@@ -3016,7 +3016,7 @@ void do_sub(exarg_T *eap)
       mb_ptr_adv(cmd);
     }
 
-    if (!eap->skip) {
+    if (!eap->skip && !eap->is_live) {
       sub_set_replacement((SubReplacementString) {
         .sub = xstrdup((char *) sub),
         .timestamp = os_time(),
@@ -3025,7 +3025,9 @@ void do_sub(exarg_T *eap)
     }
   } else if (!eap->skip) {    /* use previous pattern and substitution */
     if (old_sub.sub == NULL) {      /* there is no previous command */
-      EMSG(_(e_nopresub));
+      if (!eap->is_live) {
+        EMSG(_(e_nopresub));
+      }
       return;
     }
     pat = NULL;                 /* search_regcomp() will use previous pattern */
@@ -3069,10 +3071,12 @@ void do_sub(exarg_T *eap)
       ex_may_print(eap);
     }
 
-    if (!cmdmod.keeppatterns) {
-      save_re_pat(RE_SUBST, pat, p_magic);
+    if(!eap->is_live) {
+      if (!cmdmod.keeppatterns) {
+        save_re_pat(RE_SUBST, pat, p_magic);
+      }
+      add_to_history(HIST_SEARCH, pat, TRUE, NUL);
     }
-    add_to_history(HIST_SEARCH, pat, TRUE, NUL);
 
     return;
   }
@@ -3873,7 +3877,7 @@ skip:
     if (!(eap->is_live && sub[0] == '\0' && !last_is_slash)) {
       sub_done = 1;
     }
-    if (pat != NULL && *p_ics != NUL) {
+    if (pat != NULL && *p_ics != NUL && eap->is_live) {
       bool split = true;
 
       // p_ics is "", "nosplit" or "split"
@@ -6079,6 +6083,7 @@ void do_inc_sub(exarg_T *eap)
   char_u *tmp = eap->arg;
 
   // Highlight the word and open the split
+  save_search_patterns();
   do_sub(eap);
   if (sub_done == 1) {
     u_undo_and_forget(1);
@@ -6086,6 +6091,7 @@ void do_inc_sub(exarg_T *eap)
   }
   // Put back eap in first state
   eap->arg = tmp;
+  restore_search_patterns();
 
   update_screen(0);
   if (livebuf != NULL && buf_valid(livebuf)) {
