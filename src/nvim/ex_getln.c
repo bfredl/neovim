@@ -287,9 +287,6 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
     redraw_later(SOME_VALID);
   }
 
-  // NB: this is ok in any case right now but should be guarded
-  finish_live_cmd(0);
-
   if (ccline.cmdbuff != NULL) {
     // Put line in history buffer (":" and "=" only when it was typed).
     if (s->histype != HIST_INVALID

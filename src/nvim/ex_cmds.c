@@ -66,7 +66,6 @@
 typedef struct sign sign_T;
 
 // boolean to know if we have to undo
-static int event_sub = 0;
 static int sub_done = 0;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -3835,7 +3834,7 @@ skip:
         else
           beginline(BL_WHITE | BL_FIX);
       }
-      if (eap->is_live != 1) {  // live_mode : no message in command line
+      if (!eap->is_live) {  // live_mode : no message in command line
         if (!do_sub_msg(do_count) && do_ask) {
           MSG("");
         }
@@ -5908,23 +5907,6 @@ void set_context_in_sign_cmd(expand_T *xp, char_u *arg)
   }
 }
 
-/// Called after a live command to get back to
-/// a normal state
-/// validated can take two values :
-///     false if the live_command has not been validated
-///     true  if the user has validated the command
-void finish_live_cmd(bool validated) {
-  block_autocmds();
-
-  if (!validated && sub_done == 1) {
-    u_undo_and_forget(1);
-    sub_done = 0;
-  }
-
-  unblock_autocmds();
-
-}
-
 /// Open a window for future displaying of the inc_sub mode.
 ///
 /// Does not allow editing in the window.
@@ -6056,7 +6038,6 @@ void ex_window_inc_sub(char_u * pat,
 
   // Restore the old window
   win_enter(oldwin, false);
-  finish_live_cmd(1);
   win_size_restore(&winsizes);
   ga_clear(&winsizes);
   exmode_active = save_exmode;
@@ -6080,36 +6061,6 @@ void ex_window_inc_sub(char_u * pat,
   return;
 }
 
-/// Parse the substitution command line
-//
-/// @param eap arguments of the substitution
-/// @return cmdl_progress
-/// @see IncSubstituteState definition
-IncSubstituteState parse_sub_cmd(exarg_T *eap) {
-  int i = 0;
-  IncSubstituteState cmdl_progress;
-
-  // TODO(KillTheMule, bfredl): Make incsubstitute work with other delimiters
-  // like normal substitution, see line 2977 of this file
-  if (eap->arg[i++] != '/') {
-    return kICSPatternStart;
-  }
-
-  if (eap->arg[i++] == 0) {
-    return kICSPatternStart;
-  } else {
-    cmdl_progress = kICSPattern;
-    while (eap->arg[i] != 0) {
-      if (eap->arg[i] == '/' && eap->arg[i-1] != '\\') {
-        cmdl_progress = (eap->arg[i+1] == 0) ? kICSReplacementStart
-                                               : kICSReplacement;
-        break;
-      }
-      i++;
-    }
-  }
-  return cmdl_progress;
-}
 
 /// :substitute command implementation
 ///
@@ -6119,57 +6070,22 @@ IncSubstituteState parse_sub_cmd(exarg_T *eap) {
 void do_inc_sub(exarg_T *eap)
 {
   // if incsubstitute disabled, do it the classical way
-  if (*p_ics == NUL) {
+  if (*p_ics == NUL || !eap->is_live) {
     do_sub(eap);
     return;
   }
 
-  // count the number of '/' to know how many words can be parsed
-  IncSubstituteState cmdl_progress = parse_sub_cmd(eap);
+  // Save the state of eap
+  char_u *tmp = eap->arg;
 
-
-  switch (cmdl_progress) {
-    case kICSPatternStart:
-      if (!eap->is_live) {
-        do_sub(eap);
-      }
-      break;
-    case kICSPattern:
-      if (event_sub == 1 && sub_done == 1) {
-        // TODO(KillTheMule, bfredl): Find another way to cancel the last
-        // action, this screws up g+ and g-
-        u_undo_and_forget(1);
-        sub_done = 0;
-        event_sub = 0;
-      }
-
-      // Save the state of eap
-      char_u *tmp = eap->arg;
-
-      // Highlight the word and open the split
-      do_sub(eap);
-      if (sub_done == 1) {
-        u_undo_and_forget(1);
-        sub_done = 0;
-      }
-      // Put back eap in first state
-      eap->arg = tmp;
-
-      break;
-
-    case kICSReplacementStart:  // inc_sub will remove the arg
-    case kICSReplacement:  // inc_sub needs to undo
-      if (event_sub == 1 && sub_done == 1) {
-        u_undo_and_forget(1);
-        sub_done = 0;
-      }
-      do_sub(eap);
-      event_sub = 1;
-      break;
-
-    default:
-      break;
+  // Highlight the word and open the split
+  do_sub(eap);
+  if (sub_done == 1) {
+    u_undo_and_forget(1);
+    sub_done = 0;
   }
+  // Put back eap in first state
+  eap->arg = tmp;
 
   update_screen(0);
   if (livebuf != NULL && buf_valid(livebuf)) {
@@ -6177,8 +6093,4 @@ void do_inc_sub(exarg_T *eap)
     close_buffer(NULL, livebuf, DOBUF_WIPE, false);
   }
   redraw_later(SOME_VALID);
-
-  if (!eap->is_live) {
-    event_sub = 0;
-  }
 }
