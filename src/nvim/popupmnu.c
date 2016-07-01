@@ -38,6 +38,7 @@ static int pum_scrollbar;           // TRUE when scrollbar present
 static int pum_row;                 // top row of pum
 static int pum_col;                 // left column of pum
 
+static bool pum_is_visible = false;
 static int pum_do_redraw = FALSE;   // do redraw anyway
 
 static bool pum_external = false;
@@ -72,7 +73,7 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed)
   int above_row = cmdline_row;
   int redo_count = 0;
 
-  if (pum_array == NULL) {
+  if (!pum_is_visible) {
     // To keep the code simple, we only allow changing the
     // draw mode when the popup menu is not being displayed
     pum_external = pum_wants_external;
@@ -81,9 +82,9 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed)
 redo:
   // Pretend the pum is already there to avoid that must_redraw is set when
   // 'cuc' is on.
-  pum_array = (pumitem_T *)1;
+  pum_is_visible = true;
   validate_cursor_col();
-  pum_array = NULL;
+  pum_is_visible = false;
 
   // anchor position: the start of the completed word
   row = curwin->w_wrow + curwin->w_winrow;
@@ -114,6 +115,7 @@ redo:
       ADD(args, INTEGER_OBJ(selected));
       ui_event("popupmenu_select", args);
     }
+    pum_is_visible = true;
     return;
   }
 
@@ -124,9 +126,9 @@ redo:
 
   // Pretend the pum is already there to avoid that must_redraw is set when
   // 'cuc' is on.
-  pum_array = (pumitem_T *)1;
+  pum_is_visible = true;
   validate_cursor_col();
-  pum_array = NULL;
+  pum_is_visible = false;
 
   if (firstwin->w_p_pvw) {
     top_clear = firstwin->w_height;
@@ -298,6 +300,7 @@ redo:
     pum_width = max_width - pum_scrollbar;
   }
 
+  pum_is_visible = true;
   pum_array = array;
   pum_size = size;
 
@@ -712,6 +715,7 @@ static int pum_set_selected(int n, int repeat)
 /// Undisplay the popup menu (later).
 void pum_undisplay(void)
 {
+  pum_is_visible = false;
   pum_array = NULL;
 
   if (pum_external) {
@@ -736,7 +740,7 @@ void pum_clear(void)
 /// @return TRUE if the popup menu is displayed.
 int pum_visible(void)
 {
-  return !pum_do_redraw && pum_array != NULL;
+  return !pum_do_redraw && pum_is_visible;
 }
 
 /// Overruled when "pum_do_redraw" is set, used to redraw the status lines.
