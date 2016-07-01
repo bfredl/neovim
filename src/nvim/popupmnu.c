@@ -78,6 +78,21 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed)
     pum_external = pum_wants_external;
   }
 
+redo:
+  // Pretend the pum is already there to avoid that must_redraw is set when
+  // 'cuc' is on.
+  pum_array = (pumitem_T *)1;
+  validate_cursor_col();
+  pum_array = NULL;
+
+  // anchor position: the start of the completed word
+  row = curwin->w_wrow + curwin->w_winrow;
+  if (curwin->w_p_rl) {
+    col = curwin->w_wincol + curwin->w_width - curwin->w_wcol - 1;
+  } else {
+    col = curwin->w_wincol + curwin->w_wcol;
+  }
+
   if (pum_external) {
     Array args = ARRAY_DICT_INIT;
     if (array_changed) {
@@ -92,6 +107,8 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed)
       }
       ADD(args, ARRAY_OBJ(arr));
       ADD(args, INTEGER_OBJ(selected));
+      ADD(args, INTEGER_OBJ(row));
+      ADD(args, INTEGER_OBJ(col));
       ui_event("popupmenu_show", args);
     } else {
       ADD(args, INTEGER_OBJ(selected));
@@ -100,7 +117,6 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed)
     return;
   }
 
-redo:
   def_width = PUM_DEF_WIDTH;
   max_width = 0;
   kind_width = 0;
@@ -111,8 +127,6 @@ redo:
   pum_array = (pumitem_T *)1;
   validate_cursor_col();
   pum_array = NULL;
-
-  row = curwin->w_wrow + curwin->w_winrow;
 
   if (firstwin->w_p_pvw) {
     top_clear = firstwin->w_height;
@@ -225,13 +239,6 @@ redo:
   }
   pum_base_width = max_width;
   pum_kind_width = kind_width;
-
-  // Calculate column
-  if (curwin->w_p_rl) {
-    col = curwin->w_wincol + curwin->w_width - curwin->w_wcol - 1;
-  } else {
-    col = curwin->w_wincol + curwin->w_wcol;
-  }
 
   // if there are more items than room we need a scrollbar
   if (pum_height < size) {
