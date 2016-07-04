@@ -92,6 +92,7 @@
 #include "nvim/event/loop.h"
 #include "nvim/lib/queue.h"
 #include "nvim/eval/typval_encode.h"
+#include "nvim/editor/arbmark.h"
 
 #define DICT_MAXNEST 100        /* maximum nesting of lists and dicts */
 
@@ -6697,6 +6698,7 @@ static struct fst {
   { "and",               2, 2, f_and },
   { "api_info",          0, 0, f_api_info },
   { "append",            2, 2, f_append },
+  { "arbmark_set",       0, 4, f_arbmark_set },
   { "argc",              0, 0, f_argc },
   { "argidx",            0, 0, f_argidx },
   { "arglistid",         0, 2, f_arglistid },
@@ -12447,6 +12449,39 @@ static void f_maparg(typval_T *argvars, typval_T *rettv)
 static void f_mapcheck(typval_T *argvars, typval_T *rettv)
 {
   get_maparg(argvars, rettv, FALSE);
+}
+
+static void f_arbmark_set(typval_T *argvars, typval_T *rettv)
+{
+  int fnum = 0;
+  buf_T *buf;
+  if (argvars[0].v_type != VAR_STRING){
+    EMSG(_("mark name must be a string")); return;
+  }
+  if (STRLEN(argvars[0].vval.v_string) > ARBMARK_MAXLEN){
+    EMSG(_("mark name is to large")); return;
+  }
+  if (argvars[1].v_type != VAR_NUMBER){
+    EMSG(_("Row must be a number")); return;
+  }
+  if (argvars[2].v_type != VAR_NUMBER){
+    EMSG(_("Col must be a number")); return;
+  }
+  if (argvars[3].v_type == VAR_NUMBER) {
+    fnum = argvars[3].vval.v_number;
+    buf = arbmark_buf_from_fnum(fnum);
+    if (!buf){
+      EMSG(_("Buffer could not be found...")); return;
+    }
+  } else if (argvars[3].v_type != VAR_UNKNOWN){
+    EMSG(_("buffer number must be of type number")); return;
+  }
+  // TODO DEL
+  buf = curbuf;
+  pos_T pos;
+  pos.lnum = argvars[1].vval.v_number;
+  pos.col = argvars[2].vval.v_number;
+  arbmark_set(buf, argvars[0].vval.v_string, &pos);
 }
 
 

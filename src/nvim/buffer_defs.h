@@ -30,7 +30,8 @@ typedef struct file_buffer buf_T; // Forward declaration
 #include "nvim/api/private/defs.h"
 // for Map(K, V)
 #include "nvim/map.h"
-
+// for arbmark_T
+/* #include "nvim/lib/kbtree.h" */
 #define MODIFIABLE(buf) (!buf->terminal && buf->b_p_ma)
 
 /*
@@ -114,6 +115,7 @@ typedef Map(linenr_T, bufhl_vec_T) bufhl_info_T;
 // for Terminal
 #include "nvim/terminal.h"
 
+#include "nvim/editor/arbmark.h"
 /*
  * The taggy struct is used to store the information about a :tag command.
  */
@@ -488,7 +490,11 @@ struct file_buffer {
   FileID file_id;
 
   int b_fnum;                   /* buffer number for this file. */
-
+  /* PMap(cstr_t) *b_arbmarks = pmap_new(cstr_t)(); /1* Hashtable of mark names *1/ */
+  /* kbtree_t(arbmark_T) *b_arbmarks_tree; /1* Btree of arbitrary marks *1/ */
+  // TODO make a macro for this stuff..
+  /* kKBTREE_INIT(str, arbmark_T, pos_cmp); */
+                                              /* to pointers of mark position */
   bool b_changed;               /* 'modified': Set to true if something in the
                                    file has been changed and not written out. */
   int b_changedtick;            /* incremented for each change, also for undo */
