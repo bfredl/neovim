@@ -9,7 +9,7 @@
 #include "nvim/memory.h"
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
-#include "nvim/api/extmark.h"
+#include "nvim/api/mark_extended.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/extmark.c.generated.h"

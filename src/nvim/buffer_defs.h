@@ -115,7 +115,7 @@ typedef Map(linenr_T, bufhl_vec_T) bufhl_info_T;
 // for Terminal
 #include "nvim/terminal.h"
 
-/* #include "nvim/api/extmark.h" */
+/* #include "nvim/api/mark_extended.h" */
 /* #include "nvim/lib/kbtree.h" */
 
 /*
