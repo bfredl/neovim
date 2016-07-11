@@ -1,4 +1,4 @@
--- Sanity checks for buffer_* API calls via msgpack-rpc
+
 local helpers = require('test.functional.helpers')(after_each)
 local clear, nvim, buffer = helpers.clear, helpers.nvim, helpers.buffer
 local curbuf, curwin, eq = helpers.curbuf, helpers.curwin, helpers.eq
