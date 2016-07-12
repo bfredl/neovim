@@ -2,11 +2,12 @@
  * Same function but names are not limited to one char
  * There is also no ex_command, just viml functions
  */
+#include <stdio.h>             // str
 
 #include "nvim/vim.h"
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
 #include "nvim/mark.h"         // SET_FMARK
-#include "nvim/memory.h" //TODO del?
+/* #include "nvim/memory.h" //TODO del? */
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
 #include "nvim/mark_extended.h"
@@ -18,7 +19,11 @@
 #define FOR_ALL_EXTMARKS(buf) \
   kbitr_t itr; \
   ExtendedMark *extmark; \
-  for (; kb_itr_valid(&itr); kb_itr_next(cstr_t, buf->b_extmarks_tree, &itr)){
+  kb_itr_first(str, b_extmarks_tree, &itr);\
+  for (; kb_itr_valid(&itr); kb_itr_next(cstr_t, buf->b_extmarks_tree, &itr)){\
+    extmark = &kb_itr_key(ExtendedMark, &itr);
+
+#define END_LOOP }
 
 /* Create or update an extmark, */
 int extmark_set(buf_T *buf, char *name, pos_T *pos)
@@ -72,8 +77,7 @@ static ExtendedMark *find_pos(pos_T pos, bool go_forward, int fnum)
     found = 1;
   }
   buf_T *buf = extmark_buf_from_fnum(fnum);
-  FOR_ALL_EXTMARKS(buf){
-    extmark = &kb_itr_key(ExtendedMark, &itr);
+  FOR_ALL_EXTMARKS(buf)
     int cmp = kb_generic_cmp(pos, extmark->fmark.mark);
     switch (cmp) {
       case found:
@@ -83,7 +87,7 @@ static ExtendedMark *find_pos(pos_T pos, bool go_forward, int fnum)
       case 0:
         return extmark;
     }
-  }
+  END_LOOP
   return NULL;
 }
 
@@ -91,12 +95,12 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
 {
   if (buf->b_extmarks == NULL) {
     buf->b_extmarks = pmap_new(cstr_t)();
-    buf->b_extmarks_tree = kb_init(cstr_t, KB_DEFAULT_SIZE);
+    buf->b_extmarks_tree = kb_init(str, KB_DEFAULT_SIZE);
   }
   ExtendedMark extmark;
   /* fmark_T fmark; */
   /* extmark.fmark = fmark; */
-  kb_putp(ExtendedMark, buf->b_extmarks_tree,  &extmark);
+  kb_put(ExtendedMark, buf->b_extmarks_tree,  extmark);
   pmap_put(cstr_t)(buf->b_extmarks, name, &extmark);
   SET_FMARK(&buf->b_extmarks, *pos, buf->b_fnum);
   return OK;
