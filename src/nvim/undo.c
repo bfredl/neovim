@@ -1668,7 +1668,7 @@ void u_undo(int count)
     undo_undoes = TRUE;
   else
     undo_undoes = !undo_undoes;
-  u_doit(count);
+  u_doit(count, false);
 }
 
 /*
@@ -1679,13 +1679,24 @@ void u_redo(int count)
 {
   if (vim_strchr(p_cpo, CPO_UNDO) == NULL)
     undo_undoes = FALSE;
-  u_doit(count);
+  u_doit(count, false);
+}
+
+/// undo and forget.
+void u_undo_and_forget(int count)
+{
+  if (curbuf->b_u_synced == false) {
+    u_sync(true);
+    count = 1;
+  }
+  undo_undoes = true;
+  u_doit(count, true);
 }
 
 /*
  * Undo or redo, depending on 'undo_undoes', 'count' times.
  */
-static void u_doit(int startcount)
+static void u_doit(int startcount, bool forget)
 {
   int count = startcount;
 
@@ -1722,6 +1733,11 @@ static void u_doit(int startcount)
       }
 
       u_undoredo(TRUE);
+      if (forget) {
+        curbuf->b_u_newhead = curbuf->b_u_curhead->uh_next.ptr;
+        u_freeheader(curbuf, curbuf->b_u_curhead, NULL);
+        curbuf->b_u_curhead = NULL;
+      }
     } else {
       if (curbuf->b_u_curhead == NULL || get_undolevel() <= 0) {
         beep_flush();           /* nothing to redo */
@@ -1741,7 +1757,7 @@ static void u_doit(int startcount)
       curbuf->b_u_curhead = curbuf->b_u_curhead->uh_prev.ptr;
     }
   }
-  u_undo_end(undo_undoes, FALSE);
+  u_undo_end(undo_undoes, FALSE, forget);
 }
 
 /*
@@ -2054,7 +2070,7 @@ void undo_time(long step, int sec, int file, int absolute)
       }
     }
   }
-  u_undo_end(did_undo, absolute);
+  u_undo_end(did_undo, absolute, false);
 }
 
 /*
@@ -2306,7 +2322,8 @@ static void u_undoredo(int undo)
 static void 
 u_undo_end (
     int did_undo,                   /* just did an undo */
-    int absolute                   /* used ":undo N" */
+    int absolute,                   /* used ":undo N" */
+    bool quiet
 )
 {
   char        *msgstr;
@@ -2316,9 +2333,11 @@ u_undo_end (
   if ((fdo_flags & FDO_UNDO) && KeyTyped)
     foldOpenCursor();
 
-  if (global_busy           /* no messages now, wait until global is finished */
-      || !messaging())        /* 'lazyredraw' set, don't do messages now */
+  if (global_busy           // no messages now, wait until global is finished
+      || !messaging()       // 'lazyredraw' set, don't do messages now
+      || quiet) {  // livemode doesn't show messages
     return;
+  }
 
   if (curbuf->b_ml.ml_flags & ML_EMPTY)
     --u_newcount;
