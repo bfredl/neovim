@@ -36,7 +36,7 @@ int extmark_set(buf_T *buf, char *name, pos_T *pos)
   }
 }
 
-/* Will fail silently on missing name */
+/* returns FAIL on missing name */
 int extmark_unset(buf_T *buf, char *name)
 {
   ExtendedMark *extmark = get_extmark(buf, name);
@@ -47,43 +47,42 @@ int extmark_unset(buf_T *buf, char *name)
 }
 
 /* Given a text position, finds the next mark */
-ExtendedMark *extmark_next(pos_T *pos, int fnum)
+pos_T *extmark_next(buf_T *buf, pos_T *pos)
 {
-  ExtendedMark *extmark = find_pos(pos, 1, fnum);
-  return extmark;
+  return get_pos(buf, pos, 1);
 }
 
-ExtendedMark *extmark_prev(pos_T *pos, int fnum)
+/* Given a text position, finds the previous mark */
+pos_T *extmark_prev(buf_T *buf, pos_T *pos)
 {
-  ExtendedMark *extmark = find_pos(pos, 0, fnum);
-  return extmark;
+  return get_pos(buf, pos, 0);
 }
 
-/* Get all mark names */
-/* kvec_t(cstr_t) extmark_names(char *name) */
-/* { */
-  /* kvec_t(cstr_t) array; */
-  /* FOR_ALL_EXTMARKS{ */
-    /* extmark = &kb_itr_key(extmarks, &itr); */
-    /* kv_push(array, extmark->name); */
-  /* } */
-  /* return array; */
+/* Get all mark names ordered by position*/
+ExtmarkNames *extmark_names(buf_T *buf)
+{
+  ExtmarkNames extmark_names = KV_INITIAL_VALUE;
+  ExtmarkNames *array = &extmark_names;
+  FOR_ALL_EXTMARKS(buf)
+    kv_push(extmark_names, extmark->name);
+  END_LOOP
+  return array;
+}
 
-static ExtendedMark *find_pos(pos_T *pos, bool go_forward, int fnum)
+static pos_T *get_pos(buf_T *buf, pos_T *pos, bool go_forward)
 {
   int found = -1;
   if (go_forward == 1){
     found = 1;
   }
   int cmp;
-  buf_T *buf = extmark_buf_from_fnum(fnum);
   FOR_ALL_EXTMARKS(buf)
     cmp = pos_cmp(*pos, extmark->fmark.mark);
     if (cmp == found) {
-      return extmark->prev;
+      return &extmark->prev->fmark.mark;
     }
     else if (cmp == 0) {
-      return extmark;
+      return &extmark->fmark.mark;
     }
   END_LOOP
   return NULL;
@@ -96,8 +95,6 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
     buf->b_extmarks_tree = kb_init(extmarks, KB_DEFAULT_SIZE);
   }
   ExtendedMark extmark;
-  fmark_T fmark;
-  extmark.fmark = fmark;
   kb_put(extmarks, buf->b_extmarks_tree,  extmark);
   pmap_put(cstr_t)(buf->b_extmarks, name, &extmark);
   SET_FMARK(&extmark.fmark, *pos, buf->b_fnum);
@@ -129,7 +126,6 @@ buf_T *extmark_buf_from_fnum(int fnum)
   return buf;
 }
 
-/* returns an extmark from it's buffer*/
 static ExtendedMark *get_extmark(buf_T *buf, char *name)
 {
   return pmap_get(cstr_t)(buf->b_extmarks, name);
