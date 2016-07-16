@@ -8,9 +8,7 @@
 #define KB_MAX_DEPTH 64
 
 typedef struct {
-    // TODO
-	/* int32_t is_internal:1, n:31; MORE EFFICIENT BUT MORE F*** WCONVERSION ERROR RIP*/
-	int32_t is_internal, n;
+  int32_t is_internal:1, n:31;
 } kbnode_t;
 
 
