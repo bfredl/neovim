@@ -2,15 +2,14 @@
  * Same function but names are not limited to one char
  * There is also no ex_command, just viml functions
  */
-#include <stdio.h>             // str
 
 #include "nvim/vim.h"
+#include "nvim/mark_extended.h"
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
 #include "nvim/mark.h"         // SET_FMARK
 /* #include "nvim/memory.h" //TODO del? */
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
-#include "nvim/mark_extended.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
@@ -97,11 +96,11 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
     buf->b_extmarks_tree = kb_init(extmarks, KB_DEFAULT_SIZE);
   }
   ExtendedMark extmark;
-  /* fmark_T fmark; */
-  /* extmark.fmark = fmark; */
+  fmark_T fmark;
+  extmark.fmark = fmark;
   kb_put(extmarks, buf->b_extmarks_tree,  extmark);
   pmap_put(cstr_t)(buf->b_extmarks, name, &extmark);
-  SET_FMARK(&buf->b_extmarks, *pos, buf->b_fnum);
+  SET_FMARK(&extmark.fmark, *pos, buf->b_fnum);
   return OK;
 }
 
@@ -121,7 +120,7 @@ static int extmark_delete(buf_T *buf, char *name)
 // TODO use builtin
 buf_T *extmark_buf_from_fnum(int fnum)
 {
-  buf_T *buf;
+  buf_T *buf = NULL;
   FOR_ALL_BUFFERS(buf){
     if (fnum == buf->b_fnum){
         return buf;
