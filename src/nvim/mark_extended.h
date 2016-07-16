@@ -14,6 +14,8 @@ struct ExtendedMark {
   ExtendedMark *prev;
 };
 
+KBTREE_INIT(extmarks, ExtendedMark, extmark_pos_cmp)
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.h.generated.h"
 #endif

@@ -118,7 +118,6 @@ typedef Map(linenr_T, bufhl_vec_T) bufhl_info_T;
 #include "nvim/mark_extended.h"
 #include "nvim/lib/kbtree.h"
 typedef Map(cstr_t, ptr_t) ExtendedMarkPtr;
-KBTREE_INIT(str, ExtendedMark, extmark_pos_cmp)
 
 /*
  * The taggy struct is used to store the information about a :tag command.
@@ -495,7 +494,7 @@ struct file_buffer {
 
   int b_fnum;                   /* buffer number for this file. */
   ExtendedMarkPtr *b_extmarks;
-  kbtree_t(str) *b_extmarks_tree;
+  kbtree_t(extmarks) *b_extmarks_tree;
   bool b_changed;               /* 'modified': Set to true if something in the
                                    file has been changed and not written out. */
   int b_changedtick;            /* incremented for each change, also for undo */

@@ -19,8 +19,8 @@
 #define FOR_ALL_EXTMARKS(buf) \
   kbitr_t itr; \
   ExtendedMark *extmark; \
-  kb_itr_first(str, buf->b_extmarks_tree, &itr);\
-  for (; kb_itr_valid(&itr); kb_itr_next(cstr_t, buf->b_extmarks_tree, &itr)){\
+  kb_itr_first(extmarks, buf->b_extmarks_tree, &itr);\
+  for (; kb_itr_valid(&itr); kb_itr_next(extmarks, buf->b_extmarks_tree, &itr)){\
     extmark = &kb_itr_key(ExtendedMark, &itr);
 
 #define END_LOOP }
@@ -94,7 +94,7 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
 {
   if (buf->b_extmarks == NULL) {
     buf->b_extmarks = pmap_new(cstr_t)();
-    buf->b_extmarks_tree = kb_init(str, KB_DEFAULT_SIZE);
+    buf->b_extmarks_tree = kb_init(extmarks, KB_DEFAULT_SIZE);
   }
   ExtendedMark extmark;
   /* fmark_T fmark; */
