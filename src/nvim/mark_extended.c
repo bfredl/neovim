@@ -106,6 +106,7 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
     buf->b_extmarks = pmap_new(cstr_t)();
     buf->b_extmarks_tree = kb_init(extmarks, KB_DEFAULT_SIZE);
   }
+  // TODO set prev pointer
   ExtendedMark extmark;
   kb_put(extmarks, buf->b_extmarks_tree,  extmark);
   pmap_put(cstr_t)(buf->b_extmarks, name, &extmark);
@@ -115,12 +116,14 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
 
 static void extmark_update(ExtendedMark *extmark, pos_T *pos)
 {
+  // TODO set prev pointer
   extmark->fmark.mark.lnum = pos->lnum;
   extmark->fmark.mark.col = pos->col;
 }
 
 static int extmark_delete(buf_T *buf, char *name)
 {
+  // TODO set prev pointer, remove from btree
   pmap_del(cstr_t)(buf->b_extmarks, name);
   return OK;
 }

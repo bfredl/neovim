@@ -13,7 +13,6 @@ typedef struct ExtendedMark ExtendedMark;
 struct ExtendedMark {
   char *name;
   fmark_T fmark;
-  ExtendedMark *next;
   ExtendedMark *prev;
 };
 
