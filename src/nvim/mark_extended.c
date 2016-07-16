@@ -65,7 +65,7 @@ ExtendedMark *extmark_prev(pos_T *pos, int fnum)
 /* { */
   /* kvec_t(cstr_t) array; */
   /* FOR_ALL_EXTMARKS{ */
-    /* extmark = &kb_itr_key(ExtendedMark, &itr); */
+    /* extmark = &kb_itr_key(extmarks, &itr); */
     /* kv_push(array, extmark->name); */
   /* } */
   /* return array; */
@@ -99,7 +99,7 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
   ExtendedMark extmark;
   /* fmark_T fmark; */
   /* extmark.fmark = fmark; */
-  kb_put(ExtendedMark, buf->b_extmarks_tree,  extmark);
+  kb_put(extmarks, buf->b_extmarks_tree,  extmark);
   pmap_put(cstr_t)(buf->b_extmarks, name, &extmark);
   SET_FMARK(&buf->b_extmarks, *pos, buf->b_fnum);
   return OK;
