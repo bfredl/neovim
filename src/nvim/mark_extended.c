@@ -114,7 +114,7 @@ static int extmark_update(ExtendedMark *extmark, pos_T *pos)
 
 static int extmark_delete(buf_T *buf, char *name)
 {
-  pmap_del(ptr_t)(buf->b_extmarks, name);
+  pmap_del(cstr_t)(buf->b_extmarks, name);
   return OK;
 }
 
@@ -133,7 +133,7 @@ buf_T *extmark_buf_from_fnum(int fnum)
 /* returns an extmark from it's buffer*/
 static ExtendedMark *get_extmark(buf_T *buf, char *name)
 {
-  return pmap_get(ExtendedMark)(buf->b_extmarks, name);
+  return pmap_get(cstr_t)(buf->b_extmarks, name);
 }
 
 int pos_cmp(pos_T a, pos_T b)

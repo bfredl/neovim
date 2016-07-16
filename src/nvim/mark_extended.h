@@ -15,6 +15,7 @@ struct ExtendedMark {
   ExtendedMark *prev;
 };
 
+typedef Map(cstr_t, ptr_t) ExtendedMarkPtr;
 KBTREE_INIT(extmarks, ExtendedMark, extmark_pos_cmp)
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS

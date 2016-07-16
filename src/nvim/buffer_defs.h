@@ -117,7 +117,6 @@ typedef Map(linenr_T, bufhl_vec_T) bufhl_info_T;
 
 #include "nvim/mark_extended.h"
 #include "nvim/lib/kbtree.h"
-typedef Map(cstr_t, ptr_t) ExtendedMarkPtr;
 
 /*
  * The taggy struct is used to store the information about a :tag command.
