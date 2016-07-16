@@ -51,7 +51,7 @@ typedef struct {
 	}
 
 #define __kb_destroy(b) do {											\
-		int i; \
+		int i;                                                          \
         unsigned int max = 8;											\
 		kbnode_t *x, **top, **stack = 0;								\
 		if (b) {														\
