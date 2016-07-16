@@ -12457,7 +12457,7 @@ static void f_extmark_set(typval_T *argvars, typval_T *rettv)
   buf_T *buf;
   // TODO DEL
   buf = curbuf;
-  char *name = get_tv_string(&argvars[0]);
+  char *name = (char*)get_tv_string(&argvars[0]);
   if (STRCMP(name, "")){
     EMSG(_("mark name must be a string")); return;
   }

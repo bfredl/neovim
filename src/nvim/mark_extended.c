@@ -107,8 +107,8 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
 
 static int extmark_update(ExtendedMark *extmark, pos_T *pos)
 {
-  extmark->mark.lnum = pos->lnum;
-  extmark->mark.col = pos->col;
+  extmark->fmark.mark.lnum = pos->lnum;
+  extmark->fmark.mark.col = pos->col;
   return OK;
 }
 
@@ -123,7 +123,7 @@ buf_T *extmark_buf_from_fnum(int fnum)
 {
   buf_T *buf;
   FOR_ALL_BUFFERS(buf){
-    if (fnum == buf->fnum){
+    if (fnum == buf->b_fnum){
         return buf;
     }
   }
