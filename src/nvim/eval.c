@@ -92,7 +92,6 @@
 #include "nvim/event/loop.h"
 #include "nvim/lib/queue.h"
 #include "nvim/eval/typval_encode.h"
-#include "nvim/mark_extended.h"
 
 #define DICT_MAXNEST 100        /* maximum nesting of lists and dicts */
 
@@ -6698,7 +6697,6 @@ static struct fst {
   { "and",               2, 2, f_and },
   { "api_info",          0, 0, f_api_info },
   { "append",            2, 2, f_append },
-  { "extmark_set",       0, 4, f_extmark_set },
   { "argc",              0, 0, f_argc },
   { "argidx",            0, 0, f_argidx },
   { "arglistid",         0, 2, f_arglistid },
@@ -12450,45 +12448,6 @@ static void f_mapcheck(typval_T *argvars, typval_T *rettv)
 {
   get_maparg(argvars, rettv, FALSE);
 }
-
-static void f_extmark_set(typval_T *argvars, typval_T *rettv)
-{
-  int fnum = 0;
-  buf_T *buf;
-  // TODO DEL
-  buf = curbuf;
-  char *name = (char*)get_tv_string(&argvars[0]);
-  if (STRCMP(name, "")){
-    EMSG(_("mark name must be a string")); return;
-  }
-  if (STRLEN(name) > EXTMARK_MAXLEN){
-    EMSG(_("mark name is to large")); return;
-  }
-  int check;
-  int row = get_tv_number_chk(&argvars[1], &check);
-  /* if (check != 1){ */
-    /* EMSG(_("Row must be a number")); return; */
-  /* } */
-  int col = get_tv_number_chk(&argvars[2], &check);
-  /* if (check != 1){ */
-    /* EMSG(_("Col  number")); return; */
-  /* } */
-  fnum = get_tv_number_chk(&argvars[3], &check);
-  if (check != 1) {
-    EMSG(_("buffer number must be of type number")); return;
-  }
-  else {
-    buf = extmark_buf_from_fnum(fnum);
-    if (!buf){
-      EMSG(_("Buffer could not be found...")); return;
-    }
-  }
-  pos_T pos;
-  pos.lnum = row;
-  pos.col = col;
-  extmark_set(buf, name, &pos);
-}
-
 
 static void find_some_match(typval_T *argvars, typval_T *rettv, int type)
 {
