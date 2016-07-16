@@ -1,6 +1,7 @@
 /*
  * Same function but names are not limited to one char
  * There is also no ex_command, just viml functions
+ * All //TODO
  */
 
 #include "nvim/vim.h"
@@ -46,6 +47,23 @@ int extmark_unset(buf_T *buf, char *name)
   return extmark_delete(buf, name);
 }
 
+/* Get all mark names ordered by position*/
+ExtmarkNames *extmark_names(buf_T *buf)
+{
+  ExtmarkNames extmark_names = KV_INITIAL_VALUE;
+  ExtmarkNames *array = &extmark_names;
+  FOR_ALL_EXTMARKS(buf)
+    kv_push(extmark_names, extmark->name);
+  END_LOOP
+  return array;
+}
+
+/* Returns the postion of the given index  */
+pos_T *extmark_index(buf_T *buf, char *name) {
+  ExtendedMark *extmark = get_extmark(buf, name);
+  return &extmark->fmark.mark;
+}
+
 /* Given a text position, finds the next mark */
 pos_T *extmark_next(buf_T *buf, pos_T *pos)
 {
@@ -56,17 +74,6 @@ pos_T *extmark_next(buf_T *buf, pos_T *pos)
 pos_T *extmark_prev(buf_T *buf, pos_T *pos)
 {
   return get_pos(buf, pos, 0);
-}
-
-/* Get all mark names ordered by position*/
-ExtmarkNames *extmark_names(buf_T *buf)
-{
-  ExtmarkNames extmark_names = KV_INITIAL_VALUE;
-  ExtmarkNames *array = &extmark_names;
-  FOR_ALL_EXTMARKS(buf)
-    kv_push(extmark_names, extmark->name);
-  END_LOOP
-  return array;
 }
 
 static pos_T *get_pos(buf_T *buf, pos_T *pos, bool go_forward)
