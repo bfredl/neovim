@@ -5,13 +5,14 @@
 /* #include "nvim/mark.h" */
 
 #define EXTMARK_MAXLEN 24
-#define pos_cmp(a, b) (_pos_cmp((a).fmark.mark, (b).fmark.mark))
+#define extmark_pos_cmp(a, b) (pos_cmp((a).fmark.mark, (b).fmark.mark))
 
-typedef struct {
+typedef struct ExtendedMark ExtendedMark;
+struct ExtendedMark {
   fmark_T fmark;
-  fmark_T *next;
-  fmark_T *prev;
-} ExtendedMark;
+  ExtendedMark *next;
+  ExtendedMark *prev;
+};
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.h.generated.h"

@@ -19,7 +19,7 @@
 #define FOR_ALL_EXTMARKS(buf) \
   kbitr_t itr; \
   ExtendedMark *extmark; \
-  kb_itr_first(str, b_extmarks_tree, &itr);\
+  kb_itr_first(str, buf->b_extmarks_tree, &itr);\
   for (; kb_itr_valid(&itr); kb_itr_next(cstr_t, buf->b_extmarks_tree, &itr)){\
     extmark = &kb_itr_key(ExtendedMark, &itr);
 
@@ -48,13 +48,13 @@ int extmark_unset(buf_T *buf, char *name)
 }
 
 /* Given a text position, finds the next mark */
-ExtendedMark *extmark_next(pos_T pos, int fnum)
+ExtendedMark *extmark_next(pos_T *pos, int fnum)
 {
   ExtendedMark *extmark = find_pos(pos, 1, fnum);
   return extmark;
 }
 
-ExtendedMark *extmark_prev(pos_T pos, int fnum)
+ExtendedMark *extmark_prev(pos_T *pos, int fnum)
 {
   ExtendedMark *extmark = find_pos(pos, 0, fnum);
   return extmark;
@@ -70,22 +70,21 @@ ExtendedMark *extmark_prev(pos_T pos, int fnum)
   /* } */
   /* return array; */
 
-static ExtendedMark *find_pos(pos_T pos, bool go_forward, int fnum)
+static ExtendedMark *find_pos(pos_T *pos, bool go_forward, int fnum)
 {
   int found = -1;
   if (go_forward == 1){
     found = 1;
   }
+  int cmp;
   buf_T *buf = extmark_buf_from_fnum(fnum);
   FOR_ALL_EXTMARKS(buf)
-    int cmp = kb_generic_cmp(pos, extmark->fmark.mark);
-    switch (cmp) {
-      case found:
-        return extmark->prev;
-      case found == -1:
-        continue;
-      case 0:
-        return extmark;
+    cmp = pos_cmp(*pos, extmark->fmark.mark);
+    if (cmp == found) {
+      return extmark->prev;
+    }
+    else if (cmp == 0) {
+      return extmark;
     }
   END_LOOP
   return NULL;
@@ -137,34 +136,18 @@ static ExtendedMark *get_extmark(buf_T *buf, char *name)
   return pmap_get(ExtendedMark)(buf->b_extmarks, name);
 }
 
-int _pos_cmp(pos_T a, pos_T b)
+int pos_cmp(pos_T a, pos_T b)
 {
-  if (pos_lt(a, b) == OK){
+  if (a.lnum < b.lnum) {
     return -1;
   }
-  else if (pos_eq(a, b) == OK){
-    return 0;
+  else if (a.lnum == b.lnum) {
+    if (a.col < b.col) {
+      return -1;
+    }
+    else if (a.col == b.col) {
+      return 0;
+    }
   }
-  else {
-    return 1;
-  }
-}
-
-static int pos_lt(pos_T *pos, pos_T *pos2){
-  if (pos->lnum < pos2->lnum) {
-      if (pos->col < pos2->col) {
-          return OK;
-      }
-  }
-  return FAIL;
-}
-
-static int pos_eq(pos_T *pos, pos_T *pos2)
-{
-  if (pos->lnum == pos2->lnum) {
-      if (pos->col == pos2->col) {
-          return OK;
-      }
-  }
-  return FAIL;
+  return 1;
 }
