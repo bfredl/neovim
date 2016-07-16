@@ -1,14 +1,18 @@
 /*
- * Same function but names are not limited to one char
- * There is also no ex_command, just viml functions
- * All //TODO
+ * A normal mark that you would find in other text editors
+ * The marks exists seperatley to vim marks, there are no
+ * special marks for insert cursort etc
+ *
+ * Marks are stored in a btree for fast searching
+ * A map of pointers to the marks is used for fast lookup
+ *
+ * TODO Mark gravity to left or right.
  */
 
 #include "nvim/vim.h"
 #include "nvim/mark_extended.h"
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
 #include "nvim/mark.h"         // SET_FMARK
-/* #include "nvim/memory.h" //TODO del? */
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
 
@@ -33,7 +37,8 @@ int extmark_set(buf_T *buf, char *name, pos_T *pos)
     return extmark_create(buf, name, pos);
   }
   else {
-    return extmark_update(extmark, pos);
+    extmark_update(extmark, pos);
+    return 2;
   }
 }
 
@@ -108,11 +113,10 @@ static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
   return OK;
 }
 
-static int extmark_update(ExtendedMark *extmark, pos_T *pos)
+static void extmark_update(ExtendedMark *extmark, pos_T *pos)
 {
   extmark->fmark.mark.lnum = pos->lnum;
   extmark->fmark.mark.col = pos->col;
-  return OK;
 }
 
 static int extmark_delete(buf_T *buf, char *name)
@@ -121,19 +125,7 @@ static int extmark_delete(buf_T *buf, char *name)
   return OK;
 }
 
-// TODO use builtin
-buf_T *extmark_buf_from_fnum(int fnum)
-{
-  buf_T *buf = NULL;
-  FOR_ALL_BUFFERS(buf){
-    if (fnum == buf->b_fnum){
-        return buf;
-    }
-  }
-  return buf;
-}
-
-static ExtendedMark *get_extmark(buf_T *buf, char *name)
+ExtendedMark *get_extmark(buf_T *buf, char *name)
 {
   return pmap_get(cstr_t)(buf->b_extmarks, name);
 }

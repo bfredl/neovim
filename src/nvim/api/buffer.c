@@ -17,6 +17,7 @@
 #include "nvim/misc2.h"
 #include "nvim/ex_cmds.h"
 #include "nvim/mark.h"
+#include "nvim/mark_extended.h"
 #include "nvim/fileio.h"
 #include "nvim/move.h"
 #include "nvim/syntax.h"
@@ -632,6 +633,185 @@ ArrayOf(Integer, 2) buffer_get_mark(Buffer buffer, String name, Error *err)
 
   ADD(rv, INTEGER_OBJ(posp->lnum));
   ADD(rv, INTEGER_OBJ(posp->col));
+
+  return rv;
+}
+
+/// Return a tuple (row,col) representing the position of the named mark
+///
+/// @param buffer The buffer handle
+/// @param name The mark's name
+/// @param[out] err Details of an error that may have occurred
+/// @return The (row, col) tuple
+ArrayOf(Integer, 2) mark_index(Buffer buffer, String name, Error *err)
+{
+  Array rv = ARRAY_DICT_INIT;
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
+  if (name.size < 1) {
+    api_set_error(err, Validation, _("Mark name must be at least one char"));
+    return rv;
+  }
+
+  pos_T *pos = extmark_index(buf, name.data);
+  if (pos == NULL) {
+    api_set_error(err, Validation, _("Invalid mark name"));
+    return rv;
+  }
+
+  ADD(rv, INTEGER_OBJ(pos->lnum));
+  ADD(rv, INTEGER_OBJ(pos->col));
+
+  return rv;
+}
+
+/// Returns an ordered tuple of mark names in the buffer
+///
+/// @param buffer The buffer handle
+/// @param[out] err Details of an error that may have occurred
+/// @return Tuple of mark names
+ArrayOf(String) mark_names(Buffer buffer, Error *err)
+{
+  Array rv = ARRAY_DICT_INIT;
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
+  ExtmarkNames *all_mark_names = extmark_names(buf);
+  // TODO yield results i.e iterator?
+  cstr_t mark_name;
+  for (size_t i = 0; i < kv_size(*all_mark_names); i++) {
+    mark_name = kv_A(*all_mark_names, i);
+    ADD(rv, STRING_OBJ(cstr_to_string(mark_name)));
+  }
+
+  return rv;
+}
+
+//TODO allos position index or string index
+//    If the index is in numeric form, the method returns the first mark at that position. If the index is a mark, the method returns the next mark following that mark, which may be at the same numerical position.
+
+/// Returns the position of the mark following the given mark
+/// name; if there are no following marks, the method returns
+/// an empty list.
+///
+/// @param buffer The buffer handle
+/// @param name The mark's name
+/// @param[out] err Details of an error that may have occurred
+/// @return The (row, col) tuple
+ArrayOf(Integer, 2) mark_next(Buffer buffer, String name, Error *err)
+{
+  Array rv = ARRAY_DICT_INIT;
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
+  if (name.size < 1) {
+    api_set_error(err, Validation, _("Mark name must be at least one char"));
+    return rv;
+  }
+
+  ExtendedMark *extmark = get_extmark(buf, name.data);
+  pos_T *pos = extmark_next(buf, &(extmark->fmark.mark));
+  if (pos == NULL) {
+    api_set_error(err, Validation, _("Invalid mark name"));
+    return rv;
+  }
+
+  ADD(rv, INTEGER_OBJ(pos->lnum));
+  ADD(rv, INTEGER_OBJ(pos->col));
+
+  return rv;
+}
+
+//TODO allos position index or string index
+// If the index is in numeric form, the method returns returns the last mark at that position. If the index is a mark, the method returns the preceding mark, which may be at the same numerical position.
+
+/// Returns the position of the mark preceding the given mark
+/// name; if there are no following marks, the method returns
+/// an empty list.
+///
+/// @param buffer The buffer handle
+/// @param name The mark's name
+/// @param[out] err Details of an error that may have occurred
+/// @return The (row, col) tuple
+ArrayOf(Integer, 2) mark_prev(Buffer buffer, String name, Error *err)
+{
+  Array rv = ARRAY_DICT_INIT;
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
+  if (name.size < 1) {
+    api_set_error(err, Validation, _("Mark name must be at least one char"));
+    return rv;
+  }
+
+  ExtendedMark *extmark = get_extmark(buf, name.data);
+  pos_T *pos = extmark_prev(buf, &(extmark->fmark.mark));
+  if (pos == NULL) {
+    api_set_error(err, Validation, _("Invalid mark name"));
+    return rv;
+  }
+
+  ADD(rv, INTEGER_OBJ(pos->lnum));
+  ADD(rv, INTEGER_OBJ(pos->col));
+
+  return rv;
+}
+/// If no mark with name mark exists, one is created and placed
+/// at the giving position. If the mark already exists, it is
+/// moved to the new location.
+//
+/// @param buffer The buffer handle
+/// @param name The mark's name
+/// @param row position of the mark
+/// @param col position of the mark
+/// @param[out] err Details of an error that may have occurred
+/// @return 1 on new, 2 on update
+Integer mark_set(Buffer buffer, String name, Integer row, Integer col, Error *err)
+{
+  Integer rv = 0;
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
+  pos_T pos;
+  pos.lnum = (int)row;
+  pos.col = (int)col;
+  rv = extmark_set(buf, name.data, &pos);
+
+  return rv;
+}
+
+/// Removes the named mark
+//
+/// @param buffer The buffer handle
+/// @param name The mark's name
+/// @param[out] err Details of an error that may have occurred
+/// @return 1 on success, 0 on no mark found
+Integer mark_unset(Buffer buffer, String name, Error *err)
+{
+  Integer rv = 0;
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
+  rv = extmark_unset(buf, name.data);
 
   return rv;
 }
