@@ -46,8 +46,8 @@ void remote_ui_disconnect(uint64_t channel_id)
   xfree(ui);
 }
 
-void ui_attach(uint64_t channel_id, Integer width, Integer height,
-               Boolean enable_rgb, Error *err)
+void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
+               Dictionary options, Error *err)
 {
   if (pmap_has(uint64_t)(connected_uis, channel_id)) {
     api_set_error(err, Exception, _("UI already attached for channel"));
@@ -65,7 +65,7 @@ void ui_attach(uint64_t channel_id, Integer width, Integer height,
   UI *ui = xcalloc(1, sizeof(UI));
   ui->width = (int)width;
   ui->height = (int)height;
-  ui->rgb = enable_rgb;
+  ui->rgb = false;
   ui->pum_external = false;
   ui->data = data;
   ui->resize = remote_ui_resize;
@@ -92,25 +92,27 @@ void ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->set_title = remote_ui_set_title;
   ui->set_icon = remote_ui_set_icon;
   ui->event = remote_ui_event;
-  pmap_put(uint64_t)(connected_uis, channel_id, ui);
-  ui_attach_impl(ui);
-  return;
-}
 
-void ui_attach_options(uint64_t channel_id, Integer width, Integer height,
-               Dictionary options, Error *err)
-{
-  ui_attach(channel_id, width, height, false, err);
-  if (err->set) {
-    return;
-  }
   for (size_t i = 0; i < options.size; i++) {
-    ui_set_option(channel_id, options.items[i].key, options.items[i].value, err);
+    ui_set_option(ui, options.items[i].key, options.items[i].value, err);
     if (err->set) {
-      ui_detach(channel_id, err);
+      xfree(ui);
+      xfree(data);
       return;
     }
   }
+  pmap_put(uint64_t)(connected_uis, channel_id, ui);
+  ui_attach_impl(ui);
+}
+
+/// @deprecated
+void ui_attach(uint64_t channel_id, Integer width, Integer height,
+               Boolean enable_rgb, Error *err)
+{
+  Dictionary opts = ARRAY_DICT_INIT;
+  PUT(opts, "rgb", BOOLEAN_OBJ(enable_rgb));
+  nvim_ui_attach(channel_id, width, height, opts, err);
+  api_free_dictionary(opts);
 }
 
 void ui_detach(uint64_t channel_id, Error *err)
@@ -141,30 +143,33 @@ Object ui_try_resize(uint64_t channel_id, Integer width,
   return NIL;
 }
 
-void ui_set_option(uint64_t channel_id, String name, Object value, Error *error) {
+void nvim_ui_set_option(uint64_t channel_id, String name, Object value, Error *error) {
   if (!pmap_has(uint64_t)(connected_uis, channel_id)) {
     api_set_error(error, Exception, _("UI is not attached for channel"));
     return;
   }
   UI *ui = pmap_get(uint64_t)(connected_uis, channel_id);
 
+  ui_set_option(ui, name, value, error);
+  if (!error->set) {
+    ui_refresh();
+  }
+}
+
+static void ui_set_option(UI *ui, String name, Object value, Error *error) {
   if (strcmp(name.data, "rgb") == 0) {
     if (value.type != kObjectTypeBoolean) {
       api_set_error(error, Validation, _("rgb must be a Boolean"));
-      return;
     }
     ui->rgb = value.data.boolean;
   } else if (strcmp(name.data, "popupmenu_external") == 0) {
     if (value.type != kObjectTypeBoolean) {
-      api_set_error(error, Validation, _("pum_external must be a Boolean"));
-      return;
+      api_set_error(error, Validation, _("popupmenu_external must be a Boolean"));
     }
     ui->pum_external = value.data.boolean;
   } else {
     api_set_error(error, Validation, _("No such ui option"));
-    return;
   }
-  ui_refresh();
 }
 
 static void push_call(UI *ui, char *name, Array args)
