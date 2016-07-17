@@ -1,18 +1,25 @@
 
 local helpers = require('test.functional.helpers')(after_each)
-local clear, nvim, buffer = helpers.clear, helpers.nvim, helpers.buffer
-local curbuf, curwin, eq = helpers.curbuf, helpers.curwin, helpers.eq
-local curbufmeths, ok = helpers.curbufmeths, helpers.ok
-local funcs = helpers.funcs
 
-describe('arbitrary marks set', function()
-  it('works', function()
-      curbuf('insert', -1, {'a', 'bit of', 'text'})
-      nvim('command', 'arb_mark haha 0 0')
-      curwin('set_cursor', {0, 0})
-      curbuf('insert', -1, {'12345'})
-      pos = nvim('eval', 'arbmark_index(haha)')
-      eq(pos, {0, 6})
-    end)
+local eq = helpers.eq
+local buffer = helpers.buffer
+
+describe('creating a new mark', function()
+  before_each(helpers.clear)
+  it('can create string marks that follow edits', function()
+    local buf = helpers.nvim('get_current_buffer')
+     -- eq(1, helpers.curbuf('line_count'))
+    local string_mark = 'test'
+    local text = 'some text to insert'
+    local col = 0
+    local row = 0
+
+    local ret = buffer('mark_set', buf, string_mark, row, col)
+    -- eq(ret, 1)
+    helpers.insert(text)
+    -- local pos = buffer('mark_index', buf, string_mark)
+    -- eq(row, pos[1])
+    -- eq(text.length(), pos[2])
   end)
+end)
 
