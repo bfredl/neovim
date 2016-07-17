@@ -643,7 +643,7 @@ ArrayOf(Integer, 2) buffer_get_mark(Buffer buffer, String name, Error *err)
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Integer, 2) mark_index(Buffer buffer, String name, Error *err)
+ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String name, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -674,7 +674,7 @@ ArrayOf(Integer, 2) mark_index(Buffer buffer, String name, Error *err)
 /// @param buffer The buffer handle
 /// @param[out] err Details of an error that may have occurred
 /// @return Tuple of mark names
-ArrayOf(String) mark_names(Buffer buffer, Error *err)
+ArrayOf(String) buffer_mark_names(Buffer buffer, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -705,7 +705,7 @@ ArrayOf(String) mark_names(Buffer buffer, Error *err)
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Integer, 2) mark_next(Buffer buffer, String name, Error *err)
+ArrayOf(Integer, 2) buffer_mark_next(Buffer buffer, String name, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -743,7 +743,7 @@ ArrayOf(Integer, 2) mark_next(Buffer buffer, String name, Error *err)
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Integer, 2) mark_prev(Buffer buffer, String name, Error *err)
+ArrayOf(Integer, 2) buffer_mark_prev(Buffer buffer, String name, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -779,7 +779,7 @@ ArrayOf(Integer, 2) mark_prev(Buffer buffer, String name, Error *err)
 /// @param col position of the mark
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on new, 2 on update
-Integer mark_set(Buffer buffer, String name, Integer row, Integer col, Error *err)
+Integer buffer_mark_set(Buffer buffer, String name, Integer row, Integer col, Error *err)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -802,7 +802,7 @@ Integer mark_set(Buffer buffer, String name, Integer row, Integer col, Error *er
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on success, 0 on no mark found
-Integer mark_unset(Buffer buffer, String name, Error *err)
+Integer buffer_mark_unset(Buffer buffer, String name, Error *err)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
