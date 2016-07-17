@@ -5,6 +5,7 @@
 #include "nvim/mark_extended_defs.h"
 #include "nvim/lib/kbtree.h"
 #include "nvim/lib/kvec.h"
+#include "nvim/map.h"
 
 #define EXTMARK_MAXLEN 24
 #define extmark_pos_cmp(a, b) (pos_cmp((a).fmark.mark, (b).fmark.mark))
