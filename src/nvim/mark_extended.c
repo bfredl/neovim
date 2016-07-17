@@ -63,7 +63,7 @@ ExtmarkNames *extmark_names(buf_T *buf)
   return array;
 }
 
-/* Returns the postion of the given index  */
+/* Returns the postion of the given mark  */
 pos_T *extmark_index(buf_T *buf, char *name) {
   ExtendedMark *extmark = get_extmark(buf, name);
   return &extmark->fmark.mark;
