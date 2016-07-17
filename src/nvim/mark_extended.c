@@ -30,14 +30,15 @@
 #define END_LOOP }
 
 /* Create or update an extmark, */
-int extmark_set(buf_T *buf, char *name, pos_T *pos)
+int extmark_set(buf_T *buf, char *name, int row, int col)
 {
   ExtendedMark *extmark = get_extmark(buf, name);
   if (!extmark){
-    return extmark_create(buf, name, pos);
+    return extmark_create(buf, name, row, col);
   }
   else {
-    extmark_update(extmark, pos);
+    return 2;
+    extmark_update(extmark, row,  col);
     return 2;
   }
 }
@@ -66,7 +67,10 @@ ExtmarkNames *extmark_names(buf_T *buf)
 /* Returns the postion of the given mark  */
 pos_T *extmark_index(buf_T *buf, char *name) {
   ExtendedMark *extmark = get_extmark(buf, name);
-  return &extmark->fmark.mark;
+  if (!extmark){
+    return FAIL;
+  }
+  return &(extmark->fmark.mark);
 }
 
 /* Given a text position, finds the next mark */
@@ -100,25 +104,30 @@ static pos_T *get_pos(buf_T *buf, pos_T *pos, bool go_forward)
   return NULL;
 }
 
-static int extmark_create(buf_T *buf, char *name,  pos_T *pos)
+static int extmark_create(buf_T *buf, char *name, int row, int col)
 {
   if (buf->b_extmarks == NULL) {
     buf->b_extmarks = pmap_new(cstr_t)();
     buf->b_extmarks_tree = kb_init(extmarks, KB_DEFAULT_SIZE);
   }
   // TODO set prev pointer
-  ExtendedMark extmark;
-  kb_put(extmarks, buf->b_extmarks_tree,  extmark);
-  pmap_put(cstr_t)(buf->b_extmarks, name, &extmark);
-  SET_FMARK(&extmark.fmark, *pos, buf->b_fnum);
+  ExtendedMark *extmark = (ExtendedMark *) malloc(sizeof(ExtendedMark));
+
+  extmark->fmark.mark.lnum = row;
+  extmark->fmark.mark.col = col;
+  kb_put(extmarks, buf->b_extmarks_tree,  *extmark);
+  pmap_put(cstr_t)(buf->b_extmarks, name, extmark);
+  // TODO do we need the timestamp and additional_data ??, also pos_t has 3 fields
+  SET_FMARK(&extmark->fmark, extmark->fmark.mark, buf->b_fnum);
+
   return OK;
 }
 
-static void extmark_update(ExtendedMark *extmark, pos_T *pos)
+static void extmark_update(ExtendedMark *extmark, int row, int col)
 {
   // TODO set prev pointer
-  extmark->fmark.mark.lnum = pos->lnum;
-  extmark->fmark.mark.col = pos->col;
+  extmark->fmark.mark.lnum = row;
+  extmark->fmark.mark.col = col;
 }
 
 static int extmark_delete(buf_T *buf, char *name)
@@ -130,6 +139,9 @@ static int extmark_delete(buf_T *buf, char *name)
 
 ExtendedMark *get_extmark(buf_T *buf, char *name)
 {
+  if (buf->b_extmarks == NULL) {
+    return NULL;
+  }
   return pmap_get(cstr_t)(buf->b_extmarks, name);
 }
 

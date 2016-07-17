@@ -788,10 +788,7 @@ Integer buffer_mark_set(Buffer buffer, String name, Integer row, Integer col, Er
     return rv;
   }
 
-  pos_T pos;
-  pos.lnum = (int)row;
-  pos.col = (int)col;
-  rv = extmark_set(buf, name.data, &pos);
+  rv = (Integer)extmark_set(buf, name.data, row,  col);
 
   return rv;
 }
