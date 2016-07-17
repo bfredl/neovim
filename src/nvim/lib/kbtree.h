@@ -8,8 +8,7 @@
 #define KB_MAX_DEPTH 64
 
 typedef struct {
-  /* int32_t is_internal:1, n:31; */
-  int32_t is_internal, n;
+  int32_t is_internal:1, n:31;
 } kbnode_t;
 
 
@@ -34,7 +33,7 @@ typedef struct {
 	} kbtree_##name##_t;
 
 #define __KB_INIT(name, key_t)											\
-	kbtree_##name##_t *kb_init_##name(unsigned int size)							\
+	static inline kbtree_##name##_t *kb_init_##name(unsigned int size)							\
 	{																	\
 		kbtree_##name##_t *b;											\
 		b = (kbtree_##name##_t*)calloc(1, sizeof(kbtree_##name##_t));	\
