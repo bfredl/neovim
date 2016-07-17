@@ -30,6 +30,7 @@
 #define END_LOOP }
 
 /* Create or update an extmark, */
+int globali = 0;
 int extmark_set(buf_T *buf, char *name, int row, int col)
 {
   ExtendedMark *extmark = get_extmark(buf, name);
@@ -37,7 +38,6 @@ int extmark_set(buf_T *buf, char *name, int row, int col)
     return extmark_create(buf, name, row, col);
   }
   else {
-    return 2;
     extmark_update(extmark, row,  col);
     return 2;
   }
@@ -116,7 +116,7 @@ static int extmark_create(buf_T *buf, char *name, int row, int col)
   extmark->fmark.mark.lnum = row;
   extmark->fmark.mark.col = col;
   kb_put(extmarks, buf->b_extmarks_tree,  *extmark);
-  pmap_put(cstr_t)(buf->b_extmarks, name, extmark);
+  pmap_put(cstr_t)(buf->b_extmarks, (cstr_t)name, extmark);
   // TODO do we need the timestamp and additional_data ??, also pos_t has 3 fields
   SET_FMARK(&extmark->fmark, extmark->fmark.mark, buf->b_fnum);
 
@@ -142,7 +142,7 @@ ExtendedMark *get_extmark(buf_T *buf, char *name)
   if (buf->b_extmarks == NULL) {
     return NULL;
   }
-  return pmap_get(cstr_t)(buf->b_extmarks, name);
+  return pmap_get(cstr_t)(buf->b_extmarks, (cstr_t)name);
 }
 
 int pos_cmp(pos_T a, pos_T b)
