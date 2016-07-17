@@ -3,6 +3,7 @@ local Screen = require('test.functional.ui.screen')
 local clear, feed, uimeths = helpers.clear, helpers.feed, helpers.uimeths
 local eval, eq, neq = helpers.eval, helpers.eq, helpers.neq
 local execute, source, expect = helpers.execute, helpers.source, helpers.expect
+local request = helpers.request
 
 describe('completion', function()
   local screen
@@ -763,20 +764,23 @@ describe('completion', function()
   end)
 
   describe('with external popupmenu', function()
-    local visible = false
     local items, selected
+    local anchor
     before_each(function()
       screen:on_event(function(name, data)
         if name == "popupmenu_show" then
-          visible = true
-          items, selected = unpack(data)
+          local row, col
+          items, selected, row, col = unpack(data)
+          anchor = {row, col}
         elseif name == "popupmenu_select" then
           selected = data[1]
         elseif name == "popupmenu_hide" then
-          visible = false
+          items = nil
         end
       end)
-      uimeths.set_option("popupmenu_external", true)
+     -- TODO: rebase
+      --uimeths.set_option("popupmenu_external", true)
+      request("nvim_ui_set_option", "popupmenu_external", true)
     end)
 
     it('works', function()
@@ -786,6 +790,11 @@ describe('completion', function()
         return ''
       endfunction
       ]])
+      local expected = {
+        {'foo', '', '', ''},
+        {'bar', '', '', ''},
+        {'spam', '', '', ''},
+      }
       feed('o<C-r>=TestComplete()<CR>')
       screen:expect([[
                                                                     |
@@ -796,14 +805,58 @@ describe('completion', function()
         ~                                                           |
         ~                                                           |
         {3:-- INSERT --}                                                |
-      ]])
-      eq({
-        {'foo', '', '', ''},
-        {'bar', '', '', ''},
-        {'spam', '', '', ''},
-      }, items)
-      eq(0, selected)
-      -- MORE
+      ]], nil, nil, function() 
+        eq(expected, items)
+        eq(0, selected)
+        eq({1,0}, anchor)
+      end)
+
+      feed('<c-p>')
+      screen:expect([[
+                                                                    |
+        ^                                                            |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        {3:-- INSERT --}                                                |
+      ]], nil, nil, function() 
+        eq(expected, items)
+        eq(-1, selected)
+        eq({1,0}, anchor)
+      end)
+
+      -- down moves the selection in the menu, but does not insert anything
+      feed('<down><down>')
+      screen:expect([[
+                                                                    |
+        ^                                                            |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        {3:-- INSERT --}                                                |
+      ]], nil, nil, function()
+        eq(expected, items)
+        eq(1, selected)
+        eq({1,0}, anchor)
+      end)
+
+      feed('<cr>')
+      screen:expect([[
+                                                                    |
+        bar^                                                         |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        ~                                                           |
+        {3:-- INSERT --}                                                |
+      ]], nil, nil, function()
+        eq(nil, items) -- popupmenu was hidden
+      end)
     end)
   end)
 

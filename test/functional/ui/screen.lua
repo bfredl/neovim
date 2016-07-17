@@ -207,7 +207,7 @@ function Screen:try_resize(columns, rows)
   uimeths.try_resize(columns, rows)
 end
 
-function Screen:expect(expected, attr_ids, attr_ignore)
+function Screen:expect(expected, attr_ids, attr_ignore, condition)
   -- remove the last line and dedent
   expected = dedent(expected:gsub('\n[ ]+$', ''))
   local expected_rows = {}
@@ -219,6 +219,12 @@ function Screen:expect(expected, attr_ids, attr_ignore)
   local ids = attr_ids or self._default_attr_ids
   local ignore = attr_ignore or self._default_attr_ignore
   self:wait(function()
+    if condition ~= nil then
+      local status, res = pcall(condition)
+      if not status then
+        return tostring(res)
+      end
+    end
     local actual_rows = {}
     for i = 1, self._height do
       actual_rows[i] = self:_row_repr(self._rows[i], ids, ignore)
