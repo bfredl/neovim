@@ -75,7 +75,25 @@ describe('IncSubstitution preserves', function()
   it('g+, g- functionality', function()
     local cases = { "", "split", "nosplit" }
 
-    local function test_notsub(substring, split)
+    local substrings = {
+      ":%s/1",
+      ":%s/1/",
+      ":%s/1/<bs>",
+      ":%s/1/a",
+      ":%s/1/a<bs>",
+      ":%s/1/ax",
+      ":%s/1/ax<bs>",
+      ":%s/1/ax<bs><bs>",
+      ":%s/1/ax<bs><bs><bs>",
+      ":%s/1/ax/",
+      ":%s/1/ax/<bs>",
+      ":%s/1/ax/<bs>/",
+      ":%s/1/ax/g",
+      ":%s/1/ax/g<bs>",
+      ":%s/1/ax/g<bs><bs>"
+    }
+
+    local function test_notsub(substring, split, redoable)
       clear()
       execute("set incsubstitute=" .. split)
 
@@ -83,8 +101,10 @@ describe('IncSubstitution preserves', function()
       feed("o2<esc>")
       execute("undo")
       feed("o3<esc>")
-      feed("o4<esc>")
-      feed("u")
+      if redoable then
+        feed("o4<esc>")
+        feed("u")
+      end
       feed(substring .. "<esc>")
 
       feed("g-")
@@ -96,34 +116,28 @@ describe('IncSubstitution preserves', function()
       expect([[
         1
         3]])
+
+      if redoable then
+        feed("<c-r>")
+        expect([[
+          1
+          3
+          4]])
+      end
     end
 
-    for _, case in pairs(cases) do
-      test_notsub(":%s/1", case)
-      test_notsub(":%s/1/", case)
-      test_notsub(":%s/1/<bs>", case)
-      test_notsub(":%s/1/a", case)
-      test_notsub(":%s/1/a<bs>", case)
-      test_notsub(":%s/1/ax", case)
-      test_notsub(":%s/1/ax<bs>", case)
-      test_notsub(":%s/1/ax<bs><bs>", case)
-      test_notsub(":%s/1/ax<bs><bs><bs>", case)
-      test_notsub(":%s/1/ax/", case)
-      test_notsub(":%s/1/ax/<bs>", case)
-      test_notsub(":%s/1/ax/<bs>/", case)
-      test_notsub(":%s/1/ax/g", case)
-      test_notsub(":%s/1/ax/g<bs>", case)
-      test_notsub(":%s/1/ax/g<bs><bs>", case)
-    end
-
-    local function test_sub(substring, split)
+    local function test_sub(substring, split, redoable)
       clear()
-      execute("set incsubstitute=" .. split)
+      execute("set incsubstitute=" .. "")
 
       insert("1")
       feed("o2<esc>")
       execute("undo")
       feed("o3<esc>")
+      if redoable then
+        feed("o4<esc>")
+        feed("u")
+      end
       feed(substring.. "<enter>")
       feed("u")
 
@@ -139,19 +153,15 @@ describe('IncSubstitution preserves', function()
     end
 
     for _, case in pairs(cases) do
-      test_sub(":%s/1/a", case)
-      test_sub(":%s/1/a<bs>", case)
-      test_sub(":%s/1/ax", case)
-      test_sub(":%s/1/ax<bs>", case)
-      test_sub(":%s/1/ax<bs><bs>", case)
-      test_sub(":%s/1/ax/", case)
-      test_sub(":%s/1/ax/<bs>", case)
-      test_sub(":%s/1/ax/<bs><bs>", case)
-      test_sub(":%s/1/ax/<bs><bs><bs>", case)
-      test_sub(":%s/1/ax/g", case)
-      test_sub(":%s/1/ax/g<bs>", case)
-      test_sub(":%s/1/ax/g<bs><bs>", case)
+      for _, redoable in pairs({true,false}) do
+        for _, str in pairs(substrings) do
+          test_notsub(str, case, redoable)
+          test_sub(str, case, redoable)
+        end
+      end
     end
+
+
   end)
 
   it('default substitution with various delimiters', function()

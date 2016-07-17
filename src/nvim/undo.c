@@ -1693,12 +1693,24 @@ void u_undo_and_forget(int count)
   }
   undo_undoes = true;
   u_doit(count, true);
+
+  // Delete the current redo header
+  // set the redo header to the next alternative branch (if any)
+  // otherwise we will be in the leaf state
+  u_header_T *to_forget = curbuf->b_u_curhead;
+  curbuf->b_u_newhead = to_forget->uh_next.ptr;
+  curbuf->b_u_curhead = to_forget->uh_alt_next.ptr;
+  curbuf->b_u_seq_cur = curbuf->b_u_newhead->uh_seq;
+  if (curbuf->b_u_seq_last == to_forget->uh_seq) {
+    curbuf->b_u_seq_last--;
+  }
+  u_freeheader(curbuf, to_forget, NULL);
 }
 
 /*
  * Undo or redo, depending on 'undo_undoes', 'count' times.
  */
-static void u_doit(int startcount, bool forget)
+static void u_doit(int startcount, bool quiet)
 {
   int count = startcount;
 
@@ -1735,11 +1747,6 @@ static void u_doit(int startcount, bool forget)
       }
 
       u_undoredo(true);
-      if (forget) {
-        curbuf->b_u_newhead = curbuf->b_u_curhead->uh_next.ptr;
-        u_freeheader(curbuf, curbuf->b_u_curhead, NULL);
-        curbuf->b_u_curhead = NULL;
-      }
     } else {
       if (curbuf->b_u_curhead == NULL || get_undolevel() <= 0) {
         beep_flush();           /* nothing to redo */
@@ -1759,7 +1766,7 @@ static void u_doit(int startcount, bool forget)
       curbuf->b_u_curhead = curbuf->b_u_curhead->uh_prev.ptr;
     }
   }
-  u_undo_end(undo_undoes, false, forget);
+  u_undo_end(undo_undoes, false, quiet);
 }
 
 /*
