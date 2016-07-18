@@ -62,7 +62,7 @@ typedef struct {
 				if (x->is_internal == 0) { free(x); continue; }			\
 				for (i = 0; i <= x->n; ++i)								\
 					if (__KB_PTR(b, x)[i]) {							\
-						if (top - stack == max) {						\
+						if (top - stack == (int)max) {		        	\
 							max <<= 1;									\
 							stack = (kbnode_t**)realloc(stack, max * sizeof(kbnode_t*)); \
 							top = stack + (max>>1);						\
