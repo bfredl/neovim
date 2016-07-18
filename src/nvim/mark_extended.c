@@ -23,7 +23,7 @@
 /* Create or update an extmark, */
 int extmark_set(buf_T *buf, char *name, int row, int col)
 {
-  ExtendedMark *extmark = get_extmark(buf, name);
+  ExtendedMark *extmark = extmark_get(buf, name);
   if (!extmark){
     return extmark_create(buf, name, row, col);
   }
@@ -36,7 +36,7 @@ int extmark_set(buf_T *buf, char *name, int row, int col)
 /* returns FAIL on missing name */
 int extmark_unset(buf_T *buf, char *name)
 {
-  ExtendedMark *extmark = get_extmark(buf, name);
+  ExtendedMark *extmark = extmark_get(buf, name);
   if (!extmark){
     return FAIL;
   }
@@ -56,7 +56,7 @@ ExtmarkNames *extmark_names(buf_T *buf)
 
 /* Returns the postion of the given mark  */
 pos_T *extmark_index(buf_T *buf, char *name) {
-  ExtendedMark *extmark = get_extmark(buf, name);
+  ExtendedMark *extmark = extmark_get(buf, name);
   if (!extmark){
     return NULL;
   }
@@ -127,7 +127,7 @@ static int extmark_delete(buf_T *buf, char *name)
   return OK;
 }
 
-ExtendedMark *get_extmark(buf_T *buf, char *name)
+ExtendedMark *extmark_get(buf_T *buf, char *name)
 {
   if (buf->b_extmarks == NULL) {
     return NULL;
@@ -150,3 +150,57 @@ int pos_cmp(pos_T a, pos_T b)
   }
   return 1;
 }
+
+void extmark_free_all(buf_T *buf)
+{
+  if (!buf->b_extmarks) {
+    return;
+  }
+  pmap_free(cstr_t)(buf->b_extmarks);
+  kb_destroy(extmarks, buf->b_extmarks_tree);
+}
+
+//TODO  use from mark.c
+#define _col_adjust(pp) \
+  { \
+    posp = pp; \
+    if (posp->lnum == lnum && posp->col >= mincol) \
+    { \
+      posp->lnum += lnum_amount; \
+      assert(col_amount > INT_MIN && col_amount <= INT_MAX); \
+      if (col_amount < 0 && posp->col <= (colnr_T)-col_amount) \
+        posp->col = 0; \
+      else \
+        posp->col += (colnr_T)col_amount; \
+    } \
+  }
+
+/* Adjust exmarks when changes to columns happen */
+/* This is called from mark_col_adjust as well as */
+/* from mark_adjust, and from wherever text edits happen */
+void extmark_col_adjust(buf_T *buf, linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount)
+{
+  pos_T *posp;
+  FOR_ALL_EXTMARKS(buf)
+    _col_adjust(&extmark->fmark.mark)
+  END_LOOP
+}
+
+ /* Adjust extmark row for inserted/deleted rows. */
+void extmark_adjust(buf_T* buf, linenr_T line1, linenr_T line2, long amount, long amount_after)
+{
+  FOR_ALL_EXTMARKS(buf)
+    if (extmark->fmark.mark.lnum >= line1
+        && extmark->fmark.mark.lnum <= line2) {
+          if (amount == MAXLNUM) {
+            extmark->fmark.mark.lnum = line1;
+          }
+          else {
+            extmark->fmark.mark.lnum += amount;
+          }
+    }
+    else if (extmark->fmark.mark.lnum > line2)
+        extmark->fmark.mark.lnum += amount_after;
+  END_LOOP
+}
+

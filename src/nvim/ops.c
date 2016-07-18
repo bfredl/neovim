@@ -3113,6 +3113,13 @@ error:
       mark_adjust(curbuf->b_op_start.lnum + (y_type == kMTCharWise),
                   (linenr_T)MAXLNUM, nr_lines, 0L);
 
+      // Extmarks track col changes
+      extmark_col_adjust(curbuf,
+                         curbuf->b_op_start.lnum,
+                         curbuf->b_op_start.col,
+                         nr_lines,
+                         count);
+
       // note changed text for displaying and folding
       if (y_type == kMTCharWise) {
         changed_lines(curwin->w_cursor.lnum, col,

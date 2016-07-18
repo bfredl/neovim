@@ -594,6 +594,7 @@ free_buffer_stuff (
   hash_init(&buf->b_vars->dv_hashtab);
   uc_clear(&buf->b_ucmds);              // clear local user commands
   buf_delete_signs(buf);                // delete any signs
+  extmark_free_all(buf);
   bufhl_clear_all(buf);                // delete any highligts
   map_clear_int(buf, MAP_ALL_MODES, true, false);    // clear local mappings
   map_clear_int(buf, MAP_ALL_MODES, true, true);     // clear local abbrevs
@@ -4935,25 +4936,6 @@ void sign_mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_a
         else if (sign->lnum > line2)
             sign->lnum += amount_after;
     }
-}
-
-/// Adjust a placed extmark for inserted/deleted lines.
-void extmark_adjust(buf_T* buf, linenr_T line1, linenr_T line2, long amount, long amount_after)
-{
-  /* EMSG(_("FUCk THIS MOVIN")); */
-  FOR_ALL_EXTMARKS(buf)
-    if (extmark->fmark.mark.lnum >= line1
-        && extmark->fmark.mark.lnum <= line2) {
-          if (amount == MAXLNUM) {
-            extmark->fmark.mark.lnum = line1;
-          }
-          else {
-            extmark->fmark.mark.lnum += amount;
-          }
-    }
-    else if (extmark->fmark.mark.lnum > line2)
-        extmark->fmark.mark.lnum += amount_after;
-  END_LOOP
 }
 
 // bufhl: plugin highlights associated with a buffer

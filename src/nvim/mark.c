@@ -1050,11 +1050,8 @@ void mark_col_adjust(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_a
       col_adjust(&(namedfm[i].fmark.mark));
   }
 
-  /* extended marks */
-  FOR_ALL_EXTMARKS(curbuf)
-    col_adjust(&(extmark->fmark.mark));
-  END_LOOP
-
+  /* extmarks */
+  extmark_col_adjust(curbuf, lnum, mincol, lnum_amount, col_amount);
 
   /* last Insert position */
   col_adjust(&(curbuf->b_last_insert.mark));

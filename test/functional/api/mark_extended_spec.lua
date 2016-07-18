@@ -5,6 +5,7 @@ local eq = helpers.eq
 local neq = helpers.neq
 local buffer = helpers.buffer
 local insert = helpers.insert
+local feed = helpers.feed
 local wait = helpers.wait
 
 describe('creating a new mark', function()
@@ -14,10 +15,11 @@ describe('creating a new mark', function()
     local buf = helpers.nvim('get_current_buffer')
     local string_mark = "test"
     local row = 0
-    local col = 3
+    local col = 2
 
     -- mark the "3"
-    insert("123")
+    local init_text = "123"
+    insert(init_text)
     local rv = buffer('mark_set', buf, string_mark, row, col)
     wait()
     eq(1, rv)
@@ -27,13 +29,14 @@ describe('creating a new mark', function()
     eq(col, pos[2])
 
     -- marks move with text inserts?
-    -- text = "456"
-    -- insert(text)
-    -- wait()
-    -- pos = buffer('mark_index', buf, string_mark)
-    -- neq(pos, nil)
-    -- eq(row, pos[1])
-    -- eq(string.len(text), pos[2])
+    added_text = "456"
+    insert(added_text)
+    -- after inserting text we cannot get our mark anymore..
+    pos = buffer('mark_test', buf, string_mark)
+    -- above throws error
+    neq(pos, nil)
+    eq(row, pos[1])
+    eq(string.len(init_text + added_text), pos[2])
 
     -- Update an existing mark
     row = 0
