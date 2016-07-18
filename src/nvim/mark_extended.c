@@ -20,17 +20,7 @@
 # include "mark_extended.c.generated.h"
 #endif
 
-#define FOR_ALL_EXTMARKS(buf) \
-  kbitr_t itr; \
-  ExtendedMark *extmark; \
-  kb_itr_first(extmarks, buf->b_extmarks_tree, &itr);\
-  for (; kb_itr_valid(&itr); kb_itr_next(extmarks, buf->b_extmarks_tree, &itr)){\
-    extmark = &kb_itr_key(ExtendedMark, &itr);
-
-#define END_LOOP }
-
 /* Create or update an extmark, */
-int globali = 0;
 int extmark_set(buf_T *buf, char *name, int row, int col)
 {
   ExtendedMark *extmark = get_extmark(buf, name);
@@ -68,7 +58,7 @@ ExtmarkNames *extmark_names(buf_T *buf)
 pos_T *extmark_index(buf_T *buf, char *name) {
   ExtendedMark *extmark = get_extmark(buf, name);
   if (!extmark){
-    return FAIL;
+    return NULL;
   }
   return &(extmark->fmark.mark);
 }

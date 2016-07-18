@@ -658,8 +658,8 @@ ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String name, Error *err)
   }
 
   pos_T *pos = extmark_index(buf, name.data);
-  if (pos == NULL) {
-    api_set_error(err, Validation, _("Invalid mark name"));
+  if (!pos) {
+    api_set_error(err, Validation, _("Mark doesn't exist"));
     return rv;
   }
 

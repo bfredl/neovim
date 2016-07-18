@@ -10,6 +10,7 @@
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
 #include "nvim/mark.h"
+#include "nvim/mark_extended.h"
 #include "nvim/buffer.h"
 #include "nvim/charset.h"
 #include "nvim/diff.h"
@@ -923,6 +924,7 @@ void mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after)
 
     sign_mark_adjust(line1, line2, amount, amount_after);
     bufhl_mark_adjust(curbuf, line1, line2, amount, amount_after);
+    extmark_adjust(curbuf, line1, line2, amount, amount_after);
   }
 
   /* previous context mark */
@@ -1047,6 +1049,12 @@ void mark_col_adjust(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_a
     if (namedfm[i].fmark.fnum == fnum)
       col_adjust(&(namedfm[i].fmark.mark));
   }
+
+  /* extended marks */
+  FOR_ALL_EXTMARKS(curbuf)
+    col_adjust(&(extmark->fmark.mark));
+  END_LOOP
+
 
   /* last Insert position */
   col_adjust(&(curbuf->b_last_insert.mark));
