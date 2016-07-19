@@ -21,7 +21,7 @@
 #endif
 
 /* Create or update an extmark, */
-int extmark_set(buf_T *buf, char *name, int row, int col)
+int extmark_set(buf_T *buf, char *name, linenr_T row, colnr_T col)
 {
   ExtendedMark *extmark = extmark_get(buf, name);
   if (!extmark){
@@ -94,7 +94,7 @@ static pos_T *get_pos(buf_T *buf, pos_T *pos, bool go_forward)
   return NULL;
 }
 
-static int extmark_create(buf_T *buf, char *name, int row, int col)
+static bool extmark_create(buf_T *buf, char *name, int row, int col)
 {
   if (buf->b_extmarks == NULL) {
     buf->b_extmarks = pmap_new(cstr_t)();
@@ -113,7 +113,7 @@ static int extmark_create(buf_T *buf, char *name, int row, int col)
   return OK;
 }
 
-static void extmark_update(ExtendedMark *extmark, int row, int col)
+static void extmark_update(ExtendedMark *extmark, linenr_T row, colnr_T col)
 {
   // TODO set prev pointer
   extmark->fmark.mark.lnum = row;

@@ -681,6 +681,7 @@ ArrayOf(Integer, 2) buffer_mark_test(Buffer buffer, String name, Error *err)
     api_set_error(err, Validation, _("this fails after insert. "));
       return rv;
   }
+  return rv;
 }
 
 /// Returns an ordered tuple of mark names in the buffer
@@ -802,7 +803,8 @@ Integer buffer_mark_set(Buffer buffer, String name, Integer row, Integer col, Er
     return rv;
   }
 
-  rv = (Integer)extmark_set(buf, name.data, row,  col);
+  rv = (Integer)extmark_set(buf, name.data,
+                            (linenr_T)row, (colnr_T)col);
 
   return rv;
 }
