@@ -55,30 +55,30 @@ env:
 
 matrix:
   include:
-    - os: linux
-      env: CI_TARGET=lint
-    - os: linux
-      compiler: gcc-5
-      env: GCOV=gcov-5 CMAKE_FLAGS="$CMAKE_FLAGS -DUSE_GCOV=ON"
-    - os: linux
-      compiler: gcc-5
-      env: FUNCTIONALTEST=functionaltest-lua
-    - os: linux
-      # Travis creates a cache per compiler.
+    # - os: linux
+      # env: CI_TARGET=lint
+    # - os: linux
+      # compiler: gcc-5
+    # - os: linux
+      # compiler: gcc-5
+      # env: FUNCTIONALTEST=functionaltest-lua
+    # - os: linux
       # Set a different value here to store 32-bit
       # dependencies in a separate cache.
-      compiler: gcc-5 -m32
-      env: BUILD_32BIT=ON
+      # compiler: gcc-5 -m32
+      # env: BUILD_32BIT=ON
     - os: linux
       compiler: clang
-      env: CLANG_SANITIZER=ASAN_UBSAN
-    - os: linux
-      compiler: clang
-      env: CLANG_SANITIZER=TSAN
-    - os: osx
-      compiler: clang
-    - os: osx
-      compiler: gcc-4.9
+      env: GCOV=llvm-cov CLANG_SANITIZER=ASAN_UBSAN CMAKE_FLAGS="$CMAKE_FLAGS -DUSE_GCOV=ON"
+    # - os: linux
+      # compiler: clang
+      # env: CLANG_SANITIZER=TSAN
+    # - os: osx
+      # compiler: clang
+    # - os: osx
+      # compiler: gcc-4.9
+    # - os: linux
+      # env: BUILD_MINGW=ON
   fast_finish: true
 
 before_install: .ci/before_install.sh

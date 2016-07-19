@@ -492,7 +492,7 @@ struct file_buffer {
   FileID file_id;
 
   int b_fnum;                   /* buffer number for this file. */
-  ExtendedMarkPtr *b_extmarks;
+  ExtmarkNsMap *b_extmarks;
   kbtree_t(extmarks) *b_extmarks_tree;
   bool b_changed;               /* 'modified': Set to true if something in the
                                    file has been changed and not written out. */

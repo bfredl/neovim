@@ -643,9 +643,10 @@ ArrayOf(Integer, 2) buffer_get_mark(Buffer buffer, String name, Error *err)
 ///
 /// @param buffer The buffer handle
 /// @param name The mark's name
+/// @param namespace where the mark should reside
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String name, Error *err)
+ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String namespace, String name, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -659,7 +660,7 @@ ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String name, Error *err)
     return rv;
   }
 
-  pos_T *pos = extmark_index(buf, name.data);
+  pos_T *pos = extmark_index(buf, namespace.data, name.data);
   if (!pos) {
     api_set_error(err, Validation, _("Mark doesn't exist"));
     return rv;
@@ -671,25 +672,12 @@ ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String name, Error *err)
   return rv;
 }
 
-ArrayOf(Integer, 2) buffer_mark_test(Buffer buffer, String name, Error *err)
-{
-  Array rv = ARRAY_DICT_INIT;
-  buf_T *buf = find_buffer_by_handle(buffer, err);
-
-  ExtendedMark *extmark = pmap_get(cstr_t)(buf->b_extmarks, (cstr_t)name.data);
-  if (!extmark){
-    api_set_error(err, Validation, _("this fails after insert. "));
-      return rv;
-  }
-  return rv;
-}
-
 /// Returns an ordered tuple of mark names in the buffer
 ///
 /// @param buffer The buffer handle
 /// @param[out] err Details of an error that may have occurred
 /// @return Tuple of mark names
-ArrayOf(String) buffer_mark_names(Buffer buffer, Error *err)
+ArrayOf(String) buffer_mark_names(Buffer buffer, String namespace, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -698,29 +686,28 @@ ArrayOf(String) buffer_mark_names(Buffer buffer, Error *err)
     return rv;
   }
 
-  ExtmarkNames *all_mark_names = extmark_names(buf);
-  // TODO yield results i.e iterator?
-  cstr_t mark_name;
+  ExtmarkNames *all_mark_names = extmark_names(buf, namespace.data);
+
+  String str_obj;
+  char *mark_name;
   for (size_t i = 0; i < kv_size(*all_mark_names); i++) {
     mark_name = kv_A(*all_mark_names, i);
-    ADD(rv, STRING_OBJ(cstr_to_string(mark_name)));
+    str_obj.data = mark_name;
+    str_obj.size = strlen(mark_name);
+    ADD(rv, STRING_OBJ(str_obj));
   }
-
   return rv;
 }
 
 //TODO allos position index or string index
-//    If the index is in numeric form, the method returns the first mark at that position. If the index is a mark, the method returns the next mark following that mark, which may be at the same numerical position.
-
-/// Returns the position of the mark following the given mark
-/// name; if there are no following marks, the method returns
-/// an empty list.
+/// Returns the name of the mark following the given index
+/// If there are no following marks returns an empty string//TODO
 ///
 /// @param buffer The buffer handle
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Integer, 2) buffer_mark_next(Buffer buffer, String name, Error *err)
+ArrayOf(Object) buffer_mark_next(Buffer buffer, String namespace, String name, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -734,31 +721,46 @@ ArrayOf(Integer, 2) buffer_mark_next(Buffer buffer, String name, Error *err)
     return rv;
   }
 
-  ExtendedMark *extmark = extmark_get(buf, name.data);
-  pos_T *pos = extmark_next(buf, &(extmark->fmark.mark));
-  if (pos == NULL) {
-    api_set_error(err, Validation, _("Invalid mark name"));
-    return rv;
+  String ass;
+  ass.data = "ass";
+  ass.size = 3;
+  ADD(rv, STRING_OBJ(ass));
+  ExtendedMark *extmark = extmark_get(buf, namespace.data, name.data);
+
+  char *next_name;
+  pos_T next_pos;
+  ExtendedMark *next = extmark_next(buf, xstrdup(namespace.data), &extmark->fmark.mark); // TODO WHY IS XSTRDUP NREQUIRED ???
+  return rv;
+  if (!next) {
+    next_name = "";
+    next_pos.lnum = -1;
+    next_pos.col = -1;
+  } else {
+    next_name = extmark_name_from_ns(next, namespace.data);
+    next_pos.lnum = next->fmark.mark.lnum;
+    next_pos.col = next->fmark.mark.col;
   }
+  String mark_name;
+  mark_name.data = next_name;
+  mark_name.size = strlen(next_name);
+  Array mark_pos = ARRAY_DICT_INIT;
+  ADD(mark_pos, INTEGER_OBJ(next_pos.lnum));
+  ADD(mark_pos, INTEGER_OBJ(next_pos.col));
 
-  ADD(rv, INTEGER_OBJ(pos->lnum));
-  ADD(rv, INTEGER_OBJ(pos->col));
-
+  ADD(rv, STRING_OBJ(mark_name));
+  ADD(rv, ARRAY_OBJ(mark_pos));
   return rv;
 }
 
 //TODO allos position index or string index
-// If the index is in numeric form, the method returns returns the last mark at that position. If the index is a mark, the method returns the preceding mark, which may be at the same numerical position.
-
-/// Returns the position of the mark preceding the given mark
-/// name; if there are no following marks, the method returns
-/// an empty list.
+/// Returns the name of the mark following the given index
+/// If there are no following marks returns an empty string//TODO
 ///
 /// @param buffer The buffer handle
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Integer, 2) buffer_mark_prev(Buffer buffer, String name, Error *err)
+ArrayOf(Object) buffer_mark_nextrange(Buffer buffer, String namespace, String lower, String upper, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -766,25 +768,46 @@ ArrayOf(Integer, 2) buffer_mark_prev(Buffer buffer, String name, Error *err)
   if (!buf) {
     return rv;
   }
+  // TODO do validation
 
-  if (name.size < 1) {
-    api_set_error(err, Validation, _("Mark name must be at least one char"));
-    return rv;
+  ExtendedMark *extmark_lower = extmark_get(buf, namespace.data, lower.data);
+  ExtendedMark *extmark_upper = extmark_get(buf, namespace.data, upper.data);
+
+  /* ExtendedMark *extmark = extmark_get(buf, namespace.data, name.data); */
+  /* pos_T *pos = extmark_prev(buf, namespace.data, */
+                            /* extmark->fmark.mark.lnum, */
+                            /* extmark->fmark.mark.col); */
+  ExtmarkArray *extmarks_in_range = extmark_nextrange(buf, namespace.data,
+          &extmark_lower->fmark.mark, &extmark_upper->fmark.mark);
+
+  String name_obj;
+  Array pos_obj = ARRAY_DICT_INIT;
+  ExtendedMark *extmark;
+  char *name;
+  pos_T pos;
+  for (size_t i = 0; i < kv_size(*extmarks_in_range); i++) {
+    extmark = kv_A(*extmarks_in_range, i);
+    if (!extmark) {
+      name = "";
+      pos.lnum = -1;
+      pos.col = -1;
+    } else {
+      name = extmark_name_from_ns(extmark, namespace.data);
+      pos.lnum = extmark->fmark.mark.lnum;
+      pos.col = extmark->fmark.mark.col;
+    }
+    name_obj.data = name;
+    name_obj.size = strlen(name);
+    ADD(pos_obj, INTEGER_OBJ(pos.lnum));
+    ADD(pos_obj, INTEGER_OBJ(pos.col));
+
+    ADD(rv, STRING_OBJ(name_obj));
+    ADD(rv, ARRAY_OBJ(pos_obj));
   }
-
-  ExtendedMark *extmark = extmark_get(buf, name.data);
-  pos_T *pos = extmark_prev(buf, &(extmark->fmark.mark));
-  if (pos == NULL) {
-    api_set_error(err, Validation, _("Invalid mark name"));
-    return rv;
-  }
-
-  ADD(rv, INTEGER_OBJ(pos->lnum));
-  ADD(rv, INTEGER_OBJ(pos->col));
-
   return rv;
 }
-/// If no mark with name mark exists, one is created and placed
+
+
 /// at the giving position. If the mark already exists, it is
 /// moved to the new location.
 //
@@ -794,7 +817,7 @@ ArrayOf(Integer, 2) buffer_mark_prev(Buffer buffer, String name, Error *err)
 /// @param col position of the mark
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on new, 2 on update
-Integer buffer_mark_set(Buffer buffer, String name, Integer row, Integer col, Error *err)
+Integer buffer_mark_set(Buffer buffer, String namespace, String name, Integer row, Integer col, Error *err)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -803,9 +826,8 @@ Integer buffer_mark_set(Buffer buffer, String name, Integer row, Integer col, Er
     return rv;
   }
 
-  rv = (Integer)extmark_set(buf, name.data,
+  rv = (Integer)extmark_set(buf, namespace.data, name.data,
                             (linenr_T)row, (colnr_T)col);
-
   return rv;
 }
 
@@ -815,7 +837,7 @@ Integer buffer_mark_set(Buffer buffer, String name, Integer row, Integer col, Er
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on success, 0 on no mark found
-Integer buffer_mark_unset(Buffer buffer, String name, Error *err)
+Integer buffer_mark_unset(Buffer buffer, String namespace, String name, Error *err)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -824,8 +846,7 @@ Integer buffer_mark_unset(Buffer buffer, String name, Error *err)
     return rv;
   }
 
-  rv = extmark_unset(buf, name.data);
-
+  rv = (Integer)extmark_unset(buf, namespace.data, name.data);
   return rv;
 }
 

@@ -24,6 +24,7 @@
 #include "nvim/farsi.h"
 #include "nvim/func_attr.h"
 #include "nvim/main.h"
+#include "nvim/mark_extended.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
 #include "nvim/memory.h"
@@ -239,7 +240,7 @@ char_u *get_inserted(void)
  * Add string "s" after the current block of buffer "buf".
  * K_SPECIAL and CSI should have been escaped already.
  */
-static void 
+static void
 add_buff (
     buffheader_T *buf,
     char_u *s,
@@ -252,6 +253,15 @@ add_buff (
   if (slen == 0) {                              // don't add empty strings
     return;
   }
+
+  // Track col changes for the extmarks
+  /* long count = slen; */
+  /* long nr_lines = 1; */
+  /* extmark_col_adjust(curbuf, */
+                     /* curwin->w_cursor.lnum, */
+                     /* curwin->w_cursor.col, */
+                     /* nr_lines, */
+                     /* count); */
 
   if (buf->bh_first.b_next == NULL) {   /* first add to list */
     buf->bh_space = 0;
