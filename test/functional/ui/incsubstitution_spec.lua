@@ -71,99 +71,6 @@ describe('IncSubstitution preserves', function()
     ]])
   end)
 
-  -- TODO the following test fails, g- behaves like :u
-  it('g+, g- functionality', function()
-    local cases = { "", "split", "nosplit" }
-
-    local substrings = {
-      ":%s/1",
-      ":%s/1/",
-      ":%s/1/<bs>",
-      ":%s/1/a",
-      ":%s/1/a<bs>",
-      ":%s/1/ax",
-      ":%s/1/ax<bs>",
-      ":%s/1/ax<bs><bs>",
-      ":%s/1/ax<bs><bs><bs>",
-      ":%s/1/ax/",
-      ":%s/1/ax/<bs>",
-      ":%s/1/ax/<bs>/",
-      ":%s/1/ax/g",
-      ":%s/1/ax/g<bs>",
-      ":%s/1/ax/g<bs><bs>"
-    }
-
-    local function test_notsub(substring, split, redoable)
-      clear()
-      execute("set incsubstitute=" .. split)
-
-      insert("1")
-      feed("o2<esc>")
-      execute("undo")
-      feed("o3<esc>")
-      if redoable then
-        feed("o4<esc>")
-        feed("u")
-      end
-      feed(substring .. "<esc>")
-
-      feed("g-")
-      expect([[
-        1
-        2]])
-
-      feed("g+")
-      expect([[
-        1
-        3]])
-
-      if redoable then
-        feed("<c-r>")
-        expect([[
-          1
-          3
-          4]])
-      end
-    end
-
-    local function test_sub(substring, split, redoable)
-      clear()
-      execute("set incsubstitute=" .. "")
-
-      insert("1")
-      feed("o2<esc>")
-      execute("undo")
-      feed("o3<esc>")
-      if redoable then
-        feed("o4<esc>")
-        feed("u")
-      end
-      feed(substring.. "<enter>")
-      feed("u")
-
-      feed("g-")
-      expect([[
-        1
-        2]])
-
-      feed("g+")
-      expect([[
-        1
-        3]])
-    end
-
-    for _, case in pairs(cases) do
-      for _, redoable in pairs({true,false}) do
-        for _, str in pairs(substrings) do
-          test_notsub(str, case, redoable)
-          test_sub(str, case, redoable)
-        end
-      end
-    end
-
-
-  end)
-
   it('default substitution with various delimiters', function()
     insert(default_text)
     execute("set incsubstitute=")
@@ -180,6 +87,106 @@ describe('IncSubstitution preserves', function()
   end)
 
 end)
+
+describe('IncSubstitution preserves g+/g-', function()
+  before_each(clear)
+  local cases = { "", "split", "nosplit" }
+
+  local substrings = {
+    ":%s/1",
+    ":%s/1/",
+    ":%s/1/<bs>",
+    ":%s/1/a",
+    ":%s/1/a<bs>",
+    ":%s/1/ax",
+    ":%s/1/ax<bs>",
+    ":%s/1/ax<bs><bs>",
+    ":%s/1/ax<bs><bs><bs>",
+    ":%s/1/ax/",
+    ":%s/1/ax/<bs>",
+    ":%s/1/ax/<bs>/",
+    ":%s/1/ax/g",
+    ":%s/1/ax/g<bs>",
+    ":%s/1/ax/g<bs><bs>"
+  }
+
+  local function test_notsub(substring, split, redoable)
+    clear()
+    execute("set incsubstitute=" .. split)
+
+    insert("1")
+    feed("o2<esc>")
+    execute("undo")
+    feed("o3<esc>")
+    if redoable then
+      feed("o4<esc>")
+      feed("u")
+    end
+    feed(substring .. "<esc>")
+
+    feed("g-")
+    expect([[
+      1
+      2]])
+
+    feed("g+")
+    expect([[
+      1
+      3]])
+
+    if redoable then
+      feed("<c-r>")
+      expect([[
+        1
+        3
+        4]])
+    end
+  end
+
+  local function test_sub(substring, split, redoable)
+    clear()
+    execute("set incsubstitute=" .. "")
+
+    insert("1")
+    feed("o2<esc>")
+    execute("undo")
+    feed("o3<esc>")
+    if redoable then
+      feed("o4<esc>")
+      feed("u")
+    end
+    feed(substring.. "<enter>")
+    feed("u")
+
+    feed("g-")
+    expect([[
+      1
+      2]])
+
+    feed("g+")
+    expect([[
+      1
+      3]])
+  end
+
+  for _, case in pairs(cases) do
+    for _, redoable in pairs({true,false}) do
+      for _, str in pairs(substrings) do
+        it(", test_sub with "..str..", ics="..case..", redoable="..tostring(redoable),
+           function()
+            test_sub(str, case, redoable)
+          end)
+
+        it(", test_notsub with "..str..", ics="..case..", redoable="..tostring(redoable),
+           function()
+            test_notsub(str, case, redoable)
+          end)
+      end
+    end
+  end
+
+end)
+
 
 describe('IncSubstitution with incsubstitute=split', function()
   local screen
