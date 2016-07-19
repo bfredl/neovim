@@ -1700,11 +1700,21 @@ void u_undo_and_forget(int count)
   u_header_T *to_forget = curbuf->b_u_curhead;
   curbuf->b_u_newhead = to_forget->uh_next.ptr;
   curbuf->b_u_curhead = to_forget->uh_alt_next.ptr;
+  if(curbuf->b_u_curhead) {
+    to_forget->uh_alt_next.ptr = NULL;
+    curbuf->b_u_curhead->uh_alt_prev.ptr = to_forget->uh_alt_prev.ptr;
+  }
+  if (to_forget->uh_alt_prev.ptr) {
+    to_forget->uh_alt_prev.ptr->uh_alt_next.ptr = curbuf->b_u_curhead;
+  }
+  if (curbuf->b_u_newhead) {
+    curbuf->b_u_newhead->uh_prev.ptr = curbuf->b_u_curhead;
+  }
   curbuf->b_u_seq_cur = curbuf->b_u_newhead->uh_seq;
   if (curbuf->b_u_seq_last == to_forget->uh_seq) {
     curbuf->b_u_seq_last--;
   }
-  u_freeheader(curbuf, to_forget, NULL);
+  u_freebranch(curbuf, to_forget, NULL);
 }
 
 /*

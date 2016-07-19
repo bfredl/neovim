@@ -144,6 +144,10 @@ describe('IncSubstitution preserves g+/g-', function()
   end
 
   local function test_sub(substring, split, redoable)
+      if redoable then
+          pending("vim")
+          return
+      end
     clear()
     execute("set incsubstitute=" .. "")
 
