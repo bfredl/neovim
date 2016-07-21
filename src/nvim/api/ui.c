@@ -65,7 +65,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   UI *ui = xcalloc(1, sizeof(UI));
   ui->width = (int)width;
   ui->height = (int)height;
-  ui->rgb = false;
+  ui->rgb = true;
   ui->pum_external = false;
   ui->data = data;
   ui->resize = remote_ui_resize;
