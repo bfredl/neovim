@@ -729,16 +729,16 @@ ArrayOf(Object) buffer_mark_next(Buffer buffer, String namespace, String name, E
 
   char *next_name;
   pos_T next_pos;
-  ExtendedMark *next = extmark_next(buf, xstrdup(namespace.data), &extmark->fmark.mark); // TODO WHY IS XSTRDUP NREQUIRED ???
+  ExtendedMark *next = extmark_next(buf, xstrdup(namespace.data), &extmark->mark); // TODO WHY IS XSTRDUP NREQUIRED ???
   return rv;
   if (!next) {
     next_name = "";
     next_pos.lnum = -1;
     next_pos.col = -1;
   } else {
-    next_name = extmark_name_from_ns(next, namespace.data);
-    next_pos.lnum = next->fmark.mark.lnum;
-    next_pos.col = next->fmark.mark.col;
+    next_name = extmark->name;
+    next_pos.lnum = next->mark.lnum;
+    next_pos.col = next->mark.col;
   }
   String mark_name;
   mark_name.data = next_name;
@@ -775,10 +775,10 @@ ArrayOf(Object) buffer_mark_nextrange(Buffer buffer, String namespace, String lo
 
   /* ExtendedMark *extmark = extmark_get(buf, namespace.data, name.data); */
   /* pos_T *pos = extmark_prev(buf, namespace.data, */
-                            /* extmark->fmark.mark.lnum, */
-                            /* extmark->fmark.mark.col); */
+                            /* extmark->mark.lnum, */
+                            /* extmark->mark.col); */
   ExtmarkArray *extmarks_in_range = extmark_nextrange(buf, namespace.data,
-          &extmark_lower->fmark.mark, &extmark_upper->fmark.mark);
+          &extmark_lower->mark, &extmark_upper->mark);
 
   String name_obj;
   Array pos_obj = ARRAY_DICT_INIT;
@@ -792,9 +792,9 @@ ArrayOf(Object) buffer_mark_nextrange(Buffer buffer, String namespace, String lo
       pos.lnum = -1;
       pos.col = -1;
     } else {
-      name = extmark_name_from_ns(extmark, namespace.data);
-      pos.lnum = extmark->fmark.mark.lnum;
-      pos.col = extmark->fmark.mark.col;
+      name = extmark->name;
+      pos.lnum = extmark->mark.lnum;
+      pos.col = extmark->mark.col;
     }
     name_obj.data = name;
     name_obj.size = strlen(name);

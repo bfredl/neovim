@@ -13,7 +13,7 @@
 #include "nvim/mark_extended.h"
 #include "nvim/memory.h"
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
-#include "nvim/mark.h"         // SET_FMARK
+/* #include "nvim/mark.h"         // SET_FMARK */
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
 
@@ -28,8 +28,12 @@
 /* Create or update an extmark */
 /* returns two on succesful update */
 /* returns three if namespace isn't found */ //TODO
+int called=0;
 int extmark_set(buf_T *buf, char *ns, char *name, linenr_T row, colnr_T col)
 {
+  called ++;
+  if (called==2)
+    return 0;
   ExtendedMark *extmark = extmark_get(buf, ns, name);
   if (!extmark){
     return extmark_create(buf, ns, name, row, col);
@@ -53,12 +57,10 @@ int extmark_unset(buf_T *buf, char *ns, char *name)
 /* Get all mark names ordered by position*/
 ExtmarkNames *extmark_names(buf_T *buf, char *ns)
 {
-  char *name;
   ExtmarkNames *array = (ExtmarkNames *)xmalloc(sizeof(ExtmarkNames));
   kv_init(*array);
   FOR_EXTMARKS_IN_NS(buf, ns)
-    name = (char *)pmap_get(cstr_t)(extmark->names, ns);
-    kv_push(*array, name);
+    kv_push(*array, (char *)extmark->name);
   END_FOR_EXTMARKS_IN_NS
   return array;
 }
@@ -69,7 +71,7 @@ pos_T *extmark_index(buf_T *buf, char *ns, char *name) {
   if (!extmark){
     return NULL;
   }
-  return &(extmark->fmark.mark);
+  return &(extmark->mark);
 }
 
 /* Given a mark, finds the next mark */
@@ -104,7 +106,7 @@ static ExtmarkArray *extmark_neighbour_range(buf_T *buf, char *ns, pos_T *lower,
     if (pos_cmp(*lower, *upper) == 1) {
       break;
     }
-    cmp = pos_cmp(*lower, extmark->fmark.mark);
+    cmp = pos_cmp(*lower, extmark->mark);
     if (cmp != 1) {
       kv_push(*array, extmark);
     }
@@ -134,14 +136,14 @@ static ExtendedMark *extmark_neighbour(buf_T *buf, char *ns, pos_T *input, bool 
   int cmp;
   if (go_forward) {
     FOR_ALL_EXTMARKS(buf)
-      cmp = pos_cmp(extmark->fmark.mark, *input);
+      cmp = pos_cmp(extmark->mark, *input);
       if (cmp == 1) {
         return extmark;
       }
     END_FOR_ALL_EXTMARKS
   } else {
     FOR_ALL_EXTMARKS_WITH_PREV(buf)
-      cmp = pos_cmp(extmark->fmark.mark, *input);
+      cmp = pos_cmp(extmark->mark, *input);
       if (cmp == 1) {
         return prev;
       }
@@ -149,69 +151,57 @@ static ExtendedMark *extmark_neighbour(buf_T *buf, char *ns, pos_T *input, bool 
   }
   return NULL;
 }
-int called=0;
 static bool extmark_create(buf_T *buf, char* ns, char *name, linenr_T row, colnr_T col)
 {
   /* Initialize as first mark on this buffer*/
-  called ++;
   if (!buf->b_extmarks) {
-    buf->b_extmarks = pmap_new(cstr_t)();
-    buf->b_extmarks_tree = kb_init(extmarks, KB_DEFAULT_SIZE);
+    buf->b_extmarks = kb_init(extmarks, KB_DEFAULT_SIZE);
+    buf->b_extmark_ns = pmap_new(cstr_t)();
   }
-  StringMap *ns_map = pmap_get(cstr_t)(buf->b_extmarks, (cstr_t)ns);
+  ExtmarkNamespace *ns_obj = pmap_get(cstr_t)(buf->b_extmark_ns, (cstr_t)ns);
   /* Initialize a new namespace */
   /* if (!ns_map || !kh_size(ns_map->table)) { */
   ns = xstrdup(ns);
-  if (!ns_map) {
-    ns_map = pmap_new(cstr_t)();
-    pmap_put(cstr_t)(buf->b_extmarks, (cstr_t)ns, ns_map);
+  if (!ns_obj) {
+    ns_obj = (ExtmarkNamespace *)xmalloc(sizeof(ExtmarkNamespace));
+    ns_obj->map = pmap_new(cstr_t)();
+    ns_obj->tree = kb_init(extmarks, KB_DEFAULT_SIZE);
+    pmap_put(cstr_t)(buf->b_extmark_ns, (cstr_t)ns, ns_obj);
   }
 
   name = xstrdup(name);
   ExtendedMark *extmark = (ExtendedMark *)xmalloc(sizeof(ExtendedMark));
-  /* extmark->fmark.mark = gen_relative(buf, ns, row, col); */
-  extmark->fmark.mark.lnum = row;
-  extmark->fmark.mark.col = col;
-  extmark->names = pmap_new(cstr_t)();
-  pmap_put(cstr_t)(extmark->names, (cstr_t)ns, &name);
+  /* extmark->mark = gen_relative(buf, ns, row, col); */
+  extmark->mark.lnum = row;
+  extmark->mark.col = col;
+  extmark->name = name;
 
-  kb_put(extmarks, buf->b_extmarks_tree,  *extmark);
-  if (called == 2)
-    return 0;
-  pmap_put(cstr_t)(ns_map, (cstr_t)name, extmark);
+  kb_put(extmarks, buf->b_extmarks, extmark);
+  kb_put(extmarks, ns_obj->tree, extmark);
 
-  SET_FMARK(&extmark->fmark, extmark->fmark.mark, buf->b_fnum);
-  // TODO do we need the timestamp and additional_data ??, also pos_t has 3 fields
+  pmap_put(cstr_t)(ns_obj->map, (cstr_t)name, extmark);
+
   return OK;
 }
 
 static void extmark_update(ExtendedMark *extmark, buf_T *buf, char *ns, char *name, linenr_T row, colnr_T col)
 {
-  extmark->fmark.mark.lnum = row;
-  extmark->fmark.mark.col = col;
+  extmark->mark.lnum = row;
+  extmark->mark.col = col;
   /* gen_relative(); */
 }
 
 static int extmark_delete(ExtendedMark *extmark, buf_T *buf, char *ns, char *name)
 {
-  /* Remove our key from the extmark */
-  pmap_del(cstr_t)(extmark->names, (cstr_t)ns);
-
-
   /* Remove our key from the namespace */
-  StringMap *ns_map;
-  ns_map = pmap_get(cstr_t)(buf->b_extmarks, (cstr_t)ns);
-  pmap_del(cstr_t)(ns_map, (cstr_t)name);
+  ExtmarkNamespace *ns_obj = pmap_get(cstr_t)(buf->b_extmark_ns, (cstr_t)ns);
+  pmap_del(cstr_t)(ns_obj->map, (cstr_t)name);
 
-  /* Delete the mark if there are no more namespaces using it */
-  if (!kh_size(extmark->names->table)) {
-    kb_del(extmarks, buf->b_extmarks_tree, *extmark);
-  }
+  /* Delete the mark */
+  kb_del(extmarks, buf->b_extmarks, extmark);
+  kb_del(extmarks, ns_obj->tree, extmark);
+  xfree(extmark); // wasn't required before change to storing pointers
 
-  /* Delete the namespace if empty */
-  if (!kh_size(ns_map->table)) {
-    pmap_del(cstr_t)(ns_map, (cstr_t)name);
-  }
   return OK;
 }
 
@@ -220,17 +210,11 @@ ExtendedMark *extmark_get(buf_T *buf, char *ns, char *name)
   if (!buf->b_extmarks) {
     return NULL;
   }
-  StringMap *ns_map;
-  ns_map = pmap_get(cstr_t)(buf->b_extmarks, (cstr_t)ns);
-  if (!ns_map) { // || !kh_size(ns_map->table)) {
+  ExtmarkNamespace *ns_obj = pmap_get(cstr_t)(buf->b_extmark_ns, (cstr_t)ns);
+  if (!ns_obj) { // || !kh_size(ns_map->table)) {
     return NULL;
   }
-  return pmap_get(cstr_t)(ns_map, (cstr_t)name);
-}
-
-char *extmark_name_from_ns(ExtendedMark *extmark, char *ns)
-{
-  return pmap_get(cstr_t)(extmark->names, (cstr_t)ns);
+  return pmap_get(cstr_t)(ns_obj->map, (cstr_t)name);
 }
 
 int pos_cmp(pos_T a, pos_T b)
@@ -254,8 +238,11 @@ void extmark_free_all(buf_T *buf)
   if (!buf->b_extmarks) {
     return;
   }
-  pmap_free(cstr_t)(buf->b_extmarks);
-  kb_destroy(extmarks, buf->b_extmarks_tree);
+  pmap_free(cstr_t)(buf->b_extmark_ns);
+  /* FOR_ALL_EXTMARKS(buf) // wasn't required beforestoring pointers in kbtree */
+    /* kb_del(extmarks, extmark); */
+  /* END_FOR_ALL_EXTMARKS */
+  kb_destroy(extmarks, buf->b_extmarks);
 }
 
 //TODO  use from mark.c
@@ -279,7 +266,7 @@ void extmark_free_all(buf_T *buf)
 void extmark_col_adjust(buf_T *buf, linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount)
 {
   FOR_ALL_EXTMARKS(buf)
-    _col_adjust(&(extmark->fmark.mark))
+    _col_adjust(&(extmark->mark))
   END_FOR_ALL_EXTMARKS
 }
 
@@ -287,17 +274,17 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum, colnr_T mincol, long lnum_amo
 void extmark_adjust(buf_T* buf, linenr_T line1, linenr_T line2, long amount, long amount_after)
 {
   FOR_ALL_EXTMARKS(buf)
-    if (extmark->fmark.mark.lnum >= line1
-        && extmark->fmark.mark.lnum <= line2) {
+    if (extmark->mark.lnum >= line1
+        && extmark->mark.lnum <= line2) {
           if (amount == MAXLNUM) {
-            extmark->fmark.mark.lnum = line1;
+            extmark->mark.lnum = line1;
           }
           else {
-            extmark->fmark.mark.lnum += amount;
+            extmark->mark.lnum += amount;
           }
     }
-    else if (extmark->fmark.mark.lnum > line2)
-        extmark->fmark.mark.lnum += amount_after;
+    else if (extmark->mark.lnum > line2)
+        extmark->mark.lnum += amount_after;
   END_FOR_ALL_EXTMARKS
 }
 
@@ -310,7 +297,7 @@ void extmark_adjust(buf_T* buf, linenr_T line1, linenr_T line2, long amount, lon
   // CALCULATE ABSPOSITION
   /* POS_T abs; */
   /* FOR_ALL_EXTMARKS_WITH_PREV(buf) */
-      /* abs = extmark->fmark.mark; */
+      /* abs = extmark->mark; */
   /* FOR_ALL_EXTMARKS_WITH_PREV */
   /* return pos; */
 /* } */

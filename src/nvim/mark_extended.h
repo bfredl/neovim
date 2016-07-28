@@ -6,15 +6,13 @@
 #include "nvim/lib/kvec.h"
 #include "nvim/map.h"
 
-typedef PMap(cstr_t) StringMap2; // TODO do these have to be seperate?
+/* typedef struct ExtendedMark ExtendedMark; */
+typedef struct ExtendedMark {
+  char *name;
+  pos_T mark;
+} ExtendedMark, *ExtendedMarkPtr;
 
-typedef struct ExtendedMark ExtendedMark;
-struct ExtendedMark {
-  StringMap2 *names; // key = namespace, value = id
-  fmark_T fmark;
-};
-
-#define extmark_pos_cmp(a, b) (pos_cmp((a).fmark.mark, (b).fmark.mark))
+#define extmark_pos_cmp(a, b) (pos_cmp((a)->mark, (b)->mark))
 
 /* prev pointer is used for accessing the previous extmark iterated over */
 /* TODO there should be a better way to get this.. maybe build it in to kbtree */
@@ -31,25 +29,21 @@ struct ExtendedMark {
 #define FOR_EXTMARKS_IN_NS(buf, ns) \
   kbitr_t itr; \
   ExtendedMark *extmark; \
-  char *_name; \
-  if (buf->b_extmarks_tree) { \
-    kb_itr_first(extmarks, buf->b_extmarks_tree, &itr);\
-    for (;kb_itr_valid(&itr); kb_itr_next(extmarks, buf->b_extmarks_tree, &itr)){\
+  if (buf->b_extmarks) { \
+    ExtmarkNamespace *ns_obj = pmap_get(cstr_t)(buf->b_extmark_ns, (cstr_t)ns); \
+    kb_itr_first(extmarks, ns_obj->tree, &itr);\
+    for (;kb_itr_valid(&itr); kb_itr_next(extmarks, ns_obj->tree, &itr)){\
       extmark = &kb_itr_key(ExtendedMark, &itr); \
-      _name = (char *)pmap_get(cstr_t)(extmark->names, ns); \
-      if (!_name) { \
-        continue; \
-      }
 
 #define END_FOR_EXTMARKS_IN_NS }}
 
 #define FOR_ALL_EXTMARKS(buf) \
   kbitr_t itr; \
   ExtendedMark *extmark; \
-  if (buf->b_extmarks_tree) { \
-    for (kb_itr_first(extmarks, buf->b_extmarks_tree, &itr); \
+  if (buf->b_extmarks) { \
+    for (kb_itr_first(extmarks, buf->b_extmarks, &itr); \
          kb_itr_valid(&itr); \
-         kb_itr_next(extmarks, buf->b_extmarks_tree, &itr)) { \
+         kb_itr_next(extmarks, buf->b_extmarks, &itr)) { \
              extmark = &kb_itr_key(ExtendedMark, &itr); \
 
 #define END_FOR_ALL_EXTMARKS }}
@@ -57,7 +51,13 @@ struct ExtendedMark {
 typedef kvec_t(char *) ExtmarkNames;
 typedef kvec_t(ExtendedMark*) ExtmarkArray;
 typedef PMap(cstr_t) ExtmarkNsMap;
-KBTREE_INIT(extmarks, ExtendedMark, extmark_pos_cmp)
+KBTREE_INIT(extmarks, ExtendedMarkPtr, extmark_pos_cmp)
+
+typedef struct ExtmarkNamespace {
+  StringMap *map;
+  kbtree_t(extmarks) *tree;
+} ExtmarkNamespace;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.h.generated.h"
 #endif
