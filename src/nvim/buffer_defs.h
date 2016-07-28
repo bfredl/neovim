@@ -28,8 +28,6 @@ typedef struct file_buffer buf_T; // Forward declaration
 #include "nvim/profile.h"
 // for String
 #include "nvim/api/private/defs.h"
-// for Map(K, V)
-#include "nvim/map.h"
 
 #define MODIFIABLE(buf) (!buf->terminal && buf->b_p_ma)
 
@@ -105,8 +103,6 @@ typedef int scid_T;                     /* script ID */
 
 // for bufhl_*_T
 #include "nvim/bufhl_defs.h"
-
-typedef Map(linenr_T, bufhl_vec_T) bufhl_info_T;
 
 // for FileID
 #include "nvim/os/fs_defs.h"
