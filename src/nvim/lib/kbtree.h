@@ -30,7 +30,9 @@ typedef struct {
 		int	off_key, off_ptr, ilen, elen;		\
 		int	n, t;								\
 		int	n_keys, n_nodes;					\
-	} kbtree_##name##_t;
+	} kbtree_##name##_t; \
+
+
 
 #define __KB_INIT(name, key_t)											\
 	static inline kbtree_##name##_t *kb_init_##name(unsigned int size)							\
@@ -48,7 +50,7 @@ typedef struct {
 		b->root = (kbnode_t*)calloc(1, (unsigned int)b->ilen);						\
 		++b->n_nodes;													\
 		return b;														\
-	}
+	} \
 
 #define __kb_destroy(b) do {											\
 		int i;                                                          \
@@ -319,7 +321,42 @@ typedef struct {
 			if (itr->p < itr->stack) return 0; \
 			if (itr->p->x && itr->p->i < itr->p->x->n) return 1; \
 		} \
-	}
+	} \
+	static int kb_getp_itr_##name(kbtree_##name##_t *b, const key_t * __restrict k, kbitr_t *itr) \
+	{																	\
+		int i, r = 0;													\
+		itr->p = 0; \
+		if (b->n_keys == 0) return 0; \
+		itr->p = itr->stack; \
+		kbnode_t *x = b->root;											\
+		while (x) {														\
+			itr->p->x = x; \
+			i = __kb_getp_aux_##name(x, k, &r);							\
+			itr->p->i = i; \
+			if (i >= 0 && r == 0) return 1; \
+			if (x->is_internal == 0) { \
+				break; \
+			} \
+			++itr->p->i; \
+			x = __KB_PTR(b, x)[i + 1];									\
+			if (x) { \
+				++itr->p; \
+			} \
+		}																\
+		kb_itr_next_##name(b, itr); \
+		return 0; \
+	}																	\
+	static int kb_get_itr_##name(kbtree_##name##_t *b, const key_t k, kbitr_t *itr) \
+	{																	\
+		return kb_getp_itr_##name(b,&k,itr); \
+	} \
+	static inline void kb_del_itr_##name(kbtree_##name##_t *b, kbitr_t *itr) \
+	{ \
+		key_t k = kb_itr_key(key_t, itr); \
+		kb_delp_##name(b, &k); \
+		kb_getp_itr_##name(b, &k, itr); \
+	} 
+
 
 #define KBTREE_INIT(name, key_t, __cmp)			\
 	__KB_TREE_T(name)							\
@@ -347,6 +384,9 @@ typedef struct {
 
 #define kb_itr_first(name, b, i) kb_itr_first_##name(b, i)
 #define kb_itr_next(name, b, i) kb_itr_next_##name(b, i)
+#define kb_get_itr(name, b, k, i) kb_get_itr_##name(b, k, i)
+#define kb_getp_itr(name, b, k, i) kb_getp_itr_##name(b, k, i)
+#define kb_del_itr(name, b, i) kb_del_itr_##name(b, i)
 #define kb_itr_key(type, itr) __KB_KEY(type, (itr)->p->x)[(itr)->p->i]
 #define kb_itr_valid(itr) ((itr)->p >= (itr)->stack)
 

@@ -70,6 +70,12 @@
 #include "nvim/os/time.h"
 #include "nvim/os/input.h"
 
+typedef enum {
+    kBLSUnchanged = 0,
+    kBLSChanged = 1,
+    kBLSDeleted = 2,
+} BufhlLineStatus;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "buffer.c.generated.h"
 #endif
@@ -5029,19 +5035,17 @@ void bufhl_clear_line_range(buf_T *buf,
   linenr_T first_changed = MAXLNUM, last_changed = -1;
   // TODO: implement kb_itr_interval and jump directly to the first line
   kbitr_t itr;
-  BufhlLine *l;
-  for (kb_itr_first(bufhl, buf->b_bufhl_info, &itr);
-       kb_itr_valid(&itr);
-       kb_itr_next(bufhl, buf->b_bufhl_info, &itr)) {
+  BufhlLine *l, t = {line_start};
+  for (kb_get_itr(bufhl, buf->b_bufhl_info, &t, &itr);
+       kb_itr_valid(&itr);) {
     l = kb_itr_key(BufhlLine*, &itr);
     linenr_T line = l->line;
-    if (line < line_start) {
-      continue;
-    } else if (line > line_end) {
+    if (line > line_end) {
       break;
     }
     if (line_start <= line && line <= line_end) {
-      if (bufhl_clear_line(buf->b_bufhl_info, src_id, line)) {
+      BufhlLineStatus status = bufhl_clear_line(buf->b_bufhl_info, src_id, line);
+      if (status != kBLSUnchanged) {
         if (line > last_changed) {
           last_changed = line;
         }
@@ -5049,7 +5053,13 @@ void bufhl_clear_line_range(buf_T *buf,
           first_changed = line;
         }
       }
+      if (status == kBLSDeleted) {
+        kb_del_itr(bufhl, buf->b_bufhl_info, &itr);
+        // itr is already on the next line
+        continue;
+      }
     }
+    kb_itr_next(bufhl, buf->b_bufhl_info, &itr);
   }
 
   if (last_changed != -1) {
@@ -5063,7 +5073,7 @@ void bufhl_clear_line_range(buf_T *buf,
 /// @param bufhl_info The highlight info for the buffer
 /// @param src_id Highlight source group to clear, or -1 to clear all groups.
 /// @param lnum Linenr where the highlight should be cleared
-static bool bufhl_clear_line(bufhl_info_T *bufhl_info, int src_id, int lnum) {
+static BufhlLineStatus bufhl_clear_line(bufhl_info_T *bufhl_info, int src_id, int lnum) {
   BufhlLine* lineinfo = bufhl_tree_ref(bufhl_info, lnum, false);
   size_t oldsize = kv_size(lineinfo->items);
   if (src_id < 0) {
@@ -5083,9 +5093,9 @@ static bool bufhl_clear_line(bufhl_info_T *bufhl_info, int src_id, int lnum) {
 
   if (kv_size(lineinfo->items) == 0) {
     kv_destroy(lineinfo->items);
-    kb_del(bufhl, bufhl_info, lineinfo);
+    return kBLSDeleted;
   }
-  return kv_size(lineinfo->items) != oldsize;
+  return kv_size(lineinfo->items) != oldsize ? kBLSChanged : kBLSUnchanged;
 }
 
 /// Remove all highlights and free the highlight data
@@ -5113,13 +5123,17 @@ void bufhl_mark_adjust(buf_T* buf,
   kbitr_t itr;
   BufhlLine *l;
   for (kb_itr_first(bufhl, buf->b_bufhl_info, &itr);
-       kb_itr_valid(&itr);
-       kb_itr_next(bufhl, buf->b_bufhl_info, &itr)) {
+       kb_itr_valid(&itr);) {
     l = kb_itr_key(BufhlLine*, &itr);
     if (l->line >= line1 && l->line <= line2) {
       if (amount == MAXLNUM) {
-        bufhl_clear_line(buf->b_bufhl_info, -1, l->line);
-        continue;
+        if(bufhl_clear_line(buf->b_bufhl_info, -1, l->line) == kBLSDeleted) {
+            kb_del_itr(bufhl, buf->b_bufhl_info, &itr);
+            // itr is already on the next line
+            continue;
+        } else {
+            assert(false);
+        }
       } else {
         l->line += amount;
       }
@@ -5129,8 +5143,8 @@ void bufhl_mark_adjust(buf_T* buf,
       }
       l->line += amount_after;
     }
-    ;
-  };
+    kb_itr_next(bufhl, buf->b_bufhl_info, &itr);
+  }
 }
 
 
