@@ -19,23 +19,37 @@ describe('creating a new mark', function()
 
   it('tims', function()
     local buf = helpers.nvim('get_current_buffer')
-    local mark_name = "test"
-    local ns = "test-namespace"
+    local mark_name = 0
+    local ns_string = "my-fancy-plugin"
+    local ns_string2 = "my-fancy-plugin2"
     local row = 0
     local col = 2
 
     local init_text = "12345"
     insert(init_text)
+
+    -- setup the namespace
+    local rv = buffer('mark_ns_init', ns_string)
+    eq(1, rv)
+    -- rv = buffer('mark_ns_init', ns_string)
+    -- eq(0, rv)
+    rv = buffer('mark_ns_init', ns_string2)
+    eq(2, rv)
+
+    rv = buffer('mark_ns_ids')
+    eq({ns_string, 1}, rv[1])
+    eq({ns_string2, 2}, rv[2])
+
+
+    local ns = 1
     -- mark the "2"
-    local rv = buffer('mark_set', buf, ns, mark_name, row, col)
+    rv = buffer('mark_set', buf, ns, mark_name, row, col)
     wait()
     eq(1, rv)
-    local pos = buffer('mark_index', buf, ns, mark_name)
-    neq(pos, nil)
-    eq(row, pos[1])
-    eq(col, pos[2])
+    rv = buffer('mark_index', buf, ns, mark_name)
+    eq({mark_name, row, col}, rv)
     -- Test adding a second mark works
-    local mark_name2 = "test2"
+    local mark_name2 = 1
     rv = buffer('mark_set', buf, ns, mark_name2, 0, 3)
     wait()
     eq(1, rv)
@@ -49,52 +63,75 @@ describe('creating a new mark', function()
     rv = buffer('mark_set', buf, ns, mark_name, row, col)
     wait()
     eq(2, rv)
-    pos = buffer('mark_index', buf, ns, mark_name)
-    eq(row, pos[1])
-    eq(col, pos[2])
+    rv = buffer('mark_index', buf, ns, mark_name)
+    eq({mark_name, row, col}, rv)
 
     -- remove the test marks
     rv = buffer('mark_unset', buf, ns, mark_name)
     eq(1, rv)
     rv = buffer('mark_unset', buf, ns, mark_name2)
-    -- TODO catch this error..
-    -- eq(0, rv)
-    rv = buffer('mark_unset', buf, ns, 'abc')
     eq(1, rv)
 
     -- add some more marks
-    marks = {"1", "2", "3"}
+    marks = {2, 3, 4}
     positions = {{0, 1,}, {0, 3}, {0, 4}}
     for i, m in ipairs(marks) do
         rv = buffer('mark_set', buf, ns, m, positions[i][1], positions[i][2])
         eq(1, rv)
     end
-    local names = buffer('mark_names', buf, ns)
-    for i, k in ipairs(marks) do
-        eq(names[i], k)
+    rv = buffer('mark_ids', buf, ns)
+    for i, m in ipairs(marks) do
+        eq({m, positions[i][1], positions[i][2]}, rv[i])
     end
 
     -- Using next
-    -- rv = buffer('mark_next', buf, ns, marks[1])
-    -- eq(marks[2], rv[1])
-    -- eq(positions[2], rv[2])
-    -- rv = buffer('mark_next', buf, ns, marks[2])
-    -- eq(marks[3], rv[1])
-    -- eq(positions[3], rv[2])
-    -- rv = buffer('mark_next', buf, ns, marks[3])
-    -- eq('', rv[1]) TODO
-    -- eq({-1,-1}, rv[2]) TODO
+    rv = buffer('mark_next', buf, ns, marks[1])
+    eq({marks[2], positions[2][1], positions[2][2]}, rv)
+    rv = buffer('mark_next', buf, ns, marks[2])
+    eq({marks[3], positions[3][1], positions[3][2]}, rv)
+    rv = buffer('mark_next', buf, ns, marks[3])
+    eq({-1, -1, -1}, rv)
+    -- next range
+    rv = buffer('mark_nextrange', buf, ns, marks[1], marks[3])
+    eq({marks[1], positions[1][1], positions[1][2]}, rv[1])
+    eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
+    eq({marks[3], positions[3][1], positions[3][2]}, rv[3])
 
     -- Using prev
     -- rv = buffer('mark_prev', buf, ns, marks[3])
-    -- eq(marks[2], rv[1])
-    -- eq(positions[2], rv[2])
+    -- eq({marks[2], positions[2][1], positions[2][2]}, rv)
     -- rv = buffer('mark_prev', buf, ns, marks[2])
-    -- eq(marks[1], rv[1])
+    -- eq({marks[1], positions[1][1], positions[1][2]}, rv)
     -- eq(positions[1], rv[2])
-    -- rv = buffer('mark_next', buf, ns, marks[1])
-    -- eq('', rv[1])
-    -- eq({-1,-1}, rv[2])
+    -- rv = buffer('mark_prev', buf, ns, marks[1])
+    -- eq({-1, -1, -1}, rv)
+    -- prev range
+    -- rv = buffer('mark_prevrange', buf, ns, marks[1], marks[3])
+    -- eq({marks[3], positions[3][1], positions[3][2]}, rv[1])
+    -- eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
+    -- eq({marks[1], positions[1][1], positions[1][2]}, rv[3])
+
+    -- index, next, prev, nextrange, prevrange, work with positional indexes
+    rv = buffer('mark_index', buf, ns, positions[1])
+    eq({marks[1], positions[1][1], positions[1][2]}, rv)
+
+    -- TODO decide on behaviour
+    -- rv = buffer('mark_next', buf, ns, positions[1])
+    -- eq({marks[1], positions[1][1], positions[1][2]}, rv)
+
+    rv = buffer('mark_nextrange', buf, ns, positions[1], positions[3])
+    eq({marks[1], positions[1][1], positions[1][2]}, rv[1])
+    eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
+    eq({marks[3], positions[3][1], positions[3][2]}, rv[3])
+
+    -- TODO decide on behaviour
+    -- rv = buffer('mark_prev', buf, ns, positions[3])
+    -- eq({marks[1], positions[1][1], positions[1][2]}, rv)
+
+    -- rv = buffer('mark_prevrange', buf, ns, positions[1], positions[3])
+    -- eq({marks[3], positions[3][1], positions[3][2]}, rv[1])
+    -- eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
+    -- eq({marks[1], positions[1][1], positions[1][2]}, rv[3])
 
     -- marks move with text inserts?
     -- added_text = "999"

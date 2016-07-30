@@ -610,11 +610,6 @@ ArrayOf(Integer, 2) buffer_get_mark(Buffer buffer, String name, Error *err)
     return rv;
   }
 
-  if (name.size != 1) {
-    api_set_error(err, Validation, _("Mark name must be a single character"));
-    return rv;
-  }
-
   pos_T *posp;
   buf_T *savebuf;
   char mark = *name.data;
@@ -646,29 +641,16 @@ ArrayOf(Integer, 2) buffer_get_mark(Buffer buffer, String name, Error *err)
 /// @param namespace where the mark should reside
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String namespace, String name, Error *err)
+ArrayOf(Object) buffer_mark_index(Buffer buffer, Integer namespace, Object id, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
-  buf_T *buf = find_buffer_by_handle(buffer, err);
-
-  if (!buf) {
+  ExtendedMark *extmark = extmark_from_id_or_pos(buffer, namespace, id, err);
+  if (!extmark) {
     return rv;
   }
-
-  if (name.size < 1) {
-    api_set_error(err, Validation, _("Mark name must be at least one char"));
-    return rv;
-  }
-
-  pos_T *pos = extmark_index(buf, namespace.data, name.data);
-  if (!pos) {
-    api_set_error(err, Validation, _("Mark doesn't exist"));
-    return rv;
-  }
-
-  ADD(rv, INTEGER_OBJ(pos->lnum));
-  ADD(rv, INTEGER_OBJ(pos->col));
-
+  ADD(rv, INTEGER_OBJ((Integer)extmark->id));
+  ADD(rv, INTEGER_OBJ(extmark->mark.lnum));
+  ADD(rv, INTEGER_OBJ(extmark->mark.col));
   return rv;
 }
 
@@ -677,7 +659,7 @@ ArrayOf(Integer, 2) buffer_mark_index(Buffer buffer, String namespace, String na
 /// @param buffer The buffer handle
 /// @param[out] err Details of an error that may have occurred
 /// @return Tuple of mark names
-ArrayOf(String) buffer_mark_names(Buffer buffer, String namespace, Error *err)
+ArrayOf(Object) buffer_mark_ids(Buffer buffer, Integer namespace, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -686,15 +668,18 @@ ArrayOf(String) buffer_mark_names(Buffer buffer, String namespace, Error *err)
     return rv;
   }
 
-  ExtmarkNames *all_mark_names = extmark_names(buf, namespace.data);
-
-  String str_obj;
-  char *mark_name;
-  for (size_t i = 0; i < kv_size(*all_mark_names); i++) {
-    mark_name = kv_A(*all_mark_names, i);
-    str_obj.data = mark_name;
-    str_obj.size = strlen(mark_name);
-    ADD(rv, STRING_OBJ(str_obj));
+  ExtmarkArray *all_extmarks = extmark_ids(buf, (uint64_t)namespace);
+  ExtendedMark *extmark = NULL;
+  Array mark = ARRAY_DICT_INIT;
+  for (size_t i = 0; i < kv_size(*all_extmarks); i++) {
+    mark.size = 0;
+    mark.capacity = 0;
+    mark.items = 0;
+    extmark = kv_A(*all_extmarks, i);
+    ADD(mark, INTEGER_OBJ((Integer)extmark->id));
+    ADD(mark, INTEGER_OBJ(extmark->mark.lnum));
+    ADD(mark, INTEGER_OBJ(extmark->mark.col));
+    ADD(rv, ARRAY_OBJ(mark));
   }
   return rv;
 }
@@ -707,48 +692,27 @@ ArrayOf(String) buffer_mark_names(Buffer buffer, String namespace, Error *err)
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Object) buffer_mark_next(Buffer buffer, String namespace, String name, Error *err)
+ArrayOf(Integer, 3) buffer_mark_next(Buffer buffer, Integer namespace, Object id, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
 
-  if (!buf) {
+  ExtendedMark *extmark = extmark_from_id_or_pos(buffer, namespace, id, err);
+  if (!extmark) {
     return rv;
   }
 
-  if (name.size < 1) {
-    api_set_error(err, Validation, _("Mark name must be at least one char"));
-    return rv;
-  }
-
-  String ass;
-  ass.data = "ass";
-  ass.size = 3;
-  ADD(rv, STRING_OBJ(ass));
-  ExtendedMark *extmark = extmark_get(buf, namespace.data, name.data);
-
-  char *next_name;
-  pos_T next_pos;
-  ExtendedMark *next = extmark_next(buf, xstrdup(namespace.data), &extmark->mark); // TODO WHY IS XSTRDUP NREQUIRED ???
-  return rv;
+  bool match = 0;
+  ExtendedMark *next = extmark_next(buf, (uint64_t)namespace, &extmark->mark, match);
   if (!next) {
-    next_name = "";
-    next_pos.lnum = -1;
-    next_pos.col = -1;
+    ADD(rv, INTEGER_OBJ(-1));
+    ADD(rv, INTEGER_OBJ(-1));
+    ADD(rv, INTEGER_OBJ(-1));
   } else {
-    next_name = extmark->name;
-    next_pos.lnum = next->mark.lnum;
-    next_pos.col = next->mark.col;
+    ADD(rv, INTEGER_OBJ((Integer)next->id));
+    ADD(rv, INTEGER_OBJ(next->mark.lnum));
+    ADD(rv, INTEGER_OBJ(next->mark.col));
   }
-  String mark_name;
-  mark_name.data = next_name;
-  mark_name.size = strlen(next_name);
-  Array mark_pos = ARRAY_DICT_INIT;
-  ADD(mark_pos, INTEGER_OBJ(next_pos.lnum));
-  ADD(mark_pos, INTEGER_OBJ(next_pos.col));
-
-  ADD(rv, STRING_OBJ(mark_name));
-  ADD(rv, ARRAY_OBJ(mark_pos));
   return rv;
 }
 
@@ -760,64 +724,116 @@ ArrayOf(Object) buffer_mark_next(Buffer buffer, String namespace, String name, E
 /// @param name The mark's name
 /// @param[out] err Details of an error that may have occurred
 /// @return The (row, col) tuple
-ArrayOf(Object) buffer_mark_nextrange(Buffer buffer, String namespace, String lower, String upper, Error *err)
+ArrayOf(Object) buffer_mark_nextrange(Buffer buffer, Integer namespace, Object lower, Object upper, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
 
-  if (!buf) {
+  ExtendedMark *extmark_lower = extmark_from_id_or_pos(buffer, namespace, lower, err);
+  ExtendedMark *extmark_upper = extmark_from_id_or_pos(buffer, namespace, upper, err);
+  if(!extmark_lower || !extmark_upper) {
     return rv;
   }
-  // TODO do validation
-
-  ExtendedMark *extmark_lower = extmark_get(buf, namespace.data, lower.data);
-  ExtendedMark *extmark_upper = extmark_get(buf, namespace.data, upper.data);
-
-  /* ExtendedMark *extmark = extmark_get(buf, namespace.data, name.data); */
-  /* pos_T *pos = extmark_prev(buf, namespace.data, */
-                            /* extmark->mark.lnum, */
-                            /* extmark->mark.col); */
-  ExtmarkArray *extmarks_in_range = extmark_nextrange(buf, namespace.data,
+  ExtmarkArray *extmarks_in_range = extmark_nextrange(buf, (uint64_t)namespace,
           &extmark_lower->mark, &extmark_upper->mark);
 
-  String name_obj;
-  Array pos_obj = ARRAY_DICT_INIT;
-  ExtendedMark *extmark;
-  char *name;
-  pos_T pos;
-  for (size_t i = 0; i < kv_size(*extmarks_in_range); i++) {
-    extmark = kv_A(*extmarks_in_range, i);
-    if (!extmark) {
-      name = "";
-      pos.lnum = -1;
-      pos.col = -1;
-    } else {
-      name = extmark->name;
-      pos.lnum = extmark->mark.lnum;
-      pos.col = extmark->mark.col;
-    }
-    name_obj.data = name;
-    name_obj.size = strlen(name);
-    ADD(pos_obj, INTEGER_OBJ(pos.lnum));
-    ADD(pos_obj, INTEGER_OBJ(pos.col));
+  if (!extmarks_in_range) {
+    ADD(rv, INTEGER_OBJ(-9));
+    return rv;
+  }
 
-    ADD(rv, STRING_OBJ(name_obj));
-    ADD(rv, ARRAY_OBJ(pos_obj));
+  Array mark = ARRAY_DICT_INIT;
+  ExtendedMark *extmark;
+  for (size_t i = 0; i < kv_size(*extmarks_in_range); i++) {
+    mark.size = 0;
+    mark.capacity = 0;
+    mark.items = 0;
+    extmark = kv_A(*extmarks_in_range, i);
+    ADD(mark, INTEGER_OBJ( (Integer)extmark->id) );
+    ADD(mark, INTEGER_OBJ(extmark->mark.lnum));
+    ADD(mark, INTEGER_OBJ(extmark->mark.col));
+    ADD(rv, ARRAY_OBJ(mark));
   }
   return rv;
 }
 
+/// Setup a new namepsace for holding you marks
+///
+/// @param namespace String id for the namespace
+/// @param[out] err Details of an error that may have occurred
+/// @return an integer id to be used with future mark_ calls, or 0 if name exists
+Integer buffer_mark_ns_init(String namespace, Error *err)
+{
+  uint64_t ns_id = extmark_ns_create(namespace.data);
+  if (!ns_id) {
+    api_set_error(err, Validation, _("Namespace already exists"));
+    return 0;
+  }
+  return ns_id;
+}
 
+/// Returns an unordered tuple of mark namespaces in nvim
+///
+/// @param[out] err Details of an error that may have occurred
+/// @return Tuple of tuples, [string name, int id]
+ArrayOf(Object) buffer_mark_ns_ids(Error *err)
+{
+  Array rv = ARRAY_DICT_INIT;
+  Array ns_array = ARRAY_DICT_INIT;
+
+  /* can delete? */
+  if (!NAMESPACES) {
+    return rv;
+  }
+
+  cstr_t key;
+  uint64_t value;
+  map_foreach(NAMESPACES, key, value, {
+    ns_array.size = 0;
+    ns_array.capacity = 0;
+    ns_array.items = 0;
+    ADD(ns_array, STRING_OBJ(cstr_to_string(key)));
+    ADD(ns_array, INTEGER_OBJ(value));
+    ADD(rv, ARRAY_OBJ(ns_array));
+  });
+  return rv;
+}
+
+
+/* ArrayOf(Integer, 3) buffer_mark_prev(Buffer buffer, Integer namespace, Object id, Error *err) */
+/* { */
+  /* Array rv = ARRAY_DICT_INIT; */
+  /* buf_T *buf = find_buffer_by_handle(buffer, err); */
+
+  /* ExtendedMark *extmark = extmark_from_id_or_pos(buffer, namespace, id, err); */
+  /* if (!extmark) { */
+    /* return rv; */
+  /* } */
+
+  /* bool match = 0; */
+  /* ExtendedMark *prev = extmark_prev(buf, (uint64_t)namespace, &extmark->mark, match); */
+  /* if (!prev) { */
+    /* ADD(rv, INTEGER_OBJ(-1)); */
+    /* ADD(rv, INTEGER_OBJ(-1)); */
+    /* ADD(rv, INTEGER_OBJ(-1)); */
+  /* } else { */
+    /* ADD(rv, INTEGER_OBJ(prev->id)); */
+    /* ADD(rv, INTEGER_OBJ(prev->mark.lnum)); */
+    /* ADD(rv, INTEGER_OBJ(prev->mark.col)); */
+  /* } */
+  /* return rv; */
+/* } */
 /// at the giving position. If the mark already exists, it is
 /// moved to the new location.
 //
 /// @param buffer The buffer handle
-/// @param name The mark's name
+/// @param namespace allow
+/// @param id The mark's id
 /// @param row position of the mark
 /// @param col position of the mark
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on new, 2 on update
-Integer buffer_mark_set(Buffer buffer, String namespace, String name, Integer row, Integer col, Error *err)
+Integer buffer_mark_set(Buffer buffer, Integer namespace, Integer id, Integer row, Integer col, Error *err)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -826,18 +842,19 @@ Integer buffer_mark_set(Buffer buffer, String namespace, String name, Integer ro
     return rv;
   }
 
-  rv = (Integer)extmark_set(buf, namespace.data, name.data,
+  rv = (Integer)extmark_set(buf, (uint64_t)namespace, (uint64_t)id,
                             (linenr_T)row, (colnr_T)col);
   return rv;
 }
 
-/// Removes the named mark
+/// Remove a mark
 //
 /// @param buffer The buffer handle
-/// @param name The mark's name
+/// @param namespace a identifier used previously with namespace_create
+/// @param id The mark's id
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on success, 0 on no mark found
-Integer buffer_mark_unset(Buffer buffer, String namespace, String name, Error *err)
+Integer buffer_mark_unset(Buffer buffer, Integer namespace, Integer id, Error *err)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -846,7 +863,7 @@ Integer buffer_mark_unset(Buffer buffer, String namespace, String name, Error *e
     return rv;
   }
 
-  rv = (Integer)extmark_unset(buf, namespace.data, name.data);
+  rv = (Integer)extmark_unset(buf, (uint64_t)namespace, (uint64_t)id);
   return rv;
 }
 

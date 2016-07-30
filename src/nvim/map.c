@@ -145,4 +145,3 @@ MAP_IMPL(uint64_t, ptr_t, DEFAULT_INITIALIZER)
 MAP_IMPL(String, MsgpackRpcRequestHandler, MSGPACK_HANDLER_INITIALIZER)
 #define KVEC_INITIALIZER { .size = 0, .capacity = 0, .items = NULL }
 MAP_IMPL(linenr_T, bufhl_vec_T, KVEC_INITIALIZER)
-MAP_IMPL(cstr_t, StringMap, DEFAULT_INITIALIZER)

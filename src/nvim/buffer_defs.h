@@ -493,7 +493,7 @@ struct file_buffer {
 
   int b_fnum;                   /* buffer number for this file. */
   kbtree_t(extmarks) *b_extmarks;
-  ExtmarkNsMap *b_extmark_ns;
+  IntMap *b_extmark_ns;
   bool b_changed;               /* 'modified': Set to true if something in the
                                    file has been changed and not written out. */
   int b_changedtick;            /* incremented for each change, also for undo */

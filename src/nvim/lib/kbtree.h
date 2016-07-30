@@ -7,6 +7,11 @@
 
 #define KB_MAX_DEPTH 64
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Woverflow"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+
 typedef struct {
   int32_t is_internal:1, n:31;
 } kbnode_t;
