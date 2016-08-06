@@ -5001,7 +5001,7 @@ int bufhl_add_hl(buf_T *buf,
       return src_id;
   }
   if (!buf->b_bufhl_info) {
-    buf->b_bufhl_info = kb_init(bufhl, KB_DEFAULT_SIZE);
+    buf->b_bufhl_info = kb_init(bufhl);
   }
 
   BufhlLine* lineinfo = bufhl_tree_ref(buf->b_bufhl_info, lnum, true);
@@ -5034,7 +5034,7 @@ void bufhl_clear_line_range(buf_T *buf,
   }
   linenr_T first_changed = MAXLNUM, last_changed = -1;
   // TODO: implement kb_itr_interval and jump directly to the first line
-  kbitr_t itr;
+  kbitr_t(bufhl) itr;
   BufhlLine *l, t = {line_start};
   if(!kb_itr_get(bufhl, buf->b_bufhl_info, &t, &itr)) {
       kb_itr_next(bufhl, buf->b_bufhl_info, &itr);
@@ -5119,7 +5119,7 @@ void bufhl_mark_adjust(buf_T* buf,
   // XXX: does not support move
   // we need to detect this case and
 
-  kbitr_t itr;
+  kbitr_t(bufhl) itr;
   BufhlLine *l, t = {line1};
   if(!kb_itr_get(bufhl, buf->b_bufhl_info, &t, &itr)) {
       kb_itr_next(bufhl, buf->b_bufhl_info, &itr);
