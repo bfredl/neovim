@@ -13,7 +13,10 @@ local wait = helpers.wait
 describe('Extmarks buffer api', function()
   local screen
   local curbuf
+  local marks, positions, ns_string2, ns_string, init_text, row, col
+  local ns
 
+  before_each(function()
   marks = {2, 3, 4}
   positions = {{0, 1,}, {0, 3}, {0, 4}}
 
@@ -23,7 +26,8 @@ describe('Extmarks buffer api', function()
   row = 0
   col = 2
 
-  -- before_each(function()
+  ns = 0
+
     helpers.clear()
     helpers.nvim('set_option', 'shell', helpers.nvim_dir .. '/shell-test')
     helpers.nvim('set_option', 'shellcmdflag', 'EXE')
@@ -31,9 +35,9 @@ describe('Extmarks buffer api', function()
     screen:attach(false)
 
     insert(init_text)
-  -- end)
-
   buf = request('vim_get_current_buffer')
+  end)
+
 
   -- after_each(function()
     -- screen:detach()
@@ -54,37 +58,26 @@ describe('Extmarks buffer api', function()
 
   -- it('adds, updates  and deletes marks', function()
     -- ns = buffer('mark_ns_init', ns_string)
-    -- rv = buffer('mark_set', buf, ns, marks[1], positions[1][1], positions[1][2])
-    helpers.curbufmeths.mark_index(ns, marks[1])
-    rv = buffer('mark_set', buf, ns, 0, 0, 1)
-    -- rv = buffer('mark_index', buf, ns, marks[1])
-    -- rv = request('buffer_mark_index', buf, ns, marks[1])
-    -- rv = request('buffer_mark_index', buf, ns, marks[1])
-    -- rv = request('buffer_mark_index', buf, ns, marks[1])
-    -- rv = buffer('mark_index', buf, ns, marks[1])
-    -- local rv = buffer('mark_set', {buf, ns, 0, 0, 2})
-    wait()
+    rv = buffer('mark_set', buf, ns, marks[1], positions[1][1], positions[1][2])
     eq(1, rv)
     rv = buffer('mark_index', buf, ns, marks[1])
-    eq({marks[1], positions[1][2], positions[1][2]}, rv)
+    eq({marks[1], positions[1][1], positions[1][2]}, rv)
     -- Test adding a second mark works
     rv = buffer('mark_set', buf, ns, marks[2], positions[2][1], positions[2][2])
     wait()
     eq(1, rv)
     -- Test an update, (same pos)
     rv = buffer('mark_set', buf, ns, marks[1], positions[1][1], positions[1][2])
-    wait()
     eq(2, rv)
     rv = buffer('mark_index', buf, ns, marks[2])
     eq({marks[2], positions[2][1], positions[2][2]}, rv)
     -- Test an update, (new pos)
     row = positions[1][1]
     col = positions[1][2] + 1
-    rv = buffer('mark_set', buf, ns, mark_name, row, col)
-    wait()
+    rv = buffer('mark_set', buf, ns, marks[1], row, col)
     eq(2, rv)
-    rv = buffer('mark_index', buf, ns, marks[2])
-    eq({marks[2], row, col}, rv)
+    rv = buffer('mark_index', buf, ns, marks[1])
+    eq({marks[1], row, col}, rv)
 
     -- remove the test marks
     rv = buffer('mark_unset', buf, ns, marks[1])
