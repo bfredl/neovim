@@ -205,8 +205,8 @@ static bool extmark_create(buf_T *buf, uint64_t ns, uint64_t id, linenr_T row, c
 
   ExtendedMark *extmark = extmark_ref(buf->b_extmarks, *pos, true);
   extmark->id = id;
-  extmark->mark = *pos;
-  kb_put(extmarks, buf->b_extmarks, extmark);
+  // extmark->mark = *pos;
+  // kb_put(extmarks, buf->b_extmarks, extmark);
   kb_put(extmarks, ns_obj->tree, extmark);
   pmap_put(uint64_t)(ns_obj->map, id, extmark);
 

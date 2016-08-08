@@ -148,25 +148,64 @@ describe('Extmarks buffer api', function()
     -- eq({marks[3], positions[3][1], positions[3][2]}, rv[1])
     -- eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
     -- eq({marks[1], positions[1][1], positions[1][2]}, rv[3])
-    -- end)
-
-  -- it('marks move with text inserts', function()
-    -- marks move with text inserts?
-    -- added_text = "999"
-    -- feed('0') -- move cursor to start of line
-    -- insert(added_text)
-    -- wait()
-    -- screen:expect([[
-      -- 99^9123              |
-      -- ~                   |
-      -- ~                   |
-                          -- |
-    -- ]])
-    -- pos = buffer('mark_index', buf, ns, mark_name)
-    -- neq(pos, nil)
-    -- eq(row, pos[1])
-    -- eq(col + string.len(added_text), pos[2])
-
   end)
+
+  pending('marks move with line insertations #test', function()
+    rv = buffer('mark_set', buf, ns, marks[1], 1, 1)
+    eq(1, rv)
+    screen:snapshot_util()
+    feed("yyP")
+    screen:snapshot_util()
+    added_text = "999"
+    --feed("i<cr><esc>")
+    screen:snapshot_util()
+    rv = buffer('mark_index', buf, ns, marks[1])
+    eq({2, 2, 1}, rv)
+  end)
+
+  pending('marks move with line join #test', function()
+    feed("i<cr>abc<esc>")
+    screen:snapshot_util()
+    rv = buffer('mark_set', buf, ns, marks[1], 2, 1)
+    added_text = "999"
+    feed('ggJ') -- move cursor to start of line
+    --feed("i<cr><esc>")
+    screen:snapshot_util()
+    rv = buffer('mark_index', buf, ns, marks[1])
+    print(require('inspect')(rv))
+    eq(row, pos[1])
+    eq(col + string.len(added_text), pos[2])
+  end)
+
+  pending('marks move with line splits #test', function()
+    screen:snapshot_util()
+    rv = buffer('mark_set', buf, ns, marks[1], 1, 2)
+    added_text = "999"
+    feed('0li<cr><esc>') -- move cursor to start of line
+    --feed("i<cr><esc>")
+    screen:snapshot_util()
+    rv = buffer('mark_index', buf, ns, marks[1])
+    print(require('inspect')(rv))
+    eq(row, pos[1])
+    eq(col + string.len(added_text), pos[2])
+  end)
+
+  pending('marks move with text inserts', function()
+    rv = buffer('mark_set', buf, ns, marks[1], 0, 1)
+    added_text = "999"
+    feed('0') -- move cursor to start of line
+    insert(added_text)
+    screen:expect([[
+      99^912345            |
+      ~                   |
+      ~                   |
+                          |
+    ]])
+    rv = buffer('mark_index', buf, ns, marks[1])
+    print(require('inspect')(pos))
+    eq(row, pos[1])
+    eq(col + string.len(added_text), pos[2])
+  end)
+
 end)
 
