@@ -13,8 +13,8 @@ describe('Buffer highlighting', function()
     execute("syntax on")
     screen = Screen.new(40, 8)
     screen:attach()
-    screen:set_default_attr_ignore( {{bold=true, foreground=Screen.colors.Blue}} )
     screen:set_default_attr_ids({
+      [0] = {bold=true, foreground=Screen.colors.Blue},
       [1] = {foreground = Screen.colors.Fuchsia}, -- String
       [2] = {foreground = Screen.colors.Brown, bold = true}, -- Statement
       [3] = {foreground = Screen.colors.SlateBlue}, -- Special
@@ -49,11 +49,11 @@ describe('Buffer highlighting', function()
     screen:expect([[
       these are some lines                    |
       with colorful tex^t                      |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
                                               |
     ]])
 
@@ -63,11 +63,11 @@ describe('Buffer highlighting', function()
     screen:expect([[
       these are {1:some} lines                    |
       with {2:colorful tex^t}                      |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
                                               |
     ]])
 
@@ -76,10 +76,10 @@ describe('Buffer highlighting', function()
       these are {1:some} lines                    |
       ^                                        |
       with {2:colorful text}                      |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
                                               |
     ]])
 
@@ -88,10 +88,10 @@ describe('Buffer highlighting', function()
       these are some lines                    |
       ^                                        |
       with colorful text                      |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
                                               |
     ]])
   end)
@@ -123,9 +123,9 @@ describe('Buffer highlighting', function()
         in {5:order} to {6:de}{4:monstr}{6:ate}                 |
         {6:combin}{7:ing}{8: hi}ghlights                    |
         {8:from }{7:diff}{6:erent} source^s                  |
-        ~                                       |
-        ~                                       |
-        ~                                       |
+        {0:~                                       }|
+        {0:~                                       }|
+        {0:~                                       }|
         :hi ImportantWord gui=bold cterm=bold   |
       ]])
     end)
@@ -137,9 +137,9 @@ describe('Buffer highlighting', function()
         in {5:order} to de{3:monstr}ate                 |
         combin{8:ing hi}ghlights                    |
         {8:from diff}erent source^s                  |
-        ~                                       |
-        ~                                       |
-        ~                                       |
+        {0:~                                       }|
+        {0:~                                       }|
+        {0:~                                       }|
         :hi ImportantWord gui=bold cterm=bold   |
       ]])
     end)
@@ -151,9 +151,9 @@ describe('Buffer highlighting', function()
         in order to {6:demonstrate}                 |
         {6:combining} highlights                    |
         from {6:different} source^s                  |
-        ~                                       |
-        ~                                       |
-        ~                                       |
+        {0:~                                       }|
+        {0:~                                       }|
+        {0:~                                       }|
         :hi ImportantWord gui=bold cterm=bold   |
       ]])
     end)
@@ -167,9 +167,9 @@ describe('Buffer highlighting', function()
         in {5:order} to de{3:monstr}ate                 |
         {6:combining} highlights                    |
         from {6:different} source^s                  |
-        ~                                       |
-        ~                                       |
-        ~                                       |
+        {0:~                                       }|
+        {0:~                                       }|
+        {0:~                                       }|
         :hi ImportantWord gui=bold cterm=bold   |
       ]])
     end)
@@ -181,9 +181,9 @@ describe('Buffer highlighting', function()
         ^                                        |
         in {5:order} to {6:de}{4:monstr}{6:ate}                 |
         {8:from }{7:diff}{6:erent} sources                  |
-        ~                                       |
-        ~                                       |
-        ~                                       |
+        {0:~                                       }|
+        {0:~                                       }|
+        {0:~                                       }|
                                                 |
       ]])
 
@@ -193,9 +193,9 @@ describe('Buffer highlighting', function()
                                                 |
         {8:from }{7:diff}{6:erent} sources                  |
         ^in {5:order} to {6:de}{4:monstr}{6:ate}                 |
-        ~                                       |
-        ~                                       |
-        ~                                       |
+        {0:~                                       }|
+        {0:~                                       }|
+        {0:~                                       }|
         ::3move 4                               |
       ]])
     end)
@@ -210,24 +210,24 @@ describe('Buffer highlighting', function()
 
     screen:expect([[
       {3:three ove}{5:rlapp}{1:ing color}^s                |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
                                               |
     ]])
 
     clear_hl(id, 0, 1)
     screen:expect([[
       three {5:overlapp}{1:ing color}^s                |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
                                               |
     ]])
   end)
@@ -240,12 +240,12 @@ describe('Buffer highlighting', function()
 
     screen:expect([[
       Ta {5:båten} över {1:sjön}^!                     |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
                                               |
     ]])
   end)
