@@ -22,15 +22,15 @@ describe('Mouse input', function()
     screen = Screen.new(25, 5)
     screen:attach()
     screen:set_default_attr_ids({
-      [1] = {background = hlgroup_colors.Visual},
+      [1] = {background = Screen.colors.LightGrey},
       [2] = {bold = true},
       [3] = {
-        foreground = hlgroup_colors.NonText,
-        background = hlgroup_colors.Visual,
+        foreground = Screen.colors.Blue,
+        background = Screen.colors.LightGrey,
         bold = true,
       },
     })
-    screen:set_default_attr_ignore( {{bold=true, foreground=hlgroup_colors.NonText}} )
+    screen:set_default_attr_ignore( {{bold=true, foreground=Screen.colors.Blue}} )
     feed('itesting<cr>mouse<cr>support and selection<esc>')
     screen:expect([[
       testing                  |
@@ -409,7 +409,7 @@ describe('Mouse input', function()
     ]])
     screen:try_resize(53, 14)
     execute('sp', 'vsp')
-    screen:set_default_attr_ignore( {{bold=true, foreground=hlgroup_colors.NonText},
+    screen:set_default_attr_ignore( {{bold=true, foreground=Screen.colors.Blue},
             {reverse=true}, {bold=true, reverse=true}} )
     screen:expect([[
       lines                     |lines                     |
