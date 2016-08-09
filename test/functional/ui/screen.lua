@@ -207,7 +207,10 @@ function Screen:try_resize(columns, rows)
   request('ui_try_resize', columns, rows)
 end
 
+local linecache = {}
+
 function Screen:expect(expected, attr_ids, attr_ignore)
+  local dbginfo = debug.getinfo(2)
   -- remove the last line and dedent
   expected = dedent(expected:gsub('\n[ ]+$', ''))
   local expected_rows = {}
@@ -218,11 +221,13 @@ function Screen:expect(expected, attr_ids, attr_ignore)
   end
   local ids = attr_ids or self._default_attr_ids
   local ignore = attr_ignore or self._default_attr_ignore
+  local last_actual_rows = {}
   self:wait(function()
     local actual_rows = {}
     for i = 1, self._height do
       actual_rows[i] = self:_row_repr(self._rows[i], ids, ignore)
     end
+    last_actual_rows = actual_rows
     for i = 1, self._height do
       if expected_rows[i] ~= actual_rows[i] then
         local msg_expected_rows = {}
@@ -230,7 +235,7 @@ function Screen:expect(expected, attr_ids, attr_ignore)
           msg_expected_rows[j] = expected_rows[j]
         end
         msg_expected_rows[i] = '*' .. msg_expected_rows[i]
-        actual_rows[i] = '*' .. actual_rows[i]
+        --actual_rows[i] = '*' .. actual_rows[i]
         return (
           'Row ' .. tostring(i) .. ' didn\'t match.\n'
           .. 'Expected:\n|' .. table.concat(msg_expected_rows, '|\n|') .. '|\n'
@@ -238,10 +243,49 @@ function Screen:expect(expected, attr_ids, attr_ignore)
         )
       end
     end
+  end, 250, function(err)
+    if false then
+      assert(false, err)
+    end
+    local fn = string.sub(dbginfo.source, 2)
+    print(fn)
+    local f = io.open(fn)
+    local lines = {}
+    -- read the lines in table 'lines'
+    for line in f:lines() do
+      table.insert(lines, line)
+    end
+    f.close()
+    for i = 1, self._height do
+      if expected_rows[i] ~= last_actual_rows[i] then
+        local l = dbginfo.currentline + i
+        local id = fn..':'..l
+        if linecache[id] then
+          goto continue
+        end
+        linecache[id] = true
+        print(id)
+        print(expected_rows[i])
+        print(lines[l])
+        print(last_actual_rows[i])
+        local aa, bb = string.find(lines[l], expected_rows[i],1, true)
+        if aa ~= nil then
+          local neuline = string.sub(lines[l], 1, aa-1) .. last_actual_rows[i] .. string.sub(lines[l],bb+1)
+          print(neuline)
+          lines[l] = neuline
+        else
+          print("ERROR")
+        end
+      end
+      ::continue::
+    end
+    f = io.open(fn, 'w')
+    for i, l in ipairs(lines) do f:write(l, "\n") end
+    f:close()
   end)
 end
 
-function Screen:wait(check, timeout)
+function Screen:wait(check, timeout, lasterr)
   local err, checked = false
   local success_seen = false
   local failure_after_success = false
@@ -286,7 +330,11 @@ If everything else fails, use Screen:redraw_debug to help investigate what is
   end
 
   if err then
-    assert(false, err)
+    if lasterr ~= nil then
+        lasterr(err)
+    else
+        assert(false, err)
+    end
   end
 end
 
