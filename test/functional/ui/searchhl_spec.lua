@@ -11,9 +11,8 @@ describe('search highlighting', function()
     clear()
     screen = Screen.new(40, 7)
     screen:attach()
-    --ignore highligting of ~-lines
-    screen:set_default_attr_ignore( {{bold=true, foreground=colors.Blue}} )
     screen:set_default_attr_ids( {
+      [0] = {bold=true, foreground=Screen.colors.Blue},
       [1] = {background = colors.Yellow}, -- Search
       [2] = {reverse = true},
       [3] = {foreground = colors.Red}, -- Message
@@ -27,10 +26,10 @@ describe('search highlighting', function()
     screen:expect([[
       some ^text                               |
       more text                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /text                                   |
     ]])
   end)
@@ -51,7 +50,7 @@ describe('search highlighting', function()
         stupid{1:texttext}stuff                   |
         a {1:text} word                           |
                                               |
-      ~                                       |
+      {0:~                                       }|
       /text                                   |
     ]])
 
@@ -63,7 +62,7 @@ describe('search highlighting', function()
         stupid{1:text}^extstuff                    |
         a {1:text} word                           |
                                               |
-      ~                                       |
+      {0:~                                       }|
       /text                                   |
     ]])
 
@@ -74,7 +73,7 @@ describe('search highlighting', function()
         stupidtextextstuff                    |
         a {1:^text} word                           |
                                               |
-      ~                                       |
+      {0:~                                       }|
       /\<text\>                               |
     ]])
 
@@ -85,7 +84,7 @@ describe('search highlighting', function()
         stupidtextextstuff                    |
         a ^text word                           |
                                               |
-      ~                                       |
+      {0:~                                       }|
       :nohlsearch                             |
     ]])
   end)
@@ -102,9 +101,9 @@ describe('search highlighting', function()
         the first {2:li}ne                        |
         in a little file                      |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /li^                                     |
     ]])
 
@@ -113,9 +112,9 @@ describe('search highlighting', function()
         the first line                        |
         in a {2:lit}tle file                      |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /lit^                                    |
     ]])
 
@@ -124,9 +123,9 @@ describe('search highlighting', function()
         the first line                        |
         in a {1:^lit}tle file                      |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /lit                                    |
     ]])
 
@@ -135,9 +134,9 @@ describe('search highlighting', function()
         the {2:fir}st line                        |
         in a {1:lit}tle file                      |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /fir^                                    |
     ]])
 
@@ -147,9 +146,9 @@ describe('search highlighting', function()
         the first line                        |
         in a {1:li}{2:ttle} file                      |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /ttle^                                   |
     ]])
   end)
@@ -165,10 +164,10 @@ describe('search highlighting', function()
     screen:expect([[
       not the {2:mat}ch you're looking for        |
       the match is here                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /mat/e^                                  |
     ]])
 
@@ -177,10 +176,10 @@ describe('search highlighting', function()
     screen:expect([[
       not the match you're looking for        |
       the {2:mat}ch is here                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /mat/e^                                  |
     ]])
 
@@ -188,10 +187,10 @@ describe('search highlighting', function()
     screen:expect([[
       not the {1:mat}ch you're looking for        |
       the {1:ma^t}ch is here                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       /mat/e                                  |
     ]])
   end)
@@ -206,7 +205,7 @@ describe('search highlighting', function()
       {1:a}  repeated {1:line}                        |
       {1:a}  repeated {1:line}                        |
       {1:a}  repeated line                        |
-      ~                                       |
+      {0:~                                       }|
       {3:search hit BOTTOM, continuing at TOP}    |
     ]])
 
@@ -218,7 +217,7 @@ describe('search highlighting', function()
       {1:a}  repeated line                        |
       ^b  repeated {1:line}                        |
       {1:a}  repeated line                        |
-      ~                                       |
+      {0:~                                       }|
       {3:search hit BOTTOM, continuing at TOP}    |
     ]])
   end)
@@ -240,12 +239,13 @@ describe('search highlighting', function()
     screen:expect([[
         very {4:spec^ial}{1: te}{5:xt}                     |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       {3:search hit BOTTOM, continuing at TOP}    |
-    ]], {[1] = {background = colors.Yellow}, [2] = {reverse = true},
+    ]], {[0] = {bold=true, foreground=Screen.colors.Blue},
+    [1] = {background = colors.Yellow}, [2] = {reverse = true},
     [3] = {foreground = colors.Red}, [4] = {bold = true, background =
     colors.Green}, [5] = {italic = true, background = colors.Magenta}})
 
@@ -253,10 +253,10 @@ describe('search highlighting', function()
     screen:expect([[
         very spec{1:^ial te}xt                     |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       :call clearmatches()                    |
     ]])
 
@@ -266,12 +266,13 @@ describe('search highlighting', function()
     screen:expect([[
         very {4:spec}{5:^ial}{1: te}xt                     |
                                               |
-      ~                                       |
-      ~                                       |
-      ~                                       |
-      ~                                       |
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
+      {0:~                                       }|
       :syntax keyword MyGroup special         |
-    ]], {[1] = {background =  colors.Yellow}, [2] = {reverse = true},
+    ]], {[0] = {bold=true, foreground=Screen.colors.Blue},
+    [1] = {background =  colors.Yellow}, [2] = {reverse = true},
     [3] = {foreground = colors.Red}, [4] = {bold = true,
     background = colors.Green}, [5] = {bold = true, background = colors.Yellow}})
 
