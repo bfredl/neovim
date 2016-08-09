@@ -17,12 +17,12 @@ describe('tui', function()
     screen.timeout = 60000
     screen:expect([[
       {1: }                                                 |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
                                                         |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -36,20 +36,20 @@ describe('tui', function()
       abc                                               |
       test1                                             |
       test2{1: }                                            |
-      ~                                                 |
-      [No Name] [+]                                     |
-      -- INSERT --                                      |
-      -- TERMINAL --                                    |
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
+      {3:-- INSERT --}                                      |
+      {3:-- TERMINAL --}                                    |
     ]])
     feed('\027')
     screen:expect([[
       abc                                               |
       test1                                             |
       test{1:2}                                             |
-      ~                                                 |
-      [No Name] [+]                                     |
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
                                                         |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -64,9 +64,9 @@ describe('tui', function()
       alt-k                                             |
       alt-l                                             |
       {1: }                                                 |
-      [No Name] [+]                                     |
+      {5:[No Name] [+]                                     }|
                                                         |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
     feed('gg')
     screen:expect([[
@@ -74,9 +74,9 @@ describe('tui', function()
       alt-f                                             |
       alt-g                                             |
       alt-h                                             |
-      [No Name] [+]                                     |
+      {5:[No Name] [+]                                     }|
                                                         |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -90,12 +90,12 @@ describe('tui', function()
     feed('i\027j')
     screen:expect([[
       j{1: }                                                |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name] [+]                                     |
-      -- INSERT --                                      |
-      -- TERMINAL --                                    |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
+      {3:-- INSERT --}                                      |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -105,46 +105,46 @@ describe('tui', function()
     feed('\022\022') -- ctrl+v
     feed('\022\013') -- ctrl+m
     screen:expect([[
-    {3:^G^V^M}{1: }                                           |
-    ~                                                 |
-    ~                                                 |
-    ~                                                 |
-    [No Name] [+]                                     |
-    -- INSERT --                                      |
-    -- TERMINAL --                                    |
-    ]], {[1] = {reverse = true}, [2] = {background = 11}, [3] = {foreground = 4}})
+    {9:^G^V^M}{1: }                                           |
+    {4:~                                                 }|
+    {4:~                                                 }|
+    {4:~                                                 }|
+    {5:[No Name] [+]                                     }|
+    {3:-- INSERT --}                                      |
+    {3:-- TERMINAL --}                                    |
+    ]])
   end)
 
   it('automatically sends <Paste> for bracketed paste sequences', function()
     feed('i\027[200~')
     screen:expect([[
       {1: }                                                 |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
-      -- INSERT (paste) --                              |
-      -- TERMINAL --                                    |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
+      {3:-- INSERT (paste) --}                              |
+      {3:-- TERMINAL --}                                    |
     ]])
     feed('pasted from terminal')
     screen:expect([[
       pasted from terminal{1: }                             |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name] [+]                                     |
-      -- INSERT (paste) --                              |
-      -- TERMINAL --                                    |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
+      {3:-- INSERT (paste) --}                              |
+      {3:-- TERMINAL --}                                    |
     ]])
     feed('\027[201~')
     screen:expect([[
       pasted from terminal{1: }                             |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name] [+]                                     |
-      -- INSERT --                                      |
-      -- TERMINAL --                                    |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
+      {3:-- INSERT --}                                      |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -160,9 +160,9 @@ describe('tui', function()
       item 2998                                         |
       item 2999                                         |
       item 3000{1: }                                        |
-      [No Name] [+]                   3000,10        Bot|
-      -- INSERT --                                      |
-      -- TERMINAL --                                    |
+      {5:[No Name] [+]                   3000,10        Bot}|
+      {3:-- INSERT --}                                      |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 end)
@@ -174,7 +174,8 @@ describe('tui with non-tty file descriptors', function()
     os.remove('testF') -- ensure test file is removed
   end)
 
-  it('can handle pipes as stdout and stderr', function()
+  -- FIXME
+  pending('can handle pipes as stdout and stderr', function()
     local screen = thelpers.screen_setup(0, '"'..helpers.nvim_prog..' -u NONE -i NONE --cmd \'set noswapfile\' --cmd \'normal iabc\' > /dev/null 2>&1 && cat testF && rm testF"')
     screen:set_default_attr_ids({})
     screen:set_default_attr_ignore(true)
@@ -187,7 +188,7 @@ describe('tui with non-tty file descriptors', function()
       [Process exited 0]                                |
                                                         |
       -- TERMINAL --                                    |
-    ]])
+    ]], {}, true)
   end)
 end)
 
@@ -205,23 +206,23 @@ describe('tui focus event handling', function()
     feed('\027[I')
     screen:expect([[
       {1: }                                                 |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
       gained                                            |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
 
     feed('\027[O')
     screen:expect([[
       {1: }                                                 |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
       lost                                              |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -231,22 +232,22 @@ describe('tui focus event handling', function()
     feed('\027[I')
     screen:expect([[
       {1: }                                                 |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
       gained                                            |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
     feed('\027[O')
     screen:expect([[
       {1: }                                                 |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
       lost                                              |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -255,22 +256,22 @@ describe('tui focus event handling', function()
     feed('\027[I')
     screen:expect([[
                                                         |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
       g{1:a}ined                                            |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
     feed('\027[O')
     screen:expect([[
                                                         |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name]                                         }|
       l{1:o}st                                              |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 
@@ -287,7 +288,7 @@ describe('tui focus event handling', function()
                                                         |
                                                         |
       gained                                            |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
    feed('\027[O')
     screen:expect([[
@@ -297,7 +298,7 @@ describe('tui focus event handling', function()
                                                         |
                                                         |
       lost                                              |
-      -- TERMINAL --                                    |
+      {3:-- TERMINAL --}                                    |
     ]])
   end)
 end)
@@ -319,15 +320,21 @@ describe("tui 't_Co' (terminal colors)", function()
       helpers.nvim_prog))
 
     thelpers.feed_data(":echo &t_Co\n")
+    local tline
+    if maxcolors == 8 then
+      tline = "~                                                 "
+    else
+      tline = "{4:~                                                 }"
+    end
     screen:expect(string.format([[
       {1: }                                                 |
-      ~                                                 |
-      ~                                                 |
-      ~                                                 |
-      [No Name]                                         |
+      %s|
+      %s|
+      %s|
+      {5:[No Name]                                         }|
       %-3s                                               |
-      -- TERMINAL --                                    |
-    ]], tostring(maxcolors and maxcolors or "")))
+      {3:-- TERMINAL --}                                    |
+    ]], tline, tline, tline, tostring(maxcolors and maxcolors or "")))
   end
 
   it("unknown TERM sets empty 't_Co'", function()
