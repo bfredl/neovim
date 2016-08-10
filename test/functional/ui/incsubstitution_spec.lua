@@ -1,5 +1,3 @@
--- Test the good behavior of the live action : substitution
-
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
 local clear = helpers.clear
@@ -113,7 +111,6 @@ describe('IncSubstitution preserves', function()
 end)
 
 describe('IncSubstitution preserves g+/g-', function()
-  before_each(clear)
   local cases = { "", "split", "nosplit" }
 
   local substrings = {
@@ -134,6 +131,32 @@ describe('IncSubstitution preserves g+/g-', function()
     ":%s/1/ax/g<bs><bs>"
   }
 
+  local function test_sub(substring, split, redoable)
+    clear()
+    execute("set incsubstitute=" .. split)
+
+    insert("1")
+    feed("o2<esc>")
+    execute("undo")
+    feed("o3<esc>")
+    if redoable then
+      feed("o4<esc>")
+      execute("undo")
+    end
+    feed(substring.. "<enter>")
+    execute("undo")
+
+    feed("g-")
+    expect([[
+      1
+      2]])
+
+    feed("g+")
+    expect([[
+      1
+      3]])
+  end
+
   local function test_notsub(substring, split, redoable)
     clear()
     execute("set incsubstitute=" .. split)
@@ -144,7 +167,7 @@ describe('IncSubstitution preserves g+/g-', function()
     feed("o3<esc>")
     if redoable then
       feed("o4<esc>")
-      feed("u")
+      execute("undo")
     end
     feed(substring .. "<esc>")
 
@@ -167,45 +190,9 @@ describe('IncSubstitution preserves g+/g-', function()
     end
   end
 
-  local function test_sub(substring, split, redoable)
-      if redoable then
-          pending("vim")
-          return
-      end
-    clear()
-
-    if redoable then
-        pending("vim")
-        return
-    end
-
-    execute("set incsubstitute=" .. split)
-
-    insert("1")
-    feed("o2<esc>")
-    execute("undo")
-    feed("o3<esc>")
-    if redoable then
-      feed("o4<esc>")
-      feed("u")
-    end
-    feed(substring.. "<enter>")
-    feed("u")
-
-    feed("g-")
-    expect([[
-      1
-      2]])
-
-    feed("g+")
-    expect([[
-      1
-      3]])
-  end
 
   local function test_threetree(substring, split)
     clear()
-
     execute("set incsubstitute=" .. split)
 
     insert("1")
@@ -221,7 +208,7 @@ describe('IncSubstitution preserves g+/g-', function()
     -- This is the undo tree (x-Axis is timeline), we're at B now
     --    ----------------A - B
     --   /
-    --  | --------a - b 
+    --  | --------a - b
     --  |/
     --  1 - 2 - 3
 
@@ -250,28 +237,53 @@ describe('IncSubstitution preserves g+/g-', function()
   end
 
 
-  for _, case in pairs(cases) do
-    for _, str in pairs(substrings) do
-
-      for _, redoable in pairs({true,false}) do
-        it(", test_sub with "..str..", ics="..case..", redoable="..tostring(redoable),
-           function()
-            test_sub(str, case, redoable)
-          end)
-
-        it(", test_notsub with "..str..", ics="..case..", redoable="..tostring(redoable),
-           function()
-            test_notsub(str, case, redoable)
-          end)
-      end
-
-      it(", test_threetree with "..str..", ics="..case,
-         function()
-          test_threetree(str, case)
-        end)
+  it("at a non-leaf of the undo tree", function()
+    -- this does not work even in standard vim
+    -- if fixed, easily combined with the test below
+    if true then
+      pending("vim")
+      return
     end
 
-    it('with undolevels=0, ics=' .. case, function()
+--    for _, case in pairs(cases) do
+--      for _, str in pairs(substrings) do
+--        for _, redoable in pairs({true}) do
+--          test_sub(str, case, redoable)
+--        end
+--      end
+--    end
+  end)
+
+  it("at a leaf of the undo tree", function()
+    for _, case in pairs(cases) do
+      for _, str in pairs(substrings) do
+        for _, redoable in pairs({false}) do
+          test_sub(str, case, redoable)
+        end
+      end
+    end
+  end)
+
+  it("when interrupting substitution", function()
+    for _, case in pairs(cases) do
+      for _, str in pairs(substrings) do
+        for _, redoable in pairs({true,false}) do
+          test_notsub(str, case, redoable)
+        end
+      end
+    end
+  end)
+
+  it("in a complex undo scenario", function()
+    for _, case in pairs(cases) do
+      for _, str in pairs(substrings) do
+        test_threetree(str, case)
+      end
+    end
+  end)
+
+  it('with undolevels=0', function()
+    for _, case in pairs(cases) do
       clear()
       common_setup(nil, case, default_text)
       execute("set undolevels=0")
@@ -279,7 +291,7 @@ describe('IncSubstitution preserves g+/g-', function()
       feed("1G0")
       insert("X")
       feed(":%s/tw/MO/<esc>")
-      feed("u")
+      execute("undo")
       expect(default_text)
       execute("undo")
       expect(default_text:gsub("Inc", "XInc"))
@@ -297,9 +309,8 @@ describe('IncSubstitution preserves g+/g-', function()
   it('with undolevels=1', function()
     local screen = Screen.new(20,10)
 
-    it('with undolevels=1, ics=' .. case, function()
+    for _, case in pairs(cases) do
       clear()
-      local screen = Screen.new(20,10)
       common_setup(screen, case, default_text)
       execute("set undolevels=1")
 
@@ -307,6 +318,7 @@ describe('IncSubstitution preserves g+/g-', function()
       insert("X")
       feed("IY<esc>")
       feed(":%s/tw/MO/<esc>")
+      -- using execute("undo") here will result in a "Press ENTER" prompt
       feed("u")
       expect(default_text:gsub("Inc", "XInc"))
       feed("u")
@@ -348,15 +360,15 @@ describe('IncSubstitution preserves g+/g-', function()
           Already...st change |
         ]])
       end
+    end
+    screen:detach()
+  end)
 
-      screen:detach()
-      
-      
-    end)
+  it('with undolevels=2', function()
+    local screen = Screen.new(20,10)
 
-    it('with undolevels=2, ics=' .. case, function()
+    for _, case in pairs(cases) do
       clear()
-      local screen = Screen.new(20,10)
       common_setup(screen, case, default_text)
       execute("set undolevels=2")
 
@@ -364,6 +376,7 @@ describe('IncSubstitution preserves g+/g-', function()
       feed("Ay<esc>")
       feed("Az<esc>")
       feed(":%s/tw/AR<esc>")
+      -- using execute("undo") here will result in a "Press ENTER" prompt
       feed("u")
       expect(default_text:gsub("lines", "linesxy"))
       feed("u")
@@ -439,17 +452,20 @@ describe('IncSubstitution preserves g+/g-', function()
           Already...st change |
         ]])
       end
-      screen:detach()
-      
-    end)
+    end
+    screen:detach()
+  end)
 
-    it('with undolevels=-1, ics=' .. case, function()
+  it('with undolevels=-1', function()
+    local screen = Screen.new(20,10)
+
+    for _, case in pairs(cases) do
       clear()
-      local screen = Screen.new(20,10)
       common_setup(screen, case, default_text)
 
       execute("set undolevels=-1")
       feed(":%s/tw/MO/g<enter>")
+      -- using execute("undo") here will result in a "Press ENTER" prompt
       feed("u")
       if case == "split" then
         screen:expect([[
@@ -478,12 +494,11 @@ describe('IncSubstitution preserves g+/g-', function()
           Already...st change |
         ]])
       end
-      
-    end)
-  end
+    end
+    screen:detach()
+  end)
 
 end)
-
 
 describe('IncSubstitution with incsubstitute=split', function()
   local screen = Screen.new(30,15)
@@ -744,11 +759,10 @@ describe('IncSubstitution with incsubstitute=split', function()
 end)
 
 describe('Incsubstitution with incsubstitute=nosplit', function()
-  local screen
+  local screen = Screen.new(20,10)
 
   before_each(function()
     clear()
-    screen = Screen.new(20,10)
     common_setup(screen, "nosplit", default_text .. default_text)
   end)
 
@@ -814,7 +828,6 @@ describe('Incsubstitution with incsubstitute=nosplit', function()
       ~                   |
       :%s/tw/BM/          |
     ]])
-
   end)
 
 end)
@@ -823,20 +836,23 @@ describe('Incsubstitution with a failing expression', function()
   local screen = Screen.new(20,10)
   local cases = { "", "split", "nosplit" }
 
-  for _, case in pairs(cases) do
+  local function refresh(case)
+    clear()
+    common_setup(screen, case, default_text)
+  end
 
-    before_each(function()
-      clear()
-      common_setup(screen, case, default_text)
-    end)
-
-    it('in the pattern does nothing for, ics=' .. case, function()
+  it('in the pattern does nothing for', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       execute("set incsubstitute=" .. case)
       feed(":silent! %s/tw\\(/LARD/<enter>")
       expect(default_text)
-    end)
+    end
+  end)
 
-    it('in the replacement deletes the matches, ics=' .. case, function()
+  it('in the replacement deletes the matches', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       local replacements = { "\\='LARD", "\\=xx_novar__xx" }
 
       for _, repl in pairs(replacements) do
@@ -845,22 +861,22 @@ describe('Incsubstitution with a failing expression', function()
         expect(default_text:gsub("tw", ""))
         execute("undo")
       end
-    end)
+    end
+  end)
 
-  end
 end)
 
 describe('Incsubstitution and cnoremap', function()
   local cases = { "",  "split", "nosplit" }
 
-  for _, case in pairs(cases) do
+  local function refresh(case)
+    clear()
+    common_setup(nil, case, default_text)
+  end
 
-    before_each(function()
-      clear()
-      common_setup(nil, case, default_text)
-    end)
-
-    it('work with remapped characters, ics=' .. case, function()
+  it('work with remapped characters', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       local command = "%s/lines/LINES/g"
 
       for i = 1, string.len(command) do
@@ -873,9 +889,12 @@ describe('Incsubstitution and cnoremap', function()
         Inc substitution on
         two LINES
         ]])
-    end)
+      end
+  end)
 
-    it('work then mappings move the cursor, ics=' .. case, function()
+  it('work then mappings move the cursor', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       execute("cnoremap ,S LINES/<left><left><left><left><left><left>")
 
       feed(":%s/lines/,Sor three <enter>")
@@ -904,10 +923,12 @@ describe('Incsubstitution and cnoremap', function()
         Znc substitution on
         two or three LZNES
         ]])
-    end)
+      end
+  end)
 
-    it('work with a failing mapping, ics=' .. case, function()
-
+  it('work with a failing mapping', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       execute("cnoremap <expr> x execute('bwipeout!')[-1].'x'")
 
       feed(":%s/tw/tox<enter>")
@@ -925,7 +946,9 @@ describe('Incsubstitution and cnoremap', function()
     end
   end)
 
-    it('work when temporarily moving the cursor, ics=' .. case, function()
+  it('work when temporarily moving the cursor', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       execute("cnoremap <expr> x cursor(1, 1)[-1].'x'")
 
       feed(":%s/tw/tox/g<enter>")
@@ -933,7 +956,9 @@ describe('Incsubstitution and cnoremap', function()
     end
   end)
 
-    it('work when a mapping disables incsub, ics=' .. case, function()
+  it('work when a mapping disables incsub', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       execute("cnoremap <expr> x execute('set incsubstitute=')[-1]")
 
       feed(":%s/tw/toxa/g<enter>")
@@ -941,7 +966,9 @@ describe('Incsubstitution and cnoremap', function()
     end
   end)
 
-    it('work with a complex mapping, ics=' .. case, function()
+  it('work with a complex mapping', function()
+    for _, case in pairs(cases) do
+      refresh(case)
       source([[cnoremap x <C-\>eextend(g:, {'fo': getcmdline()})
       \.fo<CR><C-c>:new<CR>:bw!<CR>:<C-r>=remove(g:, 'fo')<CR>x]])
 
@@ -951,7 +978,6 @@ describe('Incsubstitution and cnoremap', function()
     end
   end)
 
-  end
 end)
 
 describe('Incsubstitute: autocommands', function()
@@ -1045,20 +1071,21 @@ end)
 describe('Incsubstitute splits', function()
   local screen
 
-  before_each(function()
+  local function refresh()
     clear()
     screen = Screen.new(40,30)
     common_setup(screen, "split", default_text)
-  end)
+  end
 
   after_each(function()
     screen:detach()
   end)
 
   it('work after other splittings', function()
+    refresh()
+
     execute("vsplit")
     execute("split")
-
     feed(":%s/tw")
     screen:expect([[
       two lines           {10:|}two lines          |
@@ -1142,8 +1169,9 @@ describe('Incsubstitute splits', function()
   "equalalways eadirection=both",
   }
 
-  for _, setting in pairs(settings) do
-    it("are not affected by " .. setting, function()
+  it("are not affected by various settings", function()
+    for _, setting in pairs(settings) do
+      refresh()
 
       execute("set " .. setting)
 
@@ -1180,7 +1208,7 @@ describe('Incsubstitute splits', function()
         {10:[inc_sub]                               }|
         :%s/tw^                                  |
       ]])
-    end)
-  end
+    end
+  end)
 
 end)
