@@ -5903,6 +5903,7 @@ static char *highlight_init_both[] =
   "WildMenu     ctermbg=Yellow ctermfg=Black guibg=Yellow guifg=Black",
   "default link EndOfBuffer NonText",
   "default link QuickFixLine Search",
+  "default link IncSubstitute Search",
   NULL
 };
 
