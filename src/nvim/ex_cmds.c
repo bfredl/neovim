@@ -2967,11 +2967,11 @@ static bool sub_joining_lines(exarg_T *eap, char_u *pat,
       ex_may_print(eap);
     }
 
-    if (!eap->is_live){
+    if (!eap->is_live) {
       if (!cmdmod.keeppatterns) {
         save_re_pat(RE_SUBST, pat, p_magic);
       }
-      add_to_history(HIST_SEARCH, pat, TRUE, NUL);
+      add_to_history(HIST_SEARCH, pat, true, NUL);
     }
 
     return true;
@@ -3151,20 +3151,22 @@ void do_sub(exarg_T *eap)
         EMSG(_(e_backslash));
         return;
       }
-      if (*cmd != '&')
-        which_pat = RE_SEARCH;              /* use last '/' pattern */
-      pat = (char_u *)"";                   /* empty search pattern */
-      delimiter = *cmd++;                   /* remember delimiter character */
+      if (*cmd != '&') {
+        which_pat = RE_SEARCH;              // use last '/' pattern
+      }
+      pat = (char_u *)"";                   // empty search pattern
+      delimiter = *cmd++;                   // remember delimiter character
       has_second_delim = true;
-    } else {          /* find the end of the regexp */
-      if (p_altkeymap && curwin->w_p_rl)
+    } else {          // find the end of the regexp
+      if (p_altkeymap && curwin->w_p_rl) {
         lrF_sub(cmd);
-      which_pat = RE_LAST;                  /* use last used regexp */
-      delimiter = *cmd++;                   /* remember delimiter character */
-      pat = cmd;                            /* remember start of search pat */
+      }
+      which_pat = RE_LAST;                  // use last used regexp
+      delimiter = *cmd++;                   // remember delimiter character
+      pat = cmd;                            // remember start of search pat
       cmd = skip_regexp(cmd, delimiter, p_magic, &eap->arg);
-      if (cmd[0] == delimiter) {            /* end delimiter found */
-        *cmd++ = NUL;                       /* replace it with a NUL */
+      if (cmd[0] == delimiter) {            // end delimiter found
+        *cmd++ = NUL;                       // replace it with a NUL
         has_second_delim = true;
       }
     }
@@ -3608,132 +3610,128 @@ void do_sub(exarg_T *eap)
         // 3. Substitute the string. Don't do this while incsubstitution and
         //    there's no word to replace by eg : ":%s/pattern"
         if (!eap->is_live || has_second_delim) {
-        if (subflags.do_count) {
-          // prevent accidentally changing the buffer by a function
-          save_ma = curbuf->b_p_ma;
-          curbuf->b_p_ma = false;
-          sandbox++;
-        }
-        // Save flags for recursion.  They can change for e.g.
-        // :s/^/\=execute("s#^##gn")
-        subflags_T subflags_save = subflags;
-        // get length of substitution part
-        sublen = vim_regsub_multi(&regmatch,
-                                  sub_firstlnum - regmatch.startpos[0].lnum,
-                                  sub, sub_firstline, false, p_magic, true);
-        // Don't keep flags set by a recursive call
-        subflags = subflags_save;
-        if (subflags.do_count) {
-          curbuf->b_p_ma = save_ma;
-          if (sandbox > 0) {
-            sandbox--;
+          if (subflags.do_count) {
+            // prevent accidentally changing the buffer by a function
+            save_ma = curbuf->b_p_ma;
+            curbuf->b_p_ma = false;
+            sandbox++;
           }
-          goto skip;
-        }
-
-        /* When the match included the "$" of the last line it may
-         * go beyond the last line of the buffer. */
-        if (nmatch > curbuf->b_ml.ml_line_count - sub_firstlnum + 1) {
-          nmatch = curbuf->b_ml.ml_line_count - sub_firstlnum + 1;
-          skip_match = TRUE;
-        }
-
-        /* Need room for:
-         * - result so far in new_start (not for first sub in line)
-         * - original text up to match
-         * - length of substituted part
-         * - original text after match
-         */
-        if (nmatch == 1)
-          p1 = sub_firstline;
-        else {
-          p1 = ml_get(sub_firstlnum + nmatch - 1);
-          nmatch_tl += nmatch - 1;
-        }
-        size_t copy_len = regmatch.startpos[0].col - copycol;
-        new_end = sub_grow_buf(&new_start,
-                               copy_len + (STRLEN(p1) - regmatch.endpos[0].col)
-                               + sublen + 1);
-
-        /*
-         * copy the text up to the part that matched
-         */
-        memmove(new_end, sub_firstline + copycol, (size_t)copy_len);
-        new_end += copy_len;
-
-        (void)vim_regsub_multi(&regmatch,
-            sub_firstlnum - regmatch.startpos[0].lnum,
-            sub, new_end, TRUE, p_magic, TRUE);
-        sub_nsubs++;
-        did_sub = TRUE;
-
-        /* Move the cursor to the start of the line, to avoid that it
-         * is beyond the end of the line after the substitution. */
-        curwin->w_cursor.col = 0;
-
-        /* For a multi-line match, make a copy of the last matched
-         * line and continue in that one. */
-        if (nmatch > 1) {
-          sub_firstlnum += nmatch - 1;
-          xfree(sub_firstline);
-          sub_firstline = vim_strsave(ml_get(sub_firstlnum));
-          // When going beyond the last line, stop substituting.
-          if (sub_firstlnum <= line2) {
-            do_again = true;
-          } else {
-            subflags.do_all = false;
-          }
-        }
-
-        /* Remember next character to be copied. */
-        copycol = regmatch.endpos[0].col;
-
-        if (skip_match) {
-          /* Already hit end of the buffer, sub_firstlnum is one
-           * less than what it ought to be. */
-          xfree(sub_firstline);
-          sub_firstline = vim_strsave((char_u *)"");
-          copycol = 0;
-        }
-
-        /*
-         * Now the trick is to replace CTRL-M chars with a real line
-         * break.  This would make it impossible to insert a CTRL-M in
-         * the text.  The line break can be avoided by preceding the
-         * CTRL-M with a backslash.  To be able to insert a backslash,
-         * they must be doubled in the string and are halved here.
-         * That is Vi compatible.
-         */
-        for (p1 = new_end; *p1; ++p1) {
-          if (p1[0] == '\\' && p1[1] != NUL)            /* remove backslash */
-            STRMOVE(p1, p1 + 1);
-          else if (*p1 == CAR) {
-            if (u_inssub(lnum) == OK) {             /* prepare for undo */
-              *p1 = NUL;                            /* truncate up to the CR */
-              ml_append(lnum - 1, new_start,
-                  (colnr_T)(p1 - new_start + 1), FALSE);
-              mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L);
-              if (subflags.do_ask) {
-                appended_lines(lnum - 1, 1L);
-              } else {
-                if (first_line == 0) {
-                  first_line = lnum;
-                }
-                last_line = lnum + 1;
-              }
-              /* All line numbers increase. */
-              ++sub_firstlnum;
-              ++lnum;
-              ++line2;
-              /* move the cursor to the new line, like Vi */
-              ++curwin->w_cursor.lnum;
-              /* copy the rest */
-              STRMOVE(new_start, p1 + 1);
-              p1 = new_start - 1;
+          // Save flags for recursion.  They can change for e.g.
+          // :s/^/\=execute("s#^##gn")
+          subflags_T subflags_save = subflags;
+          // get length of substitution part
+          sublen = vim_regsub_multi(&regmatch,
+                                    sub_firstlnum - regmatch.startpos[0].lnum,
+                                    sub, sub_firstline, false, p_magic, true);
+          // Don't keep flags set by a recursive call
+          subflags = subflags_save;
+          if (subflags.do_count) {
+            curbuf->b_p_ma = save_ma;
+            if (sandbox > 0) {
+              sandbox--;
             }
-          } else if (has_mbyte)
-            p1 += (*mb_ptr2len)(p1) - 1;
-        }
+            goto skip;
+          }
+
+          // When the match included the "$" of the last line it may
+          // go beyond the last line of the buffer.
+          if (nmatch > curbuf->b_ml.ml_line_count - sub_firstlnum + 1) {
+            nmatch = curbuf->b_ml.ml_line_count - sub_firstlnum + 1;
+            skip_match = true;
+          }
+
+          // Need room for:
+          // - result so far in new_start (not for first sub in line)
+          // - original text up to match
+          // - length of substituted part
+          // - original text after match
+          if (nmatch == 1) {
+            p1 = sub_firstline;
+          } else {
+            p1 = ml_get(sub_firstlnum + nmatch - 1);
+            nmatch_tl += nmatch - 1;
+          }
+          size_t copy_len = regmatch.startpos[0].col - copycol;
+          new_end = sub_grow_buf(&new_start,
+                                 (STRLEN(p1) - regmatch.endpos[0].col)
+                                 + copy_len + sublen + 1);
+
+          // copy the text up to the part that matched
+          memmove(new_end, sub_firstline + copycol, (size_t)copy_len);
+          new_end += copy_len;
+
+          (void)vim_regsub_multi(&regmatch,
+                                 sub_firstlnum - regmatch.startpos[0].lnum,
+                                 sub, new_end, true, p_magic, true);
+          sub_nsubs++;
+          did_sub = true;
+
+          // Move the cursor to the start of the line, to avoid that it
+          // is beyond the end of the line after the substitution.
+          curwin->w_cursor.col = 0;
+
+          // For a multi-line match, make a copy of the last matched
+          // line and continue in that one.
+          if (nmatch > 1) {
+            sub_firstlnum += nmatch - 1;
+            xfree(sub_firstline);
+            sub_firstline = vim_strsave(ml_get(sub_firstlnum));
+            // When going beyond the last line, stop substituting.
+            if (sub_firstlnum <= line2) {
+              do_again = true;
+            } else {
+              subflags.do_all = false;
+            }
+          }
+
+          // Remember next character to be copied.
+          copycol = regmatch.endpos[0].col;
+
+          if (skip_match) {
+            // Already hit end of the buffer, sub_firstlnum is one
+            // less than what it ought to be.
+            xfree(sub_firstline);
+            sub_firstline = vim_strsave((char_u *)"");
+            copycol = 0;
+          }
+
+          // Now the trick is to replace CTRL-M chars with a real line
+          // break.  This would make it impossible to insert a CTRL-M in
+          // the text.  The line break can be avoided by preceding the
+          // CTRL-M with a backslash.  To be able to insert a backslash,
+          // they must be doubled in the string and are halved here.
+          // That is Vi compatible.
+          for (p1 = new_end; *p1; p1++) {
+            if (p1[0] == '\\' && p1[1] != NUL) {            // remove backslash
+              STRMOVE(p1, p1 + 1);
+            } else if (*p1 == CAR) {
+              if (u_inssub(lnum) == OK) {             // prepare for undo
+                *p1 = NUL;                            // truncate up to the CR
+                ml_append(lnum - 1, new_start,
+                          (colnr_T)(p1 - new_start + 1), false);
+                mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L);
+                if (subflags.do_ask) {
+                  appended_lines(lnum - 1, 1L);
+                } else {
+                  if (first_line == 0) {
+                    first_line = lnum;
+                  }
+                  last_line = lnum + 1;
+                }
+                // All line numbers increase.
+                sub_firstlnum++;
+                lnum++;
+                line2++;
+                // move the cursor to the new line, like Vi
+                curwin->w_cursor.lnum++;
+                // copy the rest
+                STRMOVE(new_start, p1 + 1);
+                p1 = new_start - 1;
+              }
+            } else if (has_mbyte) {
+              p1 += (*mb_ptr2len)(p1) - 1;
+            }
+          }
         }
 
         // 4. If subflags.do_all is set, find next match.
