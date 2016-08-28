@@ -5000,11 +5000,8 @@ int bufhl_add_hl(buf_T *buf,
       // no highlight group or invalid line, just return src_id
       return src_id;
   }
-  if (!buf->b_bufhl_info) {
-    buf->b_bufhl_info = kb_init(bufhl);
-  }
 
-  BufhlLine* lineinfo = bufhl_tree_ref(buf->b_bufhl_info, lnum, true);
+  BufhlLine* lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, true);
 
   bufhl_hl_item_T *hlentry = kv_pushp(lineinfo->items);
   hlentry->src_id = src_id;
@@ -5029,24 +5026,21 @@ void bufhl_clear_line_range(buf_T *buf,
                             int src_id,
                             linenr_T line_start,
                             linenr_T line_end) {
-  if (!buf->b_bufhl_info) {
-    return;
-  }
   linenr_T first_changed = MAXLNUM, last_changed = -1;
   // TODO: implement kb_itr_interval and jump directly to the first line
   kbitr_t(bufhl) itr;
   BufhlLine *l, t = {line_start};
-  if(!kb_itr_get(bufhl, buf->b_bufhl_info, &t, &itr)) {
-      kb_itr_next(bufhl, buf->b_bufhl_info, &itr);
+  if(!kb_itr_get(bufhl, &buf->b_bufhl_info, &t, &itr)) {
+      kb_itr_next(bufhl, &buf->b_bufhl_info, &itr);
   }
-  for (; kb_itr_valid(&itr); kb_itr_next(bufhl, buf->b_bufhl_info, &itr)) {
+  for (; kb_itr_valid(&itr); kb_itr_next(bufhl, &buf->b_bufhl_info, &itr)) {
     l = kb_itr_key(BufhlLine*, &itr);
     linenr_T line = l->line;
     if (line > line_end) {
       break;
     }
     if (line_start <= line && line <= line_end) {
-      BufhlLineStatus status = bufhl_clear_line(buf->b_bufhl_info, src_id, line);
+      BufhlLineStatus status = bufhl_clear_line(l, src_id, line);
       if (status != kBLSUnchanged) {
         if (line > last_changed) {
           last_changed = line;
@@ -5056,7 +5050,7 @@ void bufhl_clear_line_range(buf_T *buf,
         }
       }
       if (status == kBLSDeleted) {
-        kb_del_itr(bufhl, buf->b_bufhl_info, &itr);
+        kb_del_itr(bufhl, &buf->b_bufhl_info, &itr);
       }
     }
   }
@@ -5072,8 +5066,7 @@ void bufhl_clear_line_range(buf_T *buf,
 /// @param bufhl_info The highlight info for the buffer
 /// @param src_id Highlight source group to clear, or -1 to clear all groups.
 /// @param lnum Linenr where the highlight should be cleared
-static BufhlLineStatus bufhl_clear_line(bufhl_info_T *bufhl_info, int src_id, int lnum) {
-  BufhlLine* lineinfo = bufhl_tree_ref(bufhl_info, lnum, false);
+static BufhlLineStatus bufhl_clear_line(BufhlLine *lineinfo, int src_id, int lnum) {
   size_t oldsize = kv_size(lineinfo->items);
   if (src_id < 0) {
     kv_size(lineinfo->items) = 0;
@@ -5099,12 +5092,8 @@ static BufhlLineStatus bufhl_clear_line(bufhl_info_T *bufhl_info, int src_id, in
 
 /// Remove all highlights and free the highlight data
 void bufhl_clear_all(buf_T* buf) {
-  if (!buf->b_bufhl_info) {
-    return;
-  }
   bufhl_clear_line_range(buf, -1, 1, MAXLNUM);
-  kb_destroy(bufhl, buf->b_bufhl_info);
-  buf->b_bufhl_info = NULL;
+  kb_destroy(bufhl, (&buf->b_bufhl_info));
 }
 
 /// Adjust a placed highlight for inserted/deleted lines.
@@ -5113,23 +5102,20 @@ void bufhl_mark_adjust(buf_T* buf,
                        linenr_T line2,
                        long amount,
                        long amount_after) {
-  if (!buf->b_bufhl_info) {
-    return;
-  }
   // XXX: does not support move
   // we need to detect this case and
 
   kbitr_t(bufhl) itr;
   BufhlLine *l, t = {line1};
-  if(!kb_itr_get(bufhl, buf->b_bufhl_info, &t, &itr)) {
-      kb_itr_next(bufhl, buf->b_bufhl_info, &itr);
+  if(!kb_itr_get(bufhl, &buf->b_bufhl_info, &t, &itr)) {
+      kb_itr_next(bufhl, &buf->b_bufhl_info, &itr);
   }
-  for (; kb_itr_valid(&itr); kb_itr_next(bufhl, buf->b_bufhl_info, &itr)) {
+  for (; kb_itr_valid(&itr); kb_itr_next(bufhl, &buf->b_bufhl_info, &itr)) {
     l = kb_itr_key(BufhlLine*, &itr);
     if (l->line >= line1 && l->line <= line2) {
       if (amount == MAXLNUM) {
-        if(bufhl_clear_line(buf->b_bufhl_info, -1, l->line) == kBLSDeleted) {
-            kb_del_itr(bufhl, buf->b_bufhl_info, &itr);
+        if(bufhl_clear_line(l, -1, l->line) == kBLSDeleted) {
+            kb_del_itr(bufhl, &buf->b_bufhl_info, &itr);
         } else {
             assert(false);
         }
@@ -5153,11 +5139,7 @@ void bufhl_mark_adjust(buf_T* buf,
 /// @param[out] info The highligts for the line
 /// @return true if there was highlights to display
 bool bufhl_start_line(buf_T *buf, linenr_T lnum, bufhl_lineinfo_T *info) {
-  if (!buf->b_bufhl_info) {
-    return false;
-  }
-
-  BufhlLine* lineinfo = bufhl_tree_ref(buf->b_bufhl_info, lnum, false);
+  BufhlLine* lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, false);
   if (!lineinfo) {
     return false;
   }

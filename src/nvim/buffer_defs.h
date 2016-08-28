@@ -762,7 +762,7 @@ struct file_buffer {
 
   int b_mapped_ctrl_c;          // modes where CTRL-C is mapped
 
-  bufhl_info_T *b_bufhl_info;   // buffer stored highlights
+  bufhl_info_T b_bufhl_info;   // buffer stored highlights
 };
 
 /*
