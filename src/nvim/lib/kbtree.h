@@ -16,7 +16,7 @@
       int32_t n; \
       bool is_internal; \
       key_t key[2*T-1]; \
-      kbnode_##name##_t *ptr[0]; \
+      kbnode_##name##_t *ptr[]; \
     } ; \
     \
     typedef struct { \
@@ -59,7 +59,7 @@
 	} while (0)
 
 #define __KB_GET_AUX1(name, key_t, kbnode_t, __cmp)								\
-	static inline int __kb_getp_aux_##name(const kbnode_t * __restrict x, const key_t * __restrict k, int *r) \
+	static inline int __kb_getp_aux_##name(const kbnode_t * __restrict x, key_t * __restrict k, int *r) \
 	{																	\
 		int tr, *rr, begin = 0, end = x->n;								\
 		if (x->n == 0) return -1;										\
@@ -75,7 +75,7 @@
 	}
 
 #define __KB_GET(name, key_t, kbnode_t)											\
-	static key_t *kb_getp_##name(kbtree_##name##_t *b, const key_t * __restrict k) \
+	static key_t *kb_getp_##name(kbtree_##name##_t *b, key_t * __restrict k) \
 	{																	\
 		if (!b->root) { \
 		    return 0; \
@@ -90,13 +90,13 @@
 		}																\
 		return 0;														\
 	}																	\
-	static inline key_t *kb_get_##name(kbtree_##name##_t *b, const key_t k) \
+	static inline key_t *kb_get_##name(kbtree_##name##_t *b, key_t k) \
 	{																	\
 		return kb_getp_##name(b, &k);									\
 	}
 
 #define __KB_INTERVAL(name, key_t, kbnode_t)										\
-	static void kb_intervalp_##name(kbtree_##name##_t *b, const key_t * __restrict k, key_t **lower, key_t **upper)	\
+	static void kb_intervalp_##name(kbtree_##name##_t *b, key_t * __restrict k, key_t **lower, key_t **upper)	\
 	{																	\
 		if (!b->root) { \
 		    return; \
@@ -116,7 +116,7 @@
 			x = __KB_PTR(b, x)[i + 1];									\
 		}																\
 	}																	\
-	static inline void kb_interval_##name(kbtree_##name##_t *b, const key_t k, key_t **lower, key_t **upper) \
+	static inline void kb_interval_##name(kbtree_##name##_t *b, key_t k, key_t **lower, key_t **upper) \
 	{																	\
 		kb_intervalp_##name(b, &k, lower, upper);						\
 	}
@@ -139,7 +139,7 @@
 		__KB_KEY(key_t, x)[i] = __KB_KEY(key_t, y)[T - 1];			\
 		++x->n;															\
 	}																	\
-	static key_t *__kb_putp_aux_##name(kbtree_##name##_t *b, kbnode_t *x, const key_t * __restrict k) \
+	static key_t *__kb_putp_aux_##name(kbtree_##name##_t *b, kbnode_t *x, key_t * __restrict k) \
 	{																	\
 		int i = x->n - 1;												\
 		key_t *ret;														\
@@ -160,7 +160,7 @@
 		}																\
 		return ret; 													\
 	}																	\
-	static key_t *kb_putp_##name(kbtree_##name##_t *b, const key_t * __restrict k) \
+	static key_t *kb_putp_##name(kbtree_##name##_t *b, key_t * __restrict k) \
 	{																	\
 		if (!b->root) { \
 			b->root = (kbnode_t*)calloc(1, ILEN);						\
@@ -179,14 +179,14 @@
 		}																\
 		return __kb_putp_aux_##name(b, r, k);							\
 	}																	\
-	static inline void kb_put_##name(kbtree_##name##_t *b, const key_t k) \
+	static inline void kb_put_##name(kbtree_##name##_t *b, key_t k) \
 	{																	\
 		kb_putp_##name(b, &k);											\
 	}
 
 
 #define __KB_DEL(name, key_t, kbnode_t, T)											\
-	static key_t __kb_delp_aux_##name(kbtree_##name##_t *b, kbnode_t *x, const key_t * __restrict k, int s) \
+	static key_t __kb_delp_aux_##name(kbtree_##name##_t *b, kbnode_t *x, key_t * __restrict k, int s) \
 	{																	\
 		int yn, zn, i, r = 0;											\
 		kbnode_t *xp, *y, *z;											\
@@ -266,7 +266,7 @@
 		}																\
 		return __kb_delp_aux_##name(b, xp, k, s);						\
 	}																	\
-	static key_t kb_delp_##name(kbtree_##name##_t *b, const key_t * __restrict k) \
+	static key_t kb_delp_##name(kbtree_##name##_t *b, key_t * __restrict k) \
 	{																	\
 		kbnode_t *x;													\
 		key_t ret;														\
@@ -280,7 +280,7 @@
 		}																\
 		return ret;														\
 	}																	\
-	static inline key_t kb_del_##name(kbtree_##name##_t *b, const key_t k) \
+	static inline key_t kb_del_##name(kbtree_##name##_t *b, key_t k) \
 	{																	\
 		return kb_delp_##name(b, &k);									\
 	}
@@ -328,7 +328,7 @@
 			if (itr->p->x && itr->p->i >= 0) return 1; \
 		} \
 	} \
-	static int kb_itr_getp_##name(kbtree_##name##_t *b, const key_t * __restrict k, kbitr_##name##_t *itr) \
+	static int kb_itr_getp_##name(kbtree_##name##_t *b, key_t * __restrict k, kbitr_##name##_t *itr) \
 	{ \
 		if (b->n_keys == 0) return 0; \
 		int i, r = 0; \
@@ -344,13 +344,13 @@
 		} \
 		return 0; \
 	} \
-	static int kb_itr_get_##name(kbtree_##name##_t *b, const key_t k, kbitr_##name##_t *itr) \
+	static inline int kb_itr_get_##name(kbtree_##name##_t *b, key_t k, kbitr_##name##_t *itr) \
 	{																	\
 		return kb_itr_getp_##name(b,&k,itr); \
 	} \
 	static inline void kb_del_itr_##name(kbtree_##name##_t *b, kbitr_##name##_t *itr) \
 	{ \
-		const key_t k = kb_itr_key(key_t, itr); \
+		key_t k = kb_itr_key(key_t, itr); \
 		kb_delp_##name(b, &k); \
 		kb_itr_getp_##name(b, &k, itr); \
 	} 
