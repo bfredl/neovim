@@ -330,7 +330,10 @@
 	} \
 	static int kb_itr_getp_##name(kbtree_##name##_t *b, key_t * __restrict k, kbitr_##name##_t *itr) \
 	{ \
-		if (b->n_keys == 0) return 0; \
+		if (b->n_keys == 0) { \
+            itr->p = NULL; \
+            return 0; \
+        } \
 		int i, r = 0; \
 		itr->p = itr->stack; \
 		itr->p->x = b->root; \

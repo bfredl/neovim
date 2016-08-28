@@ -744,7 +744,7 @@ open_line (
       goto theend;
     /* Postpone calling changed_lines(), because it would mess up folding
      * with markers. */
-    mark_adjust(curwin->w_cursor.lnum + 1, (linenr_T)MAXLNUM, 1L, 0L);
+    mark_adjust(curwin->w_cursor.lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false);
     did_append = TRUE;
   } else {
     /*
@@ -1871,7 +1871,7 @@ void appended_lines(linenr_T lnum, long count)
  */
 void appended_lines_mark(linenr_T lnum, long count)
 {
-  mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L);
+  mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L, false);
   changed_lines(lnum + 1, 0, lnum + 1, count);
 }
 
@@ -1892,7 +1892,7 @@ void deleted_lines(linenr_T lnum, long count)
  */
 void deleted_lines_mark(linenr_T lnum, long count)
 {
-  mark_adjust(lnum, (linenr_T)(lnum + count - 1), (long)MAXLNUM, -count);
+  mark_adjust(lnum, (linenr_T)(lnum + count - 1), (long)MAXLNUM, -count, false);
   changed_lines(lnum, 0, lnum + count, -count);
 }
 

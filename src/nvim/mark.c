@@ -873,7 +873,11 @@ void ex_changes(exarg_T *eap)
  * Example: Insert two lines below 55: mark_adjust(56, MAXLNUM, 2, 0);
  *				   or: mark_adjust(56, 55, MAXLNUM, 2);
  */
-void mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after)
+void mark_adjust(linenr_T line1,
+                 linenr_T line2,
+                 long amount,
+                 long amount_after,
+                 bool end_temp)
 {
   int i;
   int fnum = curbuf->b_fnum;
@@ -922,7 +926,7 @@ void mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after)
     }
 
     sign_mark_adjust(line1, line2, amount, amount_after);
-    bufhl_mark_adjust(curbuf, line1, line2, amount, amount_after);
+    bufhl_mark_adjust(curbuf, line1, line2, amount, amount_after, end_temp);
   }
 
   /* previous context mark */

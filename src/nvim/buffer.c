@@ -5100,18 +5100,31 @@ void bufhl_mark_adjust(buf_T* buf,
                        linenr_T line1,
                        linenr_T line2,
                        long amount,
-                       long amount_after) {
-  // XXX: does not support move
-  // we need to detect this case and
+                       long amount_after,
+                       bool end_temp) {
 
   kbitr_t(bufhl) itr;
   BufhlLine *l, t = BUFHLLINE_INIT(line1);
+  if (end_temp && amount < 0) {
+    for (size_t i = 0; i < kv_size(buf->b_bufhl_move_space); i++) {
+      l = kv_A(buf->b_bufhl_move_space, i);
+      l->line += amount;
+      kb_put(bufhl, &buf->b_bufhl_info, l);
+    }
+    kv_size(buf->b_bufhl_move_space) = 0;
+    return;
+  }
+
   if(!kb_itr_get(bufhl, &buf->b_bufhl_info, &t, &itr)) {
       kb_itr_next(bufhl, &buf->b_bufhl_info, &itr);
   }
   for (; kb_itr_valid(&itr); kb_itr_next(bufhl, &buf->b_bufhl_info, &itr)) {
     l = kb_itr_key(BufhlLine*, &itr);
     if (l->line >= line1 && l->line <= line2) {
+      if (end_temp && amount > 0) {
+        kb_del_itr(bufhl, &buf->b_bufhl_info, &itr);
+        kv_push(buf->b_bufhl_move_space, l);
+      }
       if (amount == MAXLNUM) {
         if(bufhl_clear_line(l, -1, l->line) == kBLSDeleted) {
             kb_del_itr(bufhl, &buf->b_bufhl_info, &itr);

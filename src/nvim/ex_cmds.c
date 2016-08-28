@@ -583,9 +583,9 @@ void ex_sort(exarg_T *eap)
   // Adjust marks for deleted (or added) lines and prepare for displaying.
   deleted = (long)(count - (lnum - eap->line2));
   if (deleted > 0) {
-    mark_adjust(eap->line2 - deleted, eap->line2, (long)MAXLNUM, -deleted);
+    mark_adjust(eap->line2 - deleted, eap->line2, (long)MAXLNUM, -deleted, false);
   } else if (deleted < 0) {
-    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L);
+    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L, false);
   }
   changed_lines(eap->line1, 0, eap->line2 + 1, -deleted);
 
@@ -788,20 +788,20 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
    * their final destination at the new text position -- webb
    */
   last_line = curbuf->b_ml.ml_line_count;
-  mark_adjust(line1, line2, last_line - line2, 0L);
+  mark_adjust(line1, line2, last_line - line2, 0L, true);
   changed_lines(last_line - num_lines + 1, 0, last_line + 1, num_lines);
   if (dest >= line2) {
-    mark_adjust(line2 + 1, dest, -num_lines, 0L);
+    mark_adjust(line2 + 1, dest, -num_lines, 0L, false);
     curbuf->b_op_start.lnum = dest - num_lines + 1;
     curbuf->b_op_end.lnum = dest;
   } else {
-    mark_adjust(dest + 1, line1 - 1, num_lines, 0L);
+    mark_adjust(dest + 1, line1 - 1, num_lines, 0L, false);
     curbuf->b_op_start.lnum = dest + 1;
     curbuf->b_op_end.lnum = dest + num_lines;
   }
   curbuf->b_op_start.col = curbuf->b_op_end.col = 0;
   mark_adjust(last_line - num_lines + 1, last_line,
-      -(last_line - dest - extra), 0L);
+      -(last_line - dest - extra), 0L, true);
   changed_lines(last_line - num_lines + 1, 0, last_line + 1, -extra);
 
   /*
@@ -1208,13 +1208,13 @@ static void do_filter(
       if (cmdmod.keepmarks || vim_strchr(p_cpo, CPO_REMMARK) == NULL) {
         if (read_linecount >= linecount)
           /* move all marks from old lines to new lines */
-          mark_adjust(line1, line2, linecount, 0L);
+          mark_adjust(line1, line2, linecount, 0L, false);
         else {
           /* move marks from old lines to new lines, delete marks
            * that are in deleted lines */
           mark_adjust(line1, line1 + read_linecount - 1,
-              linecount, 0L);
-          mark_adjust(line1 + read_linecount, line2, MAXLNUM, 0L);
+              linecount, 0L, false);
+          mark_adjust(line1 + read_linecount, line2, MAXLNUM, 0L, false);
         }
       }
 
@@ -3689,7 +3689,7 @@ void do_sub(exarg_T *eap)
               *p1 = NUL;                            /* truncate up to the CR */
               ml_append(lnum - 1, new_start,
                   (colnr_T)(p1 - new_start + 1), FALSE);
-              mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L);
+              mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false);
               if (subflags.do_ask) {
                 appended_lines(lnum - 1, 1L);
               } else {
@@ -3776,7 +3776,7 @@ skip:
               for (i = 0; i < nmatch_tl; ++i)
                 ml_delete(lnum, (int)FALSE);
               mark_adjust(lnum, lnum + nmatch_tl - 1,
-                          (long)MAXLNUM, -nmatch_tl);
+                          (long)MAXLNUM, -nmatch_tl, false);
               if (subflags.do_ask) {
                 deleted_lines(lnum, nmatch_tl);
               }

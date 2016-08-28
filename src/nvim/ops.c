@@ -3111,7 +3111,7 @@ error:
           curbuf->b_op_start.lnum++;
       }
       mark_adjust(curbuf->b_op_start.lnum + (y_type == kMTCharWise),
-                  (linenr_T)MAXLNUM, nr_lines, 0L);
+                  (linenr_T)MAXLNUM, nr_lines, 0L, false);
 
       // note changed text for displaying and folding
       if (y_type == kMTCharWise) {
