@@ -2185,9 +2185,9 @@ win_line (
   int prev_c1 = 0;                      /* first composing char for prev_c */
   int did_line_attr = 0;
 
-  bool has_bufhl = false;                // this buffer has highlight matches
+  bool has_bufhl = false;               // this buffer has highlight matches
   int bufhl_attr = 0;                   // attributes desired by bufhl
-  bufhl_lineinfo_T bufhl_info;          // bufhl data for this line
+  BufhlLineInfo bufhl_info;             // bufhl data for this line
 
   /* draw_state: items that are drawn in sequence: */
 #define WL_START        0               /* nothing done yet */
