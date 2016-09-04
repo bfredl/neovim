@@ -265,7 +265,31 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
   got_int = false;
   s->state.check = command_line_check;
   s->state.execute = command_line_execute;
+
+  // set v:event to a dictionary with information about the commandline
+  dict_T *dict = get_vim_var_dict(VV_EVENT);
+  char buf[NUMBUFLEN+2];
+  buf[0] = firstc;
+  buf[1] = 0;
+  dict_add_nr_str(dict, "kind", 0, (char_u *)buf);
+  dict_set_keys_readonly(dict);
+  textlock++;
+  apply_autocmds(EVENT_CMDLINEENTER, NULL, NULL, false, curbuf);
+  textlock--;
+  dict_clear(dict);
+
   state_enter(&s->state);
+
+  buf[0] =firstc;
+  buf[1] = 0;
+  dict_add_nr_str(dict, "kind", 0, (char_u *)buf);
+  dict_add_nr_str(dict, "text", 0, ccline.cmdbuff ? ccline.cmdbuff : (char_u *)"");
+  dict_add_nr_str(dict, "aborted", s->gotesc ? 1 : 0, NULL);
+  dict_set_keys_readonly(dict);
+  textlock++;
+  apply_autocmds(EVENT_CMDLINELEAVE, NULL, NULL, false, curbuf);
+  textlock--;
+  dict_clear(dict);
 
   cmdmsg_rl = false;
 
@@ -1611,6 +1635,19 @@ static int command_line_changed(CommandLineState *s)
 
     redrawcmdline();
   }
+
+  // set v:event to a dictionary with information about the commandline
+  dict_T *dict = get_vim_var_dict(VV_EVENT);
+  char buf[NUMBUFLEN+2];
+  buf[0] = s->firstc;
+  buf[1] = 0;
+  dict_add_nr_str(dict, "kind", 0, (char_u *)buf);
+  dict_add_nr_str(dict, "text", 0, ccline.cmdbuff ? ccline.cmdbuff : (char_u *)"");
+  dict_set_keys_readonly(dict);
+  textlock++;
+  apply_autocmds(EVENT_CMDLINECHANGED, NULL, NULL, false, curbuf);
+  textlock--;
+  dict_clear(dict);
 
   if (cmdmsg_rl || (p_arshape && !p_tbidi && enc_utf8)) {
     // Always redraw the whole command line to fix shaping and
