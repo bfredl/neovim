@@ -16,6 +16,7 @@
 #define ECMD_OLDBUF     0x04    /* use existing buffer if it exists */
 #define ECMD_FORCEIT    0x08    /* ! used in Ex command */
 #define ECMD_ADDBUF     0x10    /* don't edit, just add to buffer list */
+#define ECMD_RESERVED_BUFNR  0x20    /* bufnr argument is reserved bufnr */
 
 /* for lnum argument in do_ecmd() */
 #define ECMD_LASTL      (linenr_T)0     /* use last position in loaded file */

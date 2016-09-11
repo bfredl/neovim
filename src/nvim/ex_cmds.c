@@ -68,6 +68,9 @@ typedef struct sign sign_T;
 // boolean to know if we have to undo
 static int sub_done = 0;
 
+// reuse the same bufnr for inc_sub
+static handle_T inc_sub_bufnr = 0;
+
 /// Case matching style to use for :substitute
 typedef enum {
   kSubHonorOptions = 0,  ///< Honor the user's 'ignorecase'/'smartcase' options
@@ -1531,7 +1534,7 @@ int rename_buffer(char_u *new_fname)
   }
   curbuf->b_flags |= BF_NOTEDITED;
   if (xfname != NULL && *xfname != NUL) {
-    buf = buflist_new(fname, xfname, curwin->w_cursor.lnum, 0);
+    buf = buflist_new(fname, xfname, curwin->w_cursor.lnum, 0, 0);
     if (buf != NULL && !cmdmod.keepalt)
       curwin->w_alt_fnum = buf->b_fnum;
   }
@@ -2173,7 +2176,7 @@ do_ecmd (
         buflist_altfpos(oldwin);
     }
 
-    if (fnum)
+    if (fnum && !(flags & ECMD_RESERVED_BUFNR))
       buf = buflist_findnr(fnum);
     else {
       if (flags & ECMD_ADDBUF) {
@@ -2184,11 +2187,11 @@ do_ecmd (
           if (tlnum <= 0)
             tlnum = 1L;
         }
-        (void)buflist_new(ffname, sfname, tlnum, BLN_LISTED);
+        (void)buflist_new(ffname, sfname, tlnum, BLN_LISTED, fnum);
         goto theend;
       }
       buf = buflist_new(ffname, sfname, 0L,
-          BLN_CURBUF | ((flags & ECMD_SET_HELP) ? 0 : BLN_LISTED));
+          BLN_CURBUF | ((flags & ECMD_SET_HELP) ? 0 : BLN_LISTED), fnum);
       // Autocmds may change curwin and curbuf.
       if (oldwin != NULL) {
         oldwin = curwin;
@@ -6082,7 +6085,8 @@ void ex_window_inc_sub(char_u * pat,
     cmdwin_type = get_cmdline_type();
 
     // Create the command-line buffer empty.
-    (void)do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE, NULL);
+    (void)do_ecmd(inc_sub_bufnr, NULL, NULL, NULL, ECMD_ONE, ECMD_HIDE | ECMD_RESERVED_BUFNR, NULL);
+    inc_sub_bufnr = curbuf->handle;
     (void)setfname(curbuf, (char_u *) "[inc_sub]", NULL, true);
     set_option_value((char_u *) "bt", 0L, (char_u *) "incsub", OPT_LOCAL);
     set_option_value((char_u *) "swf", 0L, NULL, OPT_LOCAL);
