@@ -9579,7 +9579,6 @@ static void f_function(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     use_string = true;
   }
 
-  s = get_tv_string(&argvars[0]);
   if (s == NULL || *s == NUL || (use_string && ascii_isdigit(*s))) {
     EMSG2(_(e_invarg2), s);
   } else if (use_string && vim_strchr(s, AUTOLOAD_CHAR) == NULL
@@ -18617,6 +18616,8 @@ void free_tv(typval_T *varp)
 
 #define TYPVAL_ENCODE_CONV_PARTIAL(partial) \
     do { \
+      partial_unref(pt); \
+      pt = NULL; \
       tv->v_lock = VAR_UNLOCKED; \
     } while (0)
 
