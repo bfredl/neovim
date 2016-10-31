@@ -320,10 +320,10 @@ int encode_read_from_list(ListReaderState *const state, char *const buf,
         int i; \
         ga_concat(gap, "function("); \
         if (&pt->pt_name != NULL) { \
-          unsigned len; \
+          size_t len; \
           char_u *p; \
           len = 3; \
-          len += (unsigned)STRLEN(pt->pt_name); \
+          len += STRLEN(pt->pt_name); \
           for (p = pt->pt_name; *p != NUL; mb_ptr_adv(p)) { \
             if (*p == '\'') { \
               len++; \
@@ -712,7 +712,7 @@ static inline int convert_to_json_string(garray_T *const gap,
                       mpstack, objname)
 
 #undef TYPVAL_ENCODE_CONV_PARTIAL
-#define TYPVAL_ENCODE_CONV_PARTIAL(partial) \
+#define TYPVAL_ENCODE_CONV_PARTIAL(pt) \
     return conv_error(_("E474: Error while dumping %s, %s: " \
                         "attempt to dump partial"), \
                       mpstack, objname)
