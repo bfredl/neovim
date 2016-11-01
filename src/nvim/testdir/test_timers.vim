@@ -31,15 +31,15 @@ func Test_repeat_many()
   call assert_true(s:val < 5)
 endfunc
 
-" func Test_with_partial_callback()
-"   let s:val = 0
-"   let s:meow = {}
-"   function s:meow.bite(...)
-"     let s:val += 1
-"   endfunction
+func Test_with_partial_callback()
+  let s:val = 0
+  let s:meow = {}
+  function s:meow.bite(...)
+    let s:val += 1
+  endfunction
 
-"   call timer_start(50, s:meow.bite)
-"   sleep 200m
-"   call assert_equal(1, s:val)
-" endfunc
+  call timer_start(50, s:meow.bite)
+  sleep 200m
+  call assert_equal(1, s:val)
+endfunc
 " vim: ts=2 sw=0 et

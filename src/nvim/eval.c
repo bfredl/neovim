@@ -402,6 +402,20 @@ static struct vimvar {
 static dictitem_T vimvars_var;                  /* variable used for v: */
 #define vimvarht  vimvardict.dv_hashtab
 
+typedef enum {
+  kCallbackNone,
+  kCallbackFuncref,
+  kCallbackPartial,
+} CallbackType;
+
+typedef struct {
+  union {
+    char_u *funcref;
+    partial_T *partial;
+  } data;
+  CallbackType type;
+} Callback;
+
 typedef struct {
   union {
     LibuvProcess uv;
@@ -442,7 +456,7 @@ typedef struct {
   int refcount;
   long timeout;
   bool stopped;
-  ufunc_T *callback;
+  Callback callback;
 } timer_T;
 
 typedef void (*FunPtr)(void);
@@ -16910,6 +16924,70 @@ static void f_test(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   /* Used for unit testing.  Change the code below to your liking. */
 }
 
+static bool callback_from_typval(Callback *callback, typval_T *arg)
+{
+  if (arg->v_type == VAR_PARTIAL && arg->vval.v_partial != NULL)
+  {
+    callback->data.partial = arg->vval.v_partial;
+    callback->data.partial->pt_refcount++;
+    callback->type = kCallbackPartial;
+  } else if (arg->v_type == VAR_FUNC || arg->v_type == VAR_STRING) {
+    char_u *name = arg->vval.v_string;
+    func_ref(name);
+    callback->data.funcref = vim_strsave(name);
+    callback->type = kCallbackFuncref;
+  } else if (arg->v_type == VAR_NUMBER && arg->vval.v_number == 0) {
+    callback->type = kCallbackNone;
+  } else {
+    EMSG(_("E921: Invalid callback argument"));
+    return false;
+  }
+  return true;
+}
+
+
+/// Unref/free callback 
+
+static void free_callback(Callback *callback)
+{
+    if (callback->type == kCallbackPartial) {
+      partial_unref(callback->data.partial);
+    } else if (callback->type == kCallbackFuncref) {
+      func_unref(callback->data.funcref);
+      xfree(callback->data.funcref);
+    }
+    callback->type = kCallbackNone;
+}
+
+static bool invoke_callback(Callback *callback, int argcount_in, typval_T *argvars_in, typval_T *rettv)
+{
+  partial_T *partial;
+  char_u *name;
+  switch (callback->type) {
+    case kCallbackFuncref:
+      name = callback->data.funcref;
+      partial = NULL;
+      break;
+
+    case kCallbackPartial:
+      partial = callback->data.partial;
+      name = partial->pt_name;
+      break;
+
+    case kCallbackNone:
+      return false;
+      break;
+
+    default:
+      abort();
+  }
+
+  int dummy;
+  return call_func(name, (int)STRLEN(name), rettv, argcount_in, argvars_in,
+                   0L, 0L, &dummy, true, partial, NULL);
+}
+
+
 /// "timer_start(timeout, callback, opts)" function
 static void f_timer_start(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 {
@@ -16934,16 +17012,10 @@ static void f_timer_start(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     }
   }
 
-  if (argvars[1].v_type != VAR_FUNC && argvars[1].v_type != VAR_STRING) {
-    EMSG2(e_invarg2, "funcref");
+  Callback callback;
+  if (!callback_from_typval(&callback, &argvars[1])) {
     return;
   }
-  ufunc_T *func = find_ufunc(argvars[1].vval.v_string);
-  if (!func) {
-    // Invalid function name. Error already reported by `find_ufunc`.
-    return;
-  }
-  func->uf_refcount++;
 
   timer = xmalloc(sizeof *timer);
   timer->refcount = 1;
@@ -16951,7 +17023,7 @@ static void f_timer_start(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   timer->repeat_count = repeat;
   timer->timeout = timeout;
   timer->timer_id = last_timer_id++;
-  timer->callback = func;
+  timer->callback = callback;
 
   time_watcher_init(&main_loop, &timer->tw, timer);
   timer->tw.events = multiqueue_new_child(main_loop.events);
@@ -16995,15 +17067,14 @@ static void timer_due_cb(TimeWatcher *tw, void *data)
     timer_stop(timer);
   }
 
-  typval_T argv[1];
+  typval_T argv[2];
   init_tv(argv);
   argv[0].v_type = VAR_NUMBER;
   argv[0].vval.v_number = timer->timer_id;
   typval_T rettv;
 
   init_tv(&rettv);
-  call_user_func(timer->callback, ARRAY_SIZE(argv), argv, &rettv,
-                 curwin->w_cursor.lnum, curwin->w_cursor.lnum, NULL);
+  invoke_callback(&timer->callback, 1, argv, &rettv);
   clear_tv(&rettv);
 
   if (!timer->stopped && timer->timeout == 0) {
@@ -17032,7 +17103,7 @@ static void timer_close_cb(TimeWatcher *tw, void *data)
 {
   timer_T *timer = (timer_T *)data;
   multiqueue_free(timer->tw.events);
-  user_func_unref(timer->callback);
+  free_callback(&timer->callback);
   pmap_del(uint64_t)(timers, timer->timer_id);
   timer_decref(timer);
 }
