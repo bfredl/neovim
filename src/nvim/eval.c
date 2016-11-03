@@ -16926,8 +16926,7 @@ static void f_test(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 
 static bool callback_from_typval(Callback *callback, typval_T *arg)
 {
-  if (arg->v_type == VAR_PARTIAL && arg->vval.v_partial != NULL)
-  {
+  if (arg->v_type == VAR_PARTIAL && arg->vval.v_partial != NULL) {
     callback->data.partial = arg->vval.v_partial;
     callback->data.partial->pt_refcount++;
     callback->type = kCallbackPartial;
@@ -16946,8 +16945,7 @@ static bool callback_from_typval(Callback *callback, typval_T *arg)
 }
 
 
-/// Unref/free callback 
-
+/// Unref/free callback
 static void free_callback(Callback *callback)
 {
     if (callback->type == kCallbackPartial) {
@@ -16959,7 +16957,8 @@ static void free_callback(Callback *callback)
     callback->type = kCallbackNone;
 }
 
-static bool invoke_callback(Callback *callback, int argcount_in, typval_T *argvars_in, typval_T *rettv)
+static bool invoke_callback(Callback *callback, int argcount_in,
+                            typval_T *argvars_in, typval_T *rettv)
 {
   partial_T *partial;
   char_u *name;
