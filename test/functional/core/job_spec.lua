@@ -18,7 +18,7 @@ describe('jobs', function()
     channel = nvim('get_api_info')[1]
     nvim('set_var', 'channel', channel)
     source([[
-    function! s:OnEvent(id, data, event)
+    function! s:OnEvent(id, data, event) dict
       let userdata = get(self, 'user')
       call rpcnotify(g:channel, a:event, userdata, a:data)
     endfunction
@@ -352,7 +352,7 @@ describe('jobs', function()
       eq({'notification', 'wait', {{-2}}}, next_msg())
     end)
 
-    it('can be called recursively', function()
+    pending('can be called recursively', function()
       source([[
       let g:opts = {}
       let g:counter = 0

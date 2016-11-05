@@ -415,6 +415,7 @@ typedef struct {
   } data;
   CallbackType type;
 } Callback;
+#define CALLBACK_NONE ((Callback){ .type = kCallbackNone })
 
 typedef struct {
   union {
@@ -427,8 +428,7 @@ typedef struct {
   bool exited;
   bool rpc;
   int refcount;
-  ufunc_T *on_stdout, *on_stderr, *on_exit;
-  dict_T *self;
+  Callback on_stdout, on_stderr, on_exit;
   int *status_ptr;
   uint64_t id;
   MultiQueue *events;
@@ -443,7 +443,7 @@ typedef struct dict_watcher {
 
 typedef struct {
   TerminalJobData *data;
-  ufunc_T *callback;
+  Callback *callback;
   const char *type;
   list_T *received;
   int status;
@@ -5907,7 +5907,7 @@ bool garbage_collect(void)
   {
     TerminalJobData *data;
     map_foreach_value(jobs, data, {
-      ABORTING(set_ref_dict)(data->self, copyID);
+      // TODO(bfredl) set_ref_in_callback
     })
   }
 
@@ -6626,27 +6626,28 @@ dictitem_T *dict_find(dict_T *d, char_u *key, int len)
 /// @param[out] result The address where a pointer to the wanted callback
 ///                    will be left.
 /// @return true/false on success/failure.
-static bool get_dict_callback(dict_T *d, char *key, ufunc_T **result)
+static bool get_dict_callback(dict_T *d, char *key, Callback *result)
 {
   dictitem_T *di = dict_find(d, (uint8_t *)key, -1);
 
   if (di == NULL) {
-    *result = NULL;
+    result->type = kCallbackNone;
     return true;
   }
-  
-  if (di->di_tv.v_type != VAR_FUNC && di->di_tv.v_type != VAR_STRING) {
+
+  if (di->di_tv.v_type != VAR_FUNC && di->di_tv.v_type != VAR_STRING
+      && di->di_tv.v_type != VAR_PARTIAL) {
     EMSG(_("Argument is not a function or function name"));
-    *result = NULL;
+    result->type = kCallbackNone;
     return false;
   }
 
-  if ((*result = find_ufunc(di->di_tv.vval.v_string)) == NULL) {
-    return false;
-  }
-
-  (*result)->uf_refcount++;
-  return true;
+  typval_T tv;
+  copy_tv(&di->di_tv, &tv);
+  set_selfdict(&tv, d);
+  bool res = callback_from_typval(result, &tv);
+  clear_tv(&tv);
+  return res;
 }
 
 static ufunc_T *find_ufunc(uint8_t *name)
@@ -12046,7 +12047,8 @@ static void f_jobstart(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 
   dict_T *job_opts = NULL;
   bool detach = false, rpc = false, pty = false;
-  ufunc_T *on_stdout = NULL, *on_stderr = NULL, *on_exit = NULL;
+  Callback on_stdout = CALLBACK_NONE, on_stderr = CALLBACK_NONE,
+           on_exit = CALLBACK_NONE;
   char *cwd = NULL;
   if (argvars[1].v_type == VAR_DICT) {
     job_opts = argvars[1].vval.v_dict;
@@ -12078,7 +12080,7 @@ static void f_jobstart(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   }
 
   TerminalJobData *data = common_job_init(argv, on_stdout, on_stderr, on_exit,
-                                          job_opts, pty, rpc, detach, cwd);
+                                          pty, rpc, detach, cwd);
   Process *proc = (Process *)&data->proc;
 
   if (pty) {
@@ -12096,10 +12098,10 @@ static void f_jobstart(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     }
   }
 
-  if (!rpc && !on_stdout) {
+  if (!rpc && on_stdout.type == kCallbackNone) {
     proc->out = NULL;
   }
-  if (!on_stderr) {
+  if (on_stderr.type == kCallbackNone) {
     proc->err = NULL;
   }
   common_job_start(data, rettv);
@@ -14276,8 +14278,9 @@ static void f_rpcstart(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   // The last item of argv must be NULL
   argv[i] = NULL;
 
-  TerminalJobData *data = common_job_init(argv, NULL, NULL, NULL,
-                                          NULL, false, true, false, NULL);
+  TerminalJobData *data = common_job_init(argv, CALLBACK_NONE, CALLBACK_NONE,
+                                          CALLBACK_NONE, false, true, false,
+                                          NULL);
   common_job_start(data, rettv);
 }
 
@@ -16853,7 +16856,8 @@ static void f_termopen(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     return;
   }
 
-  ufunc_T *on_stdout = NULL, *on_stderr = NULL, *on_exit = NULL;
+  Callback on_stdout = CALLBACK_NONE, on_stderr = CALLBACK_NONE,
+           on_exit = CALLBACK_NONE;
   dict_T *job_opts = NULL;
   char *cwd = ".";
   if (argvars[1].v_type == VAR_DICT) {
@@ -16877,7 +16881,7 @@ static void f_termopen(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   }
 
   TerminalJobData *data = common_job_init(argv, on_stdout, on_stderr, on_exit,
-                                          job_opts, true, false, false, cwd);
+                                          true, false, false, cwd);
   data->proc.pty.width = curwin->w_width;
   data->proc.pty.height = curwin->w_height;
   data->proc.pty.term_name = xstrdup("xterm-256color");
@@ -16988,7 +16992,7 @@ static bool callback_equal(Callback *cb1, Callback *cb2)
   }
 }
 
-static bool invoke_callback(Callback *callback, int argcount_in,
+static bool callback_call(Callback *callback, int argcount_in,
                             typval_T *argvars_in, typval_T *rettv)
 {
   partial_T *partial;
@@ -17105,7 +17109,7 @@ static void timer_due_cb(TimeWatcher *tw, void *data)
   typval_T rettv;
 
   init_tv(&rettv);
-  invoke_callback(&timer->callback, 1, argv, &rettv);
+  callback_call(&timer->callback, 1, argv, &rettv);
   clear_tv(&rettv);
 
   if (!timer->stopped && timer->timeout == 0) {
@@ -18565,70 +18569,77 @@ handle_subscript (
   }
 
   // Turn "dict.Func" into a partial for "Func" bound to "dict".
-  // Don't do this when "Func" is already a partial that was bound
-  // explicitly (pt_auto is false).
   if (selfdict != NULL
       && (rettv->v_type == VAR_FUNC
-          || (rettv->v_type == VAR_PARTIAL
-              && (rettv->vval.v_partial->pt_auto
-                  || rettv->vval.v_partial->pt_dict == NULL)))) {
-    char_u *fname = rettv->v_type == VAR_FUNC ? rettv->vval.v_string
-                                    : rettv->vval.v_partial->pt_name;
-    char_u *tofree = NULL;
-    ufunc_T *fp;
-    char_u fname_buf[FLEN_FIXED + 1];
-    int error;
+          || rettv->v_type == VAR_PARTIAL)) {
+    set_selfdict(rettv, selfdict);
 
-    // Translate "s:func" to the stored function name.
-    fname = fname_trans_sid(fname, fname_buf, &tofree, &error);
-
-    fp = find_func(fname);
-    xfree(tofree);
-
-    // Turn "dict.Func" into a partial for "Func" with "dict".
-    if (fp != NULL && (fp->uf_flags & FC_DICT)) {
-      partial_T *pt = (partial_T *)xcalloc(1, sizeof(partial_T));
-
-      if (pt != NULL) {
-        pt->pt_refcount = 1;
-        pt->pt_dict = selfdict;
-        pt->pt_auto = true;
-        selfdict = NULL;
-        if (rettv->v_type == VAR_FUNC) {
-          // Just a function: Take over the function name and use selfdict.
-          pt->pt_name = rettv->vval.v_string;
-        } else {
-          partial_T *ret_pt = rettv->vval.v_partial;
-          int i;
-
-          // Partial: copy the function name, use selfdict and copy
-          // args. Can't take over name or args, the partial might
-          // be referenced elsewhere.
-          pt->pt_name = vim_strsave(ret_pt->pt_name);
-          func_ref(pt->pt_name);
-          if (ret_pt->pt_argc > 0) {
-            size_t arg_size = sizeof(typval_T) * ret_pt->pt_argc;
-            pt->pt_argv = (typval_T *)xmalloc(arg_size);
-            if (pt->pt_argv == NULL) {
-              // out of memory: drop the arguments
-              pt->pt_argc = 0;
-            } else {
-              pt->pt_argc = ret_pt->pt_argc;
-              for (i = 0; i < pt->pt_argc; i++) {
-                copy_tv(&ret_pt->pt_argv[i], &pt->pt_argv[i]);
-              }
-            }
-          }
-          partial_unref(ret_pt);
-        }
-        rettv->v_type = VAR_PARTIAL;
-        rettv->vval.v_partial = pt;
-      }
-    }
   }
 
   dict_unref(selfdict);
   return ret;
+}
+
+static void set_selfdict(typval_T *rettv, dict_T *selfdict) {
+  // Don't do this when "dict.Func" is already a partial that was bound
+  // explicitly (pt_auto is false).
+  if (rettv->v_type == VAR_PARTIAL && !rettv->vval.v_partial->pt_auto
+                  && rettv->vval.v_partial->pt_dict != NULL) {
+    return;
+  }
+  char_u *fname = rettv->v_type == VAR_FUNC ? rettv->vval.v_string
+                                  : rettv->vval.v_partial->pt_name;
+  char_u *tofree = NULL;
+  ufunc_T *fp;
+  char_u fname_buf[FLEN_FIXED + 1];
+  int error;
+
+  // Translate "s:func" to the stored function name.
+  fname = fname_trans_sid(fname, fname_buf, &tofree, &error);
+
+  fp = find_func(fname);
+  xfree(tofree);
+
+  // Turn "dict.Func" into a partial for "Func" with "dict".
+  if (fp != NULL && (fp->uf_flags & FC_DICT)) {
+    partial_T *pt = (partial_T *)xcalloc(1, sizeof(partial_T));
+
+    if (pt != NULL) {
+      pt->pt_refcount = 1;
+      pt->pt_dict = selfdict;
+      ++selfdict->dv_refcount;
+      pt->pt_auto = true;
+      if (rettv->v_type == VAR_FUNC) {
+        // Just a function: Take over the function name and use selfdict.
+        pt->pt_name = rettv->vval.v_string;
+      } else {
+        partial_T *ret_pt = rettv->vval.v_partial;
+        int i;
+
+        // Partial: copy the function name, use selfdict and copy
+        // args. Can't take over name or args, the partial might
+        // be referenced elsewhere.
+        pt->pt_name = vim_strsave(ret_pt->pt_name);
+        func_ref(pt->pt_name);
+        if (ret_pt->pt_argc > 0) {
+          size_t arg_size = sizeof(typval_T) * ret_pt->pt_argc;
+          pt->pt_argv = (typval_T *)xmalloc(arg_size);
+          if (pt->pt_argv == NULL) {
+            // out of memory: drop the arguments
+            pt->pt_argc = 0;
+          } else {
+            pt->pt_argc = ret_pt->pt_argc;
+            for (i = 0; i < pt->pt_argc; i++) {
+              copy_tv(&ret_pt->pt_argv[i], &pt->pt_argv[i]);
+            }
+          }
+        }
+        partial_unref(ret_pt);
+      }
+      rettv->v_type = VAR_PARTIAL;
+      rettv->vval.v_partial = pt;
+    }
+  }
 }
 
 /*
@@ -22476,10 +22487,9 @@ char_u *do_string_sub(char_u *str, char_u *pat, char_u *sub, char_u *flags)
 }
 
 static inline TerminalJobData *common_job_init(char **argv,
-                                               ufunc_T *on_stdout,
-                                               ufunc_T *on_stderr,
-                                               ufunc_T *on_exit,
-                                               dict_T *self,
+                                               Callback on_stdout,
+                                               Callback on_stderr,
+                                               Callback on_exit,
                                                bool pty,
                                                bool rpc,
                                                bool detach,
@@ -22490,7 +22500,6 @@ static inline TerminalJobData *common_job_init(char **argv,
   data->on_stdout = on_stdout;
   data->on_stderr = on_stderr;
   data->on_exit = on_exit;
-  data->self = self;
   data->events = multiqueue_new_child(main_loop.events);
   data->rpc = rpc;
   if (pty) {
@@ -22515,8 +22524,8 @@ static inline TerminalJobData *common_job_init(char **argv,
 /// common code for getting job callbacks for jobstart, termopen and rpcstart
 ///
 /// @return true/false on success/failure.
-static inline bool common_job_callbacks(dict_T *vopts, ufunc_T **on_stdout,
-                                        ufunc_T **on_stderr, ufunc_T **on_exit)
+static inline bool common_job_callbacks(dict_T *vopts, Callback *on_stdout,
+                                        Callback *on_stderr, Callback *on_exit)
 {
   if (get_dict_callback(vopts, "on_stdout", on_stdout)
       && get_dict_callback(vopts, "on_stderr", on_stderr)
@@ -22524,15 +22533,10 @@ static inline bool common_job_callbacks(dict_T *vopts, ufunc_T **on_stdout,
     vopts->dv_refcount++;
     return true;
   }
-  if (*on_stdout) {
-    user_func_unref(*on_stdout);
-  }
-  if (*on_stderr) {
-    user_func_unref(*on_stderr);
-  }
-  if (*on_exit) {
-    user_func_unref(*on_exit);
-  }
+
+  callback_free(on_stdout);
+  callback_free(on_stderr);
+  callback_free(on_exit);
   return false;
 }
 
@@ -22587,19 +22591,10 @@ static inline bool common_job_start(TerminalJobData *data, typval_T *rettv)
 static inline void free_term_job_data_event(void **argv)
 {
   TerminalJobData *data = argv[0];
-  if (data->on_stdout) {
-    user_func_unref(data->on_stdout);
-  }
-  if (data->on_stderr) {
-    user_func_unref(data->on_stderr);
-  }
-  if (data->on_exit) {
-    user_func_unref(data->on_exit);
-  }
+  callback_free(&data->on_stdout);
+  callback_free(&data->on_stderr);
+  callback_free(&data->on_exit);
 
-  if (data->self) {
-    dict_unref(data->self);
-  }
   multiqueue_free(data->events);
   pmap_del(uint64_t)(jobs, data->id);
   xfree(data);
@@ -22613,7 +22608,7 @@ static inline void free_term_job_data(TerminalJobData *data)
 }
 
 // vimscript job callbacks must be executed on Nvim main loop
-static inline void process_job_event(TerminalJobData *data, ufunc_T *callback,
+static inline void process_job_event(TerminalJobData *data, Callback *callback,
     const char *type, char *buf, size_t count, int status)
 {
   JobEvent event_data;
@@ -22654,18 +22649,18 @@ static void on_job_stdout(Stream *stream, RBuffer *buf, size_t count,
     void *job, bool eof)
 {
   TerminalJobData *data = job;
-  on_job_output(stream, job, buf, count, eof, data->on_stdout, "stdout");
+  on_job_output(stream, job, buf, count, eof, &data->on_stdout, "stdout");
 }
 
 static void on_job_stderr(Stream *stream, RBuffer *buf, size_t count,
     void *job, bool eof)
 {
   TerminalJobData *data = job;
-  on_job_output(stream, job, buf, count, eof, data->on_stderr, "stderr");
+  on_job_output(stream, job, buf, count, eof, &data->on_stderr, "stderr");
 }
 
 static void on_job_output(Stream *stream, TerminalJobData *data, RBuffer *buf,
-    size_t count, bool eof, ufunc_T *callback, const char *type)
+    size_t count, bool eof, Callback *callback, const char *type)
 {
   if (eof) {
     return;
@@ -22682,7 +22677,7 @@ static void on_job_output(Stream *stream, TerminalJobData *data, RBuffer *buf,
     terminal_receive(data->term, ptr, count);
   }
 
-  if (callback) {
+  if (callback->type != kCallbackNone) {
     process_job_event(data, callback, type, ptr, count, 0);
   }
 
@@ -22706,7 +22701,7 @@ static void eval_job_process_exit_cb(Process *proc, int status, void *d)
     *data->status_ptr = status;
   }
 
-  process_job_event(data, data->on_exit, "exit", NULL, 0, status);
+  process_job_event(data, &data->on_exit, "exit", NULL, 0, status);
 
   term_job_data_decref(data);
 }
@@ -22765,8 +22760,8 @@ static void on_job_event(JobEvent *ev)
     return;
   }
 
-  typval_T argv[3];
-  int argc = ev->callback->uf_args.ga_len;
+  typval_T argv[4];
+  int argc = 3; // TODO(bfredl)
 
   if (argc > 0) {
     argv[0].v_type = VAR_NUMBER;
@@ -22795,8 +22790,7 @@ static void on_job_event(JobEvent *ev)
 
   typval_T rettv;
   init_tv(&rettv);
-  call_user_func(ev->callback, argc, argv, &rettv, curwin->w_cursor.lnum,
-      curwin->w_cursor.lnum, ev->data->self);
+  callback_call(ev->callback, argc, argv, &rettv);
   clear_tv(&rettv);
 }
 
@@ -22953,7 +22947,7 @@ static void dictwatcher_notify(dict_T *dict, const char *key, typval_T *newtv,
     if (!watcher->busy && dictwatcher_matches(watcher, key)) {
       init_tv(&rettv);
       watcher->busy = true;
-      invoke_callback(&watcher->callback, 3, argv, &rettv);
+      callback_call(&watcher->callback, 3, argv, &rettv);
       watcher->busy = false;
       clear_tv(&rettv);
     }
