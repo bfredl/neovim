@@ -435,7 +435,7 @@ typedef struct {
 } TerminalJobData;
 
 typedef struct dict_watcher {
-  ufunc_T *callback;
+  Callback callback;
   char *key_pattern;
   QUEUE node;
   bool busy;  // prevent recursion if the dict is changed in the callback
@@ -8544,16 +8544,14 @@ static void f_dictwatcheradd(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     return;
   }
 
-  ufunc_T *func = find_ufunc(argvars[2].vval.v_string);
-  if (!func) {
-    // Invalid function name. Error already reported by `find_ufunc`.
+  Callback callback;
+  if (!callback_from_typval(&callback, &argvars[2])) {
     return;
   }
 
-  func->uf_refcount++;
   DictWatcher *watcher = xmalloc(sizeof(DictWatcher));
   watcher->key_pattern = xmemdupz(key_pattern, key_len);
-  watcher->callback = func;
+  watcher->callback = callback;
   watcher->busy = false;
   QUEUE_INSERT_TAIL(&argvars[0].vval.v_dict->watchers, &watcher->node);
 }
@@ -8589,9 +8587,8 @@ static void f_dictwatcherdel(typval_T *argvars, typval_T *rettv, FunPtr fptr)
     return;
   }
 
-  ufunc_T *func = find_ufunc(argvars[2].vval.v_string);
-  if (!func) {
-    // Invalid function name. Error already reported by `find_ufunc`.
+  Callback callback;
+  if (!callback_from_typval(&callback, &argvars[2])) {
     return;
   }
 
@@ -8601,12 +8598,14 @@ static void f_dictwatcherdel(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   bool matched = false;
   QUEUE_FOREACH(w, &dict->watchers) {
     watcher = dictwatcher_node_data(w);
-    if (func == watcher->callback
+    if (callback_equal(&watcher->callback, &callback)
         && !strcmp(watcher->key_pattern, key_pattern)) {
       matched = true;
       break;
     }
   }
+
+  callback_free(&callback);
 
   if (!matched) {
     EMSG("Couldn't find a watcher matching key and callback");
@@ -16946,15 +16945,47 @@ static bool callback_from_typval(Callback *callback, typval_T *arg)
 
 
 /// Unref/free callback
-static void free_callback(Callback *callback)
+static void callback_free(Callback *callback)
 {
-    if (callback->type == kCallbackPartial) {
-      partial_unref(callback->data.partial);
-    } else if (callback->type == kCallbackFuncref) {
+  switch (callback->type) {
+    case kCallbackFuncref:
       func_unref(callback->data.funcref);
       xfree(callback->data.funcref);
-    }
-    callback->type = kCallbackNone;
+      break;
+
+    case kCallbackPartial:
+      partial_unref(callback->data.partial);
+      break;
+
+    case kCallbackNone:
+      break;
+
+    default:
+      abort();
+  }
+  callback->type = kCallbackNone;
+}
+
+static bool callback_equal(Callback *cb1, Callback *cb2)
+{
+  if (cb1->type != cb2->type) {
+    return false;
+  }
+  switch (cb1->type) {
+    case kCallbackFuncref:
+      return STRCMP(cb1->data.funcref, cb2->data.funcref) == 0;
+
+    case kCallbackPartial:
+      // FIXME: this is inconsistent with tv_equal but is needed for precision
+      // maybe change dictwatcheradd to return a watcher id instead?
+      return cb1->data.partial == cb2->data.partial;
+
+    case kCallbackNone:
+      return true;
+
+    default:
+      abort();
+  }
 }
 
 static bool invoke_callback(Callback *callback, int argcount_in,
@@ -16983,7 +17014,8 @@ static bool invoke_callback(Callback *callback, int argcount_in,
 
   int dummy;
   return call_func(name, (int)STRLEN(name), rettv, argcount_in, argvars_in,
-                   0L, 0L, &dummy, true, partial, NULL);
+                   curwin->w_cursor.lnum, curwin->w_cursor.lnum, &dummy,
+                   true, partial, NULL);
 }
 
 
@@ -17102,7 +17134,7 @@ static void timer_close_cb(TimeWatcher *tw, void *data)
 {
   timer_T *timer = (timer_T *)data;
   multiqueue_free(timer->tw.events);
-  free_callback(&timer->callback);
+  callback_free(&timer->callback);
   pmap_del(uint64_t)(timers, timer->timer_id);
   timer_decref(timer);
 }
@@ -22888,7 +22920,7 @@ static void dictwatcher_notify(dict_T *dict, const char *key, typval_T *newtv,
     typval_T *oldtv)
   FUNC_ATTR_NONNULL_ARG(1) FUNC_ATTR_NONNULL_ARG(2)
 {
-  typval_T argv[3];
+  typval_T argv[4];
   for (size_t i = 0; i < ARRAY_SIZE(argv); i++) {
     init_tv(argv + i);
   }
@@ -22921,8 +22953,7 @@ static void dictwatcher_notify(dict_T *dict, const char *key, typval_T *newtv,
     if (!watcher->busy && dictwatcher_matches(watcher, key)) {
       init_tv(&rettv);
       watcher->busy = true;
-      call_user_func(watcher->callback, ARRAY_SIZE(argv), argv, &rettv,
-          curwin->w_cursor.lnum, curwin->w_cursor.lnum, NULL);
+      invoke_callback(&watcher->callback, 3, argv, &rettv);
       watcher->busy = false;
       clear_tv(&rettv);
     }
@@ -22953,7 +22984,7 @@ static bool dictwatcher_matches(DictWatcher *watcher, const char *key)
 static void dictwatcher_free(DictWatcher *watcher)
   FUNC_ATTR_NONNULL_ALL
 {
-  user_func_unref(watcher->callback);
+  callback_free(&watcher->callback);
   xfree(watcher->key_pattern);
   xfree(watcher);
 }
