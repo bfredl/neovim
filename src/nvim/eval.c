@@ -5907,7 +5907,17 @@ bool garbage_collect(void)
   {
     TerminalJobData *data;
     map_foreach_value(jobs, data, {
-      // TODO(bfredl) set_ref_in_callback
+      set_ref_in_callback(&data->on_stdout, copyID, NULL, NULL);
+      set_ref_in_callback(&data->on_stderr, copyID, NULL, NULL);
+      set_ref_in_callback(&data->on_exit, copyID, NULL, NULL);
+    })
+  }
+
+  // Timers
+  {
+    timer_T *timer;
+    map_foreach_value(timers, timer, {
+      set_ref_in_callback(&timer->callback, copyID, NULL, NULL);
     })
   }
 
@@ -6156,6 +6166,13 @@ bool set_ref_in_item(typval_T *tv, int copyID, ht_stack_T **ht_stack,
             newitem->prev = *ht_stack;
             *ht_stack = newitem;
           }
+        }
+
+        QUEUE *w = NULL;
+        DictWatcher *watcher = NULL;
+        QUEUE_FOREACH(w, &dd->watchers) {
+          watcher = dictwatcher_node_data(w);
+          set_ref_in_callback(&watcher->callback, copyID, ht_stack, list_stack);
         }
       }
       break;
@@ -17020,6 +17037,29 @@ static bool callback_call(Callback *callback, int argcount_in,
   return call_func(name, (int)STRLEN(name), rettv, argcount_in, argvars_in,
                    curwin->w_cursor.lnum, curwin->w_cursor.lnum, &dummy,
                    true, partial, NULL);
+}
+
+static bool set_ref_in_callback(Callback *callback, int copyID,
+                                ht_stack_T **ht_stack,
+                                list_stack_T **list_stack)
+{
+  typval_T tv;
+  switch (callback->type) {
+    case kCallbackFuncref:
+    case kCallbackNone:
+      break;
+
+    case kCallbackPartial:
+      tv.v_type = VAR_PARTIAL;
+      tv.vval.v_partial = callback->data.partial;
+      return set_ref_in_item(&tv, copyID, ht_stack, list_stack);
+      break;
+
+
+    default:
+      abort();
+  }
+  return false;
 }
 
 
