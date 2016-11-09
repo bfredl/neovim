@@ -17010,7 +17010,7 @@ static bool callback_equal(Callback *cb1, Callback *cb2)
 }
 
 static bool callback_call(Callback *callback, int argcount_in,
-                            typval_T *argvars_in, typval_T *rettv)
+                          typval_T *argvars_in, typval_T *rettv)
 {
   partial_T *partial;
   char_u *name;
@@ -18613,7 +18613,6 @@ handle_subscript (
       && (rettv->v_type == VAR_FUNC
           || rettv->v_type == VAR_PARTIAL)) {
     set_selfdict(rettv, selfdict);
-
   }
 
   dict_unref(selfdict);
@@ -18624,7 +18623,7 @@ static void set_selfdict(typval_T *rettv, dict_T *selfdict) {
   // Don't do this when "dict.Func" is already a partial that was bound
   // explicitly (pt_auto is false).
   if (rettv->v_type == VAR_PARTIAL && !rettv->vval.v_partial->pt_auto
-                  && rettv->vval.v_partial->pt_dict != NULL) {
+      && rettv->vval.v_partial->pt_dict != NULL) {
     return;
   }
   char_u *fname = rettv->v_type == VAR_FUNC ? rettv->vval.v_string
@@ -18647,7 +18646,7 @@ static void set_selfdict(typval_T *rettv, dict_T *selfdict) {
     if (pt != NULL) {
       pt->pt_refcount = 1;
       pt->pt_dict = selfdict;
-      ++selfdict->dv_refcount;
+      (selfdict->dv_refcount)++;
       pt->pt_auto = true;
       if (rettv->v_type == VAR_FUNC) {
         // Just a function: Take over the function name and use selfdict.
@@ -22649,7 +22648,8 @@ static inline void free_term_job_data(TerminalJobData *data)
 
 // vimscript job callbacks must be executed on Nvim main loop
 static inline void process_job_event(TerminalJobData *data, Callback *callback,
-    const char *type, char *buf, size_t count, int status)
+                                     const char *type, char *buf, size_t count,
+                                     int status)
 {
   JobEvent event_data;
   event_data.received = NULL;
@@ -22700,7 +22700,8 @@ static void on_job_stderr(Stream *stream, RBuffer *buf, size_t count,
 }
 
 static void on_job_output(Stream *stream, TerminalJobData *data, RBuffer *buf,
-    size_t count, bool eof, Callback *callback, const char *type)
+                          size_t count, bool eof, Callback *callback,
+                          const char *type)
 {
   if (eof) {
     return;
@@ -22801,7 +22802,7 @@ static void on_job_event(JobEvent *ev)
   }
 
   typval_T argv[4];
-  int argc = 3; // TODO(bfredl)
+  int argc = 3;  // TODO(bfredl):
 
   if (argc > 0) {
     argv[0].v_type = VAR_NUMBER;
