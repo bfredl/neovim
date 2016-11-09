@@ -6667,28 +6667,6 @@ static bool get_dict_callback(dict_T *d, char *key, Callback *result)
   return res;
 }
 
-static ufunc_T *find_ufunc(uint8_t *name)
-{
-  uint8_t *n = name;
-  ufunc_T *rv = NULL;
-  if (*n > '9' || *n < '0') {
-    if ((n = trans_function_name(&n, false, TFN_INT|TFN_QUIET, NULL, NULL))) {
-      rv = find_func(n);
-      xfree(n);
-    }
-  } else {
-    // dict function, name is already translated
-    rv = find_func(n);
-  }
-
-  if (!rv) {
-    EMSG2(_("Function %s doesn't exist"), name);
-    return NULL;
-  }
-
-  return rv;
-}
-
 /// Get a string item from a dictionary.
 ///
 /// @param save whether memory should be allocated for the return value
