@@ -22780,36 +22780,29 @@ static void on_job_event(JobEvent *ev)
   }
 
   typval_T argv[4];
-  int argc = 3;  // TODO(bfredl):
 
-  if (argc > 0) {
-    argv[0].v_type = VAR_NUMBER;
-    argv[0].v_lock = 0;
-    argv[0].vval.v_number = ev->data->id;
+  argv[0].v_type = VAR_NUMBER;
+  argv[0].v_lock = 0;
+  argv[0].vval.v_number = ev->data->id;
+
+  if (ev->received) {
+    argv[1].v_type = VAR_LIST;
+    argv[1].v_lock = 0;
+    argv[1].vval.v_list = ev->received;
+    argv[1].vval.v_list->lv_refcount++;
+  } else {
+    argv[1].v_type = VAR_NUMBER;
+    argv[1].v_lock = 0;
+    argv[1].vval.v_number = ev->status;
   }
 
-  if (argc > 1) {
-    if (ev->received) {
-      argv[1].v_type = VAR_LIST;
-      argv[1].v_lock = 0;
-      argv[1].vval.v_list = ev->received;
-      argv[1].vval.v_list->lv_refcount++;
-    } else {
-      argv[1].v_type = VAR_NUMBER;
-      argv[1].v_lock = 0;
-      argv[1].vval.v_number = ev->status;
-    }
-  }
-
-  if (argc > 2) {
-    argv[2].v_type = VAR_STRING;
-    argv[2].v_lock = 0;
-    argv[2].vval.v_string = (uint8_t *)ev->type;
-  }
+  argv[2].v_type = VAR_STRING;
+  argv[2].v_lock = 0;
+  argv[2].vval.v_string = (uint8_t *)ev->type;
 
   typval_T rettv;
   init_tv(&rettv);
-  callback_call(ev->callback, argc, argv, &rettv);
+  callback_call(ev->callback, 3, argv, &rettv);
   clear_tv(&rettv);
 }
 
