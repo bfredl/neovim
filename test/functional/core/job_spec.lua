@@ -252,9 +252,12 @@ describe('jobs', function()
     eq({'notification', 'exit', {45, 10}}, next_msg())
   end)
 
-  it('cannot redefine callbacks being used by a job', function()
+  it('can redefine callbacks being used by a job', function()
     local screen = Screen.new()
     screen:attach()
+    screen:set_default_attr_ids({
+      [1] = {bold=true, foreground=Screen.colors.Blue},
+    })
     local script = [[
       function! g:JobHandler(job_id, data, event)
       endfunction
@@ -270,20 +273,20 @@ describe('jobs', function()
     feed(':function! g:JobHandler(job_id, data, event)<cr>')
     feed(':endfunction<cr>')
     screen:expect([[
-      ~                                                    |
-      ~                                                    |
-      ~                                                    |
-      ~                                                    |
-      ~                                                    |
-      ~                                                    |
-      ~                                                    |
-      ~                                                    |
-      ~                                                    |
-      :function! g:JobHandler(job_id, data, event)         |
-      :  :endfunction                                      |
-      E127: Cannot redefine function JobHandler: It is in u|
-      se                                                   |
-      Press ENTER or type command to continue^              |
+      ^                                                     |
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+                                                           |
     ]])
   end)
 
@@ -304,7 +307,7 @@ describe('jobs', function()
       source([[
       let g:dict = {'id': 10}
       let g:exits = 0
-      function g:dict.on_exit(id, code)
+      function g:dict.on_exit(id, code, event)
         if a:code != 5
           throw 'Error!'
         endif
