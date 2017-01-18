@@ -93,7 +93,9 @@
 #include "nvim/fileio.h"
 #include "nvim/fold.h"
 #include "nvim/buffer_updates.h"
+#include "nvim/pos.h"  // MAXLNUM
 #include "nvim/mark.h"
+#include "nvim/mark_extended.h"
 #include "nvim/memline.h"
 #include "nvim/message.h"
 #include "nvim/misc1.h"
@@ -110,6 +112,7 @@
 #include "nvim/types.h"
 #include "nvim/os/os.h"
 #include "nvim/os/time.h"
+#include "nvim/lib/kvec.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "undo.c.generated.h"
@@ -388,6 +391,7 @@ int u_savecommon(linenr_T top, linenr_T bot, linenr_T newbot, int reload)
        * up the undo info when out of memory.
        */
       uhp = xmalloc(sizeof(u_header_T));
+      kv_init(uhp->uh_extmark);
 #ifdef U_DEBUG
       uhp->uh_magic = UH_MAGIC;
 #endif
@@ -2256,10 +2260,10 @@ static void u_undoredo(int undo, bool do_buf_event)
       xfree((char_u *)uep->ue_array);
     }
 
-    /* adjust marks */
+    // Adjust marks
     if (oldsize != newsize) {
       mark_adjust(top + 1, top + oldsize, (long)MAXLNUM,
-                  (long)newsize - (long)oldsize, false);
+                  (long)newsize - (long)oldsize, false, kExtmarkNOOP);
       if (curbuf->b_op_start.lnum > top + oldsize) {
         curbuf->b_op_start.lnum += newsize - oldsize;
       }
@@ -2291,6 +2295,37 @@ static void u_undoredo(int undo, bool do_buf_event)
     uep->ue_next = newlist;
     newlist = uep;
   }
+
+  // Adjust Extmarks
+  int from;
+  int to;
+  ExtmarkUndoObject undo_info;
+  if (undo) {
+    i = (int)kv_size(curhead->uh_extmark) - 1;
+    while (i > -1) {
+      i = extmark_iter_undo(curhead->uh_extmark, undo, (int)i, &from, &to);
+      if (from == -1) {
+        undo_info = kv_A(curhead->uh_extmark, i);
+        extmark_apply_undo(undo_info, undo);
+        i--;
+      // go over a section of the list in another direction
+      } else {
+        for (i = from; i <= to; i++) {
+          undo_info = kv_A(curhead->uh_extmark, i);
+          extmark_apply_undo(undo_info, undo);
+        }
+        i = from - 1;
+      }  // finish going over list in other direction
+    }  // finish undo
+  // redo
+  } else {
+    for (i = 0; i < (int)kv_size(curhead->uh_extmark); i++) {
+      undo_info = kv_A(curhead->uh_extmark, i);
+      extmark_apply_undo(undo_info, undo);
+    }
+  }  // finish redo
+  // finish Adjusting extmarks
+
 
   curhead->uh_entry = newlist;
   curhead->uh_flags = new_flags;
@@ -2828,6 +2863,9 @@ u_freeentries(
     nuep = uep->ue_next;
     u_freeentry(uep, uep->ue_size);
   }
+
+  // TODO(timeyyy): is this the correct place? ...
+  kv_destroy(uhp->uh_extmark);
 
 #ifdef U_DEBUG
   uhp->uh_magic = 0;

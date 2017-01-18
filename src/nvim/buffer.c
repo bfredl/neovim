@@ -51,6 +51,7 @@
 #include "nvim/indent_c.h"
 #include "nvim/main.h"
 #include "nvim/mark.h"
+#include "nvim/mark_extended.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
 #include "nvim/memory.h"
@@ -796,7 +797,8 @@ free_buffer_stuff (
   buf_init_changedtick(buf);
   uc_clear(&buf->b_ucmds);              // clear local user commands
   buf_delete_signs(buf);                // delete any signs
-  bufhl_clear_all(buf);                // delete any highligts
+  extmark_free_all(buf);                // delete any extmarks
+  bufhl_clear_all(buf);                 // delete any highligts
   map_clear_int(buf, MAP_ALL_MODES, true, false);    // clear local mappings
   map_clear_int(buf, MAP_ALL_MODES, true, true);     // clear local abbrevs
   xfree(buf->b_start_fenc);
@@ -5443,6 +5445,7 @@ void bufhl_clear_line_range(buf_T *buf,
 {
   linenr_T first_changed = MAXLNUM, last_changed = -1;
 
+  // TODO(bfredl): implement kb_itr_interval to jump directly to the first line
   kbitr_t(bufhl) itr;
   BufhlLine *l, t = BUFHLLINE_INIT(line_start);
   if (!kb_itr_get(bufhl, &buf->b_bufhl_info, &t, &itr)) {

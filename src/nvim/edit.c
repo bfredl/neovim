@@ -28,6 +28,7 @@
 #include "nvim/indent.h"
 #include "nvim/indent_c.h"
 #include "nvim/main.h"
+#include "nvim/mark_extended.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
 #include "nvim/memory.h"
@@ -5331,6 +5332,8 @@ insertchar (
     do_digraph(buf[i-1]);               /* may be the start of a digraph */
     buf[i] = NUL;
     ins_str(buf);
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+                     (long)STRLEN(buf), kExtmarkNoReverse);
     if (flags & INSCHAR_CTRLV) {
       redo_literal(*buf);
       i = 1;
@@ -5341,19 +5344,28 @@ insertchar (
   } else {
     int cc;
 
+    // TODO(timeyyy): refactor  this if block away, need to manually test that 
+    // inserts still work as the tests don't catch it
     if ((cc = utf_char2len(c)) > 1) {
       char_u buf[MB_MAXBYTES + 1];
 
       utf_char2bytes(c, buf);
       buf[cc] = NUL;
       ins_char_bytes(buf, cc);
+      // TODO(timeyyy): test this code path...
+      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+                         cc, kExtmarkNoReverse);
       AppendCharToRedobuff(c);
     } else {
       ins_char(c);
-      if (flags & INSCHAR_CTRLV)
+      char_u buf[MB_MAXBYTES + 1];
+      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+                         1, kExtmarkNoReverse);
+      if (flags & INSCHAR_CTRLV) {
         redo_literal(c);
-      else
+      } else {
         AppendCharToRedobuff(c);
+      }
     }
   }
 }
@@ -6621,8 +6633,9 @@ static void mb_replace_pop_ins(int cc)
     for (i = 1; i < n; ++i)
       buf[i] = replace_pop();
     ins_bytes_len(buf, n);
-  } else
+  } else {
     ins_char(cc);
+  }
 
   if (enc_utf8)
     /* Handle composing chars. */
@@ -7745,9 +7758,9 @@ static bool ins_bs(int c, int mode, int *inserted_space_p)
           Insstart_orig.col = curwin->w_cursor.col;
         }
 
-        if (State & VREPLACE_FLAG)
+        if (State & VREPLACE_FLAG) {
           ins_char(' ');
-        else {
+        } else {
           ins_str((char_u *)" ");
           if ((State & REPLACE_FLAG))
             replace_push(NUL);
@@ -8221,7 +8234,16 @@ static bool ins_tab(void)
   } else {  // otherwise use "tabstop"
     temp = (int)curbuf->b_p_ts;
   }
+
   temp -= get_nolist_virtcol() % temp;
+
+  // Move extmarks
+  extmark_col_adjust(curbuf,
+                     curwin->w_cursor.lnum,
+                     curwin->w_cursor.col,
+                     0,
+                     temp,
+                     kExtmarkNoReverse);
 
   /*
    * Insert the first space with ins_char().	It will delete one char in
@@ -8230,12 +8252,13 @@ static bool ins_tab(void)
    */
   ins_char(' ');
   while (--temp > 0) {
-    if (State & VREPLACE_FLAG)
+    if (State & VREPLACE_FLAG) {
       ins_char(' ');
-    else {
+    } else {
       ins_str((char_u *)" ");
-      if (State & REPLACE_FLAG)             /* no char replaced */
+      if (State & REPLACE_FLAG) {            // no char replaced
         replace_push(NUL);
+      }
     }
   }
 

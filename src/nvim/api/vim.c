@@ -32,6 +32,7 @@
 #include "nvim/eval/typval.h"
 #include "nvim/option.h"
 #include "nvim/state.h"
+#include "nvim/mark_extended.h"
 #include "nvim/syntax.h"
 #include "nvim/getchar.h"
 #include "nvim/os/input.h"
@@ -1803,6 +1804,45 @@ Dictionary nvim__id_dictionary(Dictionary dct)
 Float nvim__id_float(Float flt)
 {
   return flt;
+
+/// Setup a new namepsace for holding your marks
+///
+/// @param namespace String name to be assigned the mark namespace
+/// @param[out] err Details of an error that may have occurred
+/// @return integer id to be used with future mark_ calls, or 0 if name exists
+Integer nvim_init_mark_ns(String namespace, Error *err)
+    FUNC_API_SINCE(1)
+{
+  uint64_t ns_id = extmark_ns_create(namespace.data);
+  return (Integer)ns_id;
+}
+
+/// Returns a list of mark namespaces
+///
+/// @param[out] err Details of an error that may have occurred
+/// @return [[id, name], ...]
+ArrayOf(Object) nvim_mark_get_ns_ids(Error *err)
+    FUNC_API_SINCE(1)
+{
+  Array rv = ARRAY_DICT_INIT;
+  Array ns_array = ARRAY_DICT_INIT;
+
+  if (!EXTMARK_NAMESPACES) {
+    api_set_error(err, Validation, _("No mark namespaces exist"));
+    return rv;
+  }
+
+  uint64_t key;
+  cstr_t value;
+  map_foreach(EXTMARK_NAMESPACES, key, value, {
+    ns_array.size = 0;
+    ns_array.capacity = 0;
+    ns_array.items = 0;
+    ADD(ns_array, INTEGER_OBJ((Integer)key));
+    ADD(ns_array, STRING_OBJ(cstr_to_string(value)));
+    ADD(rv, ARRAY_OBJ(ns_array));
+  });
+  return rv;
 }
 
 /// Gets internal stats.

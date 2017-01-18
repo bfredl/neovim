@@ -901,9 +901,11 @@ void mark_adjust(linenr_T line1,
                  linenr_T line2,
                  long amount,
                  long amount_after,
-                 bool end_temp)
+                 bool end_temp,
+                 ExtmarkReverse reverse)
 {
-  mark_adjust_internal(line1, line2, amount, amount_after, true, end_temp);
+  mark_adjust_internal(line1, line2, amount, amount_after, true, end_temp,
+                       reverse);
 }
 
 // mark_adjust_nofold() does the same as mark_adjust() but without adjusting
@@ -912,14 +914,17 @@ void mark_adjust(linenr_T line1,
 // calling foldMarkAdjust() with arguments line1, line2, amount, amount_after,
 // for an example of why this may be necessary, see do_move().
 void mark_adjust_nofold(linenr_T line1, linenr_T line2, long amount,
-                        long amount_after, bool end_temp)
+                        long amount_after, bool end_temp,
+                        ExtmarkReverse reverse)
 {
-  mark_adjust_internal(line1, line2, amount, amount_after, false, end_temp);
+  mark_adjust_internal(line1, line2, amount, amount_after, false, end_temp,
+                       reverse);
 }
 
 static void mark_adjust_internal(linenr_T line1, linenr_T line2,
                                  long amount, long amount_after,
-                                 bool adjust_folds, bool end_temp)
+                                 bool adjust_folds, bool end_temp,
+                                 ExtmarkReverse reverse)
 {
   int i;
   int fnum = curbuf->b_fnum;
@@ -975,6 +980,9 @@ static void mark_adjust_internal(linenr_T line1, linenr_T line2,
 
     sign_mark_adjust(line1, line2, amount, amount_after);
     bufhl_mark_adjust(curbuf, line1, line2, amount, amount_after, end_temp);
+    if (reverse != kExtmarkNOOP) {
+      extmark_adjust(curbuf, line1, line2, amount, amount_after, reverse, end_temp);
+    }
   }
 
   /* previous context mark */

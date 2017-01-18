@@ -23,6 +23,7 @@
 #include "nvim/eval/typval.h"
 #include "nvim/map_defs.h"
 #include "nvim/map.h"
+#include "nvim/mark_extended.h"
 #include "nvim/option.h"
 #include "nvim/option_defs.h"
 #include "nvim/version.h"
@@ -1213,8 +1214,82 @@ ArrayOf(Dictionary) keymap_array(String mode, buf_T *buf)
   tv_dict_free(dict);
 
   return mappings;
+
+// Returns an extmark given an id or a positional index
+// If throw == true then an error will be raised if nothing
+// was found
+// Returns NULL if something went wrong
+ExtendedMark *extmark_from_id_or_pos(Buffer buffer,
+                                     Integer namespace,
+                                     Object id,
+                                     Error *err,
+                                     bool throw)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return NULL;
+  }
+
+  ExtendedMark *extmark = NULL;
+  if (id.type == kObjectTypeArray) {
+    if (id.data.array.size != 2) {
+      api_set_error(err, kErrorTypeValidation,
+                    _("Position must have 2 elements"));
+      return NULL;
+    }
+    linenr_T row = (linenr_T)id.data.array.items[0].data.integer;
+    colnr_T col = (colnr_T)id.data.array.items[1].data.integer;
+    if (row < 1 || col < 1) {
+      if (throw) {
+      api_set_error(err, kErrorTypeValidation, _("Row and column MUST be > 0"));
+      }
+      return NULL;
+    }
+    extmark = extmark_from_pos(buf, (uint64_t)namespace, row, col);
+  } else if (id.type != kObjectTypeInteger) {
+    if (throw) {
+      api_set_error(err, kErrorTypeValidation,
+                    _("Mark id must be an int or [row, col]"));
+    }
+    return NULL;
+  } else if (id.data.integer < 0) {
+    if (throw) {
+      api_set_error(err, kErrorTypeValidation, _("Mark id must be positive"));
+    }
+    return NULL;
+  } else {
+    extmark = extmark_from_id(buf,
+                              (uint64_t)namespace,
+                              (uint64_t)id.data.integer);
+  }
+
+  if (!extmark) {
+    if (throw) {
+      api_set_error(err, kErrorTypeValidation, _("Mark doesn't exist"));
+    }
+    return NULL;
+  }
+  return extmark;
 }
 
+// Return true if the extmark id is for the beginning or end of
+// the buffer
+bool extmark_is_range_extremity(Object id)
+{
+  if (id.type == kObjectTypeInteger) {
+    if ((linenr_T)id.data.integer == Extremity) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Return true if the position is valid TODO(timeyyy): implement
+bool extmark_is_valid_pos(Object id)
+{
+  return true;
+}
 
 // Is the Namespace in use?
 bool ns_initialized(uint64_t ns)
@@ -1223,4 +1298,56 @@ bool ns_initialized(uint64_t ns)
     return false;
   }
   return ns < (uint64_t)next_namespace_id;
+}
+
+// Extmarks may be queried from position or name or even special names
+// in the future such as "cursor". This macro sets the line and col
+// to make the extmark functions recognize what's required
+//
+// *lnum: linenr_T, lnum to be set
+// *col: colnr_T, col to be set
+bool set_extmark_index_from_obj(Buffer buffer, Integer namespace,
+                                Object obj, linenr_T *lnum, colnr_T *col,
+                                Error *err)
+{
+  bool set = false;
+  // Check if it is an extremity
+  if (extmark_is_range_extremity(obj)) {
+    set = true;
+    *lnum = Extremity;
+    *col = Extremity;
+  // Check if it is a mark
+  } else if (!set) {
+    ExtendedMark *_extmark = extmark_from_id_or_pos(buffer,
+                                                    namespace,
+                                                    obj,
+                                                    err,
+                                                    false);
+    if (_extmark) {
+      set = true;
+      *lnum = _extmark->line->lnum;
+      *col = _extmark->col;
+    }
+  }
+  // Check if it is a position
+  if (!set && extmark_is_valid_pos(obj)) {
+    if (obj.type == kObjectTypeArray) {
+      if (obj.data.array.size != 2) {
+        api_set_error(err, kErrorTypeValidation,
+                      _("Position must have 2 elements"));
+      } else {
+        set = true;
+        *lnum = (linenr_T)obj.data.array.items[0].data.integer;
+        *col = (colnr_T)obj.data.array.items[1].data.integer;
+      }
+    } else {
+      api_set_error(err, kErrorTypeValidation,
+                    _("Position must be in a list"));
+    }
+  }
+  if (set) {
+    return true;
+  } else {
+    return false;
+  }
 }
