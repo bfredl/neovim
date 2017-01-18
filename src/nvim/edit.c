@@ -28,6 +28,7 @@
 #include "nvim/indent.h"
 #include "nvim/indent_c.h"
 #include "nvim/main.h"
+#include "nvim/mark_extended.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
 #include "nvim/memory.h"
@@ -1202,7 +1203,7 @@ normalchar:
             if (s->c == CAR || s->c == K_KENTER || s->c == NL) {
               ins_eol(s->c);
             } else {
-              ins_char(s->c);
+              ins_char(s->c, false);
             }
           }
           AppendToRedobuffLit(str, -1);
@@ -3082,9 +3083,9 @@ static void ins_compl_addleader(int c)
 
     (*mb_char2bytes)(c, buf);
     buf[cc] = NUL;
-    ins_char_bytes(buf, cc);
+    ins_char_bytes(buf, cc, false);
   } else {
-    ins_char(c);
+    ins_char(c, false);
   }
 
   /* If we didn't complete finding matches we must search again. */
@@ -5338,14 +5339,15 @@ insertchar (
 
       (*mb_char2bytes)(c, buf);
       buf[cc] = NUL;
-      ins_char_bytes(buf, cc);
+      ins_char_bytes(buf, cc, false);
       AppendCharToRedobuff(c);
     } else {
-      ins_char(c);
-      if (flags & INSCHAR_CTRLV)
+      ins_char(c, true);
+      if (flags & INSCHAR_CTRLV) {
         redo_literal(c);
-      else
+      } else {
         AppendCharToRedobuff(c);
+      }
     }
   }
 }
@@ -6611,8 +6613,9 @@ static void mb_replace_pop_ins(int cc)
     for (i = 1; i < n; ++i)
       buf[i] = replace_pop();
     ins_bytes_len(buf, n);
-  } else
-    ins_char(cc);
+  } else {
+    ins_char(cc, false);
+  }
 
   if (enc_utf8)
     /* Handle composing chars. */
@@ -7724,9 +7727,9 @@ static bool ins_bs(int c, int mode, int *inserted_space_p)
           Insstart_orig.col = curwin->w_cursor.col;
         }
 
-        if (State & VREPLACE_FLAG)
-          ins_char(' ');
-        else {
+        if (State & VREPLACE_FLAG) {
+          ins_char(' ', false);
+        } else {
           ins_str((char_u *)" ");
           if ((State & REPLACE_FLAG))
             replace_push(NUL);
@@ -8200,21 +8203,31 @@ static bool ins_tab(void)
   } else {  // otherwise use "tabstop"
     temp = (int)curbuf->b_p_ts;
   }
+
   temp -= get_nolist_virtcol() % temp;
+
+  // Move extmarks
+  extmark_col_adjust(curbuf,
+                     curwin->w_cursor.lnum,
+                     curwin->w_cursor.col,
+                     0,
+                     temp,
+                     extmarkNoReverse);
 
   /*
    * Insert the first space with ins_char().	It will delete one char in
    * replace mode.  Insert the rest with ins_str(); it will not delete any
    * chars.  For VREPLACE mode, we use ins_char() for all characters.
    */
-  ins_char(' ');
+  ins_char(' ', false);
   while (--temp > 0) {
-    if (State & VREPLACE_FLAG)
-      ins_char(' ');
-    else {
+    if (State & VREPLACE_FLAG) {
+      ins_char(' ', false);
+    } else {
       ins_str((char_u *)" ");
-      if (State & REPLACE_FLAG)             /* no char replaced */
+      if (State & REPLACE_FLAG) {            // no char replaced
         replace_push(NUL);
+      }
     }
   }
 

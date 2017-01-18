@@ -31,6 +31,7 @@
 #include "nvim/buffer_updates.h"
 #include "nvim/main.h"
 #include "nvim/mark.h"
+#include "nvim/mark_extended.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
 #include "nvim/memory.h"
@@ -114,6 +115,10 @@ open_line (
   int vreplace_mode;
   bool did_append;                // appended a new line
   int saved_pi = curbuf->b_p_pi;  // copy of preserveindent setting
+
+  // save the values for moving extmarks
+  linenr_T lnum = curwin->w_cursor.lnum;
+  colnr_T mincol = curwin->w_cursor.col + 1;
 
   // make a copy of the current line so we can mess with it
   char_u *saved_line = vim_strsave(get_cursor_line_ptr());
@@ -926,6 +931,21 @@ theend:
   xfree(saved_line);
   xfree(next_line);
   xfree(allocated);
+
+  // Move extmarks
+  if (dir == FORWARD) {
+      // o or <cr>
+      extmark_adjust(curbuf, lnum+1, lnum+1, 1, 1, extmarkNoReverse, false);
+      if (extra_len != 0) {
+        // <cr>
+        extmark_col_adjust(curbuf,
+                           lnum, mincol, 1, -less_cols, extmarkNoReverse);
+      }
+  } else {
+    // <s-o>
+    extmark_adjust(curbuf, lnum, lnum, 1, 1, extmarkNoReverse, false);
+  }
+
   return retval;
 }
 
@@ -1379,11 +1399,11 @@ void ins_bytes_len(char_u *p, size_t len)
       } else {
         n = (size_t)(*mb_ptr2len)(p + i);
       }
-      ins_char_bytes(p + i, n);
+      ins_char_bytes(p + i, n, false);
     }
   } else {
     for (size_t i = 0; i < len; i++) {
-      ins_char(p[i]);
+      ins_char(p[i], false);
     }
   }
 }
@@ -1393,7 +1413,7 @@ void ins_bytes_len(char_u *p, size_t len)
 /// Caller must have prepared for undo.
 /// For multi-byte characters we get the whole character, the caller must
 /// convert bytes to a character.
-void ins_char(int c)
+void ins_char(int c, bool extmark_move)
 {
   char_u buf[MB_MAXBYTES + 1];
   size_t n = (size_t)(*mb_char2bytes)(c, buf);
@@ -1403,10 +1423,10 @@ void ins_char(int c)
   if (buf[0] == 0) {
     buf[0] = '\n';
   }
-  ins_char_bytes(buf, n);
+  ins_char_bytes(buf, n, extmark_move);
 }
 
-void ins_char_bytes(char_u *buf, size_t charlen)
+void ins_char_bytes(char_u *buf, size_t charlen, bool extmark_move)
 {
   // Break tabs if needed.
   if (virtual_active() && curwin->w_cursor.coladd > 0) {
@@ -1518,6 +1538,12 @@ void ins_char_bytes(char_u *buf, size_t charlen)
   /*
    * TODO: should try to update w_row here, to avoid recomputing it later.
    */
+
+  // Move extmarks with char inserts
+  if (extmark_move) {
+    extmark_col_adjust(curbuf, lnum, curwin->w_cursor.col, 0,
+                       (long)charlen, extmarkNoReverse);
+  }
 }
 
 /*
@@ -1666,8 +1692,15 @@ int del_bytes(colnr_T count, bool fixpos_arg, bool use_delcombine)
   if (!was_alloced)
     ml_replace(lnum, newp, FALSE);
 
-  /* mark the buffer as changed and prepare for displaying */
+  // mark the buffer as changed and prepare for displaying
   changed_bytes(lnum, curwin->w_cursor.col);
+
+  // Move extmarks with char del or tab with noexpandtab
+  ExtmarkReverseType reverse = extmarkNoReverse;
+  if ((col + count) == oldlen) {
+    reverse = extmarkNoUndo;
+  }
+  extmark_col_adjust(curbuf, lnum, col + 1, 0, -count, reverse);
 
   return OK;
 }
@@ -1708,8 +1741,8 @@ truncate_line (
  */
 void 
 del_lines (
-    long nlines,                    /* number of lines to delete */
-    int undo                       /* if TRUE, prepare for undo */
+    long nlines,                    // number of lines to delete
+    int undo                        // if TRUE, prepare for undo
 )
 {
   long n;
@@ -1874,11 +1907,9 @@ void appended_lines(linenr_T lnum, long count)
  */
 void appended_lines_mark(linenr_T lnum, long count)
 {
-  // Skip mark_adjust when adding a line after the last one, there can't
-  // be marks there. But it's still needed in diff mode.
-  if (lnum + count < curbuf->b_ml.ml_line_count || curwin->w_p_diff) {
-    mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L, false);
-  }
+  mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L, false);
+  extmark_adjust(curbuf, lnum + 1, (linenr_T)MAXLNUM, count, 0L,
+                 extmarkNoReverse, false);
   changed_lines(lnum + 1, 0, lnum + 1, count, true);
 }
 
@@ -1900,6 +1931,8 @@ void deleted_lines(linenr_T lnum, long count)
 void deleted_lines_mark(linenr_T lnum, long count)
 {
   mark_adjust(lnum, (linenr_T)(lnum + count - 1), (long)MAXLNUM, -count, false);
+  extmark_adjust(curbuf, lnum, (linenr_T)(lnum + count - 1),
+                 (long)MAXLNUM, -count, extmarkNoReverse, false);
   changed_lines(lnum, 0, lnum + count, -count, true);
 }
 

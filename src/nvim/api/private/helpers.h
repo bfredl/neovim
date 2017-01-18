@@ -97,6 +97,58 @@ typedef struct {
   int did_emsg;
 } TryState;
 
+//TODO(timeyyy): this definitoina needs to come from and be used
+// by extmarks
+#define Extremity -1
+
+// Extmarks may be queried from position or name or even special names
+// in the future such as "cursor". This macro sets the line and col
+// to make the extmark functions recognize what's required
+//
+// Relies on unhygenic behavior, following must be defined:
+//     buffer
+//     namespace
+//     err
+//
+// line: linenr_T, line to be set
+// col: colnr_T, col to be set
+// extremity: bool, if it's allowed to be an extremity index
+#define SET_EXTMARK_INDEX_FROM_OBJ(obj, _line, _col, _set, extremity) { \
+  /* Check if it is an extremity */ \
+  if (extremity && extmark_is_range_extremity(obj)) { \
+    _set = true;\
+    _line = Extremity;\
+    _col = Extremity;\
+  /* Check if it is a mark */ \
+  } else if (!_set) { \
+    ExtendedMark *_extmark = extmark_from_id_or_pos(buffer,\
+                                                    namespace,\
+                                                    obj,\
+                                                    err,\
+                                                    false);\
+    if (_extmark) { \
+      _set = true;\
+      _line = _extmark->line->lnum;\
+      _col = _extmark->col;\
+    } \
+  } \
+  /* Check if it is a position */ \
+  if (!_set && extmark_is_valid_pos(obj)) { \
+    if (obj.type == kObjectTypeArray) { \
+      if (obj.data.array.size != 2) { \
+        api_set_error(err, Validation, _("Position must have 2 elements"));\
+      } else { \
+        _set = true;\
+        _line = (linenr_T)obj.data.array.items[0].data.integer;\
+        _col = (colnr_T)obj.data.array.items[1].data.integer;\
+      }\
+    } else { \
+      api_set_error(err, Validation, _("Position must be in a list"));\
+    }\
+  } \
+}
+
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/private/helpers.h.generated.h"
 #endif

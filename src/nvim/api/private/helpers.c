@@ -22,6 +22,7 @@
 #include "nvim/eval/typval.h"
 #include "nvim/map_defs.h"
 #include "nvim/map.h"
+#include "nvim/mark_extended.h"
 #include "nvim/option.h"
 #include "nvim/option_defs.h"
 #include "nvim/version.h"
@@ -1223,6 +1224,81 @@ ArrayOf(Dictionary) keymap_array(String mode, buf_T *buf)
   tv_dict_free(dict);
 
   return mappings;
+
+// Returns an extmark given an id or a positional index
+// If throw == true then an error will be raised if nothing
+// was found
+// Returns NULL if something went wrong
+ExtendedMark *extmark_from_id_or_pos(Buffer buffer,
+                                     Integer namespace,
+                                     Object id,
+                                     Error *err,
+                                     bool throw)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return NULL;
+  }
+
+  ExtendedMark *extmark = NULL;
+  if (id.type == kObjectTypeArray) {
+    if (id.data.array.size != 2) {
+      api_set_error(err, kErrorTypeValidation,
+                    _("Position must have 2 elements"));
+      return NULL;
+    }
+    linenr_T row = (linenr_T)id.data.array.items[0].data.integer;
+    colnr_T col = (colnr_T)id.data.array.items[1].data.integer;
+    if (row < 1 || col < 1) {
+      if (throw) {
+      api_set_error(err, kErrorTypeValidation, _("Row and column MUST be > 0"));
+      }
+      return NULL;
+    }
+    extmark = extmark_from_pos(buf, (uint64_t)namespace, row, col);
+  } else if (id.type != kObjectTypeInteger) {
+    if (throw) {
+      api_set_error(err, kErrorTypeValidation,
+                    _("Mark id must be an int or [row, col]"));
+    }
+    return NULL;
+  } else if (id.data.integer < 0) {
+    if (throw) {
+      api_set_error(err, kErrorTypeValidation, _("Mark id must be positive"));
+    }
+    return NULL;
+  } else {
+    extmark = extmark_from_id(buf,
+                              (uint64_t)namespace,
+                              (uint64_t)id.data.integer);
+  }
+
+  if (!extmark) {
+    if (throw) {
+      api_set_error(err, kErrorTypeValidation, _("Mark doesn't exist"));
+    }
+    return NULL;
+  }
+  return extmark;
+}
+
+// Return true if the extmark id is for the beginning or end of
+// the buffer
+bool extmark_is_range_extremity(Object id)
+{
+  if (id.type == kObjectTypeInteger) {
+    if ((linenr_T)id.data.integer == Extremity) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Return true if the position is valid TODO
+bool extmark_is_valid_pos(Object id)
+{
+  return true;
 }
 
 
