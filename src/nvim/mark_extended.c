@@ -55,7 +55,8 @@ uint64_t extmark_ns_create(char *ns)
   return namespace_counter;
 }
 
-bool ns_initialized(uint64_t ns) {
+bool ns_initialized(uint64_t ns)
+{
   if (!EXTMARK_NAMESPACES) {
     return 0;
   }
@@ -251,7 +252,8 @@ static int extmark_delete(ExtendedMark *extmark,
                           ExtmarkReverseType undo)
 {
   if (undo != extmarkNoUndo) {
-    u_extmark_set(buf, ns, id, extmark->line->lnum, extmark->col, kExtmarkUnset);
+    u_extmark_set(buf, ns, id, extmark->line->lnum, extmark->col,
+                  kExtmarkUnset);
   }
 
   // Remove our key from the namespace
@@ -416,7 +418,8 @@ static bool u_compact_col_adjust(buf_T *buf,
                                  colnr_T mincol,
                                  long lnum_amount,
                                  long col_amount,
-                                 ExtmarkReverseType reverse) {
+                                 ExtmarkReverseType reverse)
+{
   if (reverse != extmarkNoReverse) {
     return false;
   }
@@ -505,7 +508,8 @@ void u_extmark_move(buf_T *buf,
                     linenr_T last_line,
                     linenr_T dest,
                     linenr_T num_lines,
-                    linenr_T extra) {
+                    linenr_T extra)
+{
   u_header_T  *uhp = get_undo_header(buf);
 
   AdjustMove move;
@@ -528,10 +532,10 @@ void u_extmark_move(buf_T *buf,
 // param: int i, the state, where we are in the list
 // param: undo, true if undo, false if redo
 int extmark_iter_undo(extmark_undo_vec_t all_undos,
-                     bool undo,
-                     int i,
-                     int *from,
-                     int *to)
+                      bool undo,
+                      int i,
+                      int *from,
+                      int *to)
 {
   *from = -1; *to = -1;
   ExtmarkUndoObject undo_info = kv_A(all_undos, i);
@@ -914,7 +918,8 @@ void extmark_put(kbtree_t(markitems) *b,
 // We only need to compare columns as rows are stored in different trees.
 // Marks are ordered by: position, namespace, mark_id
 // This improves moving marks but slows down all other use cases (searches)
-int mark_cmp(ExtendedMark a, ExtendedMark b) {
+int mark_cmp(ExtendedMark a, ExtendedMark b)
+{
   int cmp = kb_generic_cmp(a.col, b.col);
   if (cmp != 0) {
     return cmp;

@@ -10,7 +10,6 @@
 
 #include "nvim/api/buffer.h"
 #include "nvim/api/private/helpers.h"
-#include "nvim/api/private/helpers.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/vim.h"
 #include "nvim/buffer.h"
@@ -844,7 +843,8 @@ ArrayOf(Object) nvim_buf_get_mark_index(Buffer buffer,
 {
   Array rv = ARRAY_DICT_INIT;
 
-  ExtendedMark *extmark = extmark_from_id_or_pos(buffer, namespace, id, err, true);
+  ExtendedMark *extmark = extmark_from_id_or_pos(buffer, namespace, id, err,
+                                                 true);
 
   if (!extmark) {
     return rv;
