@@ -785,8 +785,8 @@ free_buffer_stuff (
   buf_init_changedtick(buf);
   uc_clear(&buf->b_ucmds);              // clear local user commands
   buf_delete_signs(buf);                // delete any signs
-  extmark_free_all(buf);
-  bufhl_clear_all(buf);                // delete any highligts
+  extmark_free_all(buf);                // delete any extmarks
+  bufhl_clear_all(buf);                 // delete any highligts
   map_clear_int(buf, MAP_ALL_MODES, true, false);    // clear local mappings
   map_clear_int(buf, MAP_ALL_MODES, true, true);     // clear local abbrevs
   xfree(buf->b_start_fenc);

@@ -332,10 +332,12 @@ void extmark_free_all(buf_T *buf)
     xfree(extline);
   })
   // TODO(timeyyy): why do we need the parans on the 2nd arg?
+  // k?_init called to set pointers to NULL
   kb_destroy(extlines, (&buf->b_extlines));
+  kb_init(&buf->b_extlines);
 
-  // This is emptied after a move
-  kv_destroy(buf->b_extmark_end_temp_space);
+  kv_destroy(buf->b_extmark_move_space);
+  kv_init(buf->b_extmark_move_space);
 }
 
 // TODO(timeyyy): make this non static ..
@@ -834,12 +836,12 @@ void extmark_adjust(buf_T * buf,
   // btree needs to be kept ordered to work, so far only :move requires this
   // 2nd call with end_temp =  unpack the lines from the temp position
   if (end_temp && amount < 0) {
-    for (size_t i = 0; i < kv_size(buf->b_extmark_end_temp_space); i++) {
-      _extline = kv_A(buf->b_extmark_end_temp_space, i);
+    for (size_t i = 0; i < kv_size(buf->b_extmark_move_space); i++) {
+      _extline = kv_A(buf->b_extmark_move_space, i);
       _extline->lnum += amount;
       kb_put(extlines, &buf->b_extlines, _extline);
     }
-    kv_size(buf->b_extmark_end_temp_space) = 0;
+    kv_size(buf->b_extmark_move_space) = 0;
     return;
   }
 
@@ -853,7 +855,7 @@ void extmark_adjust(buf_T * buf,
       // 1st call with end_temp = true, store the lines in a temp position
       if (end_temp && amount > 0) {
         kb_del_itr(extlines, &buf->b_extlines, &itr);
-        kv_push(buf->b_extmark_end_temp_space, extline);
+        kv_push(buf->b_extmark_move_space, extline);
       }
 
       // Delete the line
