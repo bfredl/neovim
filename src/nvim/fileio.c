@@ -5143,10 +5143,7 @@ void forward_slash(char_u *fname)
     return;
   }
   for (p = fname; *p != NUL; p++) {
-    // The Big5 encoding can have '\' in the trail byte.
-    if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1) {
-      p++;
-    } else if (*p == '\\') {
+    if (*p == '\\') {
       *p = '/';
     }
   }
@@ -7415,10 +7412,6 @@ char_u * file_pat_to_reg_pat(
 #endif
     default:
       size++;
-      if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1) {
-        ++p;
-        ++size;
-      }
       break;
     }
   }
@@ -7539,9 +7532,7 @@ char_u * file_pat_to_reg_pat(
         reg_pat[i++] = ',';
       break;
     default:
-      if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1)
-        reg_pat[i++] = *p++;
-      else if (allow_dirs != NULL && vim_ispathsep(*p))
+      if (allow_dirs != NULL && vim_ispathsep(*p))
         *allow_dirs = TRUE;
       reg_pat[i++] = *p;
       break;
