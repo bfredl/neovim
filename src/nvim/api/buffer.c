@@ -840,6 +840,7 @@ ArrayOf(Object) nvim_buf_get_mark_index(Buffer buffer,
                                         Integer namespace,
                                         Object id,
                                         Error *err)
+    FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
 
@@ -862,6 +863,7 @@ ArrayOf(Object) nvim_buf_get_mark_index(Buffer buffer,
 ArrayOf(Object) nvim_buf_get_mark_ids(Buffer buffer,
                                       Integer namespace,
                                       Error *err)
+    FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -898,6 +900,7 @@ ArrayOf(Integer, 3) nvim_buf_get_next_mark(Buffer buffer,
                                            Integer namespace,
                                            Object id,
                                            Error *err)
+    FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
   if (!ns_initialized((uint64_t)namespace)) {
@@ -943,6 +946,7 @@ ArrayOf(Object) nvim_buf_get_next_markrange(Buffer buffer,
                                             Object lower,
                                             Object upper,
                                             Error *err)
+    FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
   if (!ns_initialized((uint64_t)namespace)) {
@@ -1011,6 +1015,7 @@ ArrayOf(Integer, 3) nvim_buf_get_prev_mark(Buffer buffer,
                                            Integer namespace,
                                            Object id,
                                            Error *err)
+    FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
   if (!ns_initialized((uint64_t)namespace)) {
@@ -1056,6 +1061,7 @@ ArrayOf(Object) nvim_buf_get_prev_markrange(Buffer buffer,
                                             Object lower,
                                             Object upper,
                                             Error *err)
+    FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
   if (!ns_initialized((uint64_t)namespace)) {
@@ -1125,6 +1131,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
                           Integer row,
                           Integer col,
                           Error *err)
+    FUNC_API_SINCE(1)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1157,6 +1164,7 @@ Integer nvim_buf_unset_mark(Buffer buffer,
                             Integer namespace,
                             Integer id,
                             Error *err)
+    FUNC_API_SINCE(1)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);

@@ -1763,6 +1763,7 @@ Float nvim__id_float(Float flt)
 /// @param[out] err Details of an error that may have occurred
 /// @return integer id to be used with future mark_ calls, or 0 if name exists
 Integer nvim_init_mark_ns(String namespace, Error *err)
+    FUNC_API_SINCE(1)
 {
   uint64_t ns_id = extmark_ns_create(namespace.data);
   if (!ns_id) {
@@ -1777,6 +1778,7 @@ Integer nvim_init_mark_ns(String namespace, Error *err)
 /// @param[out] err Details of an error that may have occurred
 /// @return [[string name, int id], ...]
 ArrayOf(Object) nvim_mark_get_ns_ids(Error *err)
+    FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
   Array ns_array = ARRAY_DICT_INIT;
