@@ -1295,12 +1295,11 @@ bool extmark_is_range_extremity(Object id)
   return false;
 }
 
-// Return true if the position is valid TODO
+// Return true if the position is valid TODO(timeyyy): implement
 bool extmark_is_valid_pos(Object id)
 {
   return true;
 }
-
 
 // Is the Namespace in use?
 bool ns_initialized(uint64_t ns)
@@ -1309,4 +1308,56 @@ bool ns_initialized(uint64_t ns)
     return false;
   }
   return ns < current_namespace_id;
+}
+
+// Extmarks may be queried from position or name or even special names
+// in the future such as "cursor". This macro sets the line and col
+// to make the extmark functions recognize what's required
+//
+// *lnum: linenr_T, lnum to be set
+// *col: colnr_T, col to be set
+bool set_extmark_index_from_obj(Buffer buffer, Integer namespace,
+                                Object obj, linenr_T *lnum, colnr_T *col,
+                                Error *err)
+{
+  bool set = false;
+  // Check if it is an extremity
+  if (extmark_is_range_extremity(obj)) {
+    set = true;
+    *lnum = Extremity;
+    *col = Extremity;
+  // Check if it is a mark
+  } else if (!set) {
+    ExtendedMark *_extmark = extmark_from_id_or_pos(buffer,
+                                                    namespace,
+                                                    obj,
+                                                    err,
+                                                    false);
+    if (_extmark) {
+      set = true;
+      *lnum = _extmark->line->lnum;
+      *col = _extmark->col;
+    }
+  }
+  // Check if it is a position
+  if (!set && extmark_is_valid_pos(obj)) {
+    if (obj.type == kObjectTypeArray) {
+      if (obj.data.array.size != 2) {
+        api_set_error(err, kErrorTypeValidation,
+                      _("Position must have 2 elements"));
+      } else {
+        set = true;
+        *lnum = (linenr_T)obj.data.array.items[0].data.integer;
+        *col = (colnr_T)obj.data.array.items[1].data.integer;
+      }
+    } else {
+      api_set_error(err, kErrorTypeValidation,
+                    _("Position must be in a list"));
+    }
+  }
+  if (set) {
+    return true;
+  } else {
+    return false;
+  }
 }

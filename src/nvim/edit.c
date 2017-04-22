@@ -1203,7 +1203,7 @@ normalchar:
             if (s->c == CAR || s->c == K_KENTER || s->c == NL) {
               ins_eol(s->c);
             } else {
-              ins_char(s->c, false);
+              ins_char(s->c);
             }
           }
           AppendToRedobuffLit(str, -1);
@@ -3083,9 +3083,9 @@ static void ins_compl_addleader(int c)
 
     (*mb_char2bytes)(c, buf);
     buf[cc] = NUL;
-    ins_char_bytes(buf, cc, false);
+    ins_char_bytes(buf, cc);
   } else {
-    ins_char(c, false);
+    ins_char(c);
   }
 
   /* If we didn't complete finding matches we must search again. */
@@ -5324,6 +5324,8 @@ insertchar (
     do_digraph(buf[i-1]);               /* may be the start of a digraph */
     buf[i] = NUL;
     ins_str(buf);
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+                     (long)STRLEN(buf), kExtmarkNoReverse);
     if (flags & INSCHAR_CTRLV) {
       redo_literal(*buf);
       i = 1;
@@ -5334,15 +5336,23 @@ insertchar (
   } else {
     int cc;
 
+    // TODO(timeyyy): refactor  this if block away, need to manually test that 
+    // inserts still work as the tests don't catch it
     if (has_mbyte && (cc = (*mb_char2len)(c)) > 1) {
       char_u buf[MB_MAXBYTES + 1];
 
       (*mb_char2bytes)(c, buf);
       buf[cc] = NUL;
-      ins_char_bytes(buf, cc, false);
+      ins_char_bytes(buf, cc);
+      // TODO(timeyyy): test this code path...
+      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+                         cc, kExtmarkNoReverse);
       AppendCharToRedobuff(c);
     } else {
-      ins_char(c, true);
+      ins_char(c);
+      char_u buf[MB_MAXBYTES + 1];
+      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+                         1, kExtmarkNoReverse);
       if (flags & INSCHAR_CTRLV) {
         redo_literal(c);
       } else {
@@ -6614,7 +6624,7 @@ static void mb_replace_pop_ins(int cc)
       buf[i] = replace_pop();
     ins_bytes_len(buf, n);
   } else {
-    ins_char(cc, false);
+    ins_char(cc);
   }
 
   if (enc_utf8)
@@ -7728,7 +7738,7 @@ static bool ins_bs(int c, int mode, int *inserted_space_p)
         }
 
         if (State & VREPLACE_FLAG) {
-          ins_char(' ', false);
+          ins_char(' ');
         } else {
           ins_str((char_u *)" ");
           if ((State & REPLACE_FLAG))
@@ -8212,17 +8222,17 @@ static bool ins_tab(void)
                      curwin->w_cursor.col,
                      0,
                      temp,
-                     extmarkNoReverse);
+                     kExtmarkNoReverse);
 
   /*
    * Insert the first space with ins_char().	It will delete one char in
    * replace mode.  Insert the rest with ins_str(); it will not delete any
    * chars.  For VREPLACE mode, we use ins_char() for all characters.
    */
-  ins_char(' ', false);
+  ins_char(' ');
   while (--temp > 0) {
     if (State & VREPLACE_FLAG) {
-      ins_char(' ', false);
+      ins_char(' ');
     } else {
       ins_str((char_u *)" ");
       if (State & REPLACE_FLAG) {            // no char replaced

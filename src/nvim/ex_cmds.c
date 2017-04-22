@@ -610,13 +610,9 @@ void ex_sort(exarg_T *eap)
   deleted = (long)(count - (lnum - eap->line2));
   if (deleted > 0) {
     mark_adjust(eap->line2 - deleted, eap->line2, (long)MAXLNUM, -deleted,
-                false);
-    extmark_adjust(curbuf, eap->line2 - deleted, eap->line2, (long)MAXLNUM,
-                   -deleted, extmarkNoReverse, false);
+                false, kExtmarkNoReverse);
   } else if (deleted < 0) {
-    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L, false);
-    extmark_adjust(curbuf, eap->line2, MAXLNUM, -deleted, 0L, extmarkNoReverse,
-                   false);
+    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L, false, kExtmarkNoReverse);
   }
   changed_lines(eap->line1, 0, eap->line2 + 1, -deleted, true);
 
@@ -812,14 +808,12 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
    * their final destination at the new text position -- webb
    */
   last_line = curbuf->b_ml.ml_line_count;
-  mark_adjust_nofold(line1, line2, last_line - line2, 0L, true);
-  extmark_adjust(curbuf, line1, line2, last_line - line2, 0L, extmarkNoUndo,
+  mark_adjust_nofold(line1, line2, last_line - line2, 0L, true, kExtmarkNoUndo);
+  extmark_adjust(curbuf, line1, line2, last_line - line2, 0L, kExtmarkNoUndo,
                  true);
   changed_lines(last_line - num_lines + 1, 0, last_line + 1, num_lines, false);
   if (dest >= line2) {
-    mark_adjust_nofold(line2 + 1, dest, -num_lines, 0L, false);
-    extmark_adjust(curbuf, line2 + 1, dest, -num_lines, 0L, extmarkNoUndo,
-                  false);
+    mark_adjust_nofold(line2 + 1, dest, -num_lines, 0L, false, kExtmarkNoUndo);
     FOR_ALL_TAB_WINDOWS(tab, win) {
       if (win->w_buffer == curbuf) {
         foldMoveRange(&win->w_folds, line1, line2, dest);
@@ -828,9 +822,7 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
     curbuf->b_op_start.lnum = dest - num_lines + 1;
     curbuf->b_op_end.lnum = dest;
   } else {
-    mark_adjust_nofold(dest + 1, line1 - 1, num_lines, 0L, false);
-    extmark_adjust(curbuf, dest + 1, line1 - 1, num_lines, 0L, extmarkNoUndo,
-                   false);
+    mark_adjust_nofold(dest + 1, line1 - 1, num_lines, 0L, false, kExtmarkNoUndo);
     FOR_ALL_TAB_WINDOWS(tab, win) {
       if (win->w_buffer == curbuf) {
         foldMoveRange(&win->w_folds, dest + 1, line1 - 1, line2);
@@ -841,9 +833,7 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
   }
   curbuf->b_op_start.col = curbuf->b_op_end.col = 0;
   mark_adjust_nofold(last_line - num_lines + 1, last_line,
-                     -(last_line - dest - extra), 0L, true);
-  extmark_adjust(curbuf, last_line - num_lines + 1, last_line,
-                 -(last_line - dest - extra), 0L, extmarkNoUndo, true);
+                     -(last_line - dest - extra), 0L, true, kExtmarkNoUndo);
 
   u_extmark_move(curbuf, line1, line2, last_line, dest, num_lines, extra);
   changed_lines(last_line - num_lines + 1, 0, last_line + 1, -extra, false);
@@ -1254,18 +1244,14 @@ static void do_filter(
       if (cmdmod.keepmarks || vim_strchr(p_cpo, CPO_REMMARK) == NULL) {
         if (read_linecount >= linecount) {
           // move all marks from old lines to new lines
-          mark_adjust(line1, line2, linecount, 0L, false);
-          extmark_adjust(curbuf, line1, line2, linecount, 0L, extmarkNoReverse,
-                         false);
+          mark_adjust(line1, line2, linecount, 0L, false, kExtmarkNoReverse);
         } else {
           // move marks from old lines to new lines, delete marks
           // that are in deleted lines
-          mark_adjust(line1, line1 + read_linecount - 1, linecount, 0L, false);
-          extmark_adjust(curbuf, line1, line1 + read_linecount - 1,
-                         linecount, 0L, extmarkNoReverse, false);
-          mark_adjust(line1 + read_linecount, line2, MAXLNUM, 0L, false);
-          extmark_adjust(curbuf, line1 + read_linecount, line2, MAXLNUM, 0L,
-                         extmarkNoReverse, false);
+          mark_adjust(line1, line1 + read_linecount - 1, linecount, 0L, false,
+                      kExtmarkNoReverse);
+          mark_adjust(line1 + read_linecount, line2, MAXLNUM, 0L, false,
+                      kExtmarkNoReverse);
         }
       }
 
@@ -3871,9 +3857,8 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
                 *p1 = NUL;                            // truncate up to the CR
                 ml_append(lnum - 1, new_start,
                           (colnr_T)(p1 - new_start + 1), false);
-                mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false);
-                extmark_adjust(curbuf, lnum + 1, (linenr_T)MAXLNUM, 1L, 0L,
-                               extmarkNoReverse, false);
+                mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false,
+                            kExtmarkNoReverse);
                 if (subflags.do_ask) {
                   appended_lines(lnum - 1, 1L);
                 } else {
@@ -3964,9 +3949,7 @@ skip:
               for (i = 0; i < nmatch_tl; ++i)
                 ml_delete(lnum, (int)FALSE);
               mark_adjust(lnum, lnum + nmatch_tl - 1,
-                          (long)MAXLNUM, -nmatch_tl, false);
-              extmark_adjust(curbuf, lnum, lnum + nmatch_tl - 1, (long)MAXLNUM,
-                             -nmatch_tl, extmarkNoReverse, false);
+                          (long)MAXLNUM, -nmatch_tl, false, kExtmarkNoReverse);
               if (subflags.do_ask) {
                 deleted_lines(lnum, nmatch_tl);
               }

@@ -1,11 +1,14 @@
 #ifndef NVIM_MARK_EXTENDED_H
 #define NVIM_MARK_EXTENDED_H
 
-// #include "nvim/vim.h" // why does this blow everything up..
 #include "nvim/mark_extended_defs.h"
 #include "nvim/lib/kbtree.h"
 #include "nvim/lib/kvec.h"
 #include "nvim/map.h"
+
+
+// TODO(timeyyy): Support '.', normal vim marks etc
+#define Extremity -1    // Start or End of lnum or col
 
 
 #define extline_cmp(a, b) (kb_generic_cmp((a)->lnum, (b)->lnum))
@@ -20,14 +23,14 @@
 #define FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, code)\
   kbitr_t(extlines) itr;\
   ExtMarkLine t;\
-  t.lnum = l_lnum;\
+  t.lnum = l_lnum == Extremity ? MINLNUM : l_lnum;\
   if (!kb_itr_get(extlines, &buf->b_extlines, &t, &itr)) { \
     kb_itr_next(extlines, &buf->b_extlines, &itr);\
   }\
   ExtMarkLine *extline;\
   for (; kb_itr_valid(&itr); kb_itr_next(extlines, &buf->b_extlines, &itr)) { \
     extline = kb_itr_key(&itr);\
-    if (extline->lnum > u_lnum && u_lnum !=-1) { \
+    if (extline->lnum > u_lnum && u_lnum != Extremity) { \
       break;\
     }\
       code;\
@@ -37,14 +40,14 @@
 #define FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, code)\
   kbitr_t(extlines) itr;\
   ExtMarkLine t;\
-  t.lnum = u_lnum;\
+  t.lnum = u_lnum == Extremity ? MAXLNUM : u_lnum;\
   if (!kb_itr_get(extlines, &buf->b_extlines, &t, &itr)) { \
     kb_itr_prev(extlines, &buf->b_extlines, &itr);\
   }\
   ExtMarkLine *extline;\
   for (; kb_itr_valid(&itr); kb_itr_prev(extlines, &buf->b_extlines, &itr)) { \
     extline = kb_itr_key(&itr);\
-    if (extline->lnum < l_lnum && l_lnum !=-1) { \
+    if (extline->lnum < l_lnum && l_lnum != Extremity) { \
       break;\
     }\
     code;\
@@ -57,7 +60,7 @@
   mt.ns_id = ns;\
   mt.mark_id = 0;\
   mt.line = NULL;\
-  mt.col = l_col;\
+  mt.col = l_col ==  Extremity ? MINCOL : l_col;\
   FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, { \
     if (!kb_itr_get(markitems, &extline->items, mt, &mitr)) { \
         kb_itr_next(markitems, &extline->items, &mitr);\
@@ -65,7 +68,7 @@
     ExtendedMark *extmark;\
     for (; kb_itr_valid(&mitr); kb_itr_next(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
-      if (extmark->col > u_col && u_col !=-1) { \
+      if (extmark->col > u_col && u_col != Extremity) { \
         break;\
       }\
       code;\
@@ -79,7 +82,7 @@
   ExtendedMark mt;\
   mt.mark_id = sizeof(uint64_t);\
   mt.ns_id = ns;\
-  mt.col = u_col;\
+  mt.col = u_col == Extremity ? MAXCOL : u_col;\
   FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, { \
     if (!kb_itr_get(markitems, &extline->items, mt, &mitr)) { \
         kb_itr_prev(markitems, &extline->items, &mitr);\
@@ -87,7 +90,7 @@
     ExtendedMark *extmark;\
     for (; kb_itr_valid(&mitr); kb_itr_prev(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
-      if (extmark->col < l_col && l_col !=-1) { \
+      if (extmark->col < l_col && l_col != Extremity) { \
           break;\
       }\
       code;\
@@ -128,6 +131,8 @@ typedef struct ExtMarkLine
 KBTREE_INIT(extlines, ExtMarkLine *, extline_cmp, 10)
 
 
+extern uint64_t extmark_namespace_counter;
+
 // All extmark namespaces that exist in nvim
 typedef Map(uint64_t, cstr_t) _NS;
 _NS *EXTMARK_NAMESPACES;
@@ -147,11 +152,13 @@ typedef kvec_t(ExtendedMark *) ExtmarkArray;
 // Undo/redo extmarks
 
 typedef enum {
-  extmarkNoReverse,
-  extmarkNoUndo,
-  extmarkReverse,
-  extmarkReverseEnd,
-} ExtmarkReverseType;
+  kExtmarkNOOP,      // Extmarks shouldn't be moved
+  kExtmarkNoReverse, // Iterate the undo/redo in LIFO order
+  kExtmarkNoUndo,    // The move should not be reversable
+  kExtmarkReverse,   // Start marker for FIFO iteration of the undo/redo items
+  kExtmarkReverseEnd, // Stop marker for FIFO iteration of the undo/redo items
+} ExtmarkReverse;
+
 
 typedef struct {
   linenr_T line1;
@@ -210,7 +217,7 @@ typedef enum {
 
 struct undo_object {
   UndoObjectType type;
-  ExtmarkReverseType reverse;
+  ExtmarkReverse reverse;
   union {
     Adjust adjust;
     ColAdjust col_adjust;

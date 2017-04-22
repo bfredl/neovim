@@ -1759,24 +1759,20 @@ Float nvim__id_float(Float flt)
 
 /// Setup a new namepsace for holding your marks
 ///
-/// @param namespace String name for the mark namespace
+/// @param namespace String name to be assigned the mark namespace
 /// @param[out] err Details of an error that may have occurred
 /// @return integer id to be used with future mark_ calls, or 0 if name exists
 Integer nvim_init_mark_ns(String namespace, Error *err)
     FUNC_API_SINCE(1)
 {
   uint64_t ns_id = extmark_ns_create(namespace.data);
-  if (!ns_id) {
-    api_set_error(err, Validation, _("Namespace already exists"));
-    return 0;
-  }
   return (Integer)ns_id;
 }
 
 /// Returns a list of mark namespaces
 ///
 /// @param[out] err Details of an error that may have occurred
-/// @return [[string name, int id], ...]
+/// @return [[id, name], ...]
 ArrayOf(Object) nvim_mark_get_ns_ids(Error *err)
     FUNC_API_SINCE(1)
 {

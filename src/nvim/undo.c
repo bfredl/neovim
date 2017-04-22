@@ -2249,7 +2249,7 @@ static void u_undoredo(int undo, bool do_buf_event)
     // Adjust marks
     if (oldsize != newsize) {
       mark_adjust(top + 1, top + oldsize, (long)MAXLNUM,
-                  (long)newsize - (long)oldsize, false);
+                  (long)newsize - (long)oldsize, false, kExtmarkNOOP);
       if (curbuf->b_op_start.lnum > top + oldsize) {
         curbuf->b_op_start.lnum += newsize - oldsize;
       }

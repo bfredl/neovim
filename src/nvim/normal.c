@@ -5950,17 +5950,17 @@ static void nv_replace(cmdarg_T *cap)
           int c = ins_copychar(curwin->w_cursor.lnum
               + (cap->nchar == Ctrl_Y ? -1 : 1));
           if (c != NUL)
-            ins_char(c, false);
+            ins_char(c);
           else
             /* will be decremented further down */
             ++curwin->w_cursor.col;
         } else
-          ins_char(cap->nchar, false);
+          ins_char(cap->nchar);
         State = old_State;
         if (cap->ncharC1 != 0)
-          ins_char(cap->ncharC1, false);
+          ins_char(cap->ncharC1);
         if (cap->ncharC2 != 0)
-          ins_char(cap->ncharC2, false);
+          ins_char(cap->ncharC2);
       }
     } else {
       /*
