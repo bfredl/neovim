@@ -392,3 +392,19 @@ Boolean nvim_win_is_valid(Window window)
   return ret;
 }
 
+
+void nvim_win_float_set_pos(Window window, Integer x, Integer y, Integer w, Integer h, Error *err)
+  FUNC_API_SINCE(1)
+{
+  win_T *win = find_window_by_handle(window, err);
+
+  if (!win || !win->w_floating) {
+    return;
+  }
+
+  win->w_wincol = x;
+  win->w_winrow = y;
+  win->w_width = w;
+  win->w_height = h;
+}
+
