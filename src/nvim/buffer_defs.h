@@ -925,6 +925,24 @@ struct matchitem {
   int conceal_char;         ///< cchar for Conceal highlighting
 };
 
+typedef enum {
+    kFloatAnchorEast = 1,
+    kFloatAnchorSouth = 2,
+
+    kFloatAnchorNW = 0,
+    kFloatAnchorNE = 1,
+    kFloatAnchorSW = 2,
+    kFloatAnchorSE = 3,
+
+    // should be ORed with any above to add a fallback for
+    // UIs and TUI not supporting standalone popups
+    kFloatStandalone = 4,
+
+    // can not be set to curwin, ignore mouse events
+    kFloatUnfocusable = 8,
+
+} FloatMode;
+
 /*
  * Structure which contains all information that belongs to a window
  *
@@ -1153,6 +1171,9 @@ struct window_S {
   taggy_T w_tagstack[TAGSTACKSIZE];             /* the tag stack */
   int w_tagstackidx;                    /* idx just below active entry */
   int w_tagstacklen;                    /* number of tags on stack */
+
+  int w_floating;                       /* if the window is floating */
+  FloatMode w_float_mode;
 
   /*
    * w_fraction is the fractional row of the cursor within the window, from
