@@ -35,6 +35,7 @@ a dictionary with these (optional) keys:
 	`ext_linegrid`		Use new revision of the grid events. |ui-linegrid|
 	`ext_multigrid`		Use per-window grid based events. |ui-multigrid|
 	`ext_hlstate`		Use detailed highlight state. |ui-hlstate|
+	`ext_float`		Externalize floating windows. |ui-float|
 
 Specifying a non-existent option is an error. UIs can check the |api-metadata|
 `ui_options` key for supported options. Additionally Nvim (currently) requires
@@ -225,7 +226,7 @@ global grid used by default for the entire editor screen state. Grids other
 than that will be defined by future extensions. Just activating the
 `ext_linegrid` option by itself will never cause any additional grids to be
 created.  To enable per-window grids, `ext_multigrid` option should be set (see
-|ui-multigrid|).
+|ui-multigrid|). To control the drawing of floats, use `ext_float`.
 
 Highlight attribute groups are predefined. UIs should maintain a table to map
 numerical highlight `id`:s to the actual attributes.
@@ -635,6 +636,30 @@ Only sent if `ext_wildmenu` option is set in |ui-options|
 
 ["wildmenu_hide"]
 	Hide the wildmenu.
+
+==============================================================================
+Floating window Events						      *ui-float*
+
+Only sent if `ext_float` option is set in |ui-options|.
+
+This extension allows the UI to draw floating windows (described at
+|nvim_open_float_win|) by receieving updates on separate grids. Using this
+extension implicitly activates `ext_newgrid` extension. Floats will be drawn
+on separate grids, identified by the `grid` parameter in most |ui-newgrid|
+events. 
+
+If `ext_float` option is not set, nvim will draw floating windows on the main
+grid, just like when using the TUI.
+
+["win_float_position", win, grid, options]
+	Display or reconfigure floating window `win`. A `grid` handle is allocated
+	for drawing on the window using |ui-newgrid| events. For the meaning of
+	`options` see |nvim_open_float_win|.
+
+["win_close", win, grid]
+	Close the (floating) window. Note `grid` might still be reused, if the
+	same window is hidden and later redisplayed, for instance when
+	switching tabs.
 
 ==============================================================================
  vim:tw=78:ts=8:noet:ft=help:norl:

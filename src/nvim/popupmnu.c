@@ -359,7 +359,7 @@ void pum_redraw(void)
 
   grid_assign_handle(&pum_grid);
   bool moved = ui_comp_put_grid(&pum_grid, pum_row, pum_col-col_off,
-                                pum_height, grid_width);
+                                pum_height, grid_width, false);
 
   if (!pum_grid.chars
       || pum_grid.Rows != pum_height || pum_grid.Columns != grid_width) {
@@ -368,6 +368,8 @@ void pum_redraw(void)
   } else if (moved) {
     grid_invalidate(&pum_grid);
   }
+  ui_call_win_float_pos(pum_grid.handle, 0, cstr_to_string("SW"), 1, pum_row, pum_col-col_off,
+                        (Dictionary)ARRAY_DICT_INIT);
 
 
   // Never display more than we have

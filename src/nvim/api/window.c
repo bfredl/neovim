@@ -432,3 +432,41 @@ Boolean nvim_win_is_valid(Window window)
   return ret;
 }
 
+
+/// Turn window into float, or reconfigure existing float
+///
+/// See documentation at |nvim_open_float_win|, for the meaning of parameters.
+///
+/// When reconfiuring an existing float, absent option keys will not be
+/// changed. The following restriction apply though: `x`, `y` and `relative`
+/// must be reconfigured togheter. If a non-empty subset of these are supplied,
+/// the others of these will behave as if reset to the default value.
+void nvim_win_config_float(Window window, Integer width, Integer height,
+                           Dictionary options, Error *err)
+  FUNC_API_SINCE(5)
+{
+  win_T *win = find_window_by_handle(window, err);
+  if (!win) {
+    return;
+  }
+  bool new_float = !win->w_floating;
+  width = width > 0 ? width: win->w_width;
+  height = height > 0 ? height : win->w_height;
+  // reuse old values, if not overriden
+  FloatConfig config = new_float ? FLOAT_CONFIG_INIT : win->w_float_config;
+
+  // TODO(bfredl): error
+  if (!parse_float_config(options, &config, !new_float)) {
+    return;
+  }
+  if (new_float) {
+    if (!win_new_float(win, (int)width, (int)height, config)) {
+      // TODO(bfredl): ERROR
+      return;
+    }
+    redraw_later(NOT_VALID);
+  } else {
+    win_config_float(win, (int)width, (int)height, config);
+    win->w_pos_changed = true;
+  }
+}

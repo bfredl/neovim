@@ -101,7 +101,14 @@ void event(char *name, Array args, bool *args_consumed)
 void win_pos(Integer grid, Integer win, Integer startrow,
              Integer startcol, Integer width, Integer height)
   FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
+void win_float_pos(Integer grid, Window win, String anchor, Integer anchor_grid,
+                   Float anchor_row, Float anchor_col, Dictionary options)
+  FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
+void win_standalone_pos(Integer grid, Window win)
+  FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
 void win_hide(Integer grid)
+  FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
+void win_close(Integer grid)
   FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
 void win_scroll_over_start(void)
   FUNC_API_SINCE(6) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
@@ -141,4 +148,5 @@ void wildmenu_select(Integer selected)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void wildmenu_hide(void)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
+
 #endif  // NVIM_API_UI_EVENTS_IN_H

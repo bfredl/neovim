@@ -232,6 +232,11 @@ retnomove:
 
     row -= curwin->w_winrow;
     col -= curwin->w_wincol;
+    // TODO: check this, maybe this was specifically for dragging?
+    if (mouse_grid == -1 && curwin->w_floating) {
+      row -= curwin->w_grid.comp_row;
+      col -= curwin->w_grid.comp_col;
+    }
 
     // When clicking beyond the end of the window, scroll the screen.
     // Scroll by however many rows outside the window we are.
@@ -441,12 +446,6 @@ win_T *mouse_find_win(int *gridp, int *rowp, int *colp)
     return wp_grid;
   }
 
-  // TODO(bfredl): grid zero will have floats displayed on it, and will
-  // be adjusted to float grids.
-  if (*gridp == 0) {
-    *gridp = DEFAULT_GRID_HANDLE;
-  }
-
   frame_T     *fp;
 
   fp = topframe;
@@ -478,15 +477,31 @@ win_T *mouse_find_win(int *gridp, int *rowp, int *colp)
   return NULL;
 }
 
-static win_T *mouse_find_grid_win(int *grid, int *rowp, int *colp)
+static win_T *mouse_find_grid_win(int *gridp, int *rowp, int *colp)
 {
-  if (*grid > 1) {
-    win_T *wp = get_win_by_grid_handle(*grid);
+  if (*gridp > 1) {
+    win_T *wp = get_win_by_grid_handle(*gridp);
     if (wp && wp->w_grid.chars) {
       *rowp = MIN(*rowp, wp->w_grid.Rows-1);
       *colp = MIN(*colp, wp->w_grid.Columns-1);
       return wp;
     }
+  } else if (*gridp == 0) {
+    FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+      if (!wp->w_floating || wp->w_float_config.unfocusable) {
+        continue;
+      }
+      if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow+wp->w_height
+          && *colp >= wp->w_wincol && *colp < wp->w_wincol+wp->w_width) {
+        *gridp = wp->w_grid.handle;
+        *rowp -= wp->w_winrow;
+        *colp -= wp->w_wincol;
+        return wp;
+      }
+    }
+
+    // no float found, click on the default grid
+    *gridp = DEFAULT_GRID_HANDLE;
   }
   return NULL;
 }

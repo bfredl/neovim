@@ -18,6 +18,7 @@ typedef enum {
   kUILinegrid,
   kUIMultigrid,
   kUIHlState,
+  kUIFloat,
   kUIExtCount,
 } UIExtension;
 
@@ -29,8 +30,8 @@ EXTERN const char *ui_ext_names[] INIT(= {
   "ext_linegrid",
   "ext_multigrid",
   "ext_hlstate",
+  "ext_float",
 });
-
 
 typedef struct ui_t UI;
 

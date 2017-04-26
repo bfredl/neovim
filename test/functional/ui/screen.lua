@@ -158,6 +158,7 @@ function Screen.new(width, height)
     wildmenu_items = nil,
     wildmenu_selected = nil,
     win_position = {},
+    float_info = {},
     _session = nil,
     _default_attr_ids = nil,
     _default_attr_ignore = nil,
@@ -222,10 +223,9 @@ function Screen:attach(options, session)
     -- simplify test code by doing the same.
     self._options.rgb = true
   end
-  if self._options.ext_multigrid then
+  if self._options.ext_multigrid or self._options.ext_float then
     self._options.ext_linegrid = true
   end
-  self._session = session
 end
 
 function Screen:detach()
@@ -636,7 +636,7 @@ function Screen:_handle_grid_resize(grid, width, height)
   end
 
   if self._cursor.grid == grid then
-    self._cursor.row = 1
+    self._cursor.row = 1 -- -1 ?
     self._cursor.col = 1
   end
   self._grids[grid] = {
@@ -669,7 +669,6 @@ function Screen:_reset()
   self.wildmenu_items = nil
   self.wildmenu_pos = nil
 end
-
 
 function Screen:_handle_mode_info_set(cursor_style_enabled, mode_info)
   self._cursor_style_enabled = cursor_style_enabled
@@ -726,6 +725,22 @@ function Screen:_handle_grid_cursor_goto(grid, row, col)
   self._cursor.grid = grid
   self._cursor.row = row + 1
   self._cursor.col = col + 1
+end
+
+function Screen:_handle_win_float_pos(grid, ...)
+  self.float_info[grid] = {...}
+end
+
+function Screen:_handle_win_standalone_pos(grid)
+  self.float_info[grid] = {standalone=true}
+end
+
+function Screen:_handle_win_hide(grid)
+  self.float_info[grid] = nil
+end
+
+function Screen:_handle_win_close(grid)
+  self.float_info[grid] = nil
 end
 
 function Screen:_handle_busy_start()
@@ -1097,7 +1112,9 @@ function Screen:redraw_debug(attrs, ignore, timeout)
   local function notification_cb(method, args)
     assert(method == 'redraw')
     for _, update in ipairs(args) do
-      print(require('inspect')(update))
+      if update[1] ~= "mode_info_set" then
+        print(require('inspect')(update))
+      end
     end
     self:_redraw(args)
     self:print_snapshot(attrs, ignore)
@@ -1110,7 +1127,7 @@ function Screen:redraw_debug(attrs, ignore, timeout)
 end
 
 function Screen:render(headers, attr_state, preview)
-  headers = headers and self._options.ext_multigrid
+  headers = headers and (self._options.ext_multigrid or self._options.ext_float)
   local rv = {}
   for igrid,grid in pairs(self._grids) do
     if headers then

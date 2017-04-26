@@ -106,7 +106,8 @@ bool ui_comp_should_draw(void)
 /// TODO(bfredl): later on the compositor should just use win_float_pos events,
 /// though that will require slight event order adjustment: emit the win_pos
 /// events in the beginning of  update_screen(0), rather than in ui_flush()
-bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width)
+bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width,
+                      bool valid)
 {
   if (grid->comp_index != 0) {
     bool moved = (row != grid->comp_row) || (col != grid->comp_col);
@@ -147,6 +148,10 @@ bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width)
   grid->comp_row = row;
   grid->comp_col = col;
   grid->comp_index = kv_size(layers)-1;
+  if (valid && ui_comp_should_draw()) {
+    compose_area(grid->comp_row, grid->comp_row+grid->Rows,
+                 grid->comp_col, grid->comp_col+grid->Columns);
+  }
   return true;
 }
 
