@@ -690,6 +690,23 @@ void nvim_set_current_win(Window window, Error *err)
   }
 }
 
+Window nvim_open_floating_win(Buffer buffer,
+                              Integer x, Integer y, Integer w, Integer h,
+                              Integer mode, Boolean enter, Error *err)
+  FUNC_API_SINCE(3)
+{
+  win_T *old = curwin;
+  win_T *wp = win_new_floating(x, y, w, h, mode);
+  // TODO: -1 to alloc a fresh buffer?
+  if (buffer > 0) {
+    nvim_set_current_buf(buffer, err);
+  }
+  if (!enter) {
+    win_enter(old, false);
+  }
+  return wp->handle;
+}
+
 /// Gets the current list of tabpage handles
 ///
 /// @return List of tabpage handles

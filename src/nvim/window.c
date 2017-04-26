@@ -208,8 +208,14 @@ newwindow:
           wp = curwin->w_prev;
           if (wp == NULL)
             wp = lastwin;                           /* wrap around */
+          while (wp != NULL && wp->w_floating && wp->w_float_mode & kFloatUnfocusable) {
+            wp = wp->w_prev;
+          }
         } else {                                  /* go to next window */
           wp = curwin->w_next;
+          while (wp != NULL && wp->w_floating && wp->w_float_mode & kFloatUnfocusable) {
+            wp = wp->w_next;
+          }
           if (wp == NULL)
             wp = firstwin;                          /* wrap around */
         }
@@ -503,6 +509,33 @@ static void cmd_with_count(char *cmd, char_u *bufp, size_t bufsize,
   if (Prenum > 0 && len < bufsize) {
     vim_snprintf((char *)bufp + len, bufsize - len, "%" PRId64, Prenum);
   }
+}
+
+win_T *win_new_floating(int x, int y, int width, int height, FloatMode mode)
+{
+  win_T *wp;
+  wp = win_alloc(curwin, false);
+  wp->w_floating = 1;
+  win_init(wp, curwin, 0);
+  wp->w_float_mode = mode;
+  win_floating_move(wp, x,y,width, height);
+  wp->w_status_height = 0;
+  wp->w_vsep_width = 0;
+  redraw_win_later(wp, VALID);
+  win_enter(wp, false);
+  return wp;
+}
+
+void win_floating_move(win_T *wp, int x, int y, int width, int height)
+{
+
+  bool east = wp->w_float_mode & kFloatAnchorEast;
+  bool south = wp->w_float_mode & kFloatAnchorSouth;
+  // TODO: for ext UI this need to be handled differently
+  wp->w_wincol = x - (east ? width : 0);
+  wp->w_winrow = y - (south ? height : 0);
+  wp->w_height = height;
+  wp->w_width = width;
 }
 
 /*
@@ -1904,7 +1937,15 @@ int win_close(win_T *win, int free_buf)
      * Guess which window is going to be the new current window.
      * This may change because of the autocommands (sigh).
      */
-    wp = frame2win(win_altframe(win, NULL));
+    if (!win->w_floating) {
+        wp = frame2win(win_altframe(win, NULL));
+    } else {
+        if (win_valid(prevwin)) {
+            wp = prevwin;
+        } else {
+            wp = curtab->tp_firstwin;
+        }
+    }
 
     /*
      * Be careful: If autocommands delete the window or cause this window
@@ -2149,9 +2190,17 @@ win_free_mem (
   win_T       *wp;
 
   /* Remove the window and its frame from the tree of frames. */
-  frp = win->w_frame;
-  wp = winframe_remove(win, dirp, tp);
-  xfree(frp);
+  if (!win->w_floating) {
+    frp = win->w_frame;
+    wp = winframe_remove(win, dirp, tp);
+    xfree(frp);
+  } else {
+    if (win_valid(prevwin)) {
+      wp = prevwin;
+    } else {
+      wp = curtab->tp_firstwin;
+    }
+  }
   win_free(win, tp);
 
   /* When deleting the current window of another tab page select a new
@@ -3511,6 +3560,12 @@ win_goto_ver (
   frame_T     *foundfr;
 
   foundfr = curwin->w_frame;
+
+  if (curwin->w_floating) {
+    win_goto(prevwin);
+    return;
+  }
+
   while (count--) {
     /*
      * First go upwards in the tree of frames until we find an upwards or
@@ -3570,6 +3625,12 @@ win_goto_hor (
   frame_T     *foundfr;
 
   foundfr = curwin->w_frame;
+
+  if (curwin->w_floating) {
+    win_goto(prevwin);
+    return;
+  }
+
   while (count--) {
     /*
      * First go upwards in the tree of frames until we find a left or
@@ -3849,6 +3910,7 @@ static win_T *win_alloc(win_T *after, int hidden)
   new_wp->w_botline = 2;
   new_wp->w_cursor.lnum = 1;
   new_wp->w_scbind_pos = 1;
+  new_wp->w_floating = 0;
 
   /* We won't calculate w_fraction until resizing the window */
   new_wp->w_fraction = 0;
@@ -4204,7 +4266,9 @@ void win_setheight_win(int height, win_T *win)
       height = 1;
   }
 
-  frame_setheight(win->w_frame, height + win->w_status_height);
+  if (!win->w_floating) {
+    frame_setheight(win->w_frame, height + win->w_status_height);
+  }
 
   /* recompute the window positions */
   row = win_comp_pos();
@@ -4290,9 +4354,11 @@ static void frame_setheight(frame_T *curfrp, int height)
       if (curfrp->fr_width != Columns)
         room_cmdline = 0;
       else {
-        room_cmdline = Rows - p_ch - (lastwin->w_winrow
-                                      + lastwin->w_height +
-                                      lastwin->w_status_height);
+
+        win_T *wp = lastwin_nofloating();
+        room_cmdline = Rows - p_ch - (wp->w_winrow
+                                      + wp->w_height +
+                                      wp->w_status_height);
         if (room_cmdline < 0)
           room_cmdline = 0;
       }
@@ -4400,7 +4466,9 @@ void win_setwidth_win(int width, win_T *wp)
       width = 1;
   }
 
-  frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
+  if (!wp->w_floating) {
+    frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
+  }
 
   /* recompute the window positions */
   (void)win_comp_pos();
@@ -5971,3 +6039,13 @@ void win_findbuf(typval_T *argvars, list_T *list)
     }
   }
 }
+
+win_T *lastwin_nofloating(void) {
+  win_T *res = lastwin;
+  while (res->w_floating) {
+    res = res->w_prev;
+  }
+  return res;
+}
+
+
