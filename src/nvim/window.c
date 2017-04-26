@@ -208,8 +208,14 @@ newwindow:
           wp = curwin->w_prev;
           if (wp == NULL)
             wp = lastwin;                           /* wrap around */
+          while (wp != NULL && wp->w_floating && wp->w_float_config.unfocusable) {
+            wp = wp->w_prev;
+          }
         } else {                                  /* go to next window */
           wp = curwin->w_next;
+          while (wp != NULL && wp->w_floating && wp->w_float_config.unfocusable) {
+            wp = wp->w_next;
+          }
           if (wp == NULL)
             wp = firstwin;                          /* wrap around */
         }
@@ -505,6 +511,131 @@ static void cmd_with_count(char *cmd, char_u *bufp, size_t bufsize,
   }
 }
 
+/// config must already been validated!
+win_T *win_new_float(int width, int height, FloatConfig config)
+{
+  win_T *wp;
+  wp = win_alloc(curwin, false);
+  wp->w_floating = 1;
+  win_init(wp, curwin, 0);
+  win_config_float(wp, width, height, config);
+  wp->w_status_height = 0;
+  wp->w_vsep_width = 0;
+  wp->w_grid_handle = next_grid_handle++;
+  redraw_win_later(wp, VALID);
+  win_enter(wp, false);
+  return wp;
+}
+
+void win_config_float(win_T *wp, int width, int height, FloatConfig config)
+{
+  wp->w_height = MAX(height, 1);
+  wp->w_width = MAX(width, 2);
+
+  if (ui_is_external(kUIMultigrid)) {
+    wp->w_wincol = 0;
+    wp->w_winrow = 0;
+  } else {
+    wp->w_height = MIN(wp->w_height,Rows-1);
+    wp->w_width = MIN(wp->w_width,Columns);
+    // TUI only:
+    wp->w_float_config = config;
+    bool east = config.anchor & kFloatAnchorEast;
+    bool south = config.anchor & kFloatAnchorSouth;
+    int x = (int)config.x;
+    int y = (int)config.y;
+    wp->w_wincol = x - (east ? width : 0);
+    wp->w_winrow = y - (south ? height : 0);
+    wp->w_wincol = MAX(MIN(wp->w_wincol, Columns-width),0);
+    wp->w_winrow = MAX(MIN(wp->w_winrow, Rows-height-1),0);
+  }
+}
+
+static bool parse_float_anchor(String anchor, FloatAnchor *out)
+{
+  if (anchor.size == 0) {
+    *out = kFloatAnchorNE;
+  }
+  char *str = anchor.data;
+  if (!STRICMP(str, "NW")) {
+    *out = kFloatAnchorNW;
+  } else if (!STRICMP(str, "NE")) {
+    *out = kFloatAnchorNE;
+  } else if (!STRICMP(str, "SW")) {
+    *out = kFloatAnchorSW;
+  } else if (!STRICMP(str, "SE")) {
+    *out = kFloatAnchorSE;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+static bool parse_float_relative(String relative, FloatRelative *out)
+{
+  if (relative.size == 0) {
+    *out = kFloatRelativeEditor;
+  }
+  char *str = relative.data;
+  if (!STRICMP(str, "editor")) {
+    *out = kFloatRelativeEditor;
+  } else if (!STRICMP(str, "cursor")) {
+    *out = kFloatRelativeCursor;
+  } else if (!STRICMP(str, "display")) {
+    *out = kFloatRelativeDisplay;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool parse_float_config(Dictionary config, FloatConfig *out)
+{
+  for (size_t i = 0; i < config.size; i++) {
+    char *key = config.items[i].key.data;
+    Object val = config.items[i].value;
+    if (!strcmp(key, "x")) {
+      if (val.type == kObjectTypeInteger) {
+        out->x = val.data.integer;
+      } else if (val.type == kObjectTypeFloat) {
+        out->x = val.data.floating;
+      } else {
+        return false;
+      }
+    } else if (!strcmp(key, "y")) {
+      if (val.type == kObjectTypeInteger) {
+        out->y = val.data.integer;
+      } else if (val.type == kObjectTypeFloat) {
+        out->y = val.data.floating;
+      } else {
+        return false;
+      }
+    } else if (!strcmp(key, "anchor")) {
+      if (val.type != kObjectTypeString) {
+        return false;
+      }
+      if (!parse_float_anchor(val.data.string, &out->anchor)) {
+        return false;
+      }
+    } else if (!strcmp(key, "relative")) {
+      if (val.type != kObjectTypeString) {
+        return false;
+      }
+      if (!parse_float_relative(val.data.string, &out->relative)) {
+        return false;
+      }
+    } else if (!strcmp(key, "standalone")) {
+      if (val.type == kObjectTypeInteger) {
+        out->standalone = val.data.integer;
+      } else if (val.type == kObjectTypeBoolean) {
+        out->standalone = val.data.boolean;
+      } else {
+        return false;
+      }
+    }
+  }
+  return true;
+}
 /*
  * split the current window, implements CTRL-W s and :split
  *
@@ -1905,7 +2036,15 @@ int win_close(win_T *win, int free_buf)
      * Guess which window is going to be the new current window.
      * This may change because of the autocommands (sigh).
      */
-    wp = frame2win(win_altframe(win, NULL));
+    if (!win->w_floating) {
+        wp = frame2win(win_altframe(win, NULL));
+    } else {
+        if (win_valid(prevwin)) {
+            wp = prevwin;
+        } else {
+            wp = curtab->tp_firstwin;
+        }
+    }
 
     /*
      * Be careful: If autocommands delete the window or cause this window
@@ -2150,9 +2289,17 @@ win_free_mem (
   win_T       *wp;
 
   /* Remove the window and its frame from the tree of frames. */
-  frp = win->w_frame;
-  wp = winframe_remove(win, dirp, tp);
-  xfree(frp);
+  if (!win->w_floating) {
+    frp = win->w_frame;
+    wp = winframe_remove(win, dirp, tp);
+    xfree(frp);
+  } else {
+    if (win_valid(prevwin)) {
+      wp = prevwin;
+    } else {
+      wp = curtab->tp_firstwin;
+    }
+  }
   win_free(win, tp);
 
   /* When deleting the current window of another tab page select a new
@@ -3512,6 +3659,12 @@ win_goto_ver (
   frame_T     *foundfr;
 
   foundfr = curwin->w_frame;
+
+  if (curwin->w_floating) {
+    win_goto(prevwin);
+    return;
+  }
+
   while (count--) {
     /*
      * First go upwards in the tree of frames until we find an upwards or
@@ -3571,6 +3724,12 @@ win_goto_hor (
   frame_T     *foundfr;
 
   foundfr = curwin->w_frame;
+
+  if (curwin->w_floating) {
+    win_goto(prevwin);
+    return;
+  }
+
   while (count--) {
     /*
      * First go upwards in the tree of frames until we find a left or
@@ -3675,6 +3834,7 @@ static void win_enter_ext(win_T *wp, bool undo_sync, int curwin_invalid,
   }
   curwin = wp;
   curbuf = wp->w_buffer;
+
   check_cursor();
   if (!virtual_active())
     curwin->w_cursor.coladd = 0;
@@ -3850,6 +4010,7 @@ static win_T *win_alloc(win_T *after, int hidden)
   new_wp->w_botline = 2;
   new_wp->w_cursor.lnum = 1;
   new_wp->w_scbind_pos = 1;
+  new_wp->w_floating = 0;
 
   /* We won't calculate w_fraction until resizing the window */
   new_wp->w_fraction = 0;
@@ -3924,6 +4085,8 @@ win_free (
 
 
   xfree(wp->w_p_cc_cols);
+
+  free_screengrid(&wp->grid);
 
   if (wp != aucmd_win)
     win_remove(wp, tp);
@@ -4205,7 +4368,9 @@ void win_setheight_win(int height, win_T *win)
       height = 1;
   }
 
-  frame_setheight(win->w_frame, height + win->w_status_height);
+  if (!win->w_floating) {
+    frame_setheight(win->w_frame, height + win->w_status_height);
+  }
 
   /* recompute the window positions */
   row = win_comp_pos();
@@ -4291,9 +4456,11 @@ static void frame_setheight(frame_T *curfrp, int height)
       if (curfrp->fr_width != Columns)
         room_cmdline = 0;
       else {
-        room_cmdline = Rows - p_ch - (lastwin->w_winrow
-                                      + lastwin->w_height +
-                                      lastwin->w_status_height);
+
+        win_T *wp = lastwin_nofloating();
+        room_cmdline = Rows - p_ch - (wp->w_winrow
+                                      + wp->w_height +
+                                      wp->w_status_height);
         if (room_cmdline < 0)
           room_cmdline = 0;
       }
@@ -4401,7 +4568,9 @@ void win_setwidth_win(int width, win_T *wp)
       width = 1;
   }
 
-  frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
+  if (!wp->w_floating) {
+    frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
+  }
 
   /* recompute the window positions */
   (void)win_comp_pos();
@@ -5972,3 +6141,13 @@ void win_findbuf(typval_T *argvars, list_T *list)
     }
   }
 }
+
+win_T *lastwin_nofloating(void) {
+  win_T *res = lastwin;
+  while (res->w_floating) {
+    res = res->w_prev;
+  }
+  return res;
+}
+
+

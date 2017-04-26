@@ -392,3 +392,25 @@ Boolean nvim_win_is_valid(Window window)
   return ret;
 }
 
+
+void nvim_win_config_float(Window window, Integer width, Integer height,
+                           Dictionary options, Error *err)
+  FUNC_API_SINCE(4)
+{
+  win_T *win = find_window_by_handle(window, err);
+  // TODO: turn non-foating window into float
+  if (!win || !win->w_floating) {
+    return;
+  }
+  width = width > 0 ? width: win->w_width;
+  height = height > 0 ? height : win->w_height;
+  // reuse old values, if not overriden
+  FloatConfig config = win->w_float_config;
+  // TODO: error
+  if (!parse_float_config(options, &config)) {
+    return;
+  }
+  win_config_float(win, (int)width, (int)height, config);
+  redraw_later(NOT_VALID);
+}
+

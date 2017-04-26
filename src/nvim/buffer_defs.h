@@ -928,6 +928,30 @@ struct matchitem {
   int conceal_char;         ///< cchar for Conceal highlighting
 };
 
+typedef enum {
+    kFloatAnchorEast = 1,
+    kFloatAnchorSouth = 2,
+
+    kFloatAnchorNW = 0,
+    kFloatAnchorNE = 1,
+    kFloatAnchorSW = 2,
+    kFloatAnchorSE = 3,
+} FloatAnchor;
+
+typedef enum {
+    kFloatRelativeEditor = 0,
+    kFloatRelativeCursor = 1,
+    kFloatRelativeDisplay = 2,
+} FloatRelative;
+
+typedef struct {
+  double x, y;
+  FloatAnchor anchor;
+  FloatRelative relative;
+  bool standalone;
+  bool unfocusable;
+} FloatConfig;
+
 /*
  * Structure which contains all information that belongs to a window
  *
@@ -1157,6 +1181,11 @@ struct window_S {
   int w_tagstackidx;                    /* idx just below active entry */
   int w_tagstacklen;                    /* number of tags on stack */
 
+  bool w_floating;                       ///< whether the window is floating
+  FloatConfig w_float_config;
+  ScreenGrid grid; // own grid, only used for floats
+  int w_grid_handle;
+
   /*
    * w_fraction is the fractional row of the cursor within the window, from
    * 0 at the top row to FRACTION_MULT at the last row.
@@ -1177,7 +1206,6 @@ struct window_S {
    */
   qf_info_T   *w_llist_ref;
 
-  ScreenGrid grid; // own grid, only used for floats
 
 };
 

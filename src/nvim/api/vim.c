@@ -713,6 +713,28 @@ Buffer nvim_create_buf(Boolean listed, Error *err)
   return buffer;
 }
 
+Window nvim_open_float_win(Buffer buffer, Boolean enter,
+                           Integer w, Integer h,
+                           Dictionary options, Error *err)
+  FUNC_API_SINCE(3)
+{
+  win_T *old = curwin;
+  FloatConfig config;
+  if (!parse_float_config(options, &config)) {
+    // TODO: set err
+    return 0;
+  }
+  win_T *wp = win_new_float((int)w, (int)h, config);
+  // TODO: -1 to alloc a fresh buffer?
+  if (buffer > 0) {
+    nvim_set_current_buf(buffer, err);
+  }
+  if (!enter) {
+    win_enter(old, false);
+  }
+  return wp->handle;
+}
+
 /// Gets the current list of tabpage handles
 ///
 /// @return List of tabpage handles
