@@ -948,7 +948,7 @@ static void mouse_action(Terminal *term, int button, int row, int col,
 static bool send_mouse_event(Terminal *term, int c)
 {
   int row = mouse_row, col = mouse_col;
-  win_T *mouse_win = mouse_find_win(&row, &col);
+  win_T *mouse_win = mouse_find_win(mouse_grid, &row, &col);
 
   if (term->forward_mouse && mouse_win->w_buffer->terminal == term) {
     // event in the terminal window and mouse events was enabled by the
@@ -1248,11 +1248,14 @@ static void redraw(bool restore_cursor)
 
   int save_row = 0;
   int save_col = 0;
+  int save_grid = 0;
   if (restore_cursor) {
     // save the current row/col to restore after updating screen when not
     // focused
     save_row = ui_current_row();
     save_col = ui_current_col();
+    // TODO: this is probably not necessary
+    save_grid = ui_get_grid();
   }
   block_autocmds();
 
@@ -1265,6 +1268,7 @@ static void redraw(bool restore_cursor)
   }
 
   if (restore_cursor) {
+    ui_set_grid(save_grid);
     ui_cursor_goto(save_row, save_col);
   } else if (term) {
     curwin->w_wrow = term->cursor.row;

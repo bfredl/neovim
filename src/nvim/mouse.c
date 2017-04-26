@@ -124,7 +124,7 @@ retnomove:
       return IN_UNKNOWN;
 
     // find the window where the row is in
-    wp = mouse_find_win(&row, &col);
+    wp = mouse_find_win(mouse_grid, &row, &col);
     dragwin = NULL;
     // winpos and height may change in win_enter()!
     if (row >= wp->w_height) {                  // In (or below) status line
@@ -427,8 +427,13 @@ bool mouse_comp_pos(win_T *win, int *rowp, int *colp, linenr_T *lnump)
 
 // Find the window at screen position "*rowp" and "*colp".  The positions are
 // updated to become relative to the top-left of the window.
-win_T *mouse_find_win(int *rowp, int *colp)
+win_T *mouse_find_win(int grid, int *rowp, int *colp)
 {
+  win_T *wp_float = mouse_find_float(grid, rowp, colp);
+  if (wp_float) {
+    return wp_float;
+  }
+
   frame_T     *fp;
 
   fp = topframe;
@@ -451,6 +456,32 @@ win_T *mouse_find_win(int *rowp, int *colp)
     }
   }
   return fp->fr_win;
+}
+
+win_T *mouse_find_float(int grid, int *rowp, int *colp)
+{
+  // TODO(bfredl): with external UI:s this will be a bit more involved
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if (!wp->w_floating || wp->w_float_config.unfocusable) {
+      continue;
+    }
+    // NB: we might want to support "multigrid" without that
+    // "floats are multigrid", then this logic will be more involved...
+    if (ui_is_external(kUIMultigrid)) {
+      if (grid == wp->w_grid_handle) {
+        // row and col unchanged
+        return wp;
+      }
+    } else {
+      if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow+wp->w_height
+          && *colp >= wp->w_wincol && *colp < wp->w_wincol+wp->w_width) {
+        *rowp -= wp->w_winrow;
+        *colp -= wp->w_wincol;
+        return wp;
+      }
+    }
+  }
+  return NULL;
 }
 
 /*

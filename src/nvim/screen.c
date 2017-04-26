@@ -143,9 +143,6 @@ static schar_T  *current_ScreenLine;
 
 StlClickDefinition *tab_page_click_defs = NULL;
 
-int grid_Rows = 0;
-int grid_Columns = 0;
-
 long tab_page_click_defs_size = 0;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -249,6 +246,29 @@ void update_curbuf(int type)
   update_screen(type);
 }
 
+
+// NB: the global grid must be valid when calling this!!
+void set_float_grid(win_T* wp) {
+  bool resize = wp->w_height != wp->grid.Rows || wp->w_width != wp->grid.Columns;
+  // TODO: restructure this?
+  if (resize) {
+    alloc_screengrid(&wp->grid, wp->w_height, wp->w_width, false);
+  }
+  set_screengrid(&wp->grid);
+
+  ui_set_draw_grid(wp->w_grid_handle);
+  if (resize) {
+    ui_call_resize(current_grid->Columns, current_grid->Rows);
+  }
+}
+
+void reset_grid(void) {
+  if (current_grid != &default_grid) {
+    set_screengrid(&default_grid);
+    ui_set_draw_grid(default_grid_handle);
+  }
+}
+
 /*
  * update_screen()
  *
@@ -259,6 +279,7 @@ void update_screen(int type)
 {
   static int did_intro = FALSE;
   int did_one;
+  bool multigrid = ui_is_external(kUIMultigrid);
 
   /* Don't do anything if the screen structures are (not yet) valid. */
   if (!screen_valid(TRUE))
@@ -422,8 +443,23 @@ void update_screen(int type)
    */
   did_one = FALSE;
   search_hl.rm.regprog = NULL;
+
+
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+
     if (wp->w_redr_type != 0) {
+      if (multigrid) {
+        if (wp->w_floating) {
+          set_float_grid(wp);
+        } else {
+          reset_grid();
+        }
+      } else {
+        if (wp->w_floating) {
+          continue;
+        }
+      }
+
       if (!did_one) {
         did_one = TRUE;
         start_search_hl();
@@ -433,8 +469,34 @@ void update_screen(int type)
 
     /* redraw status line after the window to minimize cursor movement */
     if (wp->w_redr_status) {
+      // TODO: we could do better:
+      //assert(!wp->w_floating);
       win_redr_status(wp);
     }
+  }
+  if (multigrid) {
+    reset_grid();
+  }
+  ui_reset_scroll_region();
+
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if (multigrid || !wp->w_floating) {
+      continue;
+    }
+
+    if (did_one) {
+      // TODO: be a lot more precise
+      wp->w_redr_type = NOT_VALID;
+    }
+
+    if (wp->w_redr_type != 0) {
+      if (!did_one) {
+        did_one = TRUE;
+        start_search_hl();
+      }
+      win_update(wp);
+    }
+
   }
   end_search_hl();
   // May need to redraw the popup menu.
@@ -508,6 +570,7 @@ void update_single_line(win_T *wp, linenr_T lnum)
     return;
   }
   updating_screen = true;
+  bool multigrid = ui_is_external(kUIMultigrid);
 
   if (lnum >= wp->w_topline && lnum < wp->w_botline
       && foldedCount(wp, lnum, &win_foldinfo) == 0) {
@@ -517,12 +580,22 @@ void update_single_line(win_T *wp, linenr_T lnum)
         init_search_hl(wp);
         start_search_hl();
         prepare_search_hl(wp, lnum);
+        if (multigrid) {
+          if (wp->w_floating) {
+            set_float_grid(wp);
+          } else {
+            reset_grid();
+          }
+        }
         win_line(wp, lnum, row, row + wp->w_lines[j].wl_size, false);
         end_search_hl();
         break;
       }
       row += wp->w_lines[j].wl_size;
     }
+  }
+  if (multigrid) {
+    reset_grid();
   }
   need_cursor_line_redraw = false;
   updating_screen = false;
@@ -589,12 +662,18 @@ void update_debug_sign(buf_T *buf, linenr_T lnum)
 
     FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
       if (wp->w_redr_type != 0) {
+        if (wp->w_floating) {
+          set_float_grid(wp);
+        } else {
+          reset_grid();
+        }
         win_update(wp);
       }
       if (wp->w_redr_status) {
         win_redr_status(wp);
       }
     }
+    reset_grid();
 
     update_finish();
 }
@@ -5755,6 +5834,8 @@ static void screen_char(unsigned off, int row, int col)
   // Don't to it!  Mark the character invalid (update it when scrolled up)
   // FIXME: The premise here is not actually true (cf. deferred wrap).
   if (row == screen_Rows - 1 && col == screen_Columns - 1
+      // only applies to global grid
+      && current_grid == &default_grid
       // account for first command-line character in rightleft mode
       && !cmdmsg_rl) {
     ScreenAttrs[off] = (sattr_T)-1;
@@ -5835,7 +5916,7 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
         col = off - LineOffset[row];
         ui_clear_highlight();
         ui_cursor_goto(row, col);        // clear rest of this screen line
-        ui_call_eol_clear();
+        ui_eol_clear();
         col = end_col - col;
         while (col--) {  // clear chars in ScreenLines
           sc_from_ascii(ScreenLines[off], ' ');
@@ -5901,6 +5982,9 @@ void check_for_delay(int check_msg_scroll)
  */
 int screen_valid(int doclear)
 {
+  if (current_grid != &default_grid) {
+    return true;
+  }
   screenalloc(doclear);            /* allocate screen buffers if size changed */
   return ScreenLines != NULL;
 }
@@ -5917,9 +6001,12 @@ int screen_valid(int doclear)
  */
 void screenalloc(bool doclear)
 {
+  assert(current_grid == &default_grid);
   StlClickDefinition *new_tab_page_click_defs;
   static bool entered = false;  // avoid recursiveness
   int retry_count = 0;
+
+  ScreenGrid *grid = current_grid;
 
 retry:
   /*
@@ -5927,9 +6014,9 @@ retry:
    * when Rows and Columns have been set and we have started doing full
    * screen stuff.
    */
-  if ((default_grid.ScreenLines != NULL
-       && Rows == screen_Rows
-       && Columns == screen_Columns
+  if ((grid->ScreenLines != NULL
+       && Rows == grid->Rows
+       && Columns == grid->Columns
        )
       || Rows == 0
       || Columns == 0
@@ -5972,7 +6059,7 @@ retry:
   if (aucmd_win != NULL)
     win_free_lsize(aucmd_win);
 
-  alloc_grid(&default_grid, Rows, Columns, !doclear);
+  alloc_screengrid(grid, Rows, Columns, !doclear);
   new_tab_page_click_defs = xcalloc(
       (size_t) Columns, sizeof(*new_tab_page_click_defs));
 
@@ -5986,15 +6073,10 @@ retry:
   clear_tab_page_click_defs(tab_page_click_defs, tab_page_click_defs_size);
   xfree(tab_page_click_defs);
 
-  set_screengrid(&default_grid);
+  set_screengrid(grid);
 
   tab_page_click_defs = new_tab_page_click_defs;
   tab_page_click_defs_size = Columns;
-
-  /* It's important that screen_Rows and screen_Columns reflect the actual
-   * size of ScreenLines[].  Set them before calling anything. */
-  screen_Rows = Rows;
-  screen_Columns = Columns;
 
   must_redraw = CLEAR;          /* need to clear the screen later */
   if (doclear)
@@ -6016,7 +6098,7 @@ retry:
   }
 }
 
-void alloc_grid(ScreenGrid *grid, int Rows, int Columns, bool copy)
+void alloc_screengrid(ScreenGrid *grid, int Rows, int Columns, bool copy)
 {
   int len;
   int i;
@@ -6081,13 +6163,14 @@ void free_screengrid(ScreenGrid *grid)
 
 void set_screengrid(ScreenGrid *grid)
 {
+  current_grid = grid;
   ScreenLines = grid->ScreenLines;
   ScreenAttrs = grid->ScreenAttrs;
   LineOffset = grid->LineOffset;
   LineWraps = grid->LineWraps;
-  grid_Rows = grid->Rows;
-  grid_Columns = grid->Columns;
-  current_ScreenLine = ScreenLines + grid_Rows * grid_Columns;
+  screen_Rows = Rows = grid->Rows;
+  screen_Columns = Columns = grid->Columns;
+  current_ScreenLine = ScreenLines + Rows * Columns;
 }
 
 /// Clear tab_page_click_defs table
@@ -6174,6 +6257,14 @@ static void linecopy(int to, int from, win_T *wp)
       wp->w_width * sizeof(sattr_T));
 }
 
+void focus_curwin_grid(void) {
+  if (curwin->w_floating && ui_is_external(kUIMultigrid)) {
+    ui_set_grid(curwin->w_grid_handle);
+  } else {
+    ui_set_grid(default_grid_handle);
+  }
+}
+
 /*
  * Set cursor to its position in the current window.
  */
@@ -6181,6 +6272,8 @@ void setcursor(void)
 {
   if (redrawing()) {
     validate_cursor();
+    focus_curwin_grid();
+
     ui_cursor_goto(curwin->w_winrow + curwin->w_wrow,
         curwin->w_wincol + (
           /* With 'rightleft' set and the cursor on a double-wide
@@ -6232,7 +6325,7 @@ static int win_do_lines(win_T *wp, int row, int line_count,
   }
 
   // only a few lines left: redraw is faster
-  if (mayclear && Rows - line_count < 5 && wp->w_width == Columns) {
+  if (!wp->w_floating && mayclear && Rows - line_count < 5 && wp->w_width == Columns) {
     screenclear();          /* will set wp->w_lines_valid to 0 */
     return FAIL;
   }

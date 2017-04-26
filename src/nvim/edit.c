@@ -7845,7 +7845,7 @@ static void ins_mousescroll(int dir)
     col = mouse_col;
 
     /* find the window at the pointer coordinates */
-    curwin = mouse_find_win(&row, &col);
+    curwin = mouse_find_win(mouse_grid, &row, &col);
     curbuf = curwin->w_buffer;
   }
   if (curwin == old_curwin)

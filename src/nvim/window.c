@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include "nvim/api/private/handle.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
 #include "nvim/window.h"
@@ -208,8 +209,14 @@ newwindow:
           wp = curwin->w_prev;
           if (wp == NULL)
             wp = lastwin;                           /* wrap around */
+          while (wp != NULL && wp->w_floating && wp->w_float_config.unfocusable) {
+            wp = wp->w_prev;
+          }
         } else {                                  /* go to next window */
           wp = curwin->w_next;
+          while (wp != NULL && wp->w_floating && wp->w_float_config.unfocusable) {
+            wp = wp->w_next;
+          }
           if (wp == NULL)
             wp = firstwin;                          /* wrap around */
         }
@@ -505,6 +512,190 @@ static void cmd_with_count(char *cmd, char_u *bufp, size_t bufsize,
   }
 }
 
+/// config must already been validated!
+win_T *win_new_float(int width, int height, FloatConfig config)
+{
+  win_T *wp;
+  // TODO: verify that wincmds preserve that floating windows are last
+  // in window order
+  wp = win_alloc(lastwin_nofloating(), false);
+  wp->w_floating = 1;
+  win_init(wp, curwin, 0);
+  wp->w_status_height = 0;
+  wp->w_vsep_width = 0;
+  wp->w_grid_handle = next_grid_handle++;
+  win_config_float(wp, width, height, config);
+  redraw_win_later(wp, VALID);
+  win_enter(wp, false);
+  return wp;
+}
+
+void win_config_float(win_T *wp, int width, int height, FloatConfig config)
+{
+  wp->w_height = MAX(height, 1);
+  wp->w_width = MAX(width, 2);
+
+  if (config.relative == kFloatRelativeCursor) {
+    config.relative = kFloatRelativeEditor;
+    config.x += ui_current_col();
+    config.y += ui_current_row();
+  }
+
+  wp->w_float_config = config;
+
+  // TODO: recalculate when ui attaches/dataches
+  if (ui_is_external(kUIMultigrid)) {
+    wp->w_wincol = 0;
+    wp->w_winrow = 0;
+
+    ui_ext_float_info(wp);
+  } else {
+    // TUI only:
+    wp->w_height = MIN(wp->w_height,Rows-1);
+    wp->w_width = MIN(wp->w_width,Columns);
+    bool east = config.anchor & kFloatAnchorEast;
+    bool south = config.anchor & kFloatAnchorSouth;
+    int x = (int)config.x;
+    int y = (int)config.y;
+    wp->w_wincol = x - (east ? width : 0);
+    wp->w_winrow = y - (south ? height : 0);
+    wp->w_wincol = MAX(MIN(wp->w_wincol, Columns-width),0);
+    wp->w_winrow = MAX(MIN(wp->w_winrow, Rows-height-1),0);
+  }
+}
+
+static void ui_ext_float_info(win_T *wp)
+{
+  const char *const anchor_str[] = {
+    "NW",
+    "NE",
+    "SW",
+    "SE"
+  };
+
+  // Only one posible value right now, but this is a point of extension.
+  const char *const relative_str[] = {
+    "editor",
+    NULL, // cursor shouldn't be forwarded
+  };
+
+  FloatConfig c = wp->w_float_config;
+  Dictionary conf = ARRAY_DICT_INIT;
+  PUT(conf, "standalone", BOOLEAN_OBJ(c.standalone));
+  if (!c.standalone) {
+    PUT(conf, "x", FLOAT_OBJ(c.x));
+    PUT(conf, "y", FLOAT_OBJ(c.y));
+    PUT(conf, "anchor", STRING_OBJ(cstr_to_string(anchor_str[c.anchor])));
+    PUT(conf, "relative", STRING_OBJ(cstr_to_string(relative_str[c.relative])));
+  }
+
+  ui_call_float_info(wp->handle, wp->w_grid_handle,
+                     wp->w_width, wp->w_height, conf);
+}
+
+
+static bool parse_float_anchor(String anchor, FloatAnchor *out)
+{
+  if (anchor.size == 0) {
+    *out = (FloatAnchor)0;
+  }
+  char *str = anchor.data;
+  if (!STRICMP(str, "NW")) {
+    *out = kFloatAnchorNW;
+  } else if (!STRICMP(str, "NE")) {
+    *out = kFloatAnchorNE;
+  } else if (!STRICMP(str, "SW")) {
+    *out = kFloatAnchorSW;
+  } else if (!STRICMP(str, "SE")) {
+    *out = kFloatAnchorSE;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+static bool parse_float_relative(String relative, FloatRelative *out)
+{
+  if (relative.size == 0) {
+    *out = (FloatRelative)0;
+  }
+  char *str = relative.data;
+  if (!STRICMP(str, "editor")) {
+    *out = kFloatRelativeEditor;
+  } else if (!STRICMP(str, "cursor")) {
+    *out = kFloatRelativeCursor;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool parse_float_config(Dictionary config, FloatConfig *out, bool reconf)
+{
+  // To simplify the the design, changing any of x,y,relative
+  // implyies reseting the entire position state.
+  if (reconf) {
+    bool has_pos = false;
+    for (size_t i = 0; i < config.size; i++) {
+      char *key = config.items[i].key.data;
+      if (strequal(key, "x") || strequal(key, "y")
+          || strequal(key, "relative")) {
+        has_pos = true;
+        break;
+      }
+    }
+    if (has_pos) {
+      out->x = 0;
+      out->y = 0;
+      out->relative = (FloatRelative)0;
+    }
+  }
+
+  for (size_t i = 0; i < config.size; i++) {
+    char *key = config.items[i].key.data;
+    Object val = config.items[i].value;
+    if (!strcmp(key, "x")) {
+      if (val.type == kObjectTypeInteger) {
+        out->x = val.data.integer;
+      } else if (val.type == kObjectTypeFloat) {
+        out->x = val.data.floating;
+      } else {
+        return false;
+      }
+    } else if (!strcmp(key, "y")) {
+      if (val.type == kObjectTypeInteger) {
+        out->y = val.data.integer;
+      } else if (val.type == kObjectTypeFloat) {
+        out->y = val.data.floating;
+      } else {
+        return false;
+      }
+    } else if (!strcmp(key, "anchor")) {
+      if (val.type != kObjectTypeString) {
+        return false;
+      }
+      if (!parse_float_anchor(val.data.string, &out->anchor)) {
+        return false;
+      }
+    } else if (!strcmp(key, "relative")) {
+      if (val.type != kObjectTypeString) {
+        return false;
+      }
+      if (!parse_float_relative(val.data.string, &out->relative)) {
+        return false;
+      }
+    } else if (!strcmp(key, "standalone")) {
+      if (val.type == kObjectTypeInteger) {
+        out->standalone = val.data.integer;
+      } else if (val.type == kObjectTypeBoolean) {
+        out->standalone = val.data.boolean;
+      } else {
+        return false;
+      }
+    }
+  }
+  return true;
+}
 /*
  * split the current window, implements CTRL-W s and :split
  *
@@ -1867,7 +2058,7 @@ int win_close(win_T *win, int free_buf)
   int dir;
   int help_window = FALSE;
   tabpage_T   *prev_curtab = curtab;
-  frame_T *win_frame = win->w_frame->fr_parent;
+  frame_T *win_frame = win->w_floating ? NULL : win->w_frame->fr_parent;
 
   if (last_window()) {
     EMSG(_("E444: Cannot close last window"));
@@ -1884,6 +2075,11 @@ int win_close(win_T *win, int free_buf)
   }
   if ((firstwin == aucmd_win || lastwin == aucmd_win) && one_window()) {
     EMSG(_("E814: Cannot close window, only autocmd window would remain"));
+    return FAIL;
+  }
+  if ((firstwin == win && lastwin_nofloating() == win)) {
+    // TODO: under some circumstance we might close the float also instead
+    EMSG(_("EXXX: Cannot close window, only floating window would remain"));
     return FAIL;
   }
 
@@ -1905,7 +2101,15 @@ int win_close(win_T *win, int free_buf)
      * Guess which window is going to be the new current window.
      * This may change because of the autocommands (sigh).
      */
-    wp = frame2win(win_altframe(win, NULL));
+    if (!win->w_floating) {
+      wp = frame2win(win_altframe(win, NULL));
+    } else {
+      if (win_valid(prevwin)) {
+        wp = prevwin;
+      } else {
+        wp = curtab->tp_firstwin;
+      }
+    }
 
     /*
      * Be careful: If autocommands delete the window or cause this window
@@ -1931,6 +2135,12 @@ int win_close(win_T *win, int free_buf)
     /* autocmds may abort script processing */
     if (aborting())
       return FAIL;
+  }
+
+  if (win->w_floating) {
+    if (ui_is_external(kUIMultigrid)) {
+      ui_call_float_close(win->handle, win->w_grid_handle);
+    }
   }
 
 
@@ -2024,12 +2234,15 @@ int win_close(win_T *win, int free_buf)
     // using the window.
     check_cursor();
   }
-  if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
-    // If the frame of the closed window contains the new current window,
-    // only resize that frame.  Otherwise resize all windows.
-    win_equal(curwin, curwin->w_frame->fr_parent == win_frame, dir);
-  } else {
-    win_comp_pos();
+
+  if (!wp->w_floating) {
+    if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
+      // If the frame of the closed window contains the new current window,
+      // only resize that frame.  Otherwise resize all windows.
+      win_equal(curwin, curwin->w_frame->fr_parent == win_frame, dir);
+    } else {
+      win_comp_pos();
+    }
   }
 
   if (close_curwin) {
@@ -2150,9 +2363,17 @@ win_free_mem (
   win_T       *wp;
 
   /* Remove the window and its frame from the tree of frames. */
-  frp = win->w_frame;
-  wp = winframe_remove(win, dirp, tp);
-  xfree(frp);
+  if (!win->w_floating) {
+    frp = win->w_frame;
+    wp = winframe_remove(win, dirp, tp);
+    xfree(frp);
+  } else {
+    if (win_valid(prevwin)) {
+      wp = prevwin;
+    } else {
+      wp = curtab->tp_firstwin;
+    }
+  }
   win_free(win, tp);
 
   /* When deleting the current window of another tab page select a new
@@ -3512,6 +3733,12 @@ win_goto_ver (
   frame_T     *foundfr;
 
   foundfr = curwin->w_frame;
+
+  if (curwin->w_floating) {
+    win_goto(prevwin);
+    return;
+  }
+
   while (count--) {
     /*
      * First go upwards in the tree of frames until we find an upwards or
@@ -3571,6 +3798,12 @@ win_goto_hor (
   frame_T     *foundfr;
 
   foundfr = curwin->w_frame;
+
+  if (curwin->w_floating) {
+    win_goto(prevwin);
+    return;
+  }
+
   while (count--) {
     /*
      * First go upwards in the tree of frames until we find a left or
@@ -3675,6 +3908,7 @@ static void win_enter_ext(win_T *wp, bool undo_sync, int curwin_invalid,
   }
   curwin = wp;
   curbuf = wp->w_buffer;
+
   check_cursor();
   if (!virtual_active())
     curwin->w_cursor.coladd = 0;
@@ -3850,6 +4084,7 @@ static win_T *win_alloc(win_T *after, int hidden)
   new_wp->w_botline = 2;
   new_wp->w_cursor.lnum = 1;
   new_wp->w_scbind_pos = 1;
+  new_wp->w_floating = 0;
 
   /* We won't calculate w_fraction until resizing the window */
   new_wp->w_fraction = 0;
@@ -3924,6 +4159,8 @@ win_free (
 
 
   xfree(wp->w_p_cc_cols);
+
+  free_screengrid(&wp->grid);
 
   if (wp != aucmd_win)
     win_remove(wp, tp);
@@ -4205,7 +4442,9 @@ void win_setheight_win(int height, win_T *win)
       height = 1;
   }
 
-  frame_setheight(win->w_frame, height + win->w_status_height);
+  if (!win->w_floating) {
+    frame_setheight(win->w_frame, height + win->w_status_height);
+  }
 
   /* recompute the window positions */
   row = win_comp_pos();
@@ -4291,9 +4530,11 @@ static void frame_setheight(frame_T *curfrp, int height)
       if (curfrp->fr_width != Columns)
         room_cmdline = 0;
       else {
-        room_cmdline = Rows - p_ch - (lastwin->w_winrow
-                                      + lastwin->w_height +
-                                      lastwin->w_status_height);
+
+        win_T *wp = lastwin_nofloating();
+        room_cmdline = Rows - p_ch - (wp->w_winrow
+                                      + wp->w_height +
+                                      wp->w_status_height);
         if (room_cmdline < 0)
           room_cmdline = 0;
       }
@@ -4401,7 +4642,9 @@ void win_setwidth_win(int width, win_T *wp)
       width = 1;
   }
 
-  frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
+  if (!wp->w_floating) {
+    frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
+  }
 
   /* recompute the window positions */
   (void)win_comp_pos();
@@ -5270,7 +5513,7 @@ int min_rows(void)
 
 /// Check that there is only one window (and only one tab page), not counting a
 /// help or preview window, unless it is the current window. Does not count
-/// "aucmd_win".
+/// "aucmd_win". Does not count floats unless it is current.
 bool only_one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
 {
   // If there is another tab page there always is another window.
@@ -5281,7 +5524,7 @@ bool only_one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
   int count = 0;
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_buffer != NULL
-        && (!((wp->w_buffer->b_help && !curbuf->b_help)
+        && (!((wp->w_buffer->b_help && !curbuf->b_help) || wp->w_floating
               || wp->w_p_pvw) || wp == curwin) && wp != aucmd_win) {
       count++;
     }
@@ -5972,3 +6215,13 @@ void win_findbuf(typval_T *argvars, list_T *list)
     }
   }
 }
+
+win_T *lastwin_nofloating(void) {
+  win_T *res = lastwin;
+  while (res->w_floating) {
+    res = res->w_prev;
+  }
+  return res;
+}
+
+
