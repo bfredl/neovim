@@ -5336,7 +5336,7 @@ insertchar (
   } else {
     int cc;
 
-    // TODO(timeyyy): refactor  this if block away, need to manually test that 
+    // TODO(timeyyy): refactor  this if block away, need to manually test that
     // inserts still work as the tests don't catch it
     if (has_mbyte && (cc = (*mb_char2len)(c)) > 1) {
       char_u buf[MB_MAXBYTES + 1];
@@ -5346,7 +5346,7 @@ insertchar (
       ins_char_bytes(buf, cc);
       // TODO(timeyyy): test this code path...
       extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                         cc, kExtmarkNoReverse);
+                         (int)cc, kExtmarkNoReverse);
       AppendCharToRedobuff(c);
     } else {
       ins_char(c);

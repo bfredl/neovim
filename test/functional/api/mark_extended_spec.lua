@@ -314,7 +314,7 @@ describe('Extmarks buffer api', function()
 
   -- Below, tests are using extmark_col_adjust, above just extmark_adjust
 
-  it('marks move with fast char inserts #extmarks', function() -- FIXME
+  it('marks move with fast char inserts #bad', function()
     -- insertchar in edit.c (the ins_str branch)
     feed('a<cr>12345<esc>')
     buffer('set_mark', buf, ns, marks[1], 2, 3)
@@ -323,6 +323,17 @@ describe('Extmarks buffer api', function()
     eq(2, rv[1][2])
     eq(6, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 2, 3, 2, 6)
+  end)
+
+  it('we can insert multibyte chars #bad', function()
+    -- insertchar in edit.c
+    feed('a<cr>12345<esc>')
+    buffer('set_mark', buf, ns, marks[1], 2, 3)
+    feed('0iẞ<esc>')
+    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
+    eq(2, rv[1][2])
+    eq(4, rv[1][3])
+    check_undo_redo(buf, ns, marks[1], 2, 3, 2, 4)
   end)
 
   it('marks move with blockwise inserts #extmarks', function()
