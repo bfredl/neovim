@@ -105,11 +105,11 @@
   mt.mark_id = 0;\
   mt.line = NULL;\
   mt.col = 0;\
-  if (!kb_itr_get(markitems, items, mt, &mitr)) { \
-    kb_itr_next(markitems, items, &mitr);\
+  if (!kb_itr_get(markitems, &items, mt, &mitr)) { \
+    kb_itr_next(markitems, &items, &mitr);\
   } \
   ExtendedMark *extmark;\
-  for (; kb_itr_valid(&mitr); kb_itr_next(markitems, items, &mitr)) { \
+  for (; kb_itr_valid(&mitr); kb_itr_next(markitems, &items, &mitr)) { \
     extmark = &kb_itr_key(&mitr);\
     code;\
   }\
