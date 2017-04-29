@@ -87,6 +87,7 @@ EXTERN struct nvim_stats_s {
 #define NO_SCREEN       2       /* no screen updating yet */
 #define NO_BUFFERS      1       /* not all buffers loaded yet */
 /*                      0          not starting anymore */
+#define STARTING_NAMESPACE 1
 
 /*
  * Number of Rows and Columns in the screen.

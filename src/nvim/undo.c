@@ -2297,33 +2297,19 @@ static void u_undoredo(int undo, bool do_buf_event)
   }
 
   // Adjust Extmarks
-  int from;
-  int to;
   ExtmarkUndoObject undo_info;
   if (undo) {
-    i = (int)kv_size(curhead->uh_extmark) - 1;
-    while (i > -1) {
-      i = extmark_iter_undo(curhead->uh_extmark, undo, (int)i, &from, &to);
-      if (from == -1) {
-        undo_info = kv_A(curhead->uh_extmark, i);
-        extmark_apply_undo(undo_info, undo);
-        i--;
-      // go over a section of the list in another direction
-      } else {
-        for (i = from; i <= to; i++) {
-          undo_info = kv_A(curhead->uh_extmark, i);
-          extmark_apply_undo(undo_info, undo);
-        }
-        i = from - 1;
-      }  // finish going over list in other direction
-    }  // finish undo
+    for (i = (int)kv_size(curhead->uh_extmark) - 1; i > -1; i--) {
+      undo_info = kv_A(curhead->uh_extmark, i);
+      extmark_apply_undo(undo_info, undo);
+    }
   // redo
   } else {
     for (i = 0; i < (int)kv_size(curhead->uh_extmark); i++) {
       undo_info = kv_A(curhead->uh_extmark, i);
       extmark_apply_undo(undo_info, undo);
     }
-  }  // finish redo
+  }
   // finish Adjusting extmarks
 
 
@@ -3051,4 +3037,26 @@ list_T *u_eval_tree(const u_header_T *const first_uhp)
   }
 
   return list;
+}
+
+// Given the buffer, Return the undo header. If none is set, set one first.
+u_header_T *get_undo_header(buf_T *buf)
+{
+  u_header_T *uhp = NULL;
+  if (buf->b_u_curhead != NULL) {
+    uhp = buf->b_u_curhead;
+  } else if (buf->b_u_newhead) {
+    uhp = buf->b_u_newhead;
+  }
+  // Create the first undo header for the buffer
+  if (!uhp) {
+    // TODO(timeyyy): there would be a better way to do this!
+    u_save_cursor();
+    uhp = buf->b_u_curhead;
+    if (!uhp) {
+      uhp = buf->b_u_newhead;
+      assert(uhp);
+    }
+  }
+  return uhp;
 }

@@ -85,9 +85,9 @@ static garray_T ga_users = GA_EMPTY_INIT_VALUE;
  *
  * Return TRUE for success, FALSE for failure
  */
-int 
-open_line (
-    int dir,                        /* FORWARD or BACKWARD */
+int
+open_line(
+    int dir,                        // FORWARD or BACKWARD
     int flags,
     int second_line_indent
 )
@@ -117,7 +117,6 @@ open_line (
   bool did_append;                // appended a new line
   int saved_pi = curbuf->b_p_pi;  // copy of preserveindent setting
 
-  // save the values for moving extmarks
   linenr_T lnum = curwin->w_cursor.lnum;
   colnr_T mincol = curwin->w_cursor.col + 1;
 
@@ -763,7 +762,7 @@ open_line (
     if (curwin->w_cursor.lnum + 1 < curbuf->b_ml.ml_line_count
         || curwin->w_p_diff) {
       mark_adjust(curwin->w_cursor.lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false,
-                  kExtmarkNOOP);
+                  kExtmarkUndo);
     }
     did_append = true;
   } else {
@@ -851,13 +850,20 @@ open_line (
                       curwin->w_cursor.lnum + 1, 1L, true);
         did_append = false;
 
-        /* Move marks after the line break to the new line. */
-        if (flags & OPENLINE_MARKFIX)
+        // Move marks after the line break to the new line (but not extmarks)
+        if (flags & OPENLINE_MARKFIX) {
           mark_col_adjust(curwin->w_cursor.lnum,
-              curwin->w_cursor.col + less_cols_off,
-              1L, (long)-less_cols);
-      } else
+                          curwin->w_cursor.col + less_cols_off,
+                          1L, (long)-less_cols, kExtmarkNOOP);
+        }
+        // Always move extmarks - Here we move the only lnum where the cursor is
+        // The previous mark_adjust takes care of the lines after
+        extmark_col_adjust(curbuf, lnum, mincol, 1L, (long)-less_cols,
+                           kExtmarkUndo);
+
+      } else {
         changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
+      }
     }
 
     /*
@@ -935,20 +941,6 @@ theend:
   xfree(saved_line);
   xfree(next_line);
   xfree(allocated);
-
-  // Move extmarks
-  if (dir == FORWARD) {
-      // o or <cr>
-      extmark_adjust(curbuf, lnum+1, lnum+1, 1, 1, kExtmarkNoReverse, false);
-      if (extra_len != 0) {
-        // <cr>
-        extmark_col_adjust(curbuf,
-                           lnum, mincol, 1, -less_cols, kExtmarkNoReverse);
-      }
-  } else {
-    // <s-o>
-    extmark_adjust(curbuf, lnum, lnum, 1, 1, kExtmarkNoReverse, false);
-  }
 
   return retval;
 }
@@ -1698,13 +1690,6 @@ int del_bytes(colnr_T count, bool fixpos_arg, bool use_delcombine)
   // mark the buffer as changed and prepare for displaying
   changed_bytes(lnum, curwin->w_cursor.col);
 
-  // Move extmarks with char del or tab with noexpandtab
-  ExtmarkReverse reverse = kExtmarkNoReverse;
-  if ((col + count) == oldlen) {
-    reverse = kExtmarkNoUndo;
-  }
-  extmark_col_adjust(curbuf, lnum, col + 1, 0, -count, reverse);
-
   return OK;
 }
 
@@ -1910,9 +1895,7 @@ void appended_lines(linenr_T lnum, long count)
  */
 void appended_lines_mark(linenr_T lnum, long count)
 {
-  mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L, false, kExtmarkNoReverse);
-  extmark_adjust(curbuf, lnum + 1, (linenr_T)MAXLNUM, count, 0L,
-                 extmarkNoReverse, false);
+  mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L, false, kExtmarkUndo);
   changed_lines(lnum + 1, 0, lnum + 1, count, true);
 }
 
@@ -1934,9 +1917,7 @@ void deleted_lines(linenr_T lnum, long count)
 void deleted_lines_mark(linenr_T lnum, long count)
 {
   mark_adjust(lnum, (linenr_T)(lnum + count - 1), (long)MAXLNUM, -count, false,
-              kExtmarkNoReverse);
-  extmark_adjust(curbuf, lnum, (linenr_T)(lnum + count - 1),
-                 (long)MAXLNUM, -count, extmarkNoReverse, false);
+              kExtmarkUndo);
   changed_lines(lnum, 0, lnum + count, -count, true);
 }
 

@@ -2359,7 +2359,7 @@ void ex_diffgetput(exarg_T *eap)
       // Adjust marks.  This will change the following entries!
       if (added != 0) {
         mark_adjust(lnum, lnum + count - 1, (long)MAXLNUM, (long)added, false,
-                    kExtmarkNoReverse);
+                    kExtmarkUndo);
         if (curwin->w_cursor.lnum >= lnum) {
           // Adjust the cursor position if it's in/after the changed
           // lines.

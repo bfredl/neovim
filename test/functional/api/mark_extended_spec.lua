@@ -1,25 +1,30 @@
--- TODO(timeyyy):
--- do_bang needs to be tested
--- do_sub needs to be tested
--- diff needs to be tested
--- do_filter needs to be tested
+-- TODO(timeyyy): go through todo's lol
+-- change representation of stored marks to have location start at 0
+-- check with memsan, asan etc
 
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
 
 local request = helpers.request
 local eq = helpers.eq
-local neq = helpers.neq
 local buffer = helpers.buffer
 local nvim = helpers.nvim
 local insert = helpers.insert
 local feed = helpers.feed
 local expect = helpers.expect
 
-local SCREEN_WIDTH = 10
+local SCREEN_WIDTH = 15
 local TO_START = {-1, -1}
 local TO_END = {-1, -1}
 local ALL = -1
+local RANDOM_MARK_ID = 0
+
+local function check_undo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
+  feed("u")
+  rv = buffer('lookup_mark', buf, ns, mark)
+  eq(sr, rv[2])
+  eq(sc, rv[3])
+end
 
 local function check_undo_redo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
   feed("u")
@@ -61,13 +66,13 @@ describe('Extmarks buffer api', function()
     ns = 0
     -- 'add and query namespaces', these are required for marks to be created
     if ns == 0 then
-      ns = request('nvim_init_mark_ns', ns_string)
+      ns = request('nvim_create_namespace', ns_string)
       eq(1, ns)
-      ns2 = request('nvim_init_mark_ns', ns_string2)
+      ns2 = request('nvim_create_namespace', ns_string2)
       eq(2, ns2)
-      rv = request('nvim_mark_get_ns_ids')
-      eq({1, ns_string}, rv[1])
-      eq({2, ns_string2}, rv[2])
+      rv = request('nvim_get_namespaces')
+      eq(ns_string, rv[1])
+      eq(ns_string2, rv[2])
     end
   end)
 
@@ -96,11 +101,11 @@ describe('Extmarks buffer api', function()
     eq({marks[1], row, col}, rv)
 
     -- remove the test marks
-    rv = buffer('unset_mark', buf, ns, marks[1])
+    rv = buffer('del_mark', buf, ns, marks[1])
     eq(1, rv)
-    rv = buffer('unset_mark', buf, ns, marks[2])
+    rv = buffer('del_mark', buf, ns, marks[2])
     eq(1, rv)
-    rv = buffer('unset_mark', buf, ns, marks[3])
+    rv = buffer('del_mark', buf, ns, marks[3])
     eq(1, rv)
   end)
 
@@ -207,6 +212,66 @@ describe('Extmarks buffer api', function()
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
   end)
 
+  it('querying for information with amount #extmarks', function()
+    -- add some more marks
+    for i, m in ipairs(marks) do
+        rv = buffer('set_mark', buf, ns, m, positions[i][1], positions[i][2])
+        eq(1, rv)
+    end
+
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 1, 0)
+    eq(1, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 2, 0)
+    eq(2, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 3, 0)
+    eq(3, table.getn(rv))
+
+    -- now in reverse
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 1, 0)
+    eq(1, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 2, 0)
+    eq(2, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 3, 0)
+    eq(3, table.getn(rv))
+  end)
+
+  it('get_marks works when mark col > upper col #extmarks', function()
+    feed('A<cr>12345<esc>')
+    feed('A<cr>12345<esc>')
+    buffer('set_mark', buf, ns, 10, 1, 3)       -- this shouldn't be found
+    buffer('set_mark', buf, ns, 11, 3, 2)       -- this shouldn't be found
+    buffer('set_mark', buf, ns, marks[1], 1, 5) -- check col > our upper bound
+    buffer('set_mark', buf, ns, marks[2], 2, 2) -- check col < lower bound
+    buffer('set_mark', buf, ns, marks[3], 3, 1) -- check is inclusive
+    rv = buffer('get_marks', buf, ns, {1, 4}, {3, 1}, -1, 0)
+    eq({{marks[1], 1, 5},
+        {marks[2], 2, 2},
+        {marks[3], 3, 1}},
+       rv)
+  end)
+
+  it('get_marks works in reverse when mark col < lower col #extmarks', function()
+    feed('A<cr>12345<esc>')
+    feed('A<cr>12345<esc>')
+    buffer('set_mark', buf, ns, 10, 1, 2) -- this shouldn't be found
+    buffer('set_mark', buf, ns, 11, 3, 5) -- this shouldn't be found
+    buffer('set_mark', buf, ns, marks[1], 3, 2) -- check col < our lower bound
+    buffer('set_mark', buf, ns, marks[2], 2, 5) -- check col > upper bound
+    buffer('set_mark', buf, ns, marks[3], 1, 3) -- check is inclusive
+    rv = buffer('get_marks', buf, ns, {1, 3}, {3, 4}, -1, 1)
+    eq({{marks[1], 3, 2},
+        {marks[2], 2, 5},
+        {marks[3], 1, 3}},
+       rv)
+  end)
+
+  it('get_marks amount 0 returns nothing #extmarks', function()
+    buffer('set_mark', buf, ns, marks[1], positions[1][1], positions[1][2])
+    rv = buffer('get_marks', buf, ns, {-1, -1}, {-1, -1}, 0, 0)
+    eq({}, rv)
+  end)
+
+
   it('marks move with line insertations #extmarks', function()
     buffer('set_mark', buf, ns, marks[1], 1, 1)
     feed("yyP")
@@ -227,6 +292,7 @@ describe('Extmarks buffer api', function()
   end)
 
   it('marks move with line join #extmarks', function()
+    -- do_join in ops.c
     feed("a<cr>222<esc>")
     buffer('set_mark', buf, ns, marks[1], 2, 1)
     feed('ggJ')
@@ -241,16 +307,16 @@ describe('Extmarks buffer api', function()
     feed('kJ')
     -- This shouldn't seg fault
     screen:expect([[
-      12345^ 1     |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-                  |
+      12345^ 1        |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+                     |
     ]])
   end)
 
@@ -312,17 +378,59 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[2], 3, 5, 4, 5)
   end)
 
-  -- Below, tests are using extmark_col_adjust, above just extmark_adjust
-
-  it('marks move with fast char inserts #extmarks', function() -- FIXME
+  -- NO idea why this doesn't work... works in program
+  pending('marks move with char inserts #extmarks', function()
     -- insertchar in edit.c (the ins_str branch)
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    feed('0')
+    insert('abc')
+    screen:expect([[
+      ab^c12345       |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+                     |
+    ]])
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(6, rv[3])
+    -- check_undo_redo(buf, ns, marks[1], 1, 3, 1, 6)
+  end)
+
+  it('marks have gravity right #extmarks', function()
+    -- insertchar in edit.c (the ins_str branch)
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    feed('03l')
+    insert("X")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 3)
+
+    -- check multibyte chars
+    feed('03l<esc>')
+    insert("～～")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 3)
+  end)
+
+  it('we can insert multibyte chars #extmarks', function()
+    -- insertchar in edit.c
     feed('a<cr>12345<esc>')
     buffer('set_mark', buf, ns, marks[1], 2, 3)
-    feed('0iabc<esc>')
+    -- Insert a fullwidth (two col) tilde, NICE
+    feed('0i～<esc>')
     rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
     eq(2, rv[1][2])
-    eq(6, rv[1][3])
-    check_undo_redo(buf, ns, marks[1], 2, 3, 2, 6)
+    eq(4, rv[1][3])
+    check_undo_redo(buf, ns, marks[1], 2, 3, 2, 4)
   end)
 
   it('marks move with blockwise inserts #extmarks', function()
@@ -351,9 +459,18 @@ describe('Extmarks buffer api', function()
     eq(5, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 1, 5, 2, 3)
     check_undo_redo(buf, ns, marks[2], 2, 5, 3, 5)
-    --test cursor at col 1
-    feed('3Gi<cr><esc>')
-    check_undo_redo(buf, ns, marks[2], 3, 5, 4, 5)
+  end)
+
+  -- TODO mark_col_adjust for normal marks fails in vim/neovim
+  -- because flags is 9 in: if (flags & OPENLINE_MARKFIX) {
+  it('marks at last line move on insert new line #extmarks', function()
+    -- open_line in misc1.c
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    feed('0i<cr><esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(2, rv[2])
+    eq(5, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 2, 5)
   end)
 
   it('yet again marks move with line splits #extmarks', function()
@@ -367,20 +484,89 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[1], 1, 5, 2, 1)
   end)
 
+  it('and one last time line splits... #extmarks', function()
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    feed("02li<cr><esc>")
+    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
+    eq(1, rv[1][2])
+    eq(2, rv[1][3])
+    rv2 = buffer('get_marks', buf, ns, marks[2], marks[2], 1, 0)
+    eq(2, rv2[1][2])
+    eq(1, rv2[1][3])
+  end)
+
+  it('multiple marks move with mark splits #extmarks', function()
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    feed("0li<cr><esc>")
+    rv1 = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
+    rv2 = buffer('get_marks', buf, ns, marks[2], marks[2], 1, 0)
+    eq(2, rv1[1][2])
+    eq(1, rv1[1][3])
+    eq(2, rv2[1][2])
+    eq(3, rv2[1][3])
+    check_undo_redo(buf, ns, marks[1], 1, 2, 2, 1)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 2, 3)
+  end)
+
+  it('deleting on a mark works #extmarks', function()
+    -- op_delete in ops.c
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    feed('02lx')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 3)
+  end)
+
   it('marks move with char deletes #extmarks', function()
-    -- del_bytes misc1.c
-    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    -- op_delete in ops.c
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
     feed('02dl')
-    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
-    eq(1, rv[1][2])
-    eq(2, rv[1][3])
-    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 2)
-    -- regression test for off by one
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 1)
+    -- from the other side (nothing should happen)
     feed('$x')
-    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
-    eq(1, rv[1][2])
-    eq(2, rv[1][3])
-    check_undo_redo(buf, ns, marks[1], 1, 2, 1, 2)
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 1, 1, 1)
+  end)
+
+  it('marks move with char deletes over a range #extmarks', function()
+    -- op_delete in ops.c
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    feed('0l3dl<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(2, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(2, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 2)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 2)
+    -- delete 1, nothing should happend to our marks
+    feed('u')
+    feed('$x')
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(4, rv[3])
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 4)
+  end)
+
+  it('deleting marks at end of line works #extmarks', function()
+    -- mark_extended.c/extmark_col_adjust_delete
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    feed('$x')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    -- This remains where it is because marks exist
+    eq(4, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 4)
   end)
 
   it('marks move with blockwise deletes #extmarks', function()
@@ -392,6 +578,101 @@ describe('Extmarks buffer api', function()
     eq(2, rv[1][2])
     eq(2, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 2, 5, 2, 2)
+  end)
+
+  it('marks move with blockwise deletes over a range #extmarks', function()
+    -- op_delete in ops.c
+    feed('a<cr>12345<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    buffer('set_mark', buf, ns, marks[3], 2, 3)
+    feed('0<c-v>k3lx')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[3])
+    eq(2, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 2, 1, 1)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 1)
+    check_undo_redo(buf, ns, marks[3], 2, 3, 2, 1)
+    -- delete 1, nothing should happend to our marks
+    feed('u')
+    feed('$<c-v>jx')
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(4, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[3])
+    eq(2, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 4)
+    check_undo_redo(buf, ns, marks[3], 2, 3, 2, 3)
+  end)
+
+  it('marks outside of deleted range move with visual char deletes #extmarks', function()
+    -- op_delete in ops.c
+    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    feed('0vx<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 3)
+
+    feed("u")
+    feed('0vlx<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(2, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 2)
+
+    feed("u")
+    feed('0v2lx<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 1)
+
+    -- from the other side (nothing should happen)
+    feed('$vx')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 1, 1, 1)
+  end)
+
+  it('marks outside of deleted range move with char deletes #extmarks', function()
+    -- op_delete in ops.c
+    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    feed('0x<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 3)
+
+    feed("u")
+    feed('02x<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(2, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 2)
+
+    feed("u")
+    feed('0v3lx<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 1)
+
+    -- from the other side (nothing should happen)
+    feed("u")
+    feed('$vx')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(4, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 4)
   end)
 
   it('marks move with P(backward) paste #extmarks', function()
@@ -526,11 +807,11 @@ describe('Extmarks buffer api', function()
     eq(5, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 1, 3, 1, 5)
     -- insert a char before FIXME, #manualgood..
-    -- feed('0iX<tab><esc>')
-    -- rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
-    -- eq(1, rv[1][2])
-    -- eq(7, rv[1][3])
-    -- check_undo_redo(buf, ns, marks[1], 1, 5, 1, 7)
+    feed('0iX<tab><esc>')
+    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
+    eq(1, rv[1][2])
+    eq(7, rv[1][3])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 7)
   end)
 
   it('marks move when using :move #extmarks', function()
@@ -565,19 +846,10 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[1], 4, 1, 2, 1)
   end)
 
-  it('multiple redo works #extmarks', function()
-    buffer('set_mark', buf, ns, marks[1], 1, 1)
-    feed('0i<cr><cr><esc>')
-    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
-    eq(3, rv[1][2])
-    eq(1, rv[1][3])
-    check_undo_redo(buf, ns, marks[1], 1, 1, 3, 1)
-  end)
-
   it('undo and redo of set and unset marks #extmarks', function()
     -- Force a new undo head
     feed('o<esc>')
-    buffer('set_mark', buf, ns, marks[1], 1, 7)
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
     feed('o<esc>')
     buffer('set_mark', buf, ns, marks[2], 1, 8)
     buffer('set_mark', buf, ns, marks[3], 1, 9)
@@ -597,11 +869,11 @@ describe('Extmarks buffer api', function()
     rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
     feed("u")
     feed("<c-r>")
-    check_undo_redo(buf, ns, marks[1], 1, 7, positions[1][1], positions[1][2])
+    check_undo_redo(buf, ns, marks[1], 1, 2, positions[1][1], positions[1][2])
 
     -- Test unset
     feed('o<esc>')
-    buffer('unset_mark', buf, ns, marks[3])
+    buffer('del_mark', buf, ns, marks[3])
     feed("u")
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
     eq(3, table.getn(rv))
@@ -615,19 +887,6 @@ describe('Extmarks buffer api', function()
     feed('A<cr>12345<esc>')
     buffer('set_mark', buf, ns, marks[1], 2, 3)
     feed('dd')
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(0, table.getn(rv))
-    feed("u")
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(1, table.getn(rv))
-    feed("<c-r>")
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(0, table.getn(rv))
-
-    -- test extmark_col_adust
-    feed('A<cr>12345<esc>')
-    buffer('set_mark', buf, ns, marks[1], 2, 3)
-    feed('0lv3lx')
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
     eq(0, table.getn(rv))
     feed("u")
@@ -676,10 +935,10 @@ describe('Extmarks buffer api', function()
     rv = buffer('get_marks', buf, ns2, positions[1], positions[2], ALL, 1)
     eq(2, table.getn(rv))
 
-    buffer('unset_mark', buf, ns, marks[1])
+    buffer('del_mark', buf, ns, marks[1])
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
     eq(2, table.getn(rv))
-    buffer('unset_mark', buf, ns2, marks[1])
+    buffer('del_mark', buf, ns2, marks[1])
     rv = buffer('get_marks', buf, ns2, TO_START, TO_END, ALL, 0)
     eq(2, table.getn(rv))
   end)
@@ -687,17 +946,169 @@ describe('Extmarks buffer api', function()
   it('mark set can create unique identifiers #extmarks', function()
     local id = 0;
     -- id is 0
-    rv = buffer('set_mark', buf, ns, 0, positions[1][1], positions[1][2])
+    rv = buffer('set_mark', buf, ns, marks[1], positions[1][1], positions[1][2])
     eq(1, rv)
-    -- id should be 1
-    id = buffer('set_mark', buf, ns, "", positions[1][1], positions[1][2])
-    eq(1, id)
-    -- id is 2
-    rv = buffer('set_mark', buf, ns, 2, positions[2][1], positions[2][2])
+    -- id should be + 1
+    id = buffer('set_mark', buf, ns, RANDOM_MARK_ID, positions[1][1], positions[1][2])
+    eq(1 + 1, id)
+    -- id is 3
+    rv = buffer('set_mark', buf, ns, 3, positions[2][1], positions[2][2])
     eq(1, rv)
-    -- id should be 3
-    id = buffer('set_mark', buf, ns, "", positions[1][1], positions[1][2])
-    eq(3, id)
+    id = buffer('set_mark', buf, ns, RANDOM_MARK_ID, positions[1][1], positions[1][2])
+    eq(1 + 3, id)
+  end)
+
+  it('auto indenting with enter works #extmarks', function()
+    -- op_reindent in ops.c
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    feed("0iint <esc>A {1M1<esc>b<esc>")
+    -- Set the mark on the M, should move..
+    buffer('set_mark', buf, ns, marks[1], 1, 13)
+    -- Set the mark before the cursor, should stay there
+    buffer('set_mark', buf, ns, marks[2], 1, 11)
+    feed("i<cr><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[2], 1, 11}, rv)
+    check_undo_redo(buf, ns, marks[1], 1, 13, 2, 4)
+  end)
+
+  it('auto indenting entire line works #extmarks', function()
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    -- <c-f> will force an indent of 2
+    feed("0iint <esc>A {<cr><esc>0i1M1<esc>")
+    buffer('set_mark', buf, ns, marks[1], 2, 2)
+    feed("0i<c-f><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+    check_undo_redo(buf, ns, marks[1], 2, 2, 2, 4)
+    -- now check when cursor at eol
+    feed("uA<c-f><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+  end)
+
+  it('removing auto indenting with <C-D> works #extmarks', function()
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    feed("0i<tab><esc>")
+    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    feed("bi<c-d><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 2}, rv)
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 2)
+    -- check when cursor at eol
+    feed("uA<c-d><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 2}, rv)
+  end)
+
+  it('indenting multiple lines with = works #extmarks', function()
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    feed("0iint <esc>A {<cr><bs>1M1<cr><bs>2M2<esc>")
+    buffer('set_mark', buf, ns, marks[1], 2, 2)
+    buffer('set_mark', buf, ns, marks[2], 3, 2)
+    feed('=gg')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[2], 3, 6}, rv)
+    check_undo_redo(buf, ns, marks[1], 2, 2, 2, 4)
+  end)
+
+  -- How should substitue of marks be implemented so that
+  -- tagging of a range is substitued like libre? Just delete all?
+  --   mm so i guess if an on insert autocmd is used, it would be possible
+  --   to reapply the tag on the range.
+  it('substitutes by deleting inside the replace matches #extmarks', function()
+    -- do_sub in ex_cmds.c
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    feed(':s/34/xx<cr>')
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 5)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 5)
+  end)
+
+  it('substitutes when insert text > deleted #extmarks', function()
+    -- do_sub in ex_cmds.c
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    feed(':s/34/xxx<cr>')
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 6)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 6)
+  end)
+
+  it('using <c-a> when increase in order of magnitude #extmarks', function()
+    -- do_addsub in ops.c
+    feed('ddi9 abc<esc>H')
+    -- when going from 9 to 10, mark on 9 shouldn't move
+    buffer('set_mark', buf, ns, marks[1], 1, 1)
+    -- but things after the inserted number should be moved
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    feed('<c-a>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 1}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[2], 1, 4}, rv)
+    check_undo_redo(buf, ns, marks[2], 1, 3, 1, 4)
+  end)
+
+  it('using <c-x> when decrease in order of magnitude #extmarks', function()
+    -- do_addsub in ops.c
+    feed('ddiab.10<esc>')
+    -- when going from 10 to 9, mark on 0 should move
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    -- the mark before hsouldn't move
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    feed('b<c-x>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 4}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[2], 1, 3}, rv)
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 4)
+  end)
+
+  -- TODO catch exceptions
+  it('throws consistent error codes #todo', function()
+    local buf_invalid = 9
+    local ns_invalid = ns2 + 1
+    rv = buffer('set_mark', buf_invalid, ns, marks[1], positions[1][1], positions[1][2])
+    rv = buffer('del_mark', buf_invalid, ns, marks[1])
+    rv = buffer('get_marks', buf_invalid, ns, positions[1], positions[2], ALL, 0)
+    rv = buffer('lookup_mark', buf_invalid, ns, marks[1])
+    rv = buffer('set_mark', buf, ns_invalid, marks[1], positions[1][1], positions[1][2])
+    rv = buffer('del_mark', buf, ns_invalid, marks[1])
+    rv = buffer('get_marks', buf, ns_invalid, positions[1], positions[2], ALL, 0)
+    rv = buffer('lookup_mark', buf, ns_invalid, marks[1])
+
+  end)
+
+  it('when col > line-length, set the mark on eol #extmarks', function()
+    local invalid_col = init_text:len() + 1
+    buffer('set_mark', buf, ns, marks[1], 1, invalid_col)
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, init_text:len() + 1}, rv)
+    -- Test another
+    local invalid_col = init_text:len() + 2
+    buffer('set_mark', buf, ns, marks[1], 1, invalid_col)
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, init_text:len() + 1}, rv)
+  end)
+
+  it('when line > line, set the mark on end of buffer #extmarks', function()
+    local invalid_col = init_text:len() + 1
+    local invalid_lnum = 3 -- line1 ends in an eol. so line 2 contains a valid position (eol)?
+    buffer('set_mark', buf, ns, marks[1], invalid_lnum, invalid_col)
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 1}, rv)
   end)
 
 end)

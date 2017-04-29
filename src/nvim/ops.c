@@ -316,7 +316,7 @@ void shift_line(
                      mincol,
                      0,
                      col_amount,
-                     kExtmarkNoReverse);
+                     kExtmarkUndo);
 }
 
 /*
@@ -493,7 +493,7 @@ static void shift_block(oparg_T *oap, int amount)
     col_amount = -col_amount;
   }
   extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
-                     curwin->w_cursor.col, 0, col_amount, kExtmarkNoReverse);
+                     curwin->w_cursor.col, 0, col_amount, kExtmarkUndo);
 }
 
 /*
@@ -638,10 +638,19 @@ void op_reindent(oparg_T *oap, Indenter how)
         amount = how();                     /* get the indent for this line */
 
       if (amount >= 0 && set_indent(amount, SIN_UNDO)) {
-        /* did change the indent, call changed_lines() later */
-        if (first_changed == 0)
+        // did change the indent, call changed_lines() later
+        if (first_changed == 0) {
           first_changed = curwin->w_cursor.lnum;
+        }
         last_changed = curwin->w_cursor.lnum;
+
+        // Adjust extmarks
+        extmark_col_adjust(curbuf,
+                           curwin->w_cursor.lnum,
+                           0,             // mincol
+                           0,             // lnum_amount
+                           amount,        // col_amount
+                           kExtmarkUndo);
       }
     }
     ++curwin->w_cursor.lnum;
@@ -1623,19 +1632,32 @@ setmarks:
   if (oap->motion_type == kMTBlockWise) {
     curbuf->b_op_end.lnum = oap->end.lnum;
     curbuf->b_op_end.col = oap->start.col;
-    // Move extended marks on blockwise delete
-    colnr_T mincol = bd.start_vcol + 1;
-    colnr_T col_amount = n;
-    for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
-      extmark_col_adjust(curbuf,
-                         lnum, mincol, 0, -col_amount, kExtmarkNoReverse);
-    }
-
   } else {
     curbuf->b_op_end = oap->start;
   }
   curbuf->b_op_start = oap->start;
 
+  // TODO refactor
+  // Move extended marks
+  // + 1 to change to buf mode, then plus 1 because we only move marks after the deleted col
+  colnr_T mincol = oap->start.col + 1 + 1;
+  colnr_T endcol = oap->end.col + 1 + 1;
+  if (oap->motion_type == kMTBlockWise) {
+    // TODO refactor extmark_col_adjust to take lnumstart, lnum_end ?
+    for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
+      extmark_col_adjust_delete(curbuf, lnum, mincol, bd.end_vcol + 1, kExtmarkUndo);
+    }
+  } else if (oap->motion_type == kMTCharWise) {
+    lnum = curwin->w_cursor.lnum;
+    if (oap->is_VIsual) {
+      // + 1 to change to buf mode, then plus 1 because we copy one more than what we modify
+      endcol = oap->end.col + 1 + 1;
+    } else {
+      // for some reason the end.col in normal modde is + 1 as when in visual mode
+      endcol = oap->end.col + 1;
+    }
+    extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo);
+  }
   return OK;
 }
 
@@ -2217,7 +2239,7 @@ void op_insert(oparg_T *oap, long count1)
   }
   colnr_T col = oap->start.col;
   for (linenr_T lnum = oap->start.lnum; lnum <= oap->end.lnum; lnum++) {
-    extmark_col_adjust(curbuf, lnum, col, 0, 1, kExtmarkNoReverse);
+    extmark_col_adjust(curbuf, lnum, col, 0, 1, kExtmarkUndo);
     }
 }
 
@@ -3284,7 +3306,7 @@ error:
       if (curbuf->b_op_start.lnum + (y_type == kMTCharWise) - 1 + nr_lines
           < curbuf->b_ml.ml_line_count) {
         mark_adjust(curbuf->b_op_start.lnum + (y_type == kMTCharWise),
-                    (linenr_T)MAXLNUM, nr_lines, 0L, false, kExtmarkNoReverse);
+                    (linenr_T)MAXLNUM, nr_lines, 0L, false, kExtmarkUndo);
       }
 
       // note changed text for displaying and folding
@@ -3357,11 +3379,11 @@ end:
 
   // Move extmark with char put
   if (y_type == kMTCharWise) {
-    extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkNoReverse);
+    extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
   // Move extmark with blockwise put
   } else if (y_type == kMTBlockWise) {
     for (lnum = curbuf->b_op_start.lnum; lnum <= curbuf->b_op_end.lnum; lnum++) {
-      extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkNoReverse);
+      extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
     }
   }
 }
@@ -3761,17 +3783,6 @@ int do_join(size_t count,
   colnr_T mincol;
   long lnum_amount;
   long col_amount;
-  ExtmarkReverse reverse;
-  bool marked_end = false;
-  bool extmark_added = true;
-
-  // TODO(timeyyy): call get_undo_header in mark_extended.c ?
-  u_header_T *uhp = NULL;
-  if (curbuf->b_u_curhead != NULL) {
-    uhp = curbuf->b_u_curhead;
-  } else if (curbuf->b_u_newhead) {
-    uhp = curbuf->b_u_newhead;
-  }
 
   for (t = (linenr_T)count - 1;; t--) {
     cend -= currsize;
@@ -3785,30 +3796,9 @@ int do_join(size_t count,
     lnum_amount = (linenr_T)-t;
     col_amount = (long)(cend - newp + spaces[t] - (curr - curr_start));
 
-    mark_col_adjust(lnum, mincol, lnum_amount, col_amount);
-
-    // We explicitly save the undo info for our extmarks as the order required
-    // for undoing is different than the call order to extmark_col_adjust
-    if (!(col_amount == 0L && lnum_amount == 0L)) {
-      if (t == 0) {
-        reverse = kExtmarkReverseEnd;
-        marked_end = true;
-      } else {
-        reverse = kExtmarkReverse;
-      }
-      extmark_added = extmark_col_adjust(curbuf, lnum, mincol, lnum_amount,
-                                         col_amount, reverse);
-    }
+    mark_col_adjust(lnum, mincol, lnum_amount, col_amount, kExtmarkUndo);
 
     if (t == 0) {
-      if (extmark_added && !marked_end) {
-        // change the last element to kExtmarkReverseEnd
-        ExtmarkUndoObject undo_info = kv_A(uhp->uh_extmark,
-                                           kv_size(uhp->uh_extmark) - 1);
-        undo_info.reverse = kExtmarkReverseEnd;
-        kv_A(uhp->uh_extmark, kv_size(uhp->uh_extmark) - 1) = undo_info;
-      }
-
       break;
     }
 
@@ -4240,14 +4230,14 @@ format_lines (
         if (next_leader_len > 0) {
           (void)del_bytes(next_leader_len, false, false);
           mark_col_adjust(curwin->w_cursor.lnum, (colnr_T)0, 0L,
-                          (long)-next_leader_len);
+                          (long)-next_leader_len, kExtmarkUndo);
         } else if (second_indent > 0) {   // the "leader" for FO_Q_SECOND
           int indent = (int)getwhitecols_curline();
 
           if (indent > 0) {
             (void)del_bytes(indent, FALSE, FALSE);
             mark_col_adjust(curwin->w_cursor.lnum,
-                (colnr_T)0, 0L, (long)-indent);
+                            (colnr_T)0, 0L, (long)-indent, kExtmarkUndo);
           }
         }
         curwin->w_cursor.lnum--;
@@ -4914,6 +4904,29 @@ int do_addsub(int op_type, pos_T *pos, int length, linenr_T Prenum1)
   if (curbuf->b_op_end.col > 0) {
     curbuf->b_op_end.col--;
   }
+
+  long col_amount;
+  colnr_T mincol;
+
+  mincol = curwin->w_cursor.col + 1;
+  if (op_type == OP_NR_ADD) {
+    col_amount = (long)Prenum1;
+  } else {
+    col_amount = (long)-length;
+  }
+
+  mincol = curwin->w_cursor.col + 1;
+  if (op_type == OP_NR_ADD) {
+    col_amount = Prenum1;
+  } else {
+    col_amount = -length;
+  }
+
+  // Adjust extmarks
+  extmark_col_adjust(curbuf, pos->lnum, mincol,
+                     0,            // lnum_amount
+                     col_amount,
+                     kExtmarkUndo);
 
 theend:
   if (visual) {

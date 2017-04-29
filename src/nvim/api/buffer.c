@@ -474,9 +474,7 @@ void nvim_buf_set_lines(uint64_t channel_id,
                 MAXLNUM,
                 (long)extra,
                 false,
-                kExtmarkNoReverse);
-    extmark_adjust(curbuf, (linenr_T)start, (linenr_T)(end - 1), MAXLNUM,
-                   extra, extmarkNoReverse, false);
+                kExtmarkUndo);
   }
 
   changed_lines((linenr_T)start, 0, (linenr_T)end, (long)extra, true);
@@ -907,27 +905,35 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
   return rv;
 }
 
-/// Returns mark info at the given position or mark index
+/// Returns extended mark info for a given mark identifier
 ///
 /// @param buffer The buffer handle
-/// @param namespace a identifier returned previously with extmark_ns_create
-/// @param id (row, col) or mark_id of mark
+/// @param namespace a identifier returned previously with nvim_create_namespace
+/// @param id any mark identifier that uniquely selects a mark (no positions)
 /// @param[out] err Details of an error that may have occurred
-/// @return [mark_id, row, col] list
+/// @return [mark_id, row, col]
 ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
                                      Integer namespace,
-                                     Object index,
+                                     Integer id,
                                      Error *err)
-    FUNC_API_SINCE(1)
+    FUNC_API_SINCE(3)
 {
   Array rv = ARRAY_DICT_INIT;
+
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
   if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
 
-  ExtendedMark *extmark;
-  extmark = extmark_from_id_or_pos(buffer, namespace, index, err, true);
+  ExtendedMark *extmark = extmark_from_id(buf,
+                                          (uint64_t)namespace,
+                                          (uint64_t)id);
   if (!extmark) {
     return rv;
   }
@@ -937,16 +943,15 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
   return rv;
 }
 
-/// Returns mark info in a range (inclusive)
-/// If there are no following marks returns empty list
+/// Returns extended mark info in a range (inclusive)
 ///
 /// @param buffer The buffer handle
-/// @param namespace an id returned previously from extmark_ns_create
-/// @param lower any valid mark identifier (row, col) or mark_id or -1
-/// @param upper any valid mark identifier (row, col) or mark_id or -1
-/// @param amount Maximum number of extmarks to return
-/// @param reverse Decides the search direction in the range
-/// @param[out] err Details of an error that may have occurred
+/// @param namespace An id returned previously from nvim_create_namespace
+/// @param lower One of: extended mark id, (row, col) or -1 for start of buffer
+/// @param upper One of: extended mark id, (row, col) or -1 for end of buffer
+/// @param amount Maximum number of marks to return or -1 for all marks found
+/// @param reverse Boolean to switch the search direction.
+/// /// @param[out] err Details of an error that may have occurred
 /// @return [[mark_id, row, col], ...]
 ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
                                    Integer namespace,
@@ -955,16 +960,22 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
                                    Integer amount,
                                    Boolean reverse,
                                    Error *err)
-    FUNC_API_SINCE(1)
+    FUNC_API_SINCE(3)
 {
   Array rv = ARRAY_DICT_INIT;
+
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
   if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
 
-  if(amount == 0) {
-    api_set_error(err, kErrorTypeValidation, _("Amount must be greater than 0"));
+  if (amount == 0) {
     return rv;
   }
 
@@ -982,24 +993,13 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
     return rv;
   }
 
+  // TODO: assert lower <= upper
+
   ExtendedMark *extmark;
   Array mark = ARRAY_DICT_INIT;
-  // lower == upper, positional query
-  if ((l_lnum == u_lnum)
-      && (l_col == u_col)
-      && (u_lnum != Extremity)
-      && (u_col != Extremity)) {
-    mark = nvim_buf_lookup_mark(buffer, namespace, lower, err);
-    if (mark.items == NULL) {
-      return rv;
-    }
-    ADD(rv, ARRAY_OBJ(mark));
-    return rv;
-  }
 
   // Range Query
   ExtmarkArray extmarks_in_range;
-  buf_T *buf = find_buffer_by_handle(buffer, err);
 
   extmarks_in_range = extmark_get(buf,
                                   (uint64_t)namespace,
@@ -1009,9 +1009,9 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
                                   u_col,
                                   (int64_t)amount,
                                   reverse ? BACKWARD: FORWARD);
-  /* size_t n = kv_size(extmarks_in_range); */
 
-  for (size_t i = 0; i < kv_size(extmarks_in_range); i++) {
+  size_t n = kv_size(extmarks_in_range);
+  for (size_t i = 0; i < n; i++) {
     mark.size = 0;
     mark.capacity = 0;
     mark.items = 0;
@@ -1026,22 +1026,24 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 
 }
 
-/// Create or update a mark at a position
+/// Create or update an extended mark at a position
+///
+/// If an invalid namespace is given, an error will be raised.
 ///
 /// @param buffer The buffer handle
-/// @param namespace a identifier returned previously with extmark_ns_create
-/// @param id The mark's id or ""
-/// @param row position of the mark
-/// @param col position of the mark
+/// @param namespace a identifier returned previously with nvim_create_namespace
+/// @param id The extended mark's id or 0 for a randomly generated id
+/// @param row The row to set the extended mark to.
+/// @param col The column to set the extended mark to.
 /// @param[out] err Details of an error that may have occurred
-/// @return 1 on new, 2 on update; or a mark_id if function argument id was ""
+/// @return 1 on new, 2 on update; or a mark_id if argument mark_id was 0
 Integer nvim_buf_set_mark(Buffer buffer,
                           Integer namespace,
-                          Object mark_id,
+                          Integer mark_id,
                           Integer row,
                           Integer col,
                           Error *err)
-    FUNC_API_SINCE(1)
+    FUNC_API_SINCE(3)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1060,27 +1062,18 @@ Integer nvim_buf_set_mark(Buffer buffer,
 
   bool return_id = false;
   uint64_t id;
-  switch (mark_id.type) {
-    case kObjectTypeString:
-      // Test for "", we need to create and return a unique id in this case
-      if (strcmp(mark_id.data.string.data, "") == 0) {
-        id = extmark_next_id_get(buf, (uint64_t)namespace);
-        return_id = true;
-        break;
-      }
-    case kObjectTypeInteger:
-      if (mark_id.data.integer >= 0) {
-        id = (uint64_t)mark_id.data.integer;
-        return_id = false;
-        break;
-      }
-    default:
-      api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));
-      return rv;
+  if (mark_id == 0) {
+    id = extmark_free_id_get(buf, (uint64_t)namespace);
+    return_id = true;
+  } else if (mark_id > 0) {
+    id = (uint64_t)mark_id;
+  } else {
+    api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));
+    return rv;
   }
 
   rv = (Integer)extmark_set(buf, (uint64_t)namespace, id,
-                            (linenr_T)row, (colnr_T)col, kExtmarkNoReverse);
+                            (linenr_T)row, (colnr_T)col, kExtmarkUndo);
   if (return_id) {
     return (Integer)id;
   } else {
@@ -1088,18 +1081,18 @@ Integer nvim_buf_set_mark(Buffer buffer,
   }
 }
 
-/// Remove a mark
+/// Remove an extended mark
 ///
 /// @param buffer The buffer handle
-/// @param namespace a identifier returned previously with extmark_ns_create
-/// @param id The mark's id
+/// @param namespace a identifier returned previously with nvim_create_namespace
+/// @param id The extended mark's id
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on success, 0 on no mark found
-Integer nvim_buf_unset_mark(Buffer buffer,
-                            Integer namespace,
-                            Integer id,
-                            Error *err)
-    FUNC_API_SINCE(1)
+Integer nvim_buf_del_mark(Buffer buffer,
+                          Integer namespace,
+                          Integer id,
+                          Error *err)
+    FUNC_API_SINCE(3)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1112,8 +1105,8 @@ Integer nvim_buf_unset_mark(Buffer buffer,
     return rv;
   }
 
-  rv = (Integer)extmark_unset(buf, (uint64_t)namespace, (uint64_t)id,
-                              kExtmarkNoReverse);
+  rv = (Integer)extmark_del(buf, (uint64_t)namespace, (uint64_t)id,
+                              kExtmarkUndo);
   return rv;
 }
 

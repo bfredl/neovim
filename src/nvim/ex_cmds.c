@@ -650,10 +650,10 @@ void ex_sort(exarg_T *eap)
   deleted = (long)(count - (lnum - eap->line2));
   if (deleted > 0) {
     mark_adjust(eap->line2 - deleted, eap->line2, (long)MAXLNUM, -deleted,
-                false, kExtmarkNoReverse);
+                false, kExtmarkUndo);
     msgmore(-deleted);
   } else if (deleted < 0) {
-    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L, false, kExtmarkNoReverse);
+    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L, false, kExtmarkUndo);
   }
   if (change_occurred || deleted != 0) {
     changed_lines(eap->line1, 0, eap->line2 + 1, -deleted, true);
@@ -1281,14 +1281,14 @@ static void do_filter(
       if (cmdmod.keepmarks || vim_strchr(p_cpo, CPO_REMMARK) == NULL) {
         if (read_linecount >= linecount) {
           // move all marks from old lines to new lines
-          mark_adjust(line1, line2, linecount, 0L, false, kExtmarkNoReverse);
+          mark_adjust(line1, line2, linecount, 0L, false, kExtmarkUndo);
         } else {
           // move marks from old lines to new lines, delete marks
           // that are in deleted lines
           mark_adjust(line1, line1 + read_linecount - 1, linecount, 0L, false,
-                      kExtmarkNoReverse);
+                      kExtmarkUndo);
           mark_adjust(line1 + read_linecount, line2, MAXLNUM, 0L, false,
-                      kExtmarkNoReverse);
+                      kExtmarkUndo);
         }
       }
 
@@ -3259,6 +3259,9 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
   int save_b_changed = curbuf->b_changed;
   bool preview = (State & CMDPREVIEW);
 
+  // Mark so Undo works
+  u_save_cursor();
+
   if (!global_busy) {
     sub_nsubs = 0;
     sub_nlines = 0;
@@ -3516,7 +3519,6 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
         if (regmatch.startpos[0].lnum > 0) {
           current_match.pre_match = lnum;
           lnum += regmatch.startpos[0].lnum;
-          sub_firstlnum += regmatch.startpos[0].lnum;
           nmatch -= regmatch.startpos[0].lnum;
           xfree(sub_firstline);
           sub_firstline = NULL;
@@ -3872,6 +3874,17 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
 
           ADJUST_SUB_FIRSTLNUM();
 
+          // Adjust extmarks, by delete and then insert
+          colnr_T  mincol = regmatch.startpos[0].col + 1;
+          colnr_T endcol = regmatch.endpos[0].col + 1;
+          // Delete, + 1 because we only move marks after the deleted col
+          extmark_col_adjust_delete(curbuf, lnum, mincol + 1, endcol,
+                                    kExtmarkUndo);
+          // Insert, sublen seems to be the value we need but + 1...
+          colnr_T col_amount = sublen - 1;
+          extmark_col_adjust(curbuf, lnum, mincol, 0, col_amount,
+                             kExtmarkUndo);
+
           // Now the trick is to replace CTRL-M chars with a real line
           // break.  This would make it impossible to insert a CTRL-M in
           // the text.  The line break can be avoided by preceding the
@@ -3887,7 +3900,8 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
                 ml_append(lnum - 1, new_start,
                           (colnr_T)(p1 - new_start + 1), false);
                 mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false,
-                            kExtmarkNoReverse);
+                            kExtmarkUndo);
+
                 if (subflags.do_ask) {
                   appended_lines(lnum - 1, 1L);
                 } else {
@@ -3979,7 +3993,7 @@ skip:
               for (i = 0; i < nmatch_tl; ++i)
                 ml_delete(lnum, (int)FALSE);
               mark_adjust(lnum, lnum + nmatch_tl - 1,
-                          (long)MAXLNUM, -nmatch_tl, false, kExtmarkNoReverse);
+                          (long)MAXLNUM, -nmatch_tl, false, kExtmarkUndo);
               if (subflags.do_ask) {
                 deleted_lines(lnum, nmatch_tl);
               }

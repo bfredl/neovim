@@ -1214,6 +1214,7 @@ ArrayOf(Dictionary) keymap_array(String mode, buf_T *buf)
   tv_dict_free(dict);
 
   return mappings;
+}
 
 // Returns an extmark given an id or a positional index
 // If throw == true then an error will be raised if nothing

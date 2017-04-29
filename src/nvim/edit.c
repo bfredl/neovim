@@ -1628,6 +1628,7 @@ change_indent (
   vcol = vc;
 
   /*
+     l
    * For Replace mode we need to fix the replace stack later, which is only
    * possible when the cursor is in the indent.  Remember the number of
    * characters before the cursor if it's possible.
@@ -1800,6 +1801,13 @@ change_indent (
     ins_bytes(new_line);
 
     xfree(new_line);
+  }
+
+  // change_indent seems to bec called twice, this combination only triggers
+  // once for both calls
+  if (new_cursor_col - vcol != 0) {
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, 0, 0, amount,
+                       kExtmarkUndo);
   }
 }
 
@@ -5332,8 +5340,9 @@ insertchar (
     do_digraph(buf[i-1]);               /* may be the start of a digraph */
     buf[i] = NUL;
     ins_str(buf);
-    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                     (long)STRLEN(buf), kExtmarkNoReverse);
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
+                       (colnr_T)(curwin->w_cursor.col + 1), 0,
+                       (long)STRLEN(buf), kExtmarkUndo);
     if (flags & INSCHAR_CTRLV) {
       redo_literal(*buf);
       i = 1;
@@ -5344,23 +5353,18 @@ insertchar (
   } else {
     int cc;
 
-    // TODO(timeyyy): refactor  this if block away, need to manually test that 
-    // inserts still work as the tests don't catch it
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
+                       (colnr_T)(curwin->w_cursor.col + 1), 0,
+                       1, kExtmarkUndo);
     if ((cc = utf_char2len(c)) > 1) {
       char_u buf[MB_MAXBYTES + 1];
 
       utf_char2bytes(c, buf);
       buf[cc] = NUL;
       ins_char_bytes(buf, cc);
-      // TODO(timeyyy): test this code path...
-      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                         cc, kExtmarkNoReverse);
       AppendCharToRedobuff(c);
     } else {
       ins_char(c);
-      char_u buf[MB_MAXBYTES + 1];
-      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                         1, kExtmarkNoReverse);
       if (flags & INSCHAR_CTRLV) {
         redo_literal(c);
       } else {
@@ -8243,7 +8247,7 @@ static bool ins_tab(void)
                      curwin->w_cursor.col,
                      0,
                      temp,
-                     kExtmarkNoReverse);
+                     kExtmarkUndo);
 
   /*
    * Insert the first space with ins_char().	It will delete one char in
