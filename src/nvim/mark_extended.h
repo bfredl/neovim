@@ -143,6 +143,7 @@ typedef PMap(uint64_t) IntMap;
 
 typedef struct ExtmarkNs {  // For namespacing extmarks
   IntMap *map;              // For fast lookup
+  uint64_t free_id;         // For automatically assigning id's
 } ExtmarkNs;
 
 

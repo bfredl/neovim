@@ -986,7 +986,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
     case kObjectTypeString:
       // Test for "", we need to create and return a unique id in this case
       if (strcmp(mark_id.data.string.data, "") == 0) {
-        id = extmark_next_id_get(buf, (uint64_t)namespace);
+        id = extmark_free_id_get(buf, (uint64_t)namespace);
         return_id = true;
         break;
       }

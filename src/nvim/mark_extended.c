@@ -170,6 +170,9 @@ static bool extmark_create(buf_T *buf,
   if (undo != kExtmarkNoUndo) {
     u_extmark_set(buf, ns, id, lnum, col, kExtmarkSet);
   }
+
+  // Set a free id so extmark_free_id_get works
+  extmark_free_id_set(ns_obj, id);
   return true;
 }
 
@@ -253,28 +256,26 @@ ExtendedMark *extmark_from_pos(buf_T *buf,
   return NULL;
 }
 
-// Return the next avaliable id in a namespace
-uint64_t extmark_next_id_get(buf_T *buf, uint64_t ns)
+// Returns an avaliable id in a namespace
+uint64_t extmark_free_id_get(buf_T *buf, uint64_t ns)
 {
-  uint64_t last_seen = 0;
+  uint64_t free_id = 0;
 
   if (!buf->b_extmark_ns) {
-    return last_seen;
+    return free_id;
   }
   ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
   if (!ns_obj) {
-    return last_seen;
+    return free_id;
   }
+  return ns_obj->free_id;
+}
 
-  // Just adds +1 to the largest id found
-  uint64_t mark_id;
-  ExtendedMark *extmark;
-  map_foreach(ns_obj->map, mark_id, extmark, {
-    if (mark_id > last_seen) {
-      last_seen = mark_id;
-    }
-  })
-  return last_seen + 1;
+// Set the free id in a namesapce
+static void extmark_free_id_set(ExtmarkNs *ns_obj, uint64_t id)
+{
+  // Simply Heurstic, the largest id + 1
+  ns_obj->free_id = id + 1;
 }
 
 void extmark_free_all(buf_T *buf)
