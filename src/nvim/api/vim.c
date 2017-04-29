@@ -1828,7 +1828,7 @@ ArrayOf(Object) nvim_mark_get_ns_ids(Error *err)
   Array ns_array = ARRAY_DICT_INIT;
 
   if (!EXTMARK_NAMESPACES) {
-    api_set_error(err, Validation, _("No mark namespaces exist"));
+    api_set_error(err, kErrorTypeValidation, _("No mark namespaces exist"));
     return rv;
   }
 
