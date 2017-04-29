@@ -844,7 +844,7 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
 {
   Array rv = ARRAY_DICT_INIT;
   if (!ns_initialized((uint64_t)namespace)) {
-    api_set_error(err, Validation, _("Invalid mark namespace"));
+    api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
 
@@ -881,12 +881,12 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 {
   Array rv = ARRAY_DICT_INIT;
   if (!ns_initialized((uint64_t)namespace)) {
-    api_set_error(err, Validation, _("Invalid mark namespace"));
+    api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
 
   if(amount == 0) {
-    api_set_error(err, Validation, _("Amount must be greater than 0"));
+    api_set_error(err, kErrorTypeValidation, _("Amount must be greater than 0"));
     return rv;
   }
 
@@ -972,11 +972,11 @@ Integer nvim_buf_set_mark(Buffer buffer,
     return rv;
   }
   if (!ns_initialized((uint64_t)namespace)) {
-    api_set_error(err, Validation, _("Invalid mark namespace"));
+    api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
   if (row < 1 || col < 1) {
-    api_set_error(err, Validation, _("Row and column must be greater than 0"));
+    api_set_error(err, kErrorTypeValidation, _("Row and column must be greater than 0"));
     return rv;
   }
 
@@ -997,7 +997,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
         break;
       }
     default:
-      api_set_error(err, Validation, _("Invalid mark id"));
+      api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));
       return rv;
   }
 
@@ -1030,7 +1030,7 @@ Integer nvim_buf_unset_mark(Buffer buffer,
     return rv;
   }
   if (!ns_initialized((uint64_t)namespace)) {
-    api_set_error(err, Validation, _("Invalid mark namespace"));
+    api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
 
