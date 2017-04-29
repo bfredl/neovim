@@ -4348,9 +4348,11 @@ static void frame_setheight(frame_T *curfrp, int height)
       if (curfrp->fr_width != Columns)
         room_cmdline = 0;
       else {
-        room_cmdline = Rows - p_ch - (lastwin->w_winrow
-                                      + lastwin->w_height +
-                                      lastwin->w_status_height);
+
+        win_T *wp = lastwin_nofloating();
+        room_cmdline = Rows - p_ch - (wp->w_winrow
+                                      + wp->w_height +
+                                      wp->w_status_height);
         if (room_cmdline < 0)
           room_cmdline = 0;
       }
@@ -6007,3 +6009,13 @@ void win_findbuf(typval_T *argvars, list_T *list)
     }
   }
 }
+
+win_T *lastwin_nofloating(void) {
+  win_T *res = lastwin;
+  while (res->w_floating) {
+    res = res->w_prev;
+  }
+  return res;
+}
+
+
