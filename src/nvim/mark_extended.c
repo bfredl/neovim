@@ -14,6 +14,9 @@
 // extmark_col_adjust or extmark_adjust. The list of arguments
 // is traversed in extmark_iter_undo and applied in extmark_apply_undo
 //
+// Marks live in namespaces that allow plugins/users to segregate marks
+// from other users, namespaces have to be initialized before usage
+//
 // For possible ideas for efficency improvements see:
 // http://blog.atom.io/2015/06/16/optimizing-an-important-atom-primitive.html
 // Other implementations exist in gtk and tk toolkits.
