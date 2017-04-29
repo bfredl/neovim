@@ -3,6 +3,7 @@
 -- do_sub needs to be tested
 -- diff needs to be tested
 -- do_filter needs to be tested
+-- filter_lines needs to be tested (mark_col_adjust)
 
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
@@ -314,7 +315,7 @@ describe('Extmarks buffer api', function()
 
   -- Below, tests are using extmark_col_adjust, above just extmark_adjust
 
-  it('marks move with fast char inserts #bad', function()
+  it('marks move with fast char inserts #extmarks', function()
     -- insertchar in edit.c (the ins_str branch)
     feed('a<cr>12345<esc>')
     buffer('set_mark', buf, ns, marks[1], 2, 3)
@@ -376,6 +377,20 @@ describe('Extmarks buffer api', function()
     eq(2, rv[1][2])
     eq(1, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 1, 5, 2, 1)
+  end)
+
+  it('multiple marks move with mark splits #bad2', function()
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    feed("0li<cr><esc>")
+    rv1 = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
+    rv2 = buffer('get_marks', buf, ns, marks[2], marks[2], 1, 0)
+    eq(2, rv1[1][2])
+    eq(1, rv1[1][3])
+    eq(2, rv2[1][2])
+    eq(3, rv2[1][3])
+    check_undo_redo(buf, ns, marks[1], 1, 2, 2, 1)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 2, 3)
   end)
 
   it('marks move with char deletes #extmarks', function()

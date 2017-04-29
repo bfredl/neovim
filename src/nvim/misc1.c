@@ -116,10 +116,6 @@ open_line (
   bool did_append;                // appended a new line
   int saved_pi = curbuf->b_p_pi;  // copy of preserveindent setting
 
-  // save the values for moving extmarks
-  linenr_T lnum = curwin->w_cursor.lnum;
-  colnr_T mincol = curwin->w_cursor.col + 1;
-
   // make a copy of the current line so we can mess with it
   char_u *saved_line = vim_strsave(get_cursor_line_ptr());
 
@@ -760,7 +756,7 @@ open_line (
     if (curwin->w_cursor.lnum + 1 < curbuf->b_ml.ml_line_count
         || curwin->w_p_diff) {
       mark_adjust(curwin->w_cursor.lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false,
-                  kExtmarkNOOP);
+                  kExtmarkNoReverse);
     }
     did_append = true;
   } else {
@@ -846,13 +842,19 @@ open_line (
                       curwin->w_cursor.lnum + 1, 1L, true);
         did_append = false;
 
-        /* Move marks after the line break to the new line. */
-        if (flags & OPENLINE_MARKFIX)
+        // Move marks after the line break to the new line (but not extmarks)
+        if (flags & OPENLINE_MARKFIX) {
           mark_col_adjust(curwin->w_cursor.lnum,
-              curwin->w_cursor.col + less_cols_off,
-              1L, (long)-less_cols);
-      } else
+                          curwin->w_cursor.col + less_cols_off,
+                          1L, (long)-less_cols, kExtmarkNOOP);
+        }
+        // Always move extmarks
+        extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
+                           curwin->w_cursor.col + less_cols_off,
+                           1L, (long)-less_cols, kExtmarkNoReverse);
+      } else {
         changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
+      }
     }
 
     /*
@@ -932,20 +934,6 @@ theend:
   xfree(saved_line);
   xfree(next_line);
   xfree(allocated);
-
-  // Move extmarks
-  if (dir == FORWARD) {
-      // o or <cr>
-      extmark_adjust(curbuf, lnum+1, lnum+1, 1, 1, kExtmarkNoReverse, false);
-      if (extra_len != 0) {
-        // <cr>
-        extmark_col_adjust(curbuf,
-                           lnum, mincol, 1, -less_cols, kExtmarkNoReverse);
-      }
-  } else {
-    // <s-o>
-    extmark_adjust(curbuf, lnum, lnum, 1, 1, kExtmarkNoReverse, false);
-  }
 
   return retval;
 }

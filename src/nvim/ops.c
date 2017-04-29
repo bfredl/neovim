@@ -3750,7 +3750,7 @@ int do_join(size_t count,
     lnum_amount = (linenr_T)-t;
     col_amount = (long)(cend - newp + spaces[t] - (curr - curr_start));
 
-    mark_col_adjust(lnum, mincol, lnum_amount, col_amount);
+    mark_col_adjust(lnum, mincol, lnum_amount, col_amount, kExtmarkNOOP);
 
     // We explicitly save the undo info for our extmarks as the order required
     // for undoing is different than the call order to extmark_col_adjust
@@ -4205,7 +4205,7 @@ format_lines (
         if (next_leader_len > 0) {
           (void)del_bytes(next_leader_len, false, false);
           mark_col_adjust(curwin->w_cursor.lnum, (colnr_T)0, 0L,
-              (long)-next_leader_len);
+                          (long)-next_leader_len, kExtmarkNoReverse);
         } else if (second_indent > 0) {  /* the "leader" for FO_Q_SECOND */
           char_u *p = get_cursor_line_ptr();
           int indent = (int)(skipwhite(p) - p);
@@ -4213,7 +4213,7 @@ format_lines (
           if (indent > 0) {
             (void)del_bytes(indent, FALSE, FALSE);
             mark_col_adjust(curwin->w_cursor.lnum,
-                (colnr_T)0, 0L, (long)-indent);
+                            (colnr_T)0, 0L, (long)-indent, kExtmarkNoReverse);
           }
         }
         curwin->w_cursor.lnum--;

@@ -753,6 +753,9 @@ static void apply_undo_move(ExtmarkUndoObject undo_info, bool undo)
 
 // Adjust columns and rows for extmarks
 // returns true if something was moved otherwise false
+bool debug_it(colnr_T *cp, long col_amount) {
+  *cp += (colnr_T)col_amount;
+}
 bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
                         colnr_T mincol, long lnum_amount,
                         long col_amount, ExtmarkReverse undo)
@@ -782,7 +785,8 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
       if (col_amount < 0 && *cp <= (colnr_T)-col_amount) {
         extmark_unset(buf, extmark->ns_id, extmark->mark_id, kExtmarkNoReverse);
       } else {
-        *cp += (colnr_T)col_amount;
+        debug_it(cp, col_amount);
+        // *cp += (colnr_T)col_amount;
       }
     }
   })

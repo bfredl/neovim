@@ -1088,7 +1088,8 @@ static void mark_adjust_internal(linenr_T line1, linenr_T line2,
  * "lnum_amount" to the line number and add "col_amount" to the column
  * position.
  */
-void mark_col_adjust(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount)
+void mark_col_adjust(linenr_T lnum, colnr_T mincol, long lnum_amount,
+                     long col_amount, ExtmarkReverse reverse)
 {
   int i;
   int fnum = curbuf->b_fnum;
@@ -1106,6 +1107,12 @@ void mark_col_adjust(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_a
   for (i = NMARKS; i < NGLOBALMARKS; i++) {
     if (namedfm[i].fmark.fnum == fnum)
       col_adjust(&(namedfm[i].fmark.mark));
+  }
+
+  // Extmarks
+  if (reverse != kExtmarkNOOP) {
+    extmark_col_adjust(curbuf, lnum, mincol, lnum_amount, col_amount,
+                       kExtmarkNoReverse);
   }
 
   /* last Insert position */
