@@ -805,7 +805,6 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
   ExtMarkLine *ref_line;
 
   FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
-                       //
     // Get the new line object to move columns to.
     ref_line = extline_ref(&buf->b_extlines, extline->lnum + lnum_amount);
     new_lnum = extline->lnum + lnum_amount;
@@ -866,7 +865,6 @@ void extmark_adjust(buf_T * buf,
   linenr_T *lp;
   FOR_ALL_EXTMARKLINES(buf, MINLNUM, MAXLNUM, {
     marks_exist = true;
-    // _one_adjust_nodel(&(extline->lnum));
     lp = &(extline->lnum);
     if (*lp >= line1 && *lp <= line2) {
       // 1st call with end_temp = true, store the lines in a temp position
@@ -881,6 +879,10 @@ void extmark_adjust(buf_T * buf,
           extmark_unset(buf, extmark->ns_id, extmark->mark_id,
                         kExtmarkNoReverse);
         })
+        // TODO(timeyyy): make freeing the line a undoable action
+        // Maybe a pool of lines...
+        // kb_del_itr(extlines, &buf->b_extlines, &itr);
+        // xfree(extline);
       } else {
         *lp += amount;
       }
