@@ -777,27 +777,13 @@ static void apply_undo_move(ExtmarkUndoObject undo_info, bool undo)
 }
 
 // Adjust columns and rows for extmarks
+// based off mark_col_adjust in mark.c
 // returns true if something was moved otherwise false
-bool debug_it(colnr_T cp, linenr_T line,
-              uint64_t id) {
-  int i = 1 + 2;
-  return true;
-}
 bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
                         colnr_T mincol, long lnum_amount,
                         long col_amount, ExtmarkReverse undo)
 {
   assert(col_amount > INT_MIN && col_amount <= INT_MAX);
-
-  // linenr_T start;
-  // linenr_T end;
-  // if ((lnum + lnum_amount) < lnum) {
-    // start = lnum + lnum_amount;
-    // end = lnum;
-  // } else {
-    // start = lnum;
-    // end = lnum + lnum_amount;
-  // }
 
   bool marks_exist = false;
   colnr_T *cp;
@@ -806,20 +792,22 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
 
   FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
     // Get the new line object to move columns to.
-    ref_line = extline_ref(&buf->b_extlines, extline->lnum + lnum_amount);
     new_lnum = extline->lnum + lnum_amount;
+    ref_line = extline_ref(&buf->b_extlines, new_lnum);
 
     FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
       // TODO(timeyyy): is there a more efficent way?
       marks_exist = true;
       cp = &(extmark->col);
-      debug_it(extmark->col, extline->lnum, extmark->mark_id);
       // Delete mark
-      if (col_amount < 0 && *cp <= (colnr_T)-col_amount) {
-          extmark_unset(buf, extmark->ns_id, extmark->mark_id,
-                        kExtmarkNoReverse);
+      if (col_amount < 0
+          && *cp <= (colnr_T)-col_amount
+          && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
+        extmark_unset(buf, extmark->ns_id, extmark->mark_id,
+                      kExtmarkNoReverse);
       // Update the mark
       } else if (*cp >= mincol) {
+        // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
         extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id, new_lnum,
                        *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
       }

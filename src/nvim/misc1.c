@@ -116,6 +116,9 @@ open_line (
   bool did_append;                // appended a new line
   int saved_pi = curbuf->b_p_pi;  // copy of preserveindent setting
 
+  linenr_T lnum = curwin->w_cursor.lnum;
+  colnr_T mincol = curwin->w_cursor.col + 1;
+
   // make a copy of the current line so we can mess with it
   char_u *saved_line = vim_strsave(get_cursor_line_ptr());
 
@@ -848,10 +851,11 @@ open_line (
                           curwin->w_cursor.col + less_cols_off,
                           1L, (long)-less_cols, kExtmarkNOOP);
         }
-        // Always move extmarks
-        extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
-                           curwin->w_cursor.col + less_cols_off,
-                           1L, (long)-less_cols, kExtmarkNoReverse);
+        // Always move extmarks - Here we move the only lnum where the cursor is
+        // The previous mark_adjust takes care of the lines after
+        extmark_col_adjust(curbuf, lnum, mincol, 1L, (long)-less_cols,
+                           kExtmarkNoReverse);
+
       } else {
         changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
       }

@@ -3750,7 +3750,7 @@ int do_join(size_t count,
     lnum_amount = (linenr_T)-t;
     col_amount = (long)(cend - newp + spaces[t] - (curr - curr_start));
 
-    mark_col_adjust(lnum, mincol, lnum_amount, col_amount, kExtmarkNOOP);
+    mark_col_adjust(lnum, mincol, lnum_amount, col_amount, kExtmarkNoReverse);
 
     // We explicitly save the undo info for our extmarks as the order required
     // for undoing is different than the call order to extmark_col_adjust
