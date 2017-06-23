@@ -831,8 +831,9 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
 /// line numbering (as lines are inserted/removed above the highlighted line),
 /// like signs and marks do.
 ///
-/// `src_id` is useful for batch deletion/updating of a set of highlights. When
-/// called with `src_id = 0`, an unique source id is generated and returned.
+/// `ns_id` is useful for batch deletion/updating of a set of highlights. When
+/// called with `ns_id = 0`, an unique source id is generated and returned.
+/// To create a namespace, use |nvim_create_namespace|.
 /// Successive calls can pass that `src_id` to associate new highlights with
 /// the same source group. All highlights in the same group can be cleared
 /// with `nvim_buf_clear_highlight`. If the highlight never will be manually
@@ -844,17 +845,16 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
 /// and clear highlights in response to buffer changes.
 ///
 /// @param buffer     Buffer handle
-/// @param src_id     Source group to use or 0 to use a new group,
-///                   or -1 for ungrouped highlight
+/// @param ns_id      namespace to use or -1 for ungrouped highlight
 /// @param hl_group   Name of the highlight group to use
 /// @param line       Line to highlight (zero-indexed)
 /// @param col_start  Start of (byte-indexed) column range to highlight
 /// @param col_end    End of (byte-indexed) column range to highlight,
 ///                   or -1 to highlight to end of line
 /// @param[out] err   Error details, if any
-/// @return The src_id that was used
+/// @return The ns_id that was used
 Integer nvim_buf_add_highlight(Buffer buffer,
-                               Integer src_id,
+                               Integer ns_id,
                                String hl_group,
                                Integer line,
                                Integer col_start,
@@ -884,9 +884,9 @@ Integer nvim_buf_add_highlight(Buffer buffer,
     hlg_id = syn_check_group((char_u *)hl_group.data, (int)hl_group.size);
   }
 
-  src_id = bufhl_add_hl(buf, (int)src_id, hlg_id, (linenr_T)line+1,
+  ns_id = bufhl_add_hl(buf, (int)ns_id, hlg_id, (linenr_T)line+1,
                         (colnr_T)col_start+1, (colnr_T)col_end);
-  return src_id;
+  return ns_id;
 }
 
 /// Clears highlights from a given source group and a range of lines
