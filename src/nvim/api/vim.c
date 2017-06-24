@@ -1756,6 +1756,7 @@ Dictionary nvim__id_dictionary(Dictionary dct)
 Float nvim__id_float(Float flt)
 {
   return flt;
+}
 
 /// Setup a new namepsace for holding your marks
 ///

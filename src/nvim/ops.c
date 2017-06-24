@@ -3726,9 +3726,6 @@ int do_join(size_t count,
   colnr_T mincol;
   long lnum_amount;
   long col_amount;
-  ExtmarkReverse reverse;
-  bool marked_end = false;
-  bool extmark_added = true;
 
   // TODO(timeyyy): call get_undo_header in mark_extended.c ?
   u_header_T *uhp = NULL;
@@ -3752,28 +3749,7 @@ int do_join(size_t count,
 
     mark_col_adjust(lnum, mincol, lnum_amount, col_amount, kExtmarkNoReverse);
 
-    // We explicitly save the undo info for our extmarks as the order required
-    // for undoing is different than the call order to extmark_col_adjust
-    // if (!(col_amount == 0L && lnum_amount == 0L)) {
-      // if (t == 0) {
-        // reverse = kExtmarkReverseEnd;
-        // marked_end = true;
-      // } else {
-        // reverse = kExtmarkReverse;
-      // }
-      // extmark_added = extmark_col_adjust(curbuf, lnum, mincol, lnum_amount,
-                                         // col_amount, reverse);
-    // }
-
     if (t == 0) {
-      // if (extmark_added && !marked_end) {
-        // change the last element to kExtmarkReverseEnd
-        // ExtmarkUndoObject undo_info = kv_A(uhp->uh_extmark,
-                                           // kv_size(uhp->uh_extmark) - 1);
-        // undo_info.reverse = kExtmarkReverseEnd;
-        // kv_A(uhp->uh_extmark, kv_size(uhp->uh_extmark) - 1) = undo_info;
-      // }
-
       break;
     }
 

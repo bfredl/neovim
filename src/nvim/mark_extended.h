@@ -156,8 +156,6 @@ typedef enum {
   kExtmarkNOOP,      // Extmarks shouldn't be moved
   kExtmarkNoReverse, // Iterate the undo/redo in LIFO order
   kExtmarkNoUndo,    // The move should not be reversable
-  kExtmarkReverse,   // Start marker for FIFO iteration of the undo/redo items
-  kExtmarkReverseEnd, // Stop marker for FIFO iteration of the undo/redo items
 } ExtmarkReverse;
 
 

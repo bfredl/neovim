@@ -12,7 +12,7 @@
 //
 // Undo/Redo of marks is implemented by storing the call arguments to
 // extmark_col_adjust or extmark_adjust. The list of arguments
-// is traversed in extmark_iter_undo and applied in extmark_apply_undo
+// is applied in extmark_apply_undo
 //
 // Marks live in namespaces that allow plugins/users to segregate marks
 // from other users, namespaces have to be initialized before usage
@@ -523,52 +523,6 @@ void u_extmark_move(buf_T *buf,
                              .data.move = move };
 
   kv_push(uhp->uh_extmark, undo);
-}
-
-// helper to iterate over the information to undo/redo
-// use the out parameters "from" and "to" if they are not -1
-// otherwise use the return value
-// param: int i, the state, where we are in the list
-// param: undo, true if undo, false if redo
-int extmark_iter_undo(extmark_undo_vec_t all_undos,
-                      bool undo,
-                      int i,
-                      int *from,
-                      int *to)
-{
-  *from = -1; *to = -1;
-  ExtmarkUndoObject undo_info = kv_A(all_undos, i);
-
-  if (undo_info.reverse == kExtmarkNoReverse) {
-    return i;
-  }
-
-  if (undo_info.type == kAdjustMove) {
-    return i;
-  }
-
-  // find the interval to reverse over
-  for (; i > -1; i--) {
-    undo_info = kv_A(all_undos, i);
-    if (undo_info.reverse == kExtmarkReverseEnd) { *to = i;
-      i--;
-      break;
-    }
-  }
-  for (; i > -1; i--) {
-    undo_info = kv_A(all_undos, i);
-    if (undo_info.reverse == kExtmarkNoReverse
-        || undo_info.reverse == kExtmarkReverseEnd) {
-      *from = i + 1;
-      break;
-    }
-  }
-  // edge case, if the last action is a reversal action
-  if (*from == -1) {
-    *from = 0;
-  }  // finished finding the reverse interval
-
-  return 1;  // Value not needed
 }
 
 void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
