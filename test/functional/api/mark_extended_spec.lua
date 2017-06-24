@@ -327,11 +327,12 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[1], 2, 3, 2, 6)
   end)
 
-  it('we can insert multibyte chars #bad', function()
+  it('we can insert multibyte chars #extmarks', function()
     -- insertchar in edit.c
     feed('a<cr>12345<esc>')
     buffer('set_mark', buf, ns, marks[1], 2, 3)
-    feed('0iẞ<esc>')
+    -- Insert a fullwidth (two col) tilde, NICE
+    feed('0i～<esc>')
     rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
     eq(2, rv[1][2])
     eq(4, rv[1][3])

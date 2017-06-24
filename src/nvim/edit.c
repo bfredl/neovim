@@ -5325,7 +5325,7 @@ insertchar (
     buf[i] = NUL;
     ins_str(buf);
     extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                     (long)STRLEN(buf), kExtmarkUndo);
+                       (long)STRLEN(buf), kExtmarkUndo);
     if (flags & INSCHAR_CTRLV) {
       redo_literal(*buf);
       i = 1;
@@ -5334,25 +5334,18 @@ insertchar (
     if (buf[i] != NUL)
       AppendToRedobuffLit(buf + i, -1);
   } else {
-    int cc;
-
-    // TODO(timeyyy): refactor  this if block away, need to manually test that
-    // inserts still work as the tests don't catch it
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+                       1, kExtmarkUndo);
     if (has_mbyte && (cc = (*mb_char2len)(c)) > 1) {
       char_u buf[MB_MAXBYTES + 1];
 
       (*mb_char2bytes)(c, buf);
       buf[cc] = NUL;
       ins_char_bytes(buf, cc);
-      // TODO(timeyyy): test this code path...
-      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                         (int)cc, kExtmarkUndo);
       AppendCharToRedobuff(c);
     } else {
       ins_char(c);
       char_u buf[MB_MAXBYTES + 1];
-      extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                         1, kExtmarkUndo);
       if (flags & INSCHAR_CTRLV) {
         redo_literal(c);
       } else {
