@@ -154,9 +154,9 @@ typedef kvec_t(ExtendedMark *) ExtmarkArray;
 
 typedef enum {
   kExtmarkNOOP,      // Extmarks shouldn't be moved
-  kExtmarkNoReverse, // Iterate the undo/redo in LIFO order
-  kExtmarkNoUndo,    // The move should not be reversable
-} ExtmarkReverse;
+  kExtmarkUndo,      // Operation should be reversable
+  kExtmarkNoUndo,    // Operation should not be reversable
+} ExtmarkOp;
 
 
 typedef struct {
@@ -216,7 +216,7 @@ typedef enum {
 
 struct undo_object {
   UndoObjectType type;
-  ExtmarkReverse reverse;
+  ExtmarkOp op;
   union {
     Adjust adjust;
     ColAdjust col_adjust;

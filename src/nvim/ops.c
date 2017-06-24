@@ -316,7 +316,7 @@ void shift_line(
                      mincol,
                      0,
                      col_amount,
-                     kExtmarkNoReverse);
+                     kExtmarkUndo);
 }
 
 /*
@@ -493,7 +493,7 @@ static void shift_block(oparg_T *oap, int amount)
     col_amount = -col_amount;
   }
   extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
-                     curwin->w_cursor.col, 0, col_amount, kExtmarkNoReverse);
+                     curwin->w_cursor.col, 0, col_amount, kExtmarkUndo);
 }
 
 /*
@@ -1617,7 +1617,7 @@ setmarks:
     colnr_T col_amount = n;
     for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
       extmark_col_adjust(curbuf,
-                         lnum, mincol, 0, -col_amount, kExtmarkNoReverse);
+                         lnum, mincol, 0, -col_amount, kExtmarkUndo);
     }
 
   } else {
@@ -2184,7 +2184,7 @@ void op_insert(oparg_T *oap, long count1)
   }
   colnr_T col = oap->start.col;
   for (linenr_T lnum = oap->start.lnum; lnum <= oap->end.lnum; lnum++) {
-    extmark_col_adjust(curbuf, lnum, col, 0, 1, kExtmarkNoReverse);
+    extmark_col_adjust(curbuf, lnum, col, 0, 1, kExtmarkUndo);
     }
 }
 
@@ -3243,7 +3243,7 @@ error:
       if (curbuf->b_op_start.lnum + (y_type == kMTCharWise) - 1 + nr_lines
           < curbuf->b_ml.ml_line_count) {
         mark_adjust(curbuf->b_op_start.lnum + (y_type == kMTCharWise),
-                    (linenr_T)MAXLNUM, nr_lines, 0L, false, kExtmarkNoReverse);
+                    (linenr_T)MAXLNUM, nr_lines, 0L, false, kExtmarkUndo);
       }
 
       // note changed text for displaying and folding
@@ -3316,11 +3316,11 @@ end:
 
   // Move extmark with char put
   if (y_type == kMTCharWise) {
-    extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkNoReverse);
+    extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
   // Move extmark with blockwise put
   } else if (y_type == kMTBlockWise) {
     for (lnum = curbuf->b_op_start.lnum; lnum <= curbuf->b_op_end.lnum; lnum++) {
-      extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkNoReverse);
+      extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
     }
   }
 }
@@ -3747,7 +3747,7 @@ int do_join(size_t count,
     lnum_amount = (linenr_T)-t;
     col_amount = (long)(cend - newp + spaces[t] - (curr - curr_start));
 
-    mark_col_adjust(lnum, mincol, lnum_amount, col_amount, kExtmarkNoReverse);
+    mark_col_adjust(lnum, mincol, lnum_amount, col_amount, kExtmarkUndo);
 
     if (t == 0) {
       break;
@@ -4181,7 +4181,7 @@ format_lines (
         if (next_leader_len > 0) {
           (void)del_bytes(next_leader_len, false, false);
           mark_col_adjust(curwin->w_cursor.lnum, (colnr_T)0, 0L,
-                          (long)-next_leader_len, kExtmarkNoReverse);
+                          (long)-next_leader_len, kExtmarkUndo);
         } else if (second_indent > 0) {  /* the "leader" for FO_Q_SECOND */
           char_u *p = get_cursor_line_ptr();
           int indent = (int)(skipwhite(p) - p);
@@ -4189,7 +4189,7 @@ format_lines (
           if (indent > 0) {
             (void)del_bytes(indent, FALSE, FALSE);
             mark_col_adjust(curwin->w_cursor.lnum,
-                            (colnr_T)0, 0L, (long)-indent, kExtmarkNoReverse);
+                            (colnr_T)0, 0L, (long)-indent, kExtmarkUndo);
           }
         }
         curwin->w_cursor.lnum--;

@@ -63,13 +63,13 @@ int extmark_set(buf_T *buf,
                 uint64_t id,
                 linenr_T lnum,
                 colnr_T col,
-                ExtmarkReverse undo)
+                ExtmarkOp op)
 {
   ExtendedMark *extmark = extmark_from_id(buf, ns, id);
   if (!extmark) {
-    return extmark_create(buf, ns, id, lnum, col, undo);
+    return extmark_create(buf, ns, id, lnum, col, op);
   } else {
-    extmark_update(extmark, buf, ns, id, lnum,  col, undo, NULL);
+    extmark_update(extmark, buf, ns, id, lnum,  col, op, NULL);
     return 2;
   }
 }
@@ -78,13 +78,13 @@ int extmark_set(buf_T *buf,
 int extmark_unset(buf_T *buf,
                   uint64_t ns,
                   uint64_t id,
-                  ExtmarkReverse undo)
+                  ExtmarkOp op)
 {
   ExtendedMark *extmark = extmark_from_id(buf, ns, id);
   if (!extmark) {
     return 0;
   }
-  return extmark_delete(extmark, buf, ns, id, undo);
+  return extmark_delete(extmark, buf, ns, id, op);
 }
 
 // Returns the position of marks between a range,
@@ -148,7 +148,7 @@ static bool extmark_create(buf_T *buf,
                            uint64_t id,
                            linenr_T lnum,
                            colnr_T col,
-                           ExtmarkReverse undo)
+                           ExtmarkOp op)
 {
   if (!buf->b_extmark_ns) {
     buf->b_extmark_ns = pmap_new(uint64_t)();
@@ -170,7 +170,7 @@ static bool extmark_create(buf_T *buf,
   // Marks do not have stable address so we have to look them up
   // by using the line instead of the mark
   pmap_put(uint64_t)(ns_obj->map, id, extline);
-  if (undo != kExtmarkNoUndo) {
+  if (op != kExtmarkNoUndo) {
     u_extmark_set(buf, ns, id, lnum, col, kExtmarkSet);
   }
 
@@ -187,11 +187,11 @@ static void extmark_update(ExtendedMark *extmark,
                            uint64_t id,
                            linenr_T lnum,
                            colnr_T col,
-                           ExtmarkReverse undo,
+                           ExtmarkOp op,
                            kbitr_t(markitems) *mitr)
 {
-  assert(undo != kExtmarkNOOP);
-  if (undo != kExtmarkNoUndo) {
+  assert(op != kExtmarkNOOP);
+  if (op != kExtmarkNoUndo) {
     u_extmark_update(buf, ns, id, extmark->line->lnum, extmark->col,
                      lnum, col);
   }
@@ -224,9 +224,9 @@ static int extmark_delete(ExtendedMark *extmark,
                           buf_T *buf,
                           uint64_t ns,
                           uint64_t id,
-                          ExtmarkReverse undo)
+                          ExtmarkOp op)
 {
-  if (undo != kExtmarkNoUndo) {
+  if (op != kExtmarkNoUndo) {
     u_extmark_set(buf, ns, id, extmark->line->lnum, extmark->col,
                   kExtmarkUnset);
   }
@@ -378,7 +378,7 @@ static void u_extmark_set(buf_T *buf,
   set.col = col;
 
   ExtmarkUndoObject undo = { .type = undo_type,
-                             .reverse = kExtmarkNoReverse,
+                             .op = kExtmarkUndo,
                              .data.set = set };
   kv_push(uhp->uh_extmark, undo);
 }
@@ -402,7 +402,7 @@ static void u_extmark_update(buf_T *buf,
   update.col = col;
 
   ExtmarkUndoObject undo = { .type = kExtmarkUpdate,
-                             .reverse = kExtmarkNoReverse,
+                             .op = kExtmarkUndo,
                              .data.update = update };
   kv_push(uhp->uh_extmark, undo);
 }
@@ -416,9 +416,9 @@ static bool u_compact_col_adjust(buf_T *buf,
                                  colnr_T mincol,
                                  long lnum_amount,
                                  long col_amount,
-                                 ExtmarkReverse reverse)
+                                 ExtmarkOp op)
 {
-  if (reverse != kExtmarkNoReverse) {
+  if (op != kExtmarkUndo) {
     return false;
   }
 
@@ -435,7 +435,7 @@ static bool u_compact_col_adjust(buf_T *buf,
   if (!undo.lnum_amount && !lnum_amount) {
     if (undo.lnum == lnum) {
       if ((undo.mincol + undo.col_amount) >= mincol) {
-        if (object.reverse == kExtmarkNoReverse) {
+        if (object.op == kExtmarkUndo) {
           compactable = true;
   } } } }
 
@@ -445,7 +445,7 @@ static bool u_compact_col_adjust(buf_T *buf,
 
   undo.col_amount = undo.col_amount + col_amount;
   ExtmarkUndoObject new_undo = { .type = kColAdjust,
-                                 .reverse = kExtmarkNoReverse,
+                                 .op = kExtmarkUndo,
                                  .data.col_adjust = undo };
   kv_last(uhp->uh_extmark) = new_undo;
   return true;
@@ -457,12 +457,12 @@ static void u_extmark_col_adjust(buf_T *buf,
                                  colnr_T mincol,
                                  long lnum_amount,
                                  long col_amount,
-                                 ExtmarkReverse reverse)
+                                 ExtmarkOp op)
 {
   u_header_T  *uhp = get_undo_header(buf);
 
   if (!u_compact_col_adjust(buf,
-                            lnum, mincol, lnum_amount, col_amount, reverse)) {
+                            lnum, mincol, lnum_amount, col_amount, op)) {
     ColAdjust col_adjust;
     col_adjust.lnum = lnum;
     col_adjust.mincol = mincol;
@@ -470,7 +470,7 @@ static void u_extmark_col_adjust(buf_T *buf,
     col_adjust.col_amount = col_amount;
 
     ExtmarkUndoObject undo = { .type = kColAdjust,
-                               .reverse = reverse,
+                               .op = op,
                                .data.col_adjust = col_adjust };
 
     kv_push(uhp->uh_extmark, undo);
@@ -483,7 +483,7 @@ static void u_extmark_adjust(buf_T * buf,
                              linenr_T line2,
                              long amount,
                              long amount_after,
-                             ExtmarkReverse reverse)
+                             ExtmarkOp op)
 {
   u_header_T  *uhp = get_undo_header(buf);
 
@@ -494,7 +494,7 @@ static void u_extmark_adjust(buf_T * buf,
   adjust.amount_after = amount_after;
 
   ExtmarkUndoObject undo = { .type = kAdjust,
-                             .reverse = reverse,
+                             .op = op,
                              .data.adjust = adjust };
 
   kv_push(uhp->uh_extmark, undo);
@@ -735,7 +735,7 @@ static void apply_undo_move(ExtmarkUndoObject undo_info, bool undo)
 // returns true if something was moved otherwise false
 bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
                         colnr_T mincol, long lnum_amount,
-                        long col_amount, ExtmarkReverse undo)
+                        long col_amount, ExtmarkOp undo)
 {
   assert(col_amount > INT_MIN && col_amount <= INT_MAX);
 
@@ -758,7 +758,7 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
           && *cp <= (colnr_T)-col_amount
           && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
         extmark_unset(buf, extmark->ns_id, extmark->mark_id,
-                      kExtmarkNoReverse);
+                      kExtmarkUndo);
       // Update the mark
       } else if (*cp >= mincol) {
         // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
@@ -786,7 +786,7 @@ void extmark_adjust(buf_T * buf,
                     linenr_T line2,
                     long amount,
                     long amount_after,
-                    ExtmarkReverse undo,
+                    ExtmarkOp undo,
                     bool end_temp)
 {
   ExtMarkLine *_extline;
@@ -819,7 +819,7 @@ void extmark_adjust(buf_T * buf,
       if (amount == MAXLNUM) {
         FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
           extmark_unset(buf, extmark->ns_id, extmark->mark_id,
-                        kExtmarkNoReverse);
+                        kExtmarkUndo);
         })
         // TODO(timeyyy): make freeing the line a undoable action
         // Maybe a pool of lines...

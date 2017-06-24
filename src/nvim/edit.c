@@ -5325,7 +5325,7 @@ insertchar (
     buf[i] = NUL;
     ins_str(buf);
     extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                     (long)STRLEN(buf), kExtmarkNoReverse);
+                     (long)STRLEN(buf), kExtmarkUndo);
     if (flags & INSCHAR_CTRLV) {
       redo_literal(*buf);
       i = 1;
@@ -5346,13 +5346,13 @@ insertchar (
       ins_char_bytes(buf, cc);
       // TODO(timeyyy): test this code path...
       extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                         (int)cc, kExtmarkNoReverse);
+                         (int)cc, kExtmarkUndo);
       AppendCharToRedobuff(c);
     } else {
       ins_char(c);
       char_u buf[MB_MAXBYTES + 1];
       extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
-                         1, kExtmarkNoReverse);
+                         1, kExtmarkUndo);
       if (flags & INSCHAR_CTRLV) {
         redo_literal(c);
       } else {
@@ -8222,7 +8222,7 @@ static bool ins_tab(void)
                      curwin->w_cursor.col,
                      0,
                      temp,
-                     kExtmarkNoReverse);
+                     kExtmarkUndo);
 
   /*
    * Insert the first space with ins_char().	It will delete one char in

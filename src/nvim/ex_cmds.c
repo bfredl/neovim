@@ -610,9 +610,9 @@ void ex_sort(exarg_T *eap)
   deleted = (long)(count - (lnum - eap->line2));
   if (deleted > 0) {
     mark_adjust(eap->line2 - deleted, eap->line2, (long)MAXLNUM, -deleted,
-                false, kExtmarkNoReverse);
+                false, kExtmarkUndo);
   } else if (deleted < 0) {
-    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L, false, kExtmarkNoReverse);
+    mark_adjust(eap->line2, MAXLNUM, -deleted, 0L, false, kExtmarkUndo);
   }
   changed_lines(eap->line1, 0, eap->line2 + 1, -deleted, true);
 
@@ -1244,14 +1244,14 @@ static void do_filter(
       if (cmdmod.keepmarks || vim_strchr(p_cpo, CPO_REMMARK) == NULL) {
         if (read_linecount >= linecount) {
           // move all marks from old lines to new lines
-          mark_adjust(line1, line2, linecount, 0L, false, kExtmarkNoReverse);
+          mark_adjust(line1, line2, linecount, 0L, false, kExtmarkUndo);
         } else {
           // move marks from old lines to new lines, delete marks
           // that are in deleted lines
           mark_adjust(line1, line1 + read_linecount - 1, linecount, 0L, false,
-                      kExtmarkNoReverse);
+                      kExtmarkUndo);
           mark_adjust(line1 + read_linecount, line2, MAXLNUM, 0L, false,
-                      kExtmarkNoReverse);
+                      kExtmarkUndo);
         }
       }
 
@@ -3858,7 +3858,7 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
                 ml_append(lnum - 1, new_start,
                           (colnr_T)(p1 - new_start + 1), false);
                 mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false,
-                            kExtmarkNoReverse);
+                            kExtmarkUndo);
                 if (subflags.do_ask) {
                   appended_lines(lnum - 1, 1L);
                 } else {
@@ -3949,7 +3949,7 @@ skip:
               for (i = 0; i < nmatch_tl; ++i)
                 ml_delete(lnum, (int)FALSE);
               mark_adjust(lnum, lnum + nmatch_tl - 1,
-                          (long)MAXLNUM, -nmatch_tl, false, kExtmarkNoReverse);
+                          (long)MAXLNUM, -nmatch_tl, false, kExtmarkUndo);
               if (subflags.do_ask) {
                 deleted_lines(lnum, nmatch_tl);
               }
