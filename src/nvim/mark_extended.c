@@ -198,16 +198,12 @@ static void extmark_update(ExtendedMark *extmark,
   ExtMarkLine *old_line = extmark->line;
   // Move the mark to a new line and update column
   if (old_line->lnum != lnum) {
-    // Delete old mark
-    // Get line refererence
     ExtMarkLine *ref_line = extline_ref(&buf->b_extlines, lnum);
-    // Put mark in the line
     extmark_put(col, id, ref_line, ns);
     // Update the hashmap
     ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
     pmap_put(uint64_t)(ns_obj->map, id, ref_line);
-    // TODO(timeyyy): is there a more efficent way?
-    // Delete while iterating
+    // Delete old mark
     if (mitr != NULL) {
       kb_del_itr(markitems, &(old_line->items), mitr);
     } else {
@@ -330,7 +326,6 @@ void extmark_free_all(buf_T *buf)
     kb_del_itr(extlines, &buf->b_extlines, &itr);
     xfree(extline);
   })
-  // TODO(timeyyy): why do we need the parans on the 2nd arg?
   // k?_init called to set pointers to NULL
   kb_destroy(extlines, (&buf->b_extlines));
   kb_init(&buf->b_extlines);
@@ -594,7 +589,6 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
   // extmark_set
   } else if (undo_info.type == kExtmarkSet) {
     if (undo) {
-      // TODO(timeyyy): Will curbuf alwasy be the correct buffer?
       extmark_unset(curbuf,
                     undo_info.data.set.ns_id,
                     undo_info.data.set.mark_id,
@@ -741,16 +735,9 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
 
   bool marks_exist = false;
   colnr_T *cp;
-  linenr_T new_lnum;
-  ExtMarkLine *ref_line;
 
   FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
-    // Get the new line object to move columns to.
-    new_lnum = extline->lnum + lnum_amount;
-    ref_line = extline_ref(&buf->b_extlines, new_lnum);
-
     FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
-      // TODO(timeyyy): is there a more efficent way?
       marks_exist = true;
       cp = &(extmark->col);
       // Delete mark
@@ -762,7 +749,8 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
       // Update the mark
       } else if (*cp >= mincol) {
         // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
-        extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id, new_lnum,
+        extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                       extline->lnum + lnum_amount,
                        *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
       }
     })

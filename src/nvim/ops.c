@@ -3727,14 +3727,6 @@ int do_join(size_t count,
   long lnum_amount;
   long col_amount;
 
-  // TODO(timeyyy): call get_undo_header in mark_extended.c ?
-  u_header_T *uhp = NULL;
-  if (curbuf->b_u_curhead != NULL) {
-    uhp = curbuf->b_u_curhead;
-  } else if (curbuf->b_u_newhead) {
-    uhp = curbuf->b_u_newhead;
-  }
-
   for (t = (linenr_T)count - 1;; t--) {
     cend -= currsize;
     memmove(cend, curr, (size_t)currsize);
