@@ -831,23 +831,31 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
 ///
 /// @param buffer The buffer handle
 /// @param namespace a identifier returned previously with extmark_ns_create
-/// @param id (row, col) or mark_id of mark
+/// @param mark_id of mark
 /// @param[out] err Details of an error that may have occurred
 /// @return [mark_id, row, col] list
 ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
                                      Integer namespace,
-                                     Object index,
+                                     Integer id,
                                      Error *err)
     FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
+
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
   if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
 
-  ExtendedMark *extmark;
-  extmark = extmark_from_id_or_pos(buffer, namespace, index, err, true);
+  ExtendedMark *extmark = extmark_from_id(buf,
+                                          (uint64_t)namespace,
+                                          (uint64_t)id);
   if (!extmark) {
     return rv;
   }
@@ -904,18 +912,6 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 
   ExtendedMark *extmark;
   Array mark = ARRAY_DICT_INIT;
-  // lower == upper, positional query
-  if ((l_lnum == u_lnum)
-      && (l_col == u_col)
-      && (u_lnum != Extremity)
-      && (u_col != Extremity)) {
-    mark = nvim_buf_lookup_mark(buffer, namespace, lower, err);
-    if (mark.items == NULL) {
-      return rv;
-    }
-    ADD(rv, ARRAY_OBJ(mark));
-    return rv;
-  }
 
   // Range Query
   ExtmarkArray extmarks_in_range;
@@ -929,9 +925,9 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
                                   u_col,
                                   (int64_t)amount,
                                   reverse ? BACKWARD: FORWARD);
-  /* size_t n = kv_size(extmarks_in_range); */
 
-  for (size_t i = 0; i < kv_size(extmarks_in_range); i++) {
+  size_t n = kv_size(extmarks_in_range);
+  for (size_t i = 0; i < n; i++) {
     mark.size = 0;
     mark.capacity = 0;
     mark.items = 0;

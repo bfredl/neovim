@@ -5334,6 +5334,8 @@ insertchar (
     if (buf[i] != NUL)
       AppendToRedobuffLit(buf + i, -1);
   } else {
+    int cc;
+
     extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
                        1, kExtmarkUndo);
     if (has_mbyte && (cc = (*mb_char2len)(c)) > 1) {
@@ -5345,7 +5347,6 @@ insertchar (
       AppendCharToRedobuff(c);
     } else {
       ins_char(c);
-      char_u buf[MB_MAXBYTES + 1];
       if (flags & INSCHAR_CTRLV) {
         redo_literal(c);
       } else {
