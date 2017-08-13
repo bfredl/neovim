@@ -653,8 +653,7 @@ void nvim_set_current_win(Window window, Error *err)
 }
 
 Window nvim_open_floating_win(Buffer buffer,
-                              Integer x, Integer y,
-                              Integer w, Integer h,
+                              Integer x, Integer y, Integer w, Integer h,
                               Integer mode, Boolean enter, Error *err)
   FUNC_API_SINCE(3)
 {
