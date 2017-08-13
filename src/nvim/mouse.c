@@ -428,6 +428,11 @@ bool mouse_comp_pos(win_T *win, int *rowp, int *colp, linenr_T *lnump)
 // updated to become relative to the top-left of the window.
 win_T *mouse_find_win(int *rowp, int *colp)
 {
+  win_T *wp_float = mouse_find_float(rowp, colp);
+  if (wp_float) {
+    return wp_float;
+  }
+
   frame_T     *fp;
 
   fp = topframe;
@@ -450,6 +455,23 @@ win_T *mouse_find_win(int *rowp, int *colp)
     }
   }
   return fp->fr_win;
+}
+
+win_T *mouse_find_float(int *rowp, int *colp)
+{
+  // TODO(bfredl): with external UI:s this will be a bit more involved
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if (!wp->w_floating || (wp->w_float_mode & kFloatUnfocusable)) {
+      continue;
+    }
+    if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow+wp->w_height
+        && *colp >= wp->w_wincol && *colp < wp->w_wincol+wp->w_width) {
+      *rowp -= wp->w_winrow;
+      *colp -= wp->w_wincol;
+      return wp;
+    }
+  }
+  return NULL;
 }
 
 /*
