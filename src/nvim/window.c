@@ -208,8 +208,14 @@ newwindow:
           wp = curwin->w_prev;
           if (wp == NULL)
             wp = lastwin;                           /* wrap around */
+          while (wp != NULL && wp->w_floating && wp->w_float_mode & kFloatUnfocusable) {
+            wp = wp->w_prev;
+          }
         } else {                                  /* go to next window */
           wp = curwin->w_next;
+          while (wp != NULL && wp->w_floating && wp->w_float_mode & kFloatUnfocusable) {
+            wp = wp->w_next;
+          }
           if (wp == NULL)
             wp = firstwin;                          /* wrap around */
         }
@@ -508,7 +514,7 @@ static void cmd_with_count(char *cmd, char_u *bufp, size_t bufsize,
 win_T *win_new_floating(int x, int y, int width, int height, FloatMode mode)
 {
   win_T *wp;
-  wp = win_alloc(curwin, FALSE);
+  wp = win_alloc(curwin, false);
   wp->w_floating = 1;
   win_init(wp, curwin, 0);
   wp->w_float_mode = mode;
