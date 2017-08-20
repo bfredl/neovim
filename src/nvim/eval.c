@@ -22481,6 +22481,8 @@ static inline bool common_job_start(TerminalJobData *data, typval_T *rettv)
 
   if (data->rpc) {
     eval_format_source_name_line((char *)IObuff, sizeof(IObuff));
+    proc->in->events = NULL;
+    proc->out->events = NULL;
     // RPC channel takes over the in/out streams.
     channel_from_process(proc, data->id, (char *)IObuff);
   } else {
