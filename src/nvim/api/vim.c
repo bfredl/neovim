@@ -690,6 +690,29 @@ void nvim_set_current_win(Window window, Error *err)
   }
 }
 
+/// Create new buffer with requested buftype
+///
+/// 
+/// For instance, swap file prompt is only shown then.
+///
+/// @param fname filename or empty string for new buffer
+/// @param[out] err Error details, if any
+/// @return the buffer handle or 0 when error
+Buffer nvim_create_buf(Boolean listed, Error *err)
+  FUNC_API_SINCE(3)
+{
+  try_start();
+  Buffer buffer = buflist_add(NULL, listed?BLN_LISTED:0);
+  if (!try_end(err) && buffer == 0) {
+    // is this possible?
+    api_set_error(err,
+                  kErrorTypeException,
+                  "Failed to create buffer");
+
+  }
+  return buffer;
+}
+
 Window nvim_open_float_win(Buffer buffer, Boolean enter,
                            Integer w, Integer h,
                            Dictionary options, Error *err)
