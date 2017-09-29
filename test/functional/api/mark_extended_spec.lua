@@ -747,7 +747,6 @@ describe('Extmarks buffer api', function()
   it('throws consistent error codes #extmarks2', function()
     local buf_invalid = 9
     local ns_invalid = ns2 + 1
-
     -- rv = buffer('set_mark', buf_invalid, ns, marks[1], positions[1][1], positions[1][2])
     -- rv = buffer('unset_mark', buf_invalid, ns, marks[1])
     -- rv = buffer('get_marks', buf_invalid, ns, positions[1], positions[2], ALL, 0)
