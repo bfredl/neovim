@@ -222,6 +222,32 @@ An example of calling the api from vimscript: >
     call nvim_buf_clear_highlight(0, src, 0, -1)
 >
 ==============================================================================
+Buffer extended marks	                                  *api-extended-marks*
+
+An extended mark represents a floating position somewhere in the contents of a
+text widget. Extended marks are a feature for developers, neovim provides an
+api for controlling the extended marks.
+
+You handle each mark by giving it an id. This id can be any integer <= 0.
+
+There is one special mark id. An empty string may be passed to create a new
+extended mark, the id will be returned by the function in this case.
+
+Extended Marks float along with the adjacent content. If you modify text
+somewhere away from an extended mark, the mark stays at the same position
+relative to its immediate neighbors.
+
+When new text is inserted at an extended mark's position, the mark stays after
+the end of the new text.
+
+Deleting the text all around an extended mark does not remove it. If you want
+to remove an extended mark, use the |nvim_buf_unset_mark()| function.
+
+The extended marks all require a namespace (integer <= 0) to be provided.
+This ensures you only ever work with the extended marks you mean to.
+
+
+==============================================================================
 Global Functions                                                  *api-global*
 
 nvim_command({command})                                       *nvim_command()*
@@ -836,6 +862,22 @@ nvim_get_proc({pid})                                         *nvim_get_proc()*
                 Return:~
                     Map of process properties, or NIL if process not found.
 
+                                                        *nvim_init_mark_ns()*
+nvim_init_mark_ns({namespace})
+                Create a new namepsace for holding extended marks. The id
+                of the namespace is returned, this namespace id is required
+                for using the rest of the extended marks api.
+
+                Parameters:~
+                    {namespace} String name to be assigned to the namespace
+
+
+                                                     *nvim_mark_get_ns_ids()*
+nvim_mark_get_ns_ids()
+                Returns a list of extended mark namespaces.
+                Pairs of ids and string names are returned.
+                An empty list will be returned if no namespaces are set.
+
 
 ==============================================================================
 Buffer Functions                                                  *api-buffer*
@@ -1088,6 +1130,70 @@ nvim_buf_clear_highlight({buffer}, {src_id}, {line_start}, {line_end})
                     {line_start}  Start of range of lines to clear
                     {line_end}    End of range of lines to clear (exclusive)
                                   or -1 to clear to end of file.
+
+                                                      *nvim_buf_lookup_mark()*
+nvim_buf_lookup_mark({buffer}, {namespace}, {id})
+                Returns mark info at the given position or mark index.
+                A list of [mark_id, row, col] is returned.
+
+                Parameters:~
+                    {buffer}      Buffer handle
+                    {namespace}   Extended mark namespace id returned from
+                                  |nvim_init_mark_ns()|
+                    {id}          Sometart of range of lines to clear
+
+                                                        *nvim_buf_get_marks()*
+nvim_buf_get_marks({buffer}, {namespace}, {lower}, {upper}, {amount}, {reverse})
+                Returns mark info in a range (inclusive)
+                If no marks are found, returns an empty list.
+                If marks are found a list of lists is returned:
+                [[mark_id, row, col], ...]
+
+                If an invalid namespace or buffer is given, an error will be
+                raised and 0 returned.
+
+                Parameters:~
+                    {buffer}      Buffer handle
+                    {namespace}   Extended mark namespace id returned from
+                                  |nvim_init_mark_ns()|
+                    {lower}       Either: extended mark id, (row, col) or -1
+                                  for start of buffer.
+                    {upper}       Either: extended mark id, (row, col) or -1
+                                  for end of buffer.
+                    {amount}      Maximum number of extmarks to return
+                                  or -1 for all extended marks.
+                    {reverse}     Boolean to switch the search direction.
+
+                                                        *nvim_buf_set_mark()*
+nvim_buf_set_mark({buffer}, {namespace}, {mark_id}, {row}, {col})
+                Create or update an extended mark at a row and column
+                Returns 1 on new, 2 on update; or a mark_id if the argument
+                "mark_id" was an empty string.
+
+                If an invalid namespace or buffer is given, an error will be
+                raised and 0 returned.
+
+                Parameters:~
+                    {buffer}      Buffer handle
+                    {namespace}   Extended mark namespace id returned from
+                                  |nvim_init_mark_ns()|
+                    {mark_id}     An integer id or an empty string
+                    {row}         The row to set the extended mark to.
+                    {col}         The column to set the extended mark to.
+
+                                                       *nvim_buf_unset_mark()*
+nvim_buf_unset_mark({buffer}, {namespace}, {id})
+                Remove an extended mark.
+                Returns 1 on success, 0 if no extended mark was found.
+
+                If an invalid namespace or buffer is given, an error will be
+                raised and 0 returned.
+
+                Parameters:~
+                    {buffer}      Buffer handle
+                    {namespace}   Extended mark namespace id returned from
+                                  |nvim_init_mark_ns()|
+                    {id}          The extended mark's id.
 
 
 ==============================================================================
