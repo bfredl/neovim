@@ -1760,7 +1760,7 @@ Float nvim__id_float(Float flt)
 
 /// Setup a new namepsace for holding your marks
 ///
-/// @param namespace String name to be assigned the mark namespace
+/// @param namespace String name to be assigned to the mark namespace
 /// @param[out] err Details of an error that may have occurred
 /// @return integer id to be used with future mark_ calls, or 0 if name exists
 Integer nvim_init_mark_ns(String namespace, Error *err)

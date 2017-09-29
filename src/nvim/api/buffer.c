@@ -827,11 +827,11 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
   return rv;
 }
 
-/// Returns mark info at the given position or mark index
+/// Returns mark info for the given mark id
 ///
 /// @param buffer The buffer handle
 /// @param namespace a identifier returned previously with extmark_ns_create
-/// @param mark_id of mark
+/// @param id a mark id
 /// @param[out] err Details of an error that may have occurred
 /// @return [mark_id, row, col] list
 ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
@@ -866,13 +866,13 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
 }
 
 /// Returns mark info in a range (inclusive)
-/// If there are no following marks returns empty list
+/// If no marks are found, returns an empty list
 ///
 /// @param buffer The buffer handle
-/// @param namespace an id returned previously from extmark_ns_create
-/// @param lower any valid mark identifier (row, col) or mark_id or -1
-/// @param upper any valid mark identifier (row, col) or mark_id or -1
-/// @param amount Maximum number of extmarks to return
+/// @param namespace An id returned previously from nvim_init_mark_ns
+/// @param lower One of: extended mark id, (row, col) or -1
+/// @param upper One of: extended mark id, (row, col) or -1
+/// @param amount Maximum number of extmarks to return or -1
 /// @param reverse Decides the search direction in the range
 /// @param[out] err Details of an error that may have occurred
 /// @return [[mark_id, row, col], ...]
@@ -888,11 +888,6 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
   Array rv = ARRAY_DICT_INIT;
   if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
-    return rv;
-  }
-
-  if(amount == 0) {
-    api_set_error(err, kErrorTypeValidation, _("Amount must be greater than 0"));
     return rv;
   }
 
@@ -950,7 +945,7 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 /// @param row position of the mark
 /// @param col position of the mark
 /// @param[out] err Details of an error that may have occurred
-/// @return 1 on new, 2 on update; or a mark_id if function argument id was ""
+/// @return 1 on new, 2 on update; or a mark_id if argument mark_id was ""
 Integer nvim_buf_set_mark(Buffer buffer,
                           Integer namespace,
                           Object mark_id,
