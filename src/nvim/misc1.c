@@ -84,9 +84,9 @@ static garray_T ga_users = GA_EMPTY_INIT_VALUE;
  *
  * Return TRUE for success, FALSE for failure
  */
-int 
-open_line (
-    int dir,                        /* FORWARD or BACKWARD */
+int
+open_line(
+    int dir,                        // FORWARD or BACKWARD
     int flags,
     int second_line_indent
 )
