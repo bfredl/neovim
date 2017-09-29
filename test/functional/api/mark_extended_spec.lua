@@ -73,6 +73,9 @@ describe('Extmarks buffer api', function()
   end)
 
   it('adds, updates  and deletes marks #extmarks', function()
+  end)
+
+  it('adds, updates  and deletes marks #extmarks', function()
     rv = buffer('set_mark', buf, ns, marks[1], positions[1][1], positions[1][2])
     eq(1, rv)
     rv = buffer('lookup_mark', buf, ns, marks[1])
@@ -678,7 +681,7 @@ describe('Extmarks buffer api', function()
     eq(0, table.getn(rv))
   end)
 
-  it('namespaces work properly #extmarks', function()
+  it('namespaces work properly #extmarks2', function()
     rv = buffer('set_mark', buf, ns, marks[1], positions[1][1], positions[1][2])
     eq(1, rv)
     rv = buffer('set_mark', buf, ns2, marks[1], positions[1][1], positions[1][2])
@@ -738,6 +741,22 @@ describe('Extmarks buffer api', function()
     -- id should be 3
     id = buffer('set_mark', buf, ns, "", positions[1][1], positions[1][2])
     eq(3, id)
+  end)
+
+  -- TODO catch exceptions
+  it('throws consistent error codes #extmarks2', function()
+    local buf_invalid = 9
+    local ns_invalid = ns2 + 1
+
+    -- rv = buffer('set_mark', buf_invalid, ns, marks[1], positions[1][1], positions[1][2])
+    -- rv = buffer('unset_mark', buf_invalid, ns, marks[1])
+    -- rv = buffer('get_marks', buf_invalid, ns, positions[1], positions[2], ALL, 0)
+    -- rv = buffer('lookup_mark', buf_invalid, ns, marks[1])
+    -- rv = buffer('set_mark', buf, ns_invalid, marks[1], positions[1][1], positions[1][2])
+    -- rv = buffer('unset_mark', buf, ns_invalid, marks[1])
+    -- rv = buffer('get_marks', buf, ns_invalid, positions[1], positions[2], ALL, 0)
+    -- rv = buffer('lookup_mark', buf, ns_invalid, marks[1])
+
   end)
 
 end)

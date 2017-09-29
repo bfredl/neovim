@@ -886,6 +886,13 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
     FUNC_API_SINCE(1)
 {
   Array rv = ARRAY_DICT_INIT;
+
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+
+  if (!buf) {
+    return rv;
+  }
+
   if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
@@ -910,7 +917,6 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 
   // Range Query
   ExtmarkArray extmarks_in_range;
-  buf_T *buf = find_buffer_by_handle(buffer, err);
 
   extmarks_in_range = extmark_get(buf,
                                   (uint64_t)namespace,
