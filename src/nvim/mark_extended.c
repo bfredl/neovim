@@ -49,9 +49,13 @@ uint64_t extmark_ns_create(char *ns)
   return id;
 }
 
-bool ns_initialized(uint64_t ns)
+// Is the Namespace in use?
+bool ns_initialized(int64_t ns)
 {
-  return ns < extmark_namespace_counter;
+  if (ns < 1) {
+    return false;
+  }
+  return ns < (int64_t)extmark_namespace_counter;
 }
 
 // TODO(timeyyy): currently possible to set marks where there is no text...

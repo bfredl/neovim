@@ -848,7 +848,7 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
     return rv;
   }
 
-  if (!ns_initialized((uint64_t)namespace)) {
+  if (!ns_initialized((int64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -893,7 +893,7 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
     return rv;
   }
 
-  if (!ns_initialized((uint64_t)namespace)) {
+  if (!ns_initialized((int64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -966,7 +966,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
   if (!buf) {
     return rv;
   }
-  if (!ns_initialized((uint64_t)namespace)) {
+  if (!ns_initialized((int64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -1024,7 +1024,7 @@ Integer nvim_buf_unset_mark(Buffer buffer,
   if (!buf) {
     return rv;
   }
-  if (!ns_initialized((uint64_t)namespace)) {
+  if (!ns_initialized((int64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
