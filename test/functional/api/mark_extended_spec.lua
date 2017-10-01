@@ -794,6 +794,20 @@ describe('Extmarks buffer api', function()
     eq({marks[1], 1, 2}, rv)
   end)
 
+  it('indenting multiple lines with = <C-D> works #fail', function()
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    feed("0iint <esc>A {<cr><bs>i1M1<cr><bs>2M2<esc>")
+    buffer('set_mark', buf, ns, marks[1], 2, 2)
+    buffer('set_mark', buf, ns, marks[1], 3, 2)
+    feed('=gg')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[1], 2, 6}, rv)
+  end)
+
   -- TODO catch exceptions
   it('throws consistent error codes #extmarks2', function()
     local buf_invalid = 9
