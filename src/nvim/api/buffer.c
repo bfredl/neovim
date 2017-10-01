@@ -898,6 +898,10 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
     return rv;
   }
 
+  if (amount == 0) {
+    return rv;
+  }
+
   linenr_T l_lnum;
   colnr_T l_col;
   if (!set_extmark_index_from_obj(buffer, namespace, lower, &l_lnum, &l_col,

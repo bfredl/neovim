@@ -243,6 +243,13 @@ describe('Extmarks buffer api', function()
        rv)
   end)
 
+  it('get_marks amount 0 returns nothing #extmarks5', function()
+    buffer('set_mark', buf, ns, marks[1], positions[1][1], positions[1][2])
+    rv = buffer('get_marks', buf, ns, {-1, -1}, {-1, -1}, 0, 0)
+    eq({}, rv)
+  end)
+
+
   it('marks move with line insertations #extmarks', function()
     buffer('set_mark', buf, ns, marks[1], 1, 1)
     feed("yyP")
