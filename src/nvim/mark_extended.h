@@ -60,15 +60,17 @@
   mt.ns_id = ns;\
   mt.mark_id = 0;\
   mt.line = NULL;\
-  mt.col = l_col ==  Extremity ? MINCOL : l_col;\
   FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, { \
+    mt.col = (l_col ==  Extremity || extline->lnum != l_lnum) ? MINCOL : l_col;\
     if (!kb_itr_get(markitems, &extline->items, mt, &mitr)) { \
         kb_itr_next(markitems, &extline->items, &mitr);\
     } \
     ExtendedMark *extmark;\
     for (; kb_itr_valid(&mitr); kb_itr_next(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
-      if (extmark->col > u_col && u_col != Extremity) { \
+      if (u_col != Extremity \
+          && extmark->line->lnum == u_lnum \
+          && extmark->col > u_col) { \
         break;\
       }\
       code;\
@@ -82,15 +84,17 @@
   ExtendedMark mt;\
   mt.mark_id = sizeof(uint64_t);\
   mt.ns_id = ns;\
-  mt.col = u_col == Extremity ? MAXCOL : u_col;\
   FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, { \
+    mt.col = (u_col == Extremity || extline->lnum != u_lnum) ? MAXCOL : u_col;\
     if (!kb_itr_get(markitems, &extline->items, mt, &mitr)) { \
         kb_itr_prev(markitems, &extline->items, &mitr);\
     } \
     ExtendedMark *extmark;\
     for (; kb_itr_valid(&mitr); kb_itr_prev(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
-      if (extmark->col < l_col && l_col != Extremity) { \
+      if (l_col != Extremity \
+          && extmark->line->lnum == l_lnum \
+          && extmark->col < l_col) { \
           break;\
       }\
       code;\

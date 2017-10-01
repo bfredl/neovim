@@ -1,9 +1,10 @@
 -- TODO(timeyyy):
 -- do_bang needs to be tested
--- do_sub needs to be tested
+-- do_sub needs to be tested, when subbing from a big to small word
 -- diff needs to be tested
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
+-- amount for get_marks
 -- undo/redo of set/unset
 
 local helpers = require('test.functional.helpers')(after_each)
@@ -210,6 +211,36 @@ describe('Extmarks buffer api', function()
     upper = {positions[2][1], positions[2][2] - 1}
     rv = buffer('get_marks', buf, ns, lower, upper, ALL, 1)
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
+  end)
+
+  it('get_marks works when mark col > upper col #extmarks', function()
+    feed('A<cr>12345<esc>')
+    feed('A<cr>12345<esc>')
+    buffer('set_mark', buf, ns, 10, 1, 3)       -- this shouldn't be found
+    buffer('set_mark', buf, ns, 11, 3, 2)       -- this shouldn't be found
+    buffer('set_mark', buf, ns, marks[1], 1, 5) -- check col > our upper bound
+    buffer('set_mark', buf, ns, marks[2], 2, 2) -- check col < lower bound
+    buffer('set_mark', buf, ns, marks[3], 3, 1) -- check is inclusive
+    rv = buffer('get_marks', buf, ns, {1, 4}, {3, 1}, -1, 0)
+    eq({{marks[1], 1, 5},
+        {marks[2], 2, 2},
+        {marks[3], 3, 1}},
+       rv)
+  end)
+
+  it('get_marks works in reverse when mark col < lower col #extmarks', function()
+    feed('A<cr>12345<esc>')
+    feed('A<cr>12345<esc>')
+    buffer('set_mark', buf, ns, 10, 1, 2) -- this shouldn't be found
+    buffer('set_mark', buf, ns, 11, 3, 5) -- this shouldn't be found
+    buffer('set_mark', buf, ns, marks[1], 3, 2) -- check col < our lower bound
+    buffer('set_mark', buf, ns, marks[2], 2, 5) -- check col > upper bound
+    buffer('set_mark', buf, ns, marks[3], 1, 3) -- check is inclusive
+    rv = buffer('get_marks', buf, ns, {1, 3}, {3, 4}, -1, 1)
+    eq({{marks[1], 3, 2},
+        {marks[2], 2, 5},
+        {marks[3], 1, 3}},
+       rv)
   end)
 
   it('marks move with line insertations #extmarks', function()
