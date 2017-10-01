@@ -1,10 +1,12 @@
 -- TODO(timeyyy):
 -- do_bang needs to be tested
 -- do_sub needs to be tested, when subbing from a big to small word
+--   behavior of open office is to delete...
 -- diff needs to be tested
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
 -- amount for get_marks
+-- handle namespaces as perp/r
 -- undo/redo of set/unset
 
 local helpers = require('test.functional.helpers')(after_each)
@@ -780,7 +782,7 @@ describe('Extmarks buffer api', function()
     eq(3, id)
   end)
 
-  it('indenting with enter works #extmarks', function()
+  it('auto indenting with enter works #extmarks', function()
     feed(':set cindent<cr><esc>')
     feed(':set autoindent<cr><esc>')
     feed(':set shiftwidth=2<cr><esc>')
@@ -797,7 +799,7 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[1], 1, 13, 2, 4)
   end)
 
-  it('indenting entire line works #extmarks', function()
+  it('auto indenting entire line works #extmarks', function()
     feed(':set cindent<cr><esc>')
     feed(':set autoindent<cr><esc>')
     feed(':set shiftwidth=2<cr><esc>')
@@ -814,7 +816,7 @@ describe('Extmarks buffer api', function()
     eq({marks[1], 2, 4}, rv)
   end)
 
-  it('removing indenting with <C-D> works #extmarks', function()
+  it('removing auto indenting with <C-D> works #extmarks', function()
     feed(':set cindent<cr><esc>')
     feed(':set autoindent<cr><esc>')
     feed(':set shiftwidth=2<cr><esc>')
@@ -830,7 +832,7 @@ describe('Extmarks buffer api', function()
     eq({marks[1], 1, 2}, rv)
   end)
 
-  it('indenting multiple lines with = <C-D> works #fail', function()
+  it('indenting multiple lines with = works #fail', function()
     feed(':set cindent<cr><esc>')
     feed(':set autoindent<cr><esc>')
     feed(':set shiftwidth=2<cr><esc>')

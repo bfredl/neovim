@@ -916,6 +916,8 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
     return rv;
   }
 
+  // TODO: assert lower <= upper
+
   ExtendedMark *extmark;
   Array mark = ARRAY_DICT_INIT;
 
