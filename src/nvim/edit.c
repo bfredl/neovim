@@ -1606,6 +1606,7 @@ change_indent (
   vcol = vc;
 
   /*
+     l
    * For Replace mode we need to fix the replace stack later, which is only
    * possible when the cursor is in the indent.  Remember the number of
    * characters before the cursor if it's possible.
@@ -1780,9 +1781,12 @@ change_indent (
     xfree(new_line);
   }
 
-  // Move extmarks
-  extmark_col_adjust(curbuf, curwin->w_cursor.lnum, 0, 1L, (long)amount,
-                     kExtmarkUndo);
+  // change_indent seems to bec called twice, this combination only triggers
+  // once for both calls
+  if (new_cursor_col - vcol != 0) {
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, 0, 0, amount,
+                       kExtmarkUndo);
+  }
 }
 
 /*

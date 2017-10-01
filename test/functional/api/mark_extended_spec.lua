@@ -4,6 +4,7 @@
 -- diff needs to be tested
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
+-- undo/redo of set/unset
 
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
@@ -17,7 +18,7 @@ local insert = helpers.insert
 local feed = helpers.feed
 local expect = helpers.expect
 
-local SCREEN_WIDTH = 10
+local SCREEN_WIDTH = 15
 local TO_START = {-1, -1}
 local TO_END = {-1, -1}
 local ALL = -1
@@ -246,16 +247,16 @@ describe('Extmarks buffer api', function()
     feed('kJ')
     -- This shouldn't seg fault
     screen:expect([[
-      12345^ 1     |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-      ~           |
-                  |
+      12345^ 1        |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+      ~              |
+                     |
     ]])
   end)
 
@@ -741,6 +742,56 @@ describe('Extmarks buffer api', function()
     -- id should be 3
     id = buffer('set_mark', buf, ns, "", positions[1][1], positions[1][2])
     eq(3, id)
+  end)
+
+  it('indenting with enter works #extmarks', function()
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    feed("0iint <esc>A {1M1<esc>b<esc>")
+    -- Set the mark on the M, should move..
+    buffer('set_mark', buf, ns, marks[1], 1, 13)
+    -- Set the mark before the cursor, should stay there
+    buffer('set_mark', buf, ns, marks[2], 1, 11)
+    feed("i<cr><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[2], 1, 11}, rv)
+    check_undo_redo(buf, ns, marks[1], 1, 13, 2, 4)
+  end)
+
+  it('indenting entire line works #extmarks', function()
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    -- <c-f> will force an indent of 2
+    feed("0iint <esc>A {<cr><esc>0i1M1<esc>")
+    buffer('set_mark', buf, ns, marks[1], 2, 2)
+    feed("0i<c-f><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+    check_undo_redo(buf, ns, marks[1], 2, 2, 2, 4)
+    -- now check when cursor at eol
+    feed("uA<c-f><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 4}, rv)
+  end)
+
+  it('removing indenting with <C-D> works #extmarks', function()
+    feed(':set cindent<cr><esc>')
+    feed(':set autoindent<cr><esc>')
+    feed(':set shiftwidth=2<cr><esc>')
+    feed("0i<tab><esc>")
+    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    feed("bi<c-d><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 2}, rv)
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 2)
+    -- check when cursor at eol
+    feed("uA<c-d><esc>")
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 2}, rv)
   end)
 
   -- TODO catch exceptions
