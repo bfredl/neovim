@@ -638,10 +638,19 @@ void op_reindent(oparg_T *oap, Indenter how)
         amount = how();                     /* get the indent for this line */
 
       if (amount >= 0 && set_indent(amount, SIN_UNDO)) {
-        /* did change the indent, call changed_lines() later */
-        if (first_changed == 0)
+        // did change the indent, call changed_lines() later
+        if (first_changed == 0) {
           first_changed = curwin->w_cursor.lnum;
+        }
         last_changed = curwin->w_cursor.lnum;
+
+        // Adjust extmarks
+        extmark_col_adjust(curbuf,
+                           curwin->w_cursor.lnum,
+                           0,             // mincol
+                           0,             // lnum_amount
+                           amount,        // col_amount
+                           kExtmarkUndo);
       }
     }
     ++curwin->w_cursor.lnum;
