@@ -318,8 +318,6 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[2], 3, 5, 4, 5)
   end)
 
-  -- Below, tests are using extmark_col_adjust, above just extmark_adjust
-
   it('marks move with fast char inserts #extmarks', function()
     -- insertchar in edit.c (the ins_str branch)
     feed('a<cr>12345<esc>')
@@ -807,6 +805,14 @@ describe('Extmarks buffer api', function()
     rv = buffer('lookup_mark', buf, ns, marks[2])
     eq({marks[1], 2, 6}, rv)
   end)
+
+  it('using <c-a> does not move marks #fail2', function()
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    feed('b<c-a>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 3}, rv)
+  end)
+
 
   -- TODO catch exceptions
   it('throws consistent error codes #extmarks2', function()
