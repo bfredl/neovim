@@ -6,7 +6,6 @@
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
 -- handle namespaces as perp/r
--- undo/redo of set/unset
 
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')

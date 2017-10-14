@@ -246,6 +246,8 @@ to remove an extended mark, use the |nvim_buf_unset_mark()| function.
 The extended marks all require a namespace (integer <= 0) to be provided.
 This ensures you only ever work with the extended marks you mean to.
 
+Calling set and unset of marks will not automatically prop a new undo.
+
 
 ==============================================================================
 Global Functions                                                  *api-global*
