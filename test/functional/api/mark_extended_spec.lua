@@ -5,7 +5,6 @@
 -- diff needs to be tested
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
--- amount for get_marks
 -- handle namespaces as perp/r
 -- undo/redo of set/unset
 
@@ -213,6 +212,29 @@ describe('Extmarks buffer api', function()
     upper = {positions[2][1], positions[2][2] - 1}
     rv = buffer('get_marks', buf, ns, lower, upper, ALL, 1)
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
+  end)
+
+  it('querying for information with amount #extmarks', function()
+    -- add some more marks
+    for i, m in ipairs(marks) do
+        rv = buffer('set_mark', buf, ns, m, positions[i][1], positions[i][2])
+        eq(1, rv)
+    end
+
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 1, 0)
+    eq(1, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 2, 0)
+    eq(2, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 3, 0)
+    eq(3, table.getn(rv))
+
+    -- now in reverse
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 1, 0)
+    eq(1, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 2, 0)
+    eq(2, table.getn(rv))
+    rv = buffer('get_marks', buf, ns, TO_START, TO_END, 3, 0)
+    eq(3, table.getn(rv))
   end)
 
   it('get_marks works when mark col > upper col #extmarks', function()
