@@ -5332,7 +5332,8 @@ insertchar (
     do_digraph(buf[i-1]);               /* may be the start of a digraph */
     buf[i] = NUL;
     ins_str(buf);
-    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
+                       (colnr_T)(curwin->w_cursor.col + 1), 0,
                        (long)STRLEN(buf), kExtmarkUndo);
     if (flags & INSCHAR_CTRLV) {
       redo_literal(*buf);
@@ -5344,7 +5345,8 @@ insertchar (
   } else {
     int cc;
 
-    extmark_col_adjust(curbuf, curwin->w_cursor.lnum, curwin->w_cursor.col, 0,
+    extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
+                       (colnr_T)(curwin->w_cursor.col + 1), 0,
                        1, kExtmarkUndo);
     if (has_mbyte && (cc = (*mb_char2len)(c)) > 1) {
       char_u buf[MB_MAXBYTES + 1];
