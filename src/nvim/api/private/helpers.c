@@ -10,6 +10,7 @@
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/handle.h"
+#include "nvim/api/vim.h"
 #include "nvim/msgpack_rpc/helpers.h"
 #include "nvim/ascii.h"
 #include "nvim/assert.h"
@@ -1212,4 +1213,14 @@ ArrayOf(Dictionary) keymap_array(String mode, buf_T *buf)
   tv_dict_free(dict);
 
   return mappings;
+}
+
+
+// Is the Namespace in use?
+bool ns_initialized(uint64_t ns)
+{
+  if (ns < 1) {
+    return false;
+  }
+  return ns < (uint64_t)next_namespace_id;
 }
