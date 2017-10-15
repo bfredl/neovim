@@ -1232,5 +1232,5 @@ bool ns_initialized(uint64_t ns)
   if (ns < 1) {
     return false;
   }
-  return ns < next_namespace_id;
+  return ns < current_namespace_id;
 }

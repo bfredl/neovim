@@ -886,7 +886,7 @@ void nvim_set_current_tabpage(Tabpage tabpage, Error *err)
 Integer nvim_create_namespace(String name)
   FUNC_API_SINCE(3)
 {
-  uint64_t id = next_namespace_id++;
+  uint64_t id = current_namespace_id++;
   kv_push(namespaces,copy_string(name));
   return (Integer)id;
 }
