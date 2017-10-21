@@ -64,13 +64,13 @@ describe('Extmarks buffer api', function()
     ns = 0
     -- 'add and query namespaces', these are required for marks to be created
     if ns == 0 then
-      ns = request('nvim_init_mark_ns', ns_string)
+      ns = request('nvim_create_namespace', ns_string)
       eq(1, ns)
-      ns2 = request('nvim_init_mark_ns', ns_string2)
+      ns2 = request('nvim_create_namespace', ns_string2)
       eq(2, ns2)
-      rv = request('nvim_mark_get_ns_ids')
-      eq({1, ns_string}, rv[1])
-      eq({2, ns_string2}, rv[2])
+      rv = request('nvim_get_namespaces')
+      eq(ns_string, rv[1])
+      eq(ns_string2, rv[2])
     end
   end)
 

@@ -848,7 +848,7 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
     return rv;
   }
 
-  if (!ns_initialized((int64_t)namespace)) {
+  if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -869,7 +869,7 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
 /// If no marks are found, returns an empty list
 ///
 /// @param buffer The buffer handle
-/// @param namespace An id returned previously from nvim_init_mark_ns
+/// @param namespace An id returned previously from nvim_create_namespace
 /// @param lower One of: extended mark id, (row, col) or -1
 /// @param upper One of: extended mark id, (row, col) or -1
 /// @param amount Maximum number of extmarks to return or -1
@@ -893,7 +893,7 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
     return rv;
   }
 
-  if (!ns_initialized((int64_t)namespace)) {
+  if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -972,7 +972,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
   if (!buf) {
     return rv;
   }
-  if (!ns_initialized((int64_t)namespace)) {
+  if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -1030,7 +1030,7 @@ Integer nvim_buf_unset_mark(Buffer buffer,
   if (!buf) {
     return rv;
   }
-  if (!ns_initialized((int64_t)namespace)) {
+  if (!ns_initialized((uint64_t)namespace)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }

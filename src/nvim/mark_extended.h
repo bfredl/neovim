@@ -135,13 +135,6 @@ typedef struct ExtMarkLine
 KBTREE_INIT(extlines, ExtMarkLine *, extline_cmp, 10)
 
 
-extern uint64_t extmark_namespace_counter;
-
-// All extmark namespaces that exist in nvim
-typedef Map(uint64_t, cstr_t) _NS;
-_NS *EXTMARK_NAMESPACES;
-
-
 typedef PMap(uint64_t) IntMap;
 
 

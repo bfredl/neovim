@@ -36,28 +36,6 @@
 # include "mark_extended.c.generated.h"
 #endif
 
-uint64_t extmark_namespace_counter = 1;
-
-// Required before calling any other functions
-uint64_t extmark_ns_create(char *ns)
-{
-  if (!EXTMARK_NAMESPACES) {
-    EXTMARK_NAMESPACES = map_new(uint64_t, cstr_t)();
-  }
-  uint64_t id = extmark_namespace_counter++;
-  map_put(uint64_t, cstr_t)(EXTMARK_NAMESPACES, id, xstrdup(ns));
-  return id;
-}
-
-// Is the Namespace in use?
-bool ns_initialized(int64_t ns)
-{
-  if (ns < 1) {
-    return false;
-  }
-  return ns < (int64_t)extmark_namespace_counter;
-}
-
 // TODO(timeyyy): currently possible to set marks where there is no text...
 // Create or update an extmark
 // Returns 1 on new mark created
