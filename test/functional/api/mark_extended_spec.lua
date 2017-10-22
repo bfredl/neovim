@@ -6,13 +6,15 @@
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
 -- handle namespaces as perp/r
+-- range delete in a line
+-- change representation of stored marks to have location start at 0
+-- make sure marks can exist at end of line
 
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
 
 local request = helpers.request
 local eq = helpers.eq
-local neq = helpers.neq
 local buffer = helpers.buffer
 local nvim = helpers.nvim
 local insert = helpers.insert
@@ -502,19 +504,19 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[2], 1, 4, 2, 3)
   end)
 
-  it('marks move with char deletes #extmarks', function()
-    -- del_bytes misc1.c
+  pending('marks move with char deletes #extmarks', function()
+    -- op_delete in ops.c
     buffer('set_mark', buf, ns, marks[1], 1, 4)
     feed('02dl')
-    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
-    eq(1, rv[1][2])
-    eq(2, rv[1][3])
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(2, rv[3])
     check_undo_redo(buf, ns, marks[1], 1, 4, 1, 2)
     -- regression test for off by one
     feed('$x')
-    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
-    eq(1, rv[1][2])
-    eq(2, rv[1][3])
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(2, rv[3])
     check_undo_redo(buf, ns, marks[1], 1, 2, 1, 2)
   end)
 
@@ -918,11 +920,34 @@ describe('Extmarks buffer api', function()
     eq({}, rv)
   end)
 
-  it('using <c-a> does not move marks #fail', function()
-    buffer('set_mark', buf, ns, marks[1], 1, 3)
-    feed('b<c-a>')
+  it('using <c-a> when increase in order of magnitude #extmarks', function()
+    -- do_addsub in ops.c
+    feed('ddi9 abc<esc>H')
+    -- when going from 9 to 10, mark on 9 shouldn't move
+    buffer('set_mark', buf, ns, marks[1], 1, 1)
+    -- but things after the inserted number should be moved
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    feed('<c-a>')
     rv = buffer('lookup_mark', buf, ns, marks[1])
-    eq({marks[1], 1, 3}, rv)
+    eq({marks[1], 1, 1}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[2], 1, 4}, rv)
+    check_undo_redo(buf, ns, marks[2], 1, 3, 1, 4)
+  end)
+
+  it('using <c-x> when decrease in order of magnitude #extmarks', function()
+    -- do_addsub in ops.c
+    feed('ddiab.10<esc>')
+    -- when going from 10 to 9, mark on 0 should move
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    -- the mark before hsouldn't move
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    feed('b<c-x>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, 4}, rv)
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq({marks[2], 1, 3}, rv)
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 4)
   end)
 
   -- TODO catch exceptions

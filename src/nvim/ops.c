@@ -1621,19 +1621,26 @@ setmarks:
   if (oap->motion_type == kMTBlockWise) {
     curbuf->b_op_end.lnum = oap->end.lnum;
     curbuf->b_op_end.col = oap->start.col;
-    // Move extended marks on blockwise delete
-    colnr_T mincol = bd.start_vcol + 1;
-    colnr_T col_amount = n;
-    for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
-      extmark_col_adjust(curbuf,
-                         lnum, mincol, 0, -col_amount, kExtmarkUndo);
-    }
-
   } else {
     curbuf->b_op_end = oap->start;
   }
   curbuf->b_op_start = oap->start;
 
+  // Move extended marks
+  colnr_T mincol;
+  colnr_T col_amount = n;
+  if (oap->motion_type == kMTBlockWise) {
+    mincol = bd.start_vcol + 1;
+    for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
+      extmark_col_adjust(curbuf,
+                         lnum, mincol, 0, -col_amount, kExtmarkUndo);
+    }
+  } else if (oap->motion_type == kMTCharWise) {
+      lnum = curwin->w_cursor.lnum;
+      mincol = oap->start.col + 1;
+      extmark_col_adjust(curbuf,
+                         lnum, mincol, 0, -col_amount, kExtmarkUndo);
+  }
   return OK;
 }
 
@@ -4856,6 +4863,22 @@ int do_addsub(int op_type, pos_T *pos, int length, linenr_T Prenum1)
   if (curbuf->b_op_end.col > 0) {
     curbuf->b_op_end.col--;
   }
+
+  colnr_T col_amount;
+  colnr_T mincol;
+
+  mincol = curwin->w_cursor.col + 1;
+  if (op_type == OP_NR_ADD) {
+    col_amount = Prenum1;
+  } else {
+    col_amount = -length;
+  }
+
+  // Adjust extmarks
+  extmark_col_adjust(curbuf, pos->lnum, mincol,
+                     0,            // lnum_amount
+                     col_amount,
+                     kExtmarkUndo);
 
 theend:
   if (visual) {

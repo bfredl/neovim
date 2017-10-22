@@ -1682,13 +1682,6 @@ int del_bytes(colnr_T count, bool fixpos_arg, bool use_delcombine)
   // mark the buffer as changed and prepare for displaying
   changed_bytes(lnum, curwin->w_cursor.col);
 
-  // Move extmarks with char del or tab with noexpandtab
-  ExtmarkOp reverse = kExtmarkUndo;
-  if ((col + count) == oldlen) {
-    reverse = kExtmarkNoUndo;
-  }
-  extmark_col_adjust(curbuf, lnum, col + 1, 0, -count, reverse);
-
   return OK;
 }
 
