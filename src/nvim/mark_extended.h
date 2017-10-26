@@ -6,7 +6,6 @@
 #include "nvim/lib/kvec.h"
 #include "nvim/map.h"
 
-
 // TODO(timeyyy): Support '.', normal vim marks etc
 #define Extremity -1    // Start or End of lnum or col
 
@@ -195,12 +194,19 @@ typedef struct {
   colnr_T col;
 } ExtmarkUpdate;
 
+typedef struct {
+  uint64_t ns_id;
+  uint64_t mark_id;
+  linenr_T lnum;
+  colnr_T col;
+} ExtmarkCopy;
+
 typedef struct undo_object ExtmarkUndoObject;
 
 typedef struct {
   ExtmarkUndoObject *items;
   size_t size, capacity;
-} ExtmarkUndoArray;
+} ExtmarkUndoArray; // TODO del
 
 typedef enum {
   kAdjust,  // TODO(timeyyy): rename all references to adjust to LineAdjust?
@@ -209,6 +215,7 @@ typedef enum {
   kExtmarkSet,
   kExtmarkUnset,
   kExtmarkUpdate,
+  kExtmarkCopy,
 } UndoObjectType;
 
 struct undo_object {
@@ -220,6 +227,7 @@ struct undo_object {
     AdjustMove move;
     ExtmarkSet set;
     ExtmarkUpdate update;
+    ExtmarkCopy copy;
   } data;
 };
 

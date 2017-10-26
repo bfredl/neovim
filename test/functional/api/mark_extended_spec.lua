@@ -5,10 +5,9 @@
 -- diff needs to be tested
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
--- handle namespaces as perp/r
--- range delete in a line
 -- change representation of stored marks to have location start at 0
 -- make sure marks can exist at end of line
+-- marks shouldd never be deleted.. inexplicitily
 
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
@@ -504,20 +503,42 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[2], 1, 4, 2, 3)
   end)
 
-  pending('marks move with char deletes #extmarks', function()
+  it('marks move with char deletes #fail3', function()
     -- op_delete in ops.c
-    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
     feed('02dl')
     rv = buffer('lookup_mark', buf, ns, marks[1])
     eq(1, rv[2])
-    eq(2, rv[3])
-    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 2)
-    -- regression test for off by one
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 1)
+    -- from the other side (nothing should happen)
     feed('$x')
     rv = buffer('lookup_mark', buf, ns, marks[1])
     eq(1, rv[2])
-    eq(2, rv[3])
-    check_undo_redo(buf, ns, marks[1], 1, 2, 1, 2)
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 1, 1, 1)
+  end)
+
+  it('marks move with char deletes over a range #extmarks', function()
+    -- op_delete in ops.c
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    feed('04dl')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 2, 1, 1)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 1)
+    -- delete 1, nothing should happend to our marks
+    feed('u')
+    feed('$x')
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(4, rv[3])
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 4)
   end)
 
   it('marks move with blockwise deletes #extmarks', function()
@@ -529,6 +550,38 @@ describe('Extmarks buffer api', function()
     eq(2, rv[1][2])
     eq(2, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 2, 5, 2, 2)
+  end)
+
+  it('marks move with blockwise deletes over a range #extmarks', function()
+    -- op_delete in ops.c
+    feed('a<cr>12345<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    buffer('set_mark', buf, ns, marks[3], 2, 3)
+    feed('0<c-v>k3lx')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(1, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[3])
+    eq(2, rv[2])
+    eq(1, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 2, 1, 1)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 1)
+    check_undo_redo(buf, ns, marks[3], 2, 3, 2, 1)
+    -- delete 1, nothing should happend to our marks
+    feed('u')
+    feed('$<c-v>jx')
+    rv = buffer('lookup_mark', buf, ns, marks[2])
+    eq(1, rv[2])
+    eq(4, rv[3])
+    rv = buffer('lookup_mark', buf, ns, marks[3])
+    eq(2, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 4)
+    check_undo_redo(buf, ns, marks[3], 2, 3, 2, 3)
   end)
 
   it('marks move with P(backward) paste #extmarks', function()
@@ -747,7 +800,7 @@ describe('Extmarks buffer api', function()
     eq(2, table.getn(rv))
   end)
 
-  it('undo and redo of marks deleted during edits #extmarks', function()
+  pending('undo and redo of marks deleted during edits #extmarks', function()
     -- test extmark_adjust
     feed('A<cr>12345<esc>')
     buffer('set_mark', buf, ns, marks[1], 2, 3)

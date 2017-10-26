@@ -20,6 +20,17 @@
 // For possible ideas for efficency improvements see:
 // http://blog.atom.io/2015/06/16/optimizing-an-important-atom-primitive.html
 // Other implementations exist in gtk and tk toolkits.
+//
+// To play around with what the marks SHOULD do, check out the tk
+// text marks to use as a reference (for off by one behaviour etc)
+//
+// Some Notes and misconeption points:
+// Deleting marks only happens explicitly extmark_unset, deleteing over a
+// range of marks will only move the marks
+//
+// Glossary:
+// extmark_copy:
+// deleting over a range
 
 #include <assert.h>
 #include "nvim/vim.h"
@@ -35,6 +46,10 @@
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
 #endif
+
+colnr_T BufPosStartCol = 1;
+linenr_T BufPosStartRow = 1;
+
 
 // TODO(timeyyy): currently possible to set marks where there is no text...
 // Create or update an extmark
@@ -357,6 +372,7 @@ static void u_extmark_set(buf_T *buf,
   ExtmarkUndoObject undo = { .type = undo_type,
                              .op = kExtmarkUndo,
                              .data.set = set };
+
   kv_push(uhp->uh_extmark, undo);
 }
 
@@ -429,7 +445,7 @@ static bool u_compact_col_adjust(buf_T *buf,
 }
 
 // Save col_adjust info so we can undo/redo
-static void u_extmark_col_adjust(buf_T *buf,
+void u_extmark_col_adjust(buf_T *buf,
                                  linenr_T lnum,
                                  colnr_T mincol,
                                  long lnum_amount,
@@ -502,6 +518,32 @@ void u_extmark_move(buf_T *buf,
   kv_push(uhp->uh_extmark, undo);
 }
 
+// copy extmarks data between range, useful when we cannot simply reverse
+// the operation. This will do nothing on redo, enforces correect position when
+// undo
+void u_extmark_copy(buf_T *buf,
+                    linenr_T l_lnum,
+                    colnr_T l_col,
+                    linenr_T u_lnum,
+                    colnr_T u_col)
+{
+  u_header_T  *uhp = get_undo_header(buf);
+
+ // TODO 1 -> first namespace key
+ FOR_ALL_EXTMARKS(buf, 1, l_lnum, l_col, u_lnum, u_col, {
+     ExtmarkCopy copy;
+     ExtmarkUndoObject undo;
+   copy.ns_id = extmark->ns_id;
+   copy.mark_id = extmark->mark_id;
+   copy.lnum = extmark->line->lnum;
+   copy.col = extmark->col;
+
+   undo.data.copy = copy;
+   undo.type = kExtmarkCopy;
+   kv_push(uhp->uh_extmark, undo);
+ });
+}
+
 void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
 {
   linenr_T lnum;
@@ -565,6 +607,18 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
     }
     extmark_adjust(curbuf,
                    line1, line2, amount, amount_after, kExtmarkNoUndo, false);
+  // kExtmarkCopy
+  } else if (undo_info.type == kExtmarkCopy) {
+    if (undo) {
+      extmark_set(curbuf,
+                  undo_info.data.copy.ns_id,
+                  undo_info.data.copy.mark_id,
+                  undo_info.data.copy.lnum,
+                  undo_info.data.copy.col,
+                  kExtmarkNoUndo);
+    // Redo
+    // } else {
+    }
   // kAdjustMove
   } else if (undo_info.type == kAdjustMove) {
     apply_undo_move(undo_info, undo);
@@ -727,12 +781,13 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
     FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
       marks_exist = true;
       cp = &(extmark->col);
-      // Delete mark
+      // Set mark to start of line
       if (col_amount < 0
           && *cp <= (colnr_T)-col_amount
           && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
-        extmark_unset(buf, extmark->ns_id, extmark->mark_id,
-                      kExtmarkUndo);
+        extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                       extline->lnum + lnum_amount,
+                       BufPosStartCol, kExtmarkNoUndo, &mitr);
       // Update the mark
       } else if (*cp >= mincol) {
         show_data(lnum, mincol, lnum_amount, col_amount);

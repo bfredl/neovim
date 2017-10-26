@@ -1626,27 +1626,33 @@ setmarks:
   }
   curbuf->b_op_start = oap->start;
 
+  // TODO refactor
   // Move extended marks
-  colnr_T mincol;
+  colnr_T  mincol = oap->start.col + 1;
   colnr_T col_amount = n;
   if (oap->motion_type == kMTBlockWise) {
-    mincol = bd.start_vcol + 1;
+    // TODO refactor extmark_col_adjust to take lnumstart, lnum_end ?
     for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
+      // mincol-1 as that is where the marks will converge to, if any mark was
+      // there it will need to remain there after the undo
+      u_extmark_copy(curbuf, lnum, mincol-1, lnum, oap->end.col + 1);
       extmark_col_adjust(curbuf,
                          lnum, mincol, 0, -col_amount, kExtmarkUndo);
     }
   } else if (oap->motion_type == kMTCharWise) {
       lnum = curwin->w_cursor.lnum;
-      mincol = oap->start.col + 1;
-      extmark_col_adjust(curbuf,
-                         lnum, mincol, 0, -col_amount, kExtmarkUndo);
+
+      // mincol-1 as that is where the marks will converge to, if any mark was
+      // there it will need to remain there after the undo
+      u_extmark_copy(curbuf, lnum, mincol-1, lnum, oap->end.col + 1);
+      extmark_col_adjust(curbuf, lnum, mincol, 0, -col_amount, kExtmarkUndo);
   }
   return OK;
 }
 
 /*
  * Adjust end of operating area for ending on a multi-byte character.
- * Used for deletion.
+ * Used for deletikUon.
  */
 static void mb_adjust_opend(oparg_T *oap)
 {
