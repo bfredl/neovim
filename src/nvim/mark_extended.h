@@ -170,6 +170,12 @@ typedef struct {
 } ColAdjust;
 
 typedef struct {
+    linenr_T lnum;
+    colnr_T mincol;
+    colnr_T endcol;
+} ColAdjustDelete;
+
+typedef struct {
   linenr_T line1;
   linenr_T line2;
   linenr_T last_line;
@@ -211,6 +217,7 @@ typedef struct {
 typedef enum {
   kAdjust,  // TODO(timeyyy): rename all references to adjust to LineAdjust?
   kColAdjust,
+  kColAdjustDelete,
   kAdjustMove,
   kExtmarkSet,
   kExtmarkUnset,
@@ -224,6 +231,7 @@ struct undo_object {
   union {
     Adjust adjust;
     ColAdjust col_adjust;
+    ColAdjustDelete col_adjust_delete;
     AdjustMove move;
     ExtmarkSet set;
     ExtmarkUpdate update;

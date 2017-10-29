@@ -3484,7 +3484,6 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
         if (regmatch.startpos[0].lnum > 0) {
           current_match.pre_match = lnum;
           lnum += regmatch.startpos[0].lnum;
-          sub_firstlnum += regmatch.startpos[0].lnum;
           nmatch -= regmatch.startpos[0].lnum;
           xfree(sub_firstline);
           sub_firstline = NULL;
@@ -3842,6 +3841,19 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
           copycol = regmatch.endpos[0].col;
 
           ADJUST_SUB_FIRSTLNUM();
+
+          // Adjust extmarks
+          colnr_T  mincol = regmatch.startpos[0].col;
+          colnr_T col_amount = copycol + 1;
+
+          // mincol-1 as that is where the marks will converge to, if any mark was
+          // there it will need to remain there after the undo
+          u_extmark_copy(curbuf, lnum, mincol-1, lnum, regmatch.endpos[0].col + 1);
+
+          // Delete
+          extmark_col_adjust(curbuf, lnum, mincol, 0, -col_amount, kExtmarkUndo);
+          // Insert
+          extmark_col_adjust(curbuf, lnum, mincol, 0, -col_amount, kExtmarkUndo);
 
           // Now the trick is to replace CTRL-M chars with a real line
           // break.  This would make it impossible to insert a CTRL-M in

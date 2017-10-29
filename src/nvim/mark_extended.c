@@ -28,6 +28,8 @@
 // Deleting marks only happens explicitly extmark_unset, deleteing over a
 // range of marks will only move the marks
 //
+// deleting on a mark will leave it in that same position
+//
 // Glossary:
 // extmark_copy:
 // deleting over a range
@@ -45,6 +47,8 @@
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
+#include "mark_extended.h"
+
 #endif
 
 colnr_T BufPosStartCol = 1;
@@ -470,6 +474,26 @@ void u_extmark_col_adjust(buf_T *buf,
   }
 }
 
+void u_extmark_col_adjust_delete(buf_T *buf,
+                                 linenr_T lnum,
+                                 colnr_T mincol,
+                                 colnr_T endcol,
+                                 ExtmarkOp op)
+{
+  u_header_T  *uhp = get_undo_header(buf);
+
+  ColAdjustDelete col_adjust_delete;
+  col_adjust_delete.lnum = lnum;
+  col_adjust_delete.mincol = mincol;
+  col_adjust_delete.endcol = endcol;
+
+  ExtmarkUndoObject undo = { .type = kColAdjustDelete,
+                             .op = op,
+                             .data.col_adjust_delete = col_adjust_delete };
+
+    kv_push(uhp->uh_extmark, undo);
+}
+
 // Save adjust info so we can undo/redo
 static void u_extmark_adjust(buf_T * buf,
                              linenr_T line1,
@@ -555,9 +579,9 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
   long amount;
   long amount_after;
 
-  // use extmark_column_adjust
+  // use extmark_col_adjust
   if (undo_info.type == kColAdjust) {
-    // undo
+    // Undo
     if (undo) {
       lnum = (undo_info.data.col_adjust.lnum
               + undo_info.data.col_adjust.lnum_amount);
@@ -565,7 +589,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
       col_amount = -undo_info.data.col_adjust.col_amount;
       mincol = (undo_info.data.col_adjust.mincol
                 + (colnr_T)undo_info.data.col_adjust.col_amount);
-    // redo
+    // Redo
     } else {
       lnum = undo_info.data.col_adjust.lnum;
       col_amount = undo_info.data.col_adjust.col_amount;
@@ -574,6 +598,17 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
     }
     extmark_col_adjust(curbuf,
                        lnum, mincol, lnum_amount, col_amount, kExtmarkNoUndo);
+  // use extmark_col_adjust_delete
+  } else if (undo_info.type == kColAdjustDelete) {
+    // Undo should be handled by kExtmarkCopy
+    // Redo
+    if (!undo) {
+      extmark_col_adjust_delete(curbuf,
+                                undo_info.data.col_adjust_delete.lnum,
+                                undo_info.data.col_adjust_delete.mincol,
+                                undo_info.data.col_adjust_delete.endcol,
+                                kExtmarkNoUndo);
+      }
   // use extmark_adjust
   } else if (undo_info.type == kAdjust) {
     if (undo) {
@@ -609,6 +644,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                    line1, line2, amount, amount_after, kExtmarkNoUndo, false);
   // kExtmarkCopy
   } else if (undo_info.type == kExtmarkCopy) {
+    // Redo should be handled by kColAdjustDelete
     if (undo) {
       extmark_set(curbuf,
                   undo_info.data.copy.ns_id,
@@ -616,8 +652,6 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                   undo_info.data.copy.lnum,
                   undo_info.data.copy.col,
                   kExtmarkNoUndo);
-    // Redo
-    // } else {
     }
   // kAdjustMove
   } else if (undo_info.type == kAdjustMove) {
@@ -765,51 +799,104 @@ bool show_data(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount)
   return true;
 }
 
+static colnr_T update_constantly(colnr_T _, colnr_T __, long col_amount)
+{
+  return (colnr_T)col_amount;
+}
+
+static colnr_T update_variably(colnr_T mincol, colnr_T current, long _)
+{
+  return -(current - mincol) - 1;
+}
+
 // Adjust columns and rows for extmarks
 // based off mark_col_adjust in mark.c
 // returns true if something was moved otherwise false
+static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
+                                colnr_T mincol, long lnum_amount,
+                                colnr_T (*calc_amount)(colnr_T, colnr_T, long),
+                                long _col_amount)
+{
+  bool marks_exist = false;
+  colnr_T *cp;
+  colnr_T col_amount;
+
+  FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
+    FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
+      marks_exist = true;
+      cp = &(extmark->col);
+
+      col_amount = (*calc_amount)(mincol, *cp, _col_amount);
+      // No update required for this guy
+      if (col_amount == 0) {
+        continue;
+      }
+
+      // Set mark to start of line
+      if (col_amount < 0
+          && *cp <= (colnr_T)-col_amount
+          && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
+            extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                           extline->lnum + lnum_amount,
+                           BufPosStartCol, kExtmarkNoUndo, &mitr);
+      // Update the mark
+      } else if (*cp >= mincol) {
+          show_data(lnum, mincol, lnum_amount, col_amount);
+          // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
+          extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                         extline->lnum + lnum_amount,
+                         *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
+      }
+    })
+  })
+  if (marks_exist) {
+      return true;
+  } else {
+      return false;
+  }
+}
+
 bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
                         colnr_T mincol, long lnum_amount,
                         long col_amount, ExtmarkOp undo)
 {
   assert(col_amount > INT_MIN && col_amount <= INT_MAX);
 
-  bool marks_exist = false;
-  colnr_T *cp;
+  bool marks_moved =  _extmark_col_adjust(buf, lnum, mincol, lnum_amount,
+                                    &update_constantly, col_amount);
 
-  FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
-    FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
-      marks_exist = true;
-      cp = &(extmark->col);
-      // Set mark to start of line
-      if (col_amount < 0
-          && *cp <= (colnr_T)-col_amount
-          && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
-        extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
-                       extline->lnum + lnum_amount,
-                       BufPosStartCol, kExtmarkNoUndo, &mitr);
-      // Update the mark
-      } else if (*cp >= mincol) {
-        show_data(lnum, mincol, lnum_amount, col_amount);
-        // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
-        extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
-                       extline->lnum + lnum_amount,
-                       *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
-      }
-    })
-  })
-
-  if (undo != kExtmarkNoUndo
-      && marks_exist) {
+  if (undo != kExtmarkNoUndo && marks_moved) {
     u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount, undo);
   }
 
-  if (marks_exist) {
-    return true;
-  } else {
-    return false;
-  }
+  // TODO why is this being returned?
+  return marks_moved;
 }
+
+
+bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
+                               colnr_T mincol, colnr_T endcol,
+                               ExtmarkOp undo)
+{
+  bool marks_moved;
+  if (undo == kExtmarkNoUndo) {
+    marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
+                                      &update_variably, (long) NULL);
+  // Move and record undo info
+  } else {
+    // Copy marks that would be effected by delete
+    u_extmark_copy(buf, lnum, mincol - 1, lnum, endcol);
+
+    marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
+                                           &update_variably, (long) NULL);
+    // Record the undo for the actual move
+    if (marks_moved) {
+      u_extmark_col_adjust_delete(buf, lnum, mincol, endcol, undo);
+    }
+  }
+  return marks_moved;
+}
+
 
 // Adjust extmark row for inserted/deleted rows (columns stay fixed).
 void extmark_adjust(buf_T * buf,
@@ -870,7 +957,7 @@ void extmark_adjust(buf_T * buf,
   }
 }
 
-/// Get reference to line in kbtree_t, allocating it if neccessary.
+// Get reference to line in kbtree_t, allocating it if neccessary.
 ExtMarkLine *extline_ref(kbtree_t(extlines) *b, linenr_T lnum)
 {
   ExtMarkLine t, **pp;
