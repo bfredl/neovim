@@ -873,7 +873,7 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
   return marks_moved;
 }
 
-
+// Adjust marks by doing a delete on a line
 bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
                                colnr_T mincol, colnr_T endcol,
                                ExtmarkOp undo)
@@ -885,10 +885,11 @@ bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   // Move and record undo info
   } else {
     // Copy marks that would be effected by delete
+    // -1 because we need to restore if a mark existed at the start pos
     u_extmark_copy(buf, lnum, mincol - 1, lnum, endcol);
 
     marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
-                                           &update_variably, (long) NULL);
+                                      &update_variably, (long) NULL);
     // Record the undo for the actual move
     if (marks_moved) {
       u_extmark_col_adjust_delete(buf, lnum, mincol, endcol, undo);

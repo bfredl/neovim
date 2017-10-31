@@ -3843,17 +3843,15 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
           ADJUST_SUB_FIRSTLNUM();
 
           // Adjust extmarks
-          colnr_T  mincol = regmatch.startpos[0].col;
-          colnr_T col_amount = copycol + 1;
-
-          // mincol-1 as that is where the marks will converge to, if any mark was
-          // there it will need to remain there after the undo
-          u_extmark_copy(curbuf, lnum, mincol-1, lnum, regmatch.endpos[0].col + 1);
-
-          // Delete
-          extmark_col_adjust(curbuf, lnum, mincol, 0, -col_amount, kExtmarkUndo);
+          colnr_T  mincol = regmatch.startpos[0].col + 1;
+          colnr_T endcol = regmatch.endpos[0].col + 1;
+          colnr_T col_amount = endcol - mincol;
+          // Delete, + 1 because we only move marks after the deleted col
+          extmark_col_adjust_delete(curbuf, lnum, mincol + 1, endcol,
+                                    kExtmarkUndo);
           // Insert
-          extmark_col_adjust(curbuf, lnum, mincol, 0, -col_amount, kExtmarkUndo);
+          extmark_col_adjust(curbuf, lnum, mincol, 0, col_amount,
+                             kExtmarkUndo);
 
           // Now the trick is to replace CTRL-M chars with a real line
           // break.  This would make it impossible to insert a CTRL-M in
@@ -3871,6 +3869,7 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
                           (colnr_T)(p1 - new_start + 1), false);
                 mark_adjust(lnum + 1, (linenr_T)MAXLNUM, 1L, 0L, false,
                             kExtmarkUndo);
+
                 if (subflags.do_ask) {
                   appended_lines(lnum - 1, 1L);
                 } else {
