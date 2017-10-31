@@ -61,6 +61,7 @@
 #include "nvim/event/loop.h"
 #include "nvim/os/time.h"
 #include "nvim/os/input.h"
+#include "nvim/api/private/helpers.h"
 
 typedef struct normal_state {
   VimState state;
@@ -3339,7 +3340,9 @@ void clear_showcmd(void)
       else
         sprintf((char *)showcmd_buf, "%d-%d", chars, bytes);
     }
-    showcmd_buf[SHOWCMD_COLS] = NUL;            /* truncate */
+    // TODO: if ext_messages turn FALSE at runtime we need to reset showcmd
+    int limit = ui_is_external(kUIMessages) ? SHOWCMD_BUFLEN-1 : SHOWCMD_COLS;
+    showcmd_buf[limit] = NUL;            /* truncate */
     showcmd_visual = true;
   } else {
     showcmd_buf[0] = NUL;
@@ -3392,8 +3395,9 @@ bool add_to_showcmd(int c)
     STRCPY(p, "<20>");
   size_t old_len = STRLEN(showcmd_buf);
   size_t extra_len = STRLEN(p);
-  if (old_len + extra_len > SHOWCMD_COLS) {
-    size_t overflow = old_len + extra_len - SHOWCMD_COLS;
+  size_t limit = ui_is_external(kUIMessages) ? SHOWCMD_BUFLEN-1 : SHOWCMD_COLS;
+  if (old_len + extra_len > limit) {
+    size_t overflow = old_len + extra_len - limit;
     memmove(showcmd_buf, showcmd_buf + overflow, old_len - overflow + 1);
   }
   STRCAT(showcmd_buf, p);
@@ -3454,13 +3458,23 @@ void pop_showcmd(void)
 static void display_showcmd(void)
 {
   int len;
-
   len = (int)STRLEN(showcmd_buf);
-  if (len == 0)
-    showcmd_is_clear = true;
-  else {
+  showcmd_is_clear = (len == 0);
+
+  if (ui_is_external(kUIMessages)) {
+    Array content = ARRAY_DICT_INIT;
+    if (len > 0) {
+      Array chunk = ARRAY_DICT_INIT;
+      ADD(chunk , DICTIONARY_OBJ(ARRAY_DICT_INIT));
+      ADD(chunk , STRING_OBJ(cstr_to_string((char *)showcmd_buf)));
+      ADD(content, ARRAY_OBJ(chunk));
+    }
+    ui_call_msg_showcmd(content);
+    return;
+  }
+
+  if (!showcmd_is_clear) {
     screen_puts(showcmd_buf, (int)Rows - 1, sc_col, 0);
-    showcmd_is_clear = false;
   }
 
   /*

@@ -210,6 +210,11 @@ void ui_refresh(void)
                          BOOLEAN_OBJ(ext_widgets[i]));
     }
   }
+  if (ext_widgets[kUIMessages]) {
+    // TODO: use a proxy variable
+    p_ch=0;
+    command_height();
+  }
   ui_mode_info_set();
   pending_mode_update = true;
   ui_cursor_shape();

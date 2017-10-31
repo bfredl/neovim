@@ -34,11 +34,13 @@
 #include "nvim/regexp.h"
 #include "nvim/screen.h"
 #include "nvim/strings.h"
+#include "nvim/syntax.h"
 #include "nvim/ui.h"
 #include "nvim/mouse.h"
 #include "nvim/os/os.h"
 #include "nvim/os/input.h"
 #include "nvim/os/time.h"
+#include "nvim/api/private/helpers.h"
 
 /*
  * To be able to scroll back at the "more" and "hit-enter" prompts we need to
@@ -107,6 +109,10 @@ static int verbose_did_open = FALSE;
  *		    main_loop().
  *		    This is an allocated string or NULL when not used.
  */
+
+// kUIMessages has an unfinished line
+// msg_didout is too noisy, so use our own
+static bool msg_didout_event = false;
 
 /*
  * msg(s) - displays the string 's' on the status line
@@ -480,6 +486,9 @@ int emsg(const char_u *s_)
   int attr;
   int ignore = false;
   int severe;
+  if (ui_is_external(kUIMessages)) {
+    ui_call_msg_start_kind(cstr_to_string("emsg"));
+  }
 
   // Skip this if not giving error messages at the moment.
   if (emsg_not_now()) {
@@ -804,6 +813,18 @@ void ex_messages(void *const eap_p)
     }
   }
 
+  if (ui_is_external(kUIMessages)) {
+    Array args = ARRAY_DICT_INIT;
+    for (; p != NULL && !got_int; p = p->next) {
+      if (p->msg != NULL) {
+        ADD(args, STRING_OBJ(cstr_to_string((char *)(p->msg))));
+      }
+    }
+    ui_event("messages", args);
+    msg_hist_off = false;
+    return;
+  }
+
   // Display what was not skipped.
   for (; p != NULL && !got_int; p = p->next) {
     if (p->msg != NULL) {
@@ -1089,6 +1110,12 @@ void msg_start(void)
     msg_starthere();
   if (msg_silent == 0) {
     msg_didout = FALSE;                     /* no output on current line yet */
+  }
+
+  /// TODO(bfredl): maybe the check in msg_end is good enogh
+  if (ui_is_external(kUIMessages) && msg_didout_event) {
+    msg_didout_event = false;
+    ui_call_msg_end();
   }
 
   // When redirecting, may need to start a new line.
@@ -1701,6 +1728,13 @@ static void msg_puts_display(const char_u *str, int maxlen, int attr,
   int sb_col = msg_col;
   int wrap;
   int did_last_char;
+
+  if (ui_is_external(kUIMessages)) {
+    msg_didout_event = true;
+    String text = cstrn_to_string((char *)(str),(size_t)maxlen);
+    ui_call_msg_chunk(text, attr);
+    return;
+  }
 
   did_wait_return = false;
   while ((maxlen < 0 || (int)(s - str) < maxlen) && *s != NUL) {
@@ -2552,6 +2586,11 @@ int msg_end(void)
   if (!exiting && need_wait_return && !(State & CMDLINE)) {
     wait_return(FALSE);
     return FALSE;
+  }
+
+  if (ui_is_external(kUIMessages) && msg_didout_event) {
+    msg_didout_event = false;
+    ui_call_msg_end();
   }
   ui_flush();
   return TRUE;
