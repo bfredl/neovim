@@ -130,6 +130,14 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
     ui->ui_ext[kUILinegrid] = true;
   }
 
+  if (ui->ui_ext[kUIMessages]) {
+    // TODO: This uses attribute indicies, so ext_newgrid is needed.
+    // ui->ui_ext[kUINewgrid] = true;
+    // Cmdline uses the messages area, so it should be externalized too.
+    ui->ui_ext[kUICmdline] = true;
+  }
+
+
   UIData *data = xmalloc(sizeof(UIData));
   data->channel_id = channel_id;
   data->buffer = (Array)ARRAY_DICT_INIT;

@@ -77,6 +77,7 @@ local shallowcopy = global_helpers.shallowcopy
 local helpers = require('test.functional.helpers')(nil)
 local request, run, uimeths = helpers.request, helpers.run, helpers.uimeths
 local eq = helpers.eq
+local ok = helpers.ok
 local dedent = helpers.dedent
 
 local inspect = require('inspect')
@@ -155,6 +156,10 @@ function Screen.new(width, height)
     cmdline_block = {},
     wildmenu_items = nil,
     wildmenu_selected = nil,
+    messages = {},
+    showmode = {},
+    showcmd = {},
+    ruler = {},
     _default_attr_ids = nil,
     _default_attr_ignore = nil,
     _mouse_enabled = true,
@@ -222,7 +227,8 @@ end
 
 -- canonical order of ext keys, used  to generate asserts
 local ext_keys = {
-  'popupmenu', 'cmdline', 'cmdline_block', 'wildmenu_items', 'wildmenu_pos'
+  'popupmenu', 'cmdline', 'cmdline_block', 'wildmenu_items', 'wildmenu_pos',
+  'messages', 'showmode', 'showcmd', 'ruler',
 }
 
 -- Asserts that the screen state eventually matches an expected state
@@ -386,6 +392,14 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
         end
       end
     end
+
+    local function orempty(val)
+      if val == nil then
+        return {}
+      end
+      return val
+    end
+
 
     -- Extension features. The default expectations should cover the case of
     -- the ext_ feature being disabled, or the feature currently not activated
@@ -831,7 +845,7 @@ function Screen:_handle_option_set(name, value)
 end
 
 function Screen:_handle_popupmenu_show(items, selected, row, col)
-  self.popupmenu = {items=items,pos=selected, anchor={row, col}}
+  self.popupmenu = {items=items, pos=selected, anchor={row, col}}
 end
 
 function Screen:_handle_popupmenu_select(selected)
@@ -885,6 +899,34 @@ end
 
 function Screen:_handle_wildmenu_hide()
   self.wildmenu_items, self.wildmenu_pos = nil, nil
+end
+
+function Screen:_handle_msg_show(kind, chunks, replace_last)
+  local pos = #self.messages
+  if not replace_last or pos == 0 then
+    pos = pos + 1
+  end
+  self.messages[pos] = {kind=kind, content=chunks}
+end
+
+function Screen:_handle_msg_clear()
+  self.messages = {}
+end
+
+function Screen:_handle_MSG_DEBUG(...)
+  self._MSG_DEBUG = {...}
+end
+
+function Screen:_handle_msg_showcmd(msg)
+  self.showcmd = msg
+end
+
+function Screen:_handle_msg_showmode(msg)
+  self.showmode = msg
+end
+
+function Screen:_handle_msg_ruler(msg)
+  self.ruler = msg
 end
 
 function Screen:_clear_block(top, bot, left, right)
@@ -948,12 +990,21 @@ function Screen:_extstate_repr(attr_state)
     cmdline_block[i] = self:_chunks_repr(entry, attr_state)
   end
 
+  local messages = {}
+  for i, entry in ipairs(self.messages) do
+    messages[i] = {kind=entry.kind, content=self:_chunks_repr(entry.content, attr_state)}
+  end
+
   return {
     popupmenu=self.popupmenu,
     cmdline=cmdline,
     cmdline_block=cmdline_block,
     wildmenu_items=self.wildmenu_items,
     wildmenu_pos=self.wildmenu_pos,
+    messages=messages,
+    showmode=self:_chunks_repr(self.showmode, attr_state),
+    showcmd=self:_chunks_repr(self.showcmd, attr_state),
+    ruler=self:_chunks_repr(self.ruler, attr_state),
   }
 end
 

@@ -4156,7 +4156,8 @@ static char *set_num_option(int opt_idx, char_u *varp, long value,
       errmsg = e_positive;
     }
   } else if (pp == &p_ch) {
-    if (value < 1) {
+    int minval = ui_is_external(kUIMessages) ? 0 : 1;
+    if (value < minval) {
       errmsg = e_positive;
     }
   } else if (pp == &p_tm) {
@@ -4265,6 +4266,9 @@ static char *set_num_option(int opt_idx, char_u *varp, long value,
       p_window = Rows - 1;
     }
   } else if (pp == &p_ch) {
+    if (ui_is_external(kUIMessages)) {
+      p_ch = 0;
+    }
     if (p_ch > Rows - min_rows() + 1) {
       p_ch = Rows - min_rows() + 1;
     }

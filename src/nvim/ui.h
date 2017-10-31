@@ -14,7 +14,9 @@ typedef enum {
   kUIPopupmenu,
   kUITabline,
   kUIWildmenu,
-#define kUIGlobalCount (kUIWildmenu+1)
+  kUIMessages,
+  kUIMsgNothrottle,
+#define kUIGlobalCount kUILinegrid
   kUILinegrid,
   kUIHlState,
   kUIExtCount,
@@ -25,6 +27,8 @@ EXTERN const char *ui_ext_names[] INIT(= {
   "ext_popupmenu",
   "ext_tabline",
   "ext_wildmenu",
+  "ext_messages",
+  "msg_nothrottle",
   "ext_linegrid",
   "ext_hlstate",
 });

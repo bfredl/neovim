@@ -19584,6 +19584,7 @@ void ex_echo(exarg_T *eap)
       char *tofree = encode_tv2echo(&rettv, NULL);
       const char *p = tofree;
       if (p != NULL) {
+        msg_set_ext_kind("echo");
         for (; *p != NUL && !got_int; ++p) {
           if (*p == '\n' || *p == '\r' || *p == TAB) {
             if (*p != TAB && needclr) {
@@ -19691,11 +19692,13 @@ void ex_execute(exarg_T *eap)
     }
 
     if (eap->cmdidx == CMD_echomsg) {
+      msg_set_ext_kind("echomsg");
       MSG_ATTR(ga.ga_data, echo_attr);
       ui_flush();
     } else if (eap->cmdidx == CMD_echoerr) {
       /* We don't want to abort following commands, restore did_emsg. */
       save_did_emsg = did_emsg;
+      msg_set_ext_kind("echoerr");
       EMSG((char_u *)ga.ga_data);
       if (!force_abort)
         did_emsg = save_did_emsg;
