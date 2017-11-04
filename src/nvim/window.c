@@ -1987,7 +1987,7 @@ int win_close(win_T *win, int free_buf)
   int dir;
   int help_window = FALSE;
   tabpage_T   *prev_curtab = curtab;
-  frame_T *win_frame = win->w_frame->fr_parent;
+  frame_T *win_frame = win->w_floating ? NULL : win->w_frame->fr_parent;
 
   if (last_window()) {
     EMSG(_("E444: Cannot close last window"));
@@ -2026,13 +2026,13 @@ int win_close(win_T *win, int free_buf)
      * This may change because of the autocommands (sigh).
      */
     if (!win->w_floating) {
-        wp = frame2win(win_altframe(win, NULL));
+      wp = frame2win(win_altframe(win, NULL));
     } else {
-        if (win_valid(prevwin)) {
-            wp = prevwin;
-        } else {
-            wp = curtab->tp_firstwin;
-        }
+      if (win_valid(prevwin)) {
+        wp = prevwin;
+      } else {
+        wp = curtab->tp_firstwin;
+      }
     }
 
     /*
@@ -2152,12 +2152,14 @@ int win_close(win_T *win, int free_buf)
     // using the window.
     check_cursor();
   }
-  if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
-    // If the frame of the closed window contains the new current window,
-    // only resize that frame.  Otherwise resize all windows.
-    win_equal(curwin, curwin->w_frame->fr_parent == win_frame, dir);
-  } else {
-    win_comp_pos();
+  if (!wp->w_floating) {
+    if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
+      // If the frame of the closed window contains the new current window,
+      // only resize that frame.  Otherwise resize all windows.
+      win_equal(curwin, curwin->w_frame->fr_parent == win_frame, dir);
+    } else {
+      win_comp_pos();
+    }
   }
 
   if (close_curwin) {
@@ -5425,7 +5427,7 @@ int min_rows(void)
 
 /// Check that there is only one window (and only one tab page), not counting a
 /// help or preview window, unless it is the current window. Does not count
-/// "aucmd_win".
+/// "aucmd_win". Does not count floats unless it is current.
 bool only_one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
 {
   // If there is another tab page there always is another window.
@@ -5436,7 +5438,7 @@ bool only_one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
   int count = 0;
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_buffer != NULL
-        && (!((wp->w_buffer->b_help && !curbuf->b_help)
+        && (!((wp->w_buffer->b_help && !curbuf->b_help) || wp->w_floating
               || wp->w_p_pvw) || wp == curwin) && wp != aucmd_win) {
       count++;
     }
