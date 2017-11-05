@@ -265,10 +265,9 @@ void set_tabpage_grid(tabpage_T* tp) {
   ui_call_set_grid(tp->handle);
   if (tp->grid.Columns == 0 || tp->grid.Rows == 0) {
     alloc_screengrid(&tp->grid, Rows ?: 25, Columns ?: 40, false);
+    ui_call_resize(tp->grid.Columns, tp->grid.Rows);
   }
   set_screengrid(&tp->grid);
-  // TODO: not everytime:
-  ui_call_resize(tp->grid.Columns, tp->grid.Rows);
 }
 
 /*
