@@ -283,6 +283,14 @@ void ui_refresh(void)
   screen_resize(width, height);
   p_lz = save_p_lz;
 
+  // HACK: assume client connects when only one tabpage exists
+  if (ext_widgets[kUIMultigrid] && !ui_ext[kUIMultigrid]) {
+    memcpy(&curtab->grid,&default_grid,sizeof(default_grid));
+    memset(&default_grid,0,sizeof(default_grid));
+  } else if (!ext_widgets[kUIMultigrid] && ui_ext[kUIMultigrid]) {
+    abort(); // for now
+  }
+
   for (UIWidget i = 0; (int)i < UI_WIDGETS; i++) {
     ui_set_external(i, ext_widgets[i]);
   }
