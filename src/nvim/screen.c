@@ -421,29 +421,42 @@ void update_screen(int type)
   did_one = FALSE;
   search_hl.rm.regprog = NULL;
 
-  for (int floating = 0; floating < 2; floating++) {
-    FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-      if (wp->w_floating != floating) {
-        continue;
-      }
-      if (floating && did_one) {
-        // TODO: be a lot more precise
-        wp->w_redr_type = NOT_VALID;
-      }
-
-      if (wp->w_redr_type != 0) {
-        if (!did_one) {
-          did_one = TRUE;
-          start_search_hl();
-        }
-        win_update(wp);
-      }
-
-      /* redraw status line after the window to minimize cursor movement */
-      if (wp->w_redr_status) {
-        win_redr_status(wp);
-      }
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if (wp->w_floating) {
+      continue;
     }
+
+    if (wp->w_redr_type != 0) {
+      if (!did_one) {
+        did_one = TRUE;
+        start_search_hl();
+      }
+      win_update(wp);
+    }
+
+    /* redraw status line after the window to minimize cursor movement */
+    if (wp->w_redr_status) {
+      win_redr_status(wp);
+    }
+  }
+
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if (!wp->w_floating) {
+      continue;
+    }
+    if (did_one) {
+      // TODO: be a lot more precise
+      wp->w_redr_type = NOT_VALID;
+    }
+
+    if (wp->w_redr_type != 0) {
+      if (!did_one) {
+        did_one = TRUE;
+        start_search_hl();
+      }
+      win_update(wp);
+    }
+
   }
   end_search_hl();
   // May need to redraw the popup menu.
