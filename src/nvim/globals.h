@@ -16,7 +16,6 @@
 
 #define IOSIZE         (1024+1)          // file I/O and sprintf buffer size
 
-#define MAX_MCO        6                 // maximum value for 'maxcombine'
 
 # define MSG_BUF_LEN 480                 // length of buffer for small messages
 # define MSG_BUF_CLEN  (MSG_BUF_LEN / 6) // cell length (worst case: utf-8
@@ -126,12 +125,6 @@ typedef off_t off_T;
 #endif
 
 /*
- * The characters and attributes cached for the screen.
- */
-typedef char_u schar_T[MAX_MCO * 4 + 1];
-typedef int16_t sattr_T;
-
-/*
  * The characters that are currently on the screen are kept in ScreenLines[].
  * It is a single block of characters, the size of the screen plus one line.
  * The attributes for those characters are kept in ScreenAttrs[].
@@ -147,19 +140,10 @@ EXTERN sattr_T  *ScreenAttrs INIT(= NULL);
 EXTERN unsigned *LineOffset INIT(= NULL);
 EXTERN char_u   *LineWraps INIT(= NULL);        /* line wraps to next line */
 
-/*
- * When using Unicode characters (in UTF-8 encoding) the character in
- * ScreenLinesUC[] contains the Unicode for the character at this position, or
- * NUL when the character in ScreenLines[] is to be used (ASCII char).
- * The composing characters are to be drawn on top of the original character.
- * ScreenLinesC[0][off] is only to be used when ScreenLinesUC[off] != 0.
- * Note: These three are only allocated when enc_utf8 is set!
- */
-
-
 EXTERN int screen_Rows INIT(= 0);           /* actual size of ScreenLines[] */
 EXTERN int screen_Columns INIT(= 0);        /* actual size of ScreenLines[] */
 
+EXTERN ScreenGrid default_grid INIT(= {0});
 /*
  * When vgetc() is called, it sets mod_mask to the set of modifiers that are
  * held down based on the MOD_MASK_* symbols that are read first.
