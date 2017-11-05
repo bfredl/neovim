@@ -146,9 +146,13 @@ void update_topline(void)
   bool check_botline = false;
   long save_so = p_so;
 
+  if (!screen_valid(true)) {
+    return;
+  }
+
   // If there is no valid screen and when the window height is zero just use
   // the cursor line.
-  if (!screen_valid(true) || curwin->w_height == 0) {
+  if (curwin->w_grid.Rows == 0) {
     curwin->w_topline = curwin->w_cursor.lnum;
     curwin->w_botline = curwin->w_topline;
     curwin->w_valid |= VALID_BOTLINE|VALID_BOTLINE_AP;
