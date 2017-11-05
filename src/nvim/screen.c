@@ -199,7 +199,8 @@ void redraw_later_clear(void)
  */
 void redraw_all_later(int type)
 {
-  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+  //FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+  FOR_ALL_TAB_WINDOWS(tp, wp) {
     redraw_win_later(wp, type);
   }
 }
