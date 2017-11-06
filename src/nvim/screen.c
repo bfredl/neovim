@@ -215,6 +215,7 @@ void redraw_curbuf_later(int type)
 
 void redraw_buf_later(buf_T *buf, int type)
 {
+  //FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
   FOR_ALL_TAB_WINDOWS(tp, wp) {
     if (wp->w_buffer == buf) {
       redraw_win_later(wp, type);
@@ -442,7 +443,6 @@ void update_screen(int type)
   tabpage_T *save_curtab = curtab;
 
   FOR_ALL_TABS(tp) {
-    bool set_grid = false;
     if (!ui_is_external(kUIMultigrid)) {
       if (tp != curtab) {
         continue;
@@ -452,7 +452,7 @@ void update_screen(int type)
       if (wp->w_redr_type != 0) {
         if(ui_is_external(kUIMultigrid) && current_grid != &tp->grid) {
           set_tabpage_grid(tp);
-          // curtab = tp // comeon let's pretent
+          // curtab = tp // comeon let's pretend
         }
         if (!did_one) {
           did_one = TRUE;
@@ -601,7 +601,9 @@ void update_debug_sign(buf_T *buf, linenr_T lnum)
     int  doit = FALSE;
     win_foldinfo.fi_level = 0;
 
+    // TODO(bfredl)
     /* update/delete a specific mark */
+    //FOR_ALL_TAB_WINDOWS(tp, wp) {
     FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
       if (buf != NULL && lnum > 0) {
         if (wp->w_buffer == buf && lnum >= wp->w_topline
@@ -631,6 +633,7 @@ void update_debug_sign(buf_T *buf, linenr_T lnum)
     /* update all windows that need updating */
     update_prepare();
 
+    //FOR_ALL_TAB_WINDOWS(tp, wp) {
     FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
       if (wp->w_redr_type != 0) {
         win_update(wp);
@@ -4637,7 +4640,8 @@ void rl_mirror(char_u *str)
 void status_redraw_all(void)
 {
 
-  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+  FOR_ALL_TAB_WINDOWS(tp, wp) {
+  //FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_status_height) {
       wp->w_redr_status = TRUE;
       redraw_later(VALID);
@@ -4650,7 +4654,8 @@ void status_redraw_all(void)
  */
 void status_redraw_curbuf(void)
 {
-  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+  FOR_ALL_TAB_WINDOWS(tp, wp) {
+  //FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_status_height != 0 && wp->w_buffer == curbuf) {
       wp->w_redr_status = TRUE;
       redraw_later(VALID);
@@ -4663,6 +4668,12 @@ void status_redraw_curbuf(void)
  */
 void redraw_statuslines(void)
 {
+
+  // FIXME:
+  if (ui_is_external(kUIMultigrid)) {
+    update_screen(VALID);
+    return;
+  }
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_redr_status) {
       win_redr_status(wp);
@@ -6157,7 +6168,7 @@ retry:
   if ((grid->ScreenLines != NULL
        && Rows == screen_Rows
        && Columns == screen_Columns
-       && p_mco == default_grid.Screen_mco
+       && p_mco == grid->Screen_mco
        )
       || Rows == 0
       || Columns == 0

@@ -287,6 +287,9 @@ void ui_refresh(void)
   if (ext_widgets[kUIMultigrid] && !ui_ext[kUIMultigrid]) {
     memcpy(&curtab->grid,&default_grid,sizeof(default_grid));
     memset(&default_grid,0,sizeof(default_grid));
+    current_grid = &curtab->grid;
+    p_stal = 0;
+    do_cmdline_cmd("redraw!"); // HAXX
   } else if (!ext_widgets[kUIMultigrid] && ui_ext[kUIMultigrid]) {
     abort(); // for now
   }
