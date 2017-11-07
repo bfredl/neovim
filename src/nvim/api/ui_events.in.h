@@ -94,4 +94,8 @@ void wildmenu_hide(void)
 
 void set_grid(Integer nr)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
+// TODO: shouldn't be a separate event
+// just use the last value in a ui_flush() sequence
+void set_grid_focus(Integer nr)
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 #endif  // NVIM_API_UI_EVENTS_IN_H

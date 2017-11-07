@@ -3259,6 +3259,7 @@ static void enter_tabpage(tabpage_T *tp, buf_T *old_curbuf, int trigger_enter_au
 
   if (ui_is_external(kUIMultigrid)) {
     set_tabpage_grid(tp);
+    ui_call_set_grid_focus(tp->handle); // delete this.
   }
 
   int old_off = tp->tp_firstwin->w_winrow;
