@@ -521,6 +521,7 @@ win_T *win_new_float(int width, int height, FloatConfig config)
   win_config_float(wp, width, height, config);
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
+  wp->w_grid_handle = next_grid_handle++;
   redraw_win_later(wp, VALID);
   win_enter(wp, false);
   return wp;
@@ -531,14 +532,19 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
   wp->w_height = height;
   wp->w_width = width;
 
-  // TUI only:
-  wp->w_float_config = config;
-  bool east = config.anchor & kFloatAnchorEast;
-  bool south = config.anchor & kFloatAnchorSouth;
-  int x = (int)config.x;
-  int y = (int)config.y;
-  wp->w_wincol = x - (east ? width : 0);
-  wp->w_winrow = y - (south ? height : 0);
+  if (ui_is_external(kUIMultigrid)) {
+    wp->w_wincol = 0;
+    wp->w_winrow = 0;
+  } else {
+    // TUI only:
+    wp->w_float_config = config;
+    bool east = config.anchor & kFloatAnchorEast;
+    bool south = config.anchor & kFloatAnchorSouth;
+    int x = (int)config.x;
+    int y = (int)config.y;
+    wp->w_wincol = x - (east ? width : 0);
+    wp->w_winrow = y - (south ? height : 0);
+  }
 }
 
 static bool parse_float_anchor(String anchor, FloatAnchor *out)
@@ -3819,6 +3825,7 @@ static void win_enter_ext(win_T *wp, bool undo_sync, int curwin_invalid,
   }
   curwin = wp;
   curbuf = wp->w_buffer;
+
   check_cursor();
   if (!virtual_active())
     curwin->w_cursor.coladd = 0;

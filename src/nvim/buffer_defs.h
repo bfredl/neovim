@@ -1180,6 +1180,8 @@ struct window_S {
 
   bool w_floating;                       ///< whether the window is floating
   FloatConfig w_float_config;
+  ScreenGrid grid; // own grid, only used for floats
+  int w_grid_handle;
 
   /*
    * w_fraction is the fractional row of the cursor within the window, from
@@ -1201,7 +1203,6 @@ struct window_S {
    */
   qf_info_T   *w_llist_ref;
 
-  ScreenGrid grid; // own grid, only used for floats
 
 };
 
