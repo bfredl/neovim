@@ -155,9 +155,6 @@ static schar_T  *current_ScreenLine;
 
 StlClickDefinition *tab_page_click_defs = NULL;
 
-int grid_Rows = 0;
-int grid_Columns = 0;
-
 long tab_page_click_defs_size = 0;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -261,6 +258,22 @@ void update_curbuf(int type)
 {
   redraw_curbuf_later(type);
   update_screen(type);
+}
+
+
+// NB: the global grid must be valid when calling this!!
+void set_float_grid(win_T* wp) {
+  bool resize = wp->w_height != wp->grid.Rows || wp->w_width != wp->grid.Rows;
+  // TODO: restructure this!
+  current_grid = &wp->grid;
+  Rows = wp->w_height;
+  Columns = wp->w_width;
+  screenalloc(false);
+
+  ui_call_set_grid(current_grid->handle);
+  if (resize) {
+    ui_call_resize(current_grid->Columns, current_grid->Rows);
+  }
 }
 
 /*
@@ -425,10 +438,8 @@ void update_screen(int type)
   did_one = FALSE;
   search_hl.rm.regprog = NULL;
 
+
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-    if (wp->w_floating) {
-      continue;
-    }
 
     if (wp->w_redr_type != 0) {
       if (!did_one) {
@@ -6128,16 +6139,18 @@ void screenalloc(bool doclear)
   static bool entered = false;  // avoid recursiveness
   int retry_count = 0;
 
+  ScreenGrid *grid = current_grid;
+
 retry:
   /*
    * Allocation of the screen buffers is done only when the size changes and
    * when Rows and Columns have been set and we have started doing full
    * screen stuff.
    */
-  if ((default_grid.ScreenLines != NULL
-       && Rows == screen_Rows
-       && Columns == screen_Columns
-       && p_mco == default_grid.Screen_mco
+  if ((grid->ScreenLines != NULL
+       && Rows == grid->Rows
+       && Columns == grid->Columns
+       && p_mco == grid->Screen_mco
        )
       || Rows == 0
       || Columns == 0
@@ -6180,7 +6193,7 @@ retry:
   if (aucmd_win != NULL)
     win_free_lsize(aucmd_win);
 
-  alloc_grid(&default_grid, Rows, Columns, !doclear);
+  alloc_screengrid(grid, Rows, Columns, !doclear);
   new_tab_page_click_defs = xcalloc(
       (size_t) Columns, sizeof(*new_tab_page_click_defs));
 
@@ -6194,15 +6207,10 @@ retry:
   clear_tab_page_click_defs(tab_page_click_defs, tab_page_click_defs_size);
   xfree(tab_page_click_defs);
 
-  set_screengrid(&default_grid);
+  set_screengrid(grid);
 
   tab_page_click_defs = new_tab_page_click_defs;
   tab_page_click_defs_size = Columns;
-
-  /* It's important that screen_Rows and screen_Columns reflect the actual
-   * size of ScreenLines[].  Set them before calling anything. */
-  screen_Rows = Rows;
-  screen_Columns = Columns;
 
   must_redraw = CLEAR;          /* need to clear the screen later */
   if (doclear)
@@ -6224,7 +6232,7 @@ retry:
   }
 }
 
-void alloc_grid(ScreenGrid *grid, int Rows, int Columns, bool copy)
+void alloc_screengrid(ScreenGrid *grid, int Rows, int Columns, bool copy)
 {
   int len;
   int i;
@@ -6315,15 +6323,16 @@ void free_screengrid(ScreenGrid *grid)
 
 void set_screengrid(ScreenGrid *grid)
 {
+  current_grid = grid;
   ScreenLines = grid->ScreenLines;
   ScreenAttrs = grid->ScreenAttrs;
   ScreenLinesUC = grid->ScreenLinesUC;
   memcpy(ScreenLinesC,grid->ScreenLinesC,sizeof(ScreenLinesC));
   LineOffset = grid->LineOffset;
   LineWraps = grid->LineWraps;
-  grid_Rows = grid->Rows;
-  grid_Columns = grid->Columns;
-  current_ScreenLine = ScreenLines + grid_Rows * grid_Columns;
+  screen_Rows = Rows = grid->Rows;
+  screen_Columns = Columns = grid->Columns;
+  current_ScreenLine = ScreenLines + Rows * Columns;
   Screen_mco = grid->Screen_mco;
 }
 

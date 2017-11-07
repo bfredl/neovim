@@ -532,8 +532,12 @@ void win_floating_move(win_T *wp, int x, int y, int width, int height)
   bool east = wp->w_float_mode & kFloatAnchorEast;
   bool south = wp->w_float_mode & kFloatAnchorSouth;
   // TODO: for ext UI this need to be handled differently
-  wp->w_wincol = x - (east ? width : 0);
-  wp->w_winrow = y - (south ? height : 0);
+  wp->w_floatx = x;
+  wp->w_floaty = y;
+  //wp->w_wincol = x - (east ? width : 0);
+  //wp->w_winrow = y - (south ? height : 0);
+  wp->w_wincol = 0;
+  wp->w_winrow = 0;
   wp->w_height = height;
   wp->w_width = width;
 }

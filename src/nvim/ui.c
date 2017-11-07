@@ -441,7 +441,7 @@ void ui_puts(uint8_t *str)
     if (utf_ambiguous_width(utf_ptr2char(p))) {
       pending_cursor_update = true;
     }
-    if (col >= width) {
+    if (col >= Columns) {
       ui_linefeed();
     }
     p += clen;
