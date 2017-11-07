@@ -94,4 +94,10 @@ void wildmenu_hide(void)
 
 void set_grid(Integer nr)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
+// NB: we should probably merge these two events
+// the ui layer can key track when extra set_grid events are necessary to track
+// cursor focus. And clients should interpret the active grid in the end of a
+// ui_flush as the "focused grid"
+void set_grid_focus(Integer nr)
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 #endif  // NVIM_API_UI_EVENTS_IN_H

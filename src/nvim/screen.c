@@ -263,7 +263,7 @@ void update_curbuf(int type)
 
 // NB: the global grid must be valid when calling this!!
 void set_float_grid(win_T* wp) {
-  bool resize = wp->w_height != wp->grid.Rows || wp->w_width != wp->grid.Rows;
+  bool resize = wp->w_height != wp->grid.Rows || wp->w_width != wp->grid.Columns;
   // TODO: restructure this?
   if (resize || wp->grid.Screen_mco != p_mco) {
     alloc_screengrid(&wp->grid, wp->w_height, wp->w_width, true);
@@ -471,6 +471,7 @@ void update_screen(int type)
     }
   }
   reset_grid();
+  ui_reset_scroll_region();
 
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (!wp->w_floating) {
@@ -515,6 +516,14 @@ void update_screen(int type)
   if (!did_intro)
     maybe_intro_message();
   did_intro = TRUE;
+
+  // TODO: do this only when needed
+  // also this does not handle cursor properly...
+  if (curwin->w_floating) {
+    ui_call_set_grid_focus(curwin->w_grid_handle);
+  } else {
+    ui_call_set_grid_focus(default_grid_handle);
+  }
 
 }
 
@@ -573,6 +582,11 @@ void update_single_line(win_T *wp, linenr_T lnum)
         init_search_hl(wp);
         start_search_hl();
         prepare_search_hl(wp, lnum);
+        if (wp->w_floating) {
+          set_float_grid(wp);
+        } else {
+          reset_grid();
+        }
         win_line(wp, lnum, row, row + wp->w_lines[j].wl_size, false);
         end_search_hl();
         break;
@@ -580,6 +594,7 @@ void update_single_line(win_T *wp, linenr_T lnum)
       row += wp->w_lines[j].wl_size;
     }
   }
+  reset_grid();
   need_cursor_line_redraw = false;
   updating_screen = false;
 }
@@ -645,12 +660,18 @@ void update_debug_sign(buf_T *buf, linenr_T lnum)
 
     FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
       if (wp->w_redr_type != 0) {
+        if (wp->w_floating) {
+          set_float_grid(wp);
+        } else {
+          reset_grid();
+        }
         win_update(wp);
       }
       if (wp->w_redr_status) {
         win_redr_status(wp);
       }
     }
+    reset_grid();
 
     update_finish();
 }
@@ -6138,6 +6159,9 @@ void check_for_delay(int check_msg_scroll)
  */
 int screen_valid(int doclear)
 {
+  if (current_grid != &default_grid) {
+    return true;
+  }
   screenalloc(doclear);            /* allocate screen buffers if size changed */
   return ScreenLines != NULL;
 }
@@ -6154,6 +6178,7 @@ int screen_valid(int doclear)
  */
 void screenalloc(bool doclear)
 {
+  assert(current_grid == &default_grid);
   StlClickDefinition *new_tab_page_click_defs;
   static bool entered = false;  // avoid recursiveness
   int retry_count = 0;
@@ -6592,7 +6617,7 @@ static int win_do_lines(win_T *wp, int row, int line_count, int mayclear, int de
   }
 
   // only a few lines left: redraw is faster
-  if (mayclear && Rows - line_count < 5 && wp->w_width == Columns) {
+  if (!wp->w_floating && mayclear && Rows - line_count < 5 && wp->w_width == Columns) {
     screenclear();          /* will set wp->w_lines_valid to 0 */
     return FAIL;
   }

@@ -380,7 +380,7 @@ void ui_set_scroll_region(win_T *wp, int off)
   sr.top = wp->w_winrow + off;
   sr.bot = wp->w_winrow + wp->w_height - 1;
 
-  if (wp->w_width != Columns) {
+  if (wp->w_floating || wp->w_width != Columns) {
     sr.left = wp->w_wincol;
     sr.right = wp->w_wincol + wp->w_width - 1;
   }
