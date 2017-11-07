@@ -264,15 +264,24 @@ void update_curbuf(int type)
 // NB: the global grid must be valid when calling this!!
 void set_float_grid(win_T* wp) {
   bool resize = wp->w_height != wp->grid.Rows || wp->w_width != wp->grid.Rows;
-  // TODO: restructure this!
-  current_grid = &wp->grid;
-  Rows = wp->w_height;
-  Columns = wp->w_width;
-  screenalloc(false);
+  // TODO: restructure this?
+  if (resize || wp->grid.Screen_mco != p_mco) {
+    alloc_screengrid(&wp->grid, wp->w_height, wp->w_width, true);
+  }
+  set_screengrid(&wp->grid);
 
-  ui_call_set_grid(current_grid->handle);
+  // TODO: only if multigrid
+  ui_call_set_grid(wp->w_grid_handle);
   if (resize) {
     ui_call_resize(current_grid->Columns, current_grid->Rows);
+  }
+}
+
+void reset_grid(void) {
+  if (current_grid != &default_grid) {
+    set_screengrid(&default_grid);
+    // TODO: only if multigrid
+    ui_call_set_grid(default_grid_handle);
   }
 }
 
@@ -442,6 +451,11 @@ void update_screen(int type)
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
 
     if (wp->w_redr_type != 0) {
+      if (wp->w_floating) {
+        set_float_grid(wp);
+      } else {
+        reset_grid();
+      }
       if (!did_one) {
         did_one = TRUE;
         start_search_hl();
@@ -451,14 +465,19 @@ void update_screen(int type)
 
     /* redraw status line after the window to minimize cursor movement */
     if (wp->w_redr_status) {
+      // TODO: we could do better:
+      //assert(!wp->w_floating);
       win_redr_status(wp);
     }
   }
+  reset_grid();
 
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (!wp->w_floating) {
       continue;
     }
+
+    continue;
     if (did_one) {
       // TODO: be a lot more precise
       wp->w_redr_type = NOT_VALID;

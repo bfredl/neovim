@@ -521,6 +521,7 @@ win_T *win_new_floating(int x, int y, int width, int height, FloatMode mode)
   win_floating_move(wp, x,y,width, height);
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
+  wp->w_grid_handle = next_grid_handle++;
   redraw_win_later(wp, VALID);
   win_enter(wp, false);
   return wp;

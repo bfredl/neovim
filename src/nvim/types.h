@@ -25,7 +25,6 @@ typedef unsigned short sattr_T;
 
 // TODO(bfredl): find me a good home
 typedef struct {
-  int handle;
   schar_T  *ScreenLines;
   sattr_T  *ScreenAttrs;
   unsigned *LineOffset;
