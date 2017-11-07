@@ -60,6 +60,9 @@ static bool pending_cursor_update = false;
 static int busy = 0;
 static int height, width;
 static int old_mode_idx = -1;
+static bool pending_grid_update = false;
+static int draw_grid = 1;
+static int grid = 1;
 
 #if MIN_LOG_LEVEL > DEBUG_LOG_LEVEL
 # define UI_LOG(funname, ...)
@@ -321,6 +324,7 @@ void ui_resize(int new_width, int new_height)
   sr.bot = height - 1;
   sr.left = 0;
   sr.right = width - 1;
+  ui_set_grid(draw_grid);
   ui_call_resize(width, height);
 }
 
@@ -385,10 +389,11 @@ void ui_detach_impl(UI *ui)
 // the full width of the window, excluding the vertical separator.
 void ui_set_scroll_region(win_T *wp, int off)
 {
+  ui_set_grid(draw_grid);
   sr.top = wp->w_winrow + off;
   sr.bot = wp->w_winrow + wp->w_height - 1;
 
-  if (wp->w_width != Columns) {
+  if (wp->w_floating || wp->w_width != Columns) {
     sr.left = wp->w_wincol;
     sr.right = wp->w_wincol + wp->w_width - 1;
   }
@@ -399,6 +404,7 @@ void ui_set_scroll_region(win_T *wp, int off)
 // Reset scrolling region to the whole screen.
 void ui_reset_scroll_region(void)
 {
+  ui_set_grid(draw_grid);
   sr.top = 0;
   sr.bot = (int)Rows - 1;
   sr.left = 0;
@@ -433,6 +439,8 @@ void ui_puts(uint8_t *str)
   uint8_t *p = str;
   uint8_t c;
 
+  ui_set_grid(draw_grid);
+
   while ((c = *p)) {
     if (c < 0x20) {
       abort();
@@ -449,7 +457,7 @@ void ui_puts(uint8_t *str)
     if (utf_ambiguous_width(utf_ptr2char(p))) {
       pending_cursor_update = true;
     }
-    if (col >= width) {
+    if (col >= Columns) {
       ui_linefeed();
     }
     p += clen;
@@ -461,6 +469,29 @@ void ui_putc(uint8_t c)
   uint8_t buf[2] = {c, 0};
   ui_puts(buf);
 }
+
+void ui_set_draw_grid(int new_grid) {
+  draw_grid = new_grid;
+  ui_set_grid(new_grid);
+}
+
+
+void ui_set_grid(int new_grid) {
+  if (new_grid != grid) {
+    grid = new_grid;
+    pending_grid_update = true;
+  }
+}
+
+int ui_get_grid(void) {
+  return grid;
+}
+
+void ui_eol_clear(void) {
+  ui_set_grid(draw_grid);
+  ui_call_eol_clear();
+}
+
 
 void ui_cursor_goto(int new_row, int new_col)
 {
@@ -519,6 +550,7 @@ end:
 
 void ui_linefeed(void)
 {
+  ui_set_grid(draw_grid);
   int new_col = 0;
   int new_row = row;
   if (new_row < sr.bot) {
@@ -531,6 +563,10 @@ void ui_linefeed(void)
 
 static void flush_cursor_update(void)
 {
+  if (pending_grid_update) {
+    pending_grid_update = false;
+    ui_call_set_grid(grid);
+  }
   if (pending_cursor_update) {
     pending_cursor_update = false;
     ui_call_cursor_goto(row, col);

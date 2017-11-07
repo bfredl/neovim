@@ -1246,11 +1246,14 @@ static void redraw(bool restore_cursor)
 
   int save_row = 0;
   int save_col = 0;
+  int save_grid = 0;
   if (restore_cursor) {
     // save the current row/col to restore after updating screen when not
     // focused
     save_row = ui_current_row();
     save_col = ui_current_col();
+    // TODO: this is probably not necessary
+    save_grid = ui_get_grid();
   }
   block_autocmds();
 
@@ -1263,6 +1266,7 @@ static void redraw(bool restore_cursor)
   }
 
   if (restore_cursor) {
+    ui_set_grid(save_grid);
     ui_cursor_goto(save_row, save_col);
   } else if (term) {
     curwin->w_wrow = term->cursor.row;
