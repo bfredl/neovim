@@ -719,7 +719,7 @@ Window nvim_open_float_win(Buffer buffer, Boolean enter,
   FUNC_API_SINCE(3)
 {
   win_T *old = curwin;
-  FloatConfig config;
+  FloatConfig config = {0};
   if (!parse_float_config(options, &config)) {
     // TODO: set err
     return 0;

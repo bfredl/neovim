@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include "nvim/api/private/handle.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
 #include "nvim/window.h"
@@ -518,10 +519,10 @@ win_T *win_new_float(int width, int height, FloatConfig config)
   wp = win_alloc(curwin, false);
   wp->w_floating = 1;
   win_init(wp, curwin, 0);
-  win_config_float(wp, width, height, config);
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
   wp->w_grid_handle = next_grid_handle++;
+  win_config_float(wp, width, height, config);
   redraw_win_later(wp, VALID);
   win_enter(wp, false);
   return wp;
@@ -531,13 +532,16 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 {
   wp->w_height = height;
   wp->w_width = width;
+  wp->w_float_config = config;
 
+  // TODO: recalculate when ui attaches/dataches
   if (ui_is_external(kUIMultigrid)) {
     wp->w_wincol = 0;
     wp->w_winrow = 0;
+
+    ui_ext_float_info(wp);
   } else {
     // TUI only:
-    wp->w_float_config = config;
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
     int x = (int)config.x;
@@ -547,10 +551,38 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
   }
 }
 
+static void ui_ext_float_info(win_T *wp)
+{
+  const char *const anchor_str[] = {
+    "NW",
+    "NE",
+    "SW",
+    "SE"
+  };
+
+  const char *const relative_str[] = {
+    "editor",
+    "cursor",
+    "display",
+  };
+  FloatConfig c = wp->w_float_config;
+  Dictionary conf = ARRAY_DICT_INIT;
+  PUT(conf, "x", FLOAT_OBJ(c.x));
+  PUT(conf, "y", FLOAT_OBJ(c.y));
+  PUT(conf, "anchor", STRING_OBJ(cstr_to_string(anchor_str[c.anchor])));
+  PUT(conf, "relative", STRING_OBJ(cstr_to_string(relative_str[c.relative])));
+  PUT(conf, "standalone", BOOLEAN_OBJ(c.standalone));
+
+  // TODO: seriazize mode/position as dict of options
+  ui_call_float_info(wp->handle, wp->w_grid_handle,
+                     wp->w_width, wp->w_height, conf);
+}
+
+
 static bool parse_float_anchor(String anchor, FloatAnchor *out)
 {
   if (anchor.size == 0) {
-    *out = kFloatAnchorNE;
+    *out = kFloatAnchorNW;
   }
   char *str = anchor.data;
   if (!STRICMP(str, "NW")) {
@@ -2067,6 +2099,12 @@ int win_close(win_T *win, int free_buf)
       return FAIL;
   }
 
+  if (win->w_floating) {
+    if (ui_is_external(kUIMultigrid)) {
+      ui_call_float_close(win->handle, win->w_grid_handle);
+    }
+  }
+
 
   /* Free independent synblock before the buffer is freed. */
   if (win->w_buffer != NULL)
@@ -2116,6 +2154,7 @@ int win_close(win_T *win, int free_buf)
 
   // let terminal buffers know that this window dimensions may be ignored
   win->w_closing = true;
+
   /* Free the memory used for the window and get the window that received
    * the screen space. */
   wp = win_free_mem(win, &dir, NULL);
@@ -2158,6 +2197,7 @@ int win_close(win_T *win, int free_buf)
     // using the window.
     check_cursor();
   }
+
   if (!wp->w_floating) {
     if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
       // If the frame of the closed window contains the new current window,
