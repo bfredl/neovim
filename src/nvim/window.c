@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include "nvim/api/private/handle.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
 #include "nvim/window.h"
@@ -518,10 +519,10 @@ win_T *win_new_float(int width, int height, FloatConfig config)
   wp = win_alloc(curwin, false);
   wp->w_floating = 1;
   win_init(wp, curwin, 0);
-  win_config_float(wp, width, height, config);
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
   wp->w_grid_handle = next_grid_handle++;
+  win_config_float(wp, width, height, config);
   redraw_win_later(wp, VALID);
   win_enter(wp, false);
   return wp;
@@ -531,15 +532,18 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 {
   wp->w_height = MAX(height, 1);
   wp->w_width = MAX(width, 2);
+  wp->w_float_config = config;
 
+  // TODO: recalculate when ui attaches/dataches
   if (ui_is_external(kUIMultigrid)) {
     wp->w_wincol = 0;
     wp->w_winrow = 0;
+
+    ui_ext_float_info(wp);
   } else {
     wp->w_height = MIN(wp->w_height,Rows-1);
     wp->w_width = MIN(wp->w_width,Columns);
     // TUI only:
-    wp->w_float_config = config;
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
     int x = (int)config.x;
@@ -551,10 +555,38 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
   }
 }
 
+static void ui_ext_float_info(win_T *wp)
+{
+  const char *const anchor_str[] = {
+    "NW",
+    "NE",
+    "SW",
+    "SE"
+  };
+
+  const char *const relative_str[] = {
+    "editor",
+    "cursor",
+    "display",
+  };
+  FloatConfig c = wp->w_float_config;
+  Dictionary conf = ARRAY_DICT_INIT;
+  PUT(conf, "x", FLOAT_OBJ(c.x));
+  PUT(conf, "y", FLOAT_OBJ(c.y));
+  PUT(conf, "anchor", STRING_OBJ(cstr_to_string(anchor_str[c.anchor])));
+  PUT(conf, "relative", STRING_OBJ(cstr_to_string(relative_str[c.relative])));
+  PUT(conf, "standalone", BOOLEAN_OBJ(c.standalone));
+
+  // TODO: seriazize mode/position as dict of options
+  ui_call_float_info(wp->handle, wp->w_grid_handle,
+                     wp->w_width, wp->w_height, conf);
+}
+
+
 static bool parse_float_anchor(String anchor, FloatAnchor *out)
 {
   if (anchor.size == 0) {
-    *out = kFloatAnchorNE;
+    *out = kFloatAnchorNW;
   }
   char *str = anchor.data;
   if (!STRICMP(str, "NW")) {
@@ -1998,7 +2030,7 @@ int win_close(win_T *win, int free_buf)
   int dir;
   int help_window = FALSE;
   tabpage_T   *prev_curtab = curtab;
-  frame_T *win_frame = win->w_frame->fr_parent;
+  frame_T *win_frame = win->w_floating ? NULL : win->w_frame->fr_parent;
 
   if (last_window()) {
     EMSG(_("E444: Cannot close last window"));
@@ -2037,13 +2069,13 @@ int win_close(win_T *win, int free_buf)
      * This may change because of the autocommands (sigh).
      */
     if (!win->w_floating) {
-        wp = frame2win(win_altframe(win, NULL));
+      wp = frame2win(win_altframe(win, NULL));
     } else {
-        if (win_valid(prevwin)) {
-            wp = prevwin;
-        } else {
-            wp = curtab->tp_firstwin;
-        }
+      if (win_valid(prevwin)) {
+        wp = prevwin;
+      } else {
+        wp = curtab->tp_firstwin;
+      }
     }
 
     /*
@@ -2070,6 +2102,12 @@ int win_close(win_T *win, int free_buf)
     /* autocmds may abort script processing */
     if (aborting())
       return FAIL;
+  }
+
+  if (win->w_floating) {
+    if (ui_is_external(kUIMultigrid)) {
+      ui_call_float_close(win->handle, win->w_grid_handle);
+    }
   }
 
 
@@ -2163,12 +2201,15 @@ int win_close(win_T *win, int free_buf)
     // using the window.
     check_cursor();
   }
-  if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
-    // If the frame of the closed window contains the new current window,
-    // only resize that frame.  Otherwise resize all windows.
-    win_equal(curwin, curwin->w_frame->fr_parent == win_frame, dir);
-  } else {
-    win_comp_pos();
+
+  if (!wp->w_floating) {
+    if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
+      // If the frame of the closed window contains the new current window,
+      // only resize that frame.  Otherwise resize all windows.
+      win_equal(curwin, curwin->w_frame->fr_parent == win_frame, dir);
+    } else {
+      win_comp_pos();
+    }
   }
 
   if (close_curwin) {
@@ -5439,7 +5480,7 @@ int min_rows(void)
 
 /// Check that there is only one window (and only one tab page), not counting a
 /// help or preview window, unless it is the current window. Does not count
-/// "aucmd_win".
+/// "aucmd_win". Does not count floats unless it is current.
 bool only_one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
 {
   // If there is another tab page there always is another window.
@@ -5450,7 +5491,7 @@ bool only_one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
   int count = 0;
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_buffer != NULL
-        && (!((wp->w_buffer->b_help && !curbuf->b_help)
+        && (!((wp->w_buffer->b_help && !curbuf->b_help) || wp->w_floating
               || wp->w_p_pvw) || wp == curwin) && wp != aucmd_win) {
       count++;
     }
