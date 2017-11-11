@@ -93,5 +93,9 @@ void wildmenu_hide(void)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 
 void set_grid(Integer nr)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
+void float_info(Window win, Integer grid, Integer width, Integer height, Dictionary options)
+  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
+void float_close(Window win, Integer grid)
+  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
 #endif  // NVIM_API_UI_EVENTS_IN_H
