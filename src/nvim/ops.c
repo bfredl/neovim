@@ -1629,26 +1629,22 @@ setmarks:
   // TODO refactor
   // Move extended marks
     // + 1 to change to buf mode, then plus 1 because we only move marks after the deleted col
-  colnr_T  mincol = oap->start.col + 1 + 1;
-  colnr_T col_amount = n;
+  colnr_T mincol = oap->start.col + 1 + 1;
+  colnr_T endcol;
   if (oap->motion_type == kMTBlockWise) {
     // TODO refactor extmark_col_adjust to take lnumstart, lnum_end ?
     for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
-      // mincol-1 as that is where the marks will converge to, if any mark was
-      // there it will need to remain there after the undo
       extmark_col_adjust_delete(curbuf, lnum, mincol, bd.end_vcol + 1, kExtmarkUndo);
-//      u_extmark_copy(curbuf, lnum, mincol-1, lnum, oap->end.col + 1);
-//      extmark_col_adjust(curbuf,
-//                         lnum, mincol, 0, -col_amount, kExtmarkUndo);
     }
   } else if (oap->motion_type == kMTCharWise) {
       lnum = curwin->w_cursor.lnum;
-
-      // mincol-1 as that is where the marks will converge to, if any mark was
-      // there it will need to remain there after the undo
-//      u_extmark_copy(curbuf, lnum, mincol, lnum, oap->end.col + 1);
-//      extmark_col_adjust(curbuf, lnum, mincol, 0, -col_amount, kExtmarkUndo);
-        extmark_col_adjust_delete(curbuf, lnum, mincol, oap->end.col + 1, kExtmarkUndo);
+    // TODO: try using n for both visual and otherwise!
+       if (oap->is_VIsual) {
+         endcol = n + 1;
+       } else {
+        endcol = oap->end.col + 1;
+       }
+      extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo);
   }
   return OK;
 }

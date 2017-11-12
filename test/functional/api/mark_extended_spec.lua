@@ -603,6 +603,23 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[3], 2, 3, 2, 3)
   end)
 
+  -- undoing is broken...
+  it('marks move with visual char deletes #fail5', function()
+    -- op_delete in ops.c
+    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    feed('0vx<esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 3)
+    -- from the other side (nothing should happen)
+    feed('$vx')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    eq(3, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 3)
+  end)
+
   it('marks move with P(backward) paste #extmarks', function()
     -- do_put in ops.c
     feed('0iabc<esc>')
