@@ -530,8 +530,8 @@ win_T *win_new_float(int width, int height, FloatConfig config)
 
 void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 {
-  wp->w_height = height;
-  wp->w_width = width;
+  wp->w_height =  MAX(height,1);
+  wp->w_width = MAX(width,2);
   wp->w_float_config = config;
 
   // TODO: recalculate when ui attaches/dataches
@@ -541,6 +541,8 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 
     ui_ext_float_info(wp);
   } else {
+    wp->w_height = MIN(wp->w_height,Rows-1);
+    wp->w_width = MIN(wp->w_width,Columns);
     // TUI only:
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
@@ -548,6 +550,8 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
     int y = (int)config.y;
     wp->w_wincol = x - (east ? width : 0);
     wp->w_winrow = y - (south ? height : 0);
+    wp->w_wincol = MAX(MIN(wp->w_wincol, Columns-width),0);
+    wp->w_winrow = MAX(MIN(wp->w_winrow, Rows-height-1),0);
   }
 }
 
