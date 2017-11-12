@@ -655,13 +655,18 @@ void nvim_set_current_win(Window window, Error *err)
   }
 }
 
-Window nvim_open_floating_win(Buffer buffer,
-                              Integer x, Integer y, Integer w, Integer h,
-                              Integer mode, Boolean enter, Error *err)
+Window nvim_open_float_win(Buffer buffer, Boolean enter,
+                           Integer w, Integer h,
+                           Dictionary options, Error *err)
   FUNC_API_SINCE(3)
 {
   win_T *old = curwin;
-  win_T *wp = win_new_floating(x, y, w, h, mode);
+  FloatConfig config;
+  if (!parse_float_config(options, &config)) {
+    // TODO: set err
+    return 0;
+  }
+  win_T *wp = win_new_float(w, h, config);
   // TODO: -1 to alloc a fresh buffer?
   if (buffer > 0) {
     nvim_set_current_buf(buffer, err);
