@@ -928,7 +928,7 @@ struct matchitem {
   int conceal_char;         ///< cchar for Conceal highlighting
 };
 
-enum float_mode {
+typedef enum {
     kFloatAnchorEast = 1,
     kFloatAnchorSouth = 2,
 
@@ -936,16 +936,21 @@ enum float_mode {
     kFloatAnchorNE = 1,
     kFloatAnchorSW = 2,
     kFloatAnchorSE = 3,
+} FloatAnchor;
 
-    // should be ORed with any above to add a fallback for
-    // UIs and TUI not supporting standalone popups
-    kFloatStandalone = 4,
+typedef enum {
+    kFloatRelativeEditor = 0,
+    kFloatRelativeCursor = 1,
+    kFloatRelativeDisplay = 2,
+} FloatRelative;
 
-    // can not be set to curwin, ignore mouse events
-    kFloatUnfocusable = 8,
-
-};
-typedef int FloatMode;
+typedef struct {
+  double x, y;
+  FloatAnchor anchor;
+  FloatRelative relative;
+  bool standalone;
+  bool unfocusable;
+} FloatConfig;
 
 /*
  * Structure which contains all information that belongs to a window
@@ -1177,7 +1182,7 @@ struct window_S {
   int w_tagstacklen;                    /* number of tags on stack */
 
   bool w_floating;                       ///< whether the window is floating
-  FloatMode w_float_mode;
+  FloatConfig w_float_config;
 
   /*
    * w_fraction is the fractional row of the cursor within the window, from

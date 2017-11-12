@@ -208,12 +208,12 @@ newwindow:
           wp = curwin->w_prev;
           if (wp == NULL)
             wp = lastwin;                           /* wrap around */
-          while (wp != NULL && wp->w_floating && wp->w_float_mode & kFloatUnfocusable) {
+          while (wp != NULL && wp->w_floating && wp->w_float_config.unfocusable) {
             wp = wp->w_prev;
           }
         } else {                                  /* go to next window */
           wp = curwin->w_next;
-          while (wp != NULL && wp->w_floating && wp->w_float_mode & kFloatUnfocusable) {
+          while (wp != NULL && wp->w_floating && wp->w_float_config.unfocusable) {
             wp = wp->w_next;
           }
           if (wp == NULL)
@@ -511,14 +511,14 @@ static void cmd_with_count(char *cmd, char_u *bufp, size_t bufsize,
   }
 }
 
-win_T *win_new_floating(int x, int y, int width, int height, FloatMode mode)
+/// config must already been validated!
+win_T *win_new_float(int width, int height, FloatConfig config)
 {
   win_T *wp;
   wp = win_alloc(curwin, false);
   wp->w_floating = 1;
   win_init(wp, curwin, 0);
-  wp->w_float_mode = mode;
-  win_floating_move(wp, x,y,width, height);
+  win_config_float(wp, width, height, config);
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
   redraw_win_later(wp, VALID);
@@ -526,18 +526,106 @@ win_T *win_new_floating(int x, int y, int width, int height, FloatMode mode)
   return wp;
 }
 
-void win_floating_move(win_T *wp, int x, int y, int width, int height)
+void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 {
-
-  bool east = wp->w_float_mode & kFloatAnchorEast;
-  bool south = wp->w_float_mode & kFloatAnchorSouth;
-  // TODO: for ext UI this need to be handled differently
-  wp->w_wincol = x - (east ? width : 0);
-  wp->w_winrow = y - (south ? height : 0);
   wp->w_height = height;
   wp->w_width = width;
+
+  // TUI only:
+  wp->w_float_config = config;
+  bool east = config.anchor & kFloatAnchorEast;
+  bool south = config.anchor & kFloatAnchorSouth;
+  int x = (int)config.x;
+  int y = (int)config.y;
+  wp->w_wincol = x - (east ? width : 0);
+  wp->w_winrow = y - (south ? height : 0);
 }
 
+static bool parse_float_anchor(String anchor, FloatAnchor *out)
+{
+  if (anchor.size == 0) {
+    *out = kFloatAnchorNE;
+  }
+  char *str = anchor.data;
+  if (!STRICMP(str, "NW")) {
+    *out = kFloatAnchorNW;
+  } else if (!STRICMP(str, "NE")) {
+    *out = kFloatAnchorNE;
+  } else if (!STRICMP(str, "SW")) {
+    *out = kFloatAnchorSW;
+  } else if (!STRICMP(str, "SE")) {
+    *out = kFloatAnchorSE;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+static bool parse_float_relative(String relative, FloatRelative *out)
+{
+  if (relative.size == 0) {
+    *out = kFloatRelativeEditor;
+  }
+  char *str = relative.data;
+  if (!STRICMP(str, "editor")) {
+    *out = kFloatRelativeEditor;
+  } else if (!STRICMP(str, "cursor")) {
+    *out = kFloatRelativeCursor;
+  } else if (!STRICMP(str, "display")) {
+    *out = kFloatRelativeDisplay;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool parse_float_config(Dictionary config, FloatConfig *out)
+{
+  for (size_t i = 0; i < config.size; i++) {
+    char *key = config.items[i].key.data;
+    Object val = config.items[i].value;
+    if (!strcmp(key, "x")) {
+      if (val.type == kObjectTypeInteger) {
+        out->x = val.data.integer;
+      } else if (val.type == kObjectTypeFloat) {
+        out->x = (int)val.data.floating;
+      } else {
+        return false;
+      }
+    } else if (!strcmp(key, "y")) {
+      if (val.type == kObjectTypeInteger) {
+        out->y = val.data.integer;
+      } else if (val.type == kObjectTypeFloat) {
+        out->y = (int)val.data.floating;
+      } else {
+        return false;
+      }
+    } else if (!strcmp(key, "anchor")) {
+      if (val.type != kObjectTypeString) {
+        return false;
+      }
+      if (!parse_float_anchor(val.data.string, &out->anchor)) {
+        return false;
+      }
+    } else if (!strcmp(key, "relative")) {
+      if (val.type != kObjectTypeString) {
+        return false;
+      }
+      if (!parse_float_relative(val.data.string, &out->relative)) {
+        return false;
+      }
+    } else if (!strcmp(key, "standalone")) {
+      if (val.type == kObjectTypeInteger) {
+        out->standalone = val.data.integer;
+      } else if (val.type == kObjectTypeBoolean) {
+        out->standalone = val.data.boolean;
+      } else {
+        return false;
+      }
+    }
+  }
+  return true;
+}
 /*
  * split the current window, implements CTRL-W s and :split
  *
