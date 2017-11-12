@@ -600,9 +600,20 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                        lnum, mincol, lnum_amount, col_amount, kExtmarkNoUndo);
   // use extmark_col_adjust_delete
   } else if (undo_info.type == kColAdjustDelete) {
-    // Undo should be handled by kExtmarkCopy
+    if (undo) {
+      mincol = undo_info.data.col_adjust_delete.endcol + 1;
+      col_amount = abs(undo_info.data.col_adjust_delete.endcol
+                       - undo_info.data.col_adjust_delete.endcol
+                       - 1
+                       - 1);
+      extmark_col_adjust(curbuf,
+                         undo_info.data.col_adjust_delete.lnum,
+                         mincol,
+                         0,
+                         col_amount,
+                         kExtmarkNoUndo);
     // Redo
-    if (!undo) {
+    } else {
       extmark_col_adjust_delete(curbuf,
                                 undo_info.data.col_adjust_delete.lnum,
                                 undo_info.data.col_adjust_delete.mincol,
@@ -799,14 +810,26 @@ bool show_data(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount)
   return true;
 }
 
-static colnr_T update_constantly(colnr_T _, colnr_T __, long col_amount)
+// for anything other than deletes
+long update_constantly(colnr_T _, colnr_T __, long col_amount)
 {
-  return (colnr_T)col_amount;
+  return col_amount;
 }
 
-static colnr_T update_variably(colnr_T mincol, colnr_T current, long _)
+// for deletes
+long update_variably(colnr_T mincol, colnr_T current, long endcol)
 {
-  return -(current - mincol) - 1;
+  colnr_T start_effected_range = mincol - 1;
+  long col_amount;
+  // When mark inside range
+  if (current < endcol) {
+    col_amount = -(current - start_effected_range);
+  // Mark outside of range
+  } else {
+    // -1 because a delete of width 0 should still move marks
+    col_amount = -(endcol - start_effected_range);
+  }
+  return col_amount;
 }
 
 // Adjust columns and rows for extmarks
@@ -814,19 +837,19 @@ static colnr_T update_variably(colnr_T mincol, colnr_T current, long _)
 // returns true if something was moved otherwise false
 static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
                                 colnr_T mincol, long lnum_amount,
-                                colnr_T (*calc_amount)(colnr_T, colnr_T, long),
-                                long _col_amount)
+                                long (*calc_amount)(colnr_T, colnr_T, long),
+                                long func_arg)
 {
   bool marks_exist = false;
   colnr_T *cp;
-  colnr_T col_amount;
+  long col_amount;
 
   FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
     FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
       marks_exist = true;
       cp = &(extmark->col);
 
-      col_amount = (*calc_amount)(mincol, *cp, _col_amount);
+      col_amount = (*calc_amount)(mincol, *cp, func_arg);
       // No update required for this guy
       if (col_amount == 0) {
         continue;
@@ -874,26 +897,29 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
 }
 
 // Adjust marks by doing a delete on a line
+// TODO change mincol to be for the mark toe be copied, not moved
+// mincol: First column that needs to be moved (start of delete range)
+// endcol: Last column which needs to be copied (end of delete range + 1)
 bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
                                colnr_T mincol, colnr_T endcol,
                                ExtmarkOp undo)
 {
+  colnr_T start_effected_range = mincol - 1;
+  assert(start_effected_range <= endcol);
+
   bool marks_moved;
-  if (undo == kExtmarkNoUndo) {
-    marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
-                                      &update_variably, (long) NULL);
-  // Move and record undo info
-  } else {
+  if (undo != kExtmarkNoUndo) {
     // Copy marks that would be effected by delete
     // -1 because we need to restore if a mark existed at the start pos
-    u_extmark_copy(buf, lnum, mincol - 1, lnum, endcol);
+    u_extmark_copy(buf, lnum, start_effected_range, lnum, endcol);
+  }
 
-    marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
-                                      &update_variably, (long) NULL);
-    // Record the undo for the actual move
-    if (marks_moved) {
-      u_extmark_col_adjust_delete(buf, lnum, mincol, endcol, undo);
-    }
+  marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
+                                    &update_variably, (long)endcol);
+
+  // Record the undo for the actual move
+  if (marks_moved && undo != kExtmarkNoUndo) {
+    u_extmark_col_adjust_delete(buf, lnum, mincol, endcol, undo);
   }
   return marks_moved;
 }
