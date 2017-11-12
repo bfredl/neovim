@@ -4869,8 +4869,15 @@ int do_addsub(int op_type, pos_T *pos, int length, linenr_T Prenum1)
     curbuf->b_op_end.col--;
   }
 
-  colnr_T col_amount;
+  long col_amount;
   colnr_T mincol;
+
+  mincol = curwin->w_cursor.col + 1;
+  if (op_type == OP_NR_ADD) {
+    col_amount = (long)Prenum1;
+  } else {
+    col_amount = (long)-length;
+  }
 
   mincol = curwin->w_cursor.col + 1;
   if (op_type == OP_NR_ADD) {
