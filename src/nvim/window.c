@@ -1438,7 +1438,13 @@ static void win_rotate(int upwards, int count)
   frame_T     *frp;
   int n;
 
-  if (ONE_WINDOW) {            /* nothing to do */
+  if (curwin->w_floating) {
+    EMSG(_("EXXX: Cannot rotate float"));
+    return;
+  }
+
+  if (firstwin == curwin && lastwin_nofloating() == curwin) {
+   // nothing to do
     beep_flush();
     return;
   }
@@ -1510,13 +1516,23 @@ static void win_totop(int size, int flags)
   int dir;
   int height = curwin->w_height;
 
-  if (ONE_WINDOW) {
+  if (firstwin == curwin && lastwin_nofloating() == curwin) {
     beep_flush();
     return;
   }
 
-  /* Remove the window and frame from the tree of frames. */
-  (void)winframe_remove(curwin, &dir, NULL);
+  if (curwin->w_floating) {
+    // TODO: does this distinction make sense
+    if (curwin->w_float_config.standalone) {
+      curwin->w_floating = false;
+    } else {
+      EMSG(_("EXXX: cannot attach this float"));
+      return;
+    }
+  } else {
+    /* Remove the window and frame from the tree of frames. */
+    (void)winframe_remove(curwin, &dir, NULL);
+  }
   win_remove(curwin, NULL);
   last_status(FALSE);       /* may need to remove last status line */
   (void)win_comp_pos();     /* recompute window positions */
