@@ -1349,7 +1349,13 @@ static void win_exchange(long Prenum)
   win_T       *wp2;
   int temp;
 
-  if (ONE_WINDOW) {        /* just one window */
+  if (curwin->w_floating) {
+    EMSG(_("EXXX: Cannot exchange float"));
+    return;
+  }
+
+  if (firstwin == curwin && lastwin_nofloating() == curwin) {
+    // just one window
     beep_flush();
     return;
   }
