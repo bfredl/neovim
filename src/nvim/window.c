@@ -289,7 +289,7 @@ newwindow:
   /* cursor to bottom-right window */
   case 'b':
   case Ctrl_B:
-    win_goto(lastwin);
+    win_goto(lastwin_nofloating());
     break;
 
   /* cursor to last accessed (previous) window */
