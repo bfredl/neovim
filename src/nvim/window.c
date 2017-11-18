@@ -729,12 +729,14 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
   int minheight;
   int wmh1;
 
-  if (flags & WSP_TOP)
+  if (flags & WSP_TOP) {
     oldwin = firstwin;
-  else if (flags & WSP_BOT)
-    oldwin = lastwin;
-  else
+  } else if (flags & WSP_BOT || curwin->w_floating) {
+    // can't split float, use last nonfloating window instead
+    oldwin = lastwin_nofloating();
+  } else {
     oldwin = curwin;
+  }
 
   /* add a status line when p_ls == 1 and splitting the first window */
   if (ONE_WINDOW && p_ls == 1 && oldwin->w_status_height == 0) {
@@ -6181,6 +6183,7 @@ void win_findbuf(typval_T *argvars, list_T *list)
   }
 }
 
+// TODO: memoize this?
 win_T *lastwin_nofloating(void) {
   win_T *res = lastwin;
   while (res->w_floating) {
