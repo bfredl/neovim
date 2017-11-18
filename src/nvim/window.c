@@ -2053,7 +2053,8 @@ int win_close(win_T *win, int free_buf)
     EMSG(_("E814: Cannot close window, only autocmd window would remain"));
     return FAIL;
   }
-  if ((firstwin == win && lastwin_nofloating() == win)) {
+  if ((firstwin == win && lastwin_nofloating() == win)
+      && lastwin->w_floating) {
     // TODO: under some circumstance we might close the float also instead
     EMSG(_("EXXX: Cannot close window, only floating window would remain"));
     return FAIL;
