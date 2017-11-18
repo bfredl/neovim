@@ -516,7 +516,9 @@ static void cmd_with_count(char *cmd, char_u *bufp, size_t bufsize,
 win_T *win_new_float(int width, int height, FloatConfig config)
 {
   win_T *wp;
-  wp = win_alloc(curwin, false);
+  // TODO: verify that wincmds preserve that floating windows are last
+  // in window order
+  wp = win_alloc(lastwin_nofloating(), false);
   wp->w_floating = 1;
   win_init(wp, curwin, 0);
   wp->w_status_height = 0;
@@ -2060,6 +2062,11 @@ int win_close(win_T *win, int free_buf)
   }
   if ((firstwin == aucmd_win || lastwin == aucmd_win) && one_window()) {
     EMSG(_("E814: Cannot close window, only autocmd window would remain"));
+    return FAIL;
+  }
+  if ((firstwin == win && lastwin_nofloating() == win)) {
+    // TODO: under some circumstance we might close the float also instead
+    EMSG(_("EXXX: Cannot close window, only floating window would remain"));
     return FAIL;
   }
 
