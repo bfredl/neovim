@@ -689,7 +689,7 @@ Window nvim_open_float_win(Buffer buffer, Boolean enter,
     // TODO: set err
     return 0;
   }
-  win_T *wp = win_new_float(w, h, config);
+  win_T *wp = win_new_float((int)w, (int)h, config);
   // TODO: -1 to alloc a fresh buffer?
   if (buffer > 0) {
     nvim_set_current_buf(buffer, err);

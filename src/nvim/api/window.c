@@ -410,7 +410,7 @@ void nvim_win_config_float(Window window, Integer width, Integer height,
   if (!parse_float_config(options, &config)) {
     return;
   }
-  win_config_float(win, width, height, config);
+  win_config_float(win, (int)width, (int)height, config);
   redraw_later(NOT_VALID);
 }
 
