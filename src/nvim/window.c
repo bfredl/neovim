@@ -262,6 +262,11 @@ newwindow:
       tabpage_T   *oldtab = curtab;
       tabpage_T   *newtab;
 
+      if (curwin->w_floating && !curwin->w_float_config.standalone) {
+        EMSG(_("EXXX: cannot attach this float"));
+        break;
+      }
+
       /* First create a new tab with the window, then go back to
        * the old tab and close the window there. */
       wp = curwin;
@@ -289,7 +294,7 @@ newwindow:
   /* cursor to bottom-right window */
   case 'b':
   case Ctrl_B:
-    win_goto(lastwin);
+    win_goto(lastwin_nofloating());
     break;
 
   /* cursor to last accessed (previous) window */
@@ -757,16 +762,20 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
   int minheight;
   int wmh1;
 
-  if (flags & WSP_TOP)
+  if (flags & WSP_TOP) {
     oldwin = firstwin;
-  else if (flags & WSP_BOT)
-    oldwin = lastwin;
-  else
+  } else if (flags & WSP_BOT || curwin->w_floating) {
+    // can't split float, use last nonfloating window instead
+    oldwin = lastwin_nofloating();
+  } else {
     oldwin = curwin;
+  }
+
+  bool new_in_layout = (new_wp == NULL || new_wp->w_floating);
 
   /* add a status line when p_ls == 1 and splitting the first window */
   if (ONE_WINDOW && p_ls == 1 && oldwin->w_status_height == 0) {
-    if (oldwin->w_height <= p_wmh && new_wp == NULL) {
+    if (oldwin->w_height <= p_wmh && new_in_layout) {
       EMSG(_(e_noroom));
       return FAIL;
     }
@@ -815,7 +824,7 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
       available = oldwin->w_frame->fr_width;
       needed += minwidth;
     }
-    if (available < needed && new_wp == NULL) {
+    if (available < needed && new_in_layout) {
       EMSG(_(e_noroom));
       return FAIL;
     }
@@ -893,7 +902,7 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
       available = oldwin->w_frame->fr_height;
       needed += minheight;
     }
-    if (available < needed && new_wp == NULL) {
+    if (available < needed && new_in_layout) {
       EMSG(_(e_noroom));
       return FAIL;
     }
@@ -976,6 +985,9 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
 
     /* make the contents of the new window the same as the current one */
     win_init(wp, curwin, flags);
+  } else if (wp->w_floating) {
+    new_frame(wp);
+    wp->w_floating = false;
   }
 
   /*
@@ -1374,7 +1386,13 @@ static void win_exchange(long Prenum)
   win_T       *wp2;
   int temp;
 
-  if (ONE_WINDOW) {        /* just one window */
+  if (curwin->w_floating) {
+    EMSG(_("EXXX: Cannot exchange float"));
+    return;
+  }
+
+  if (firstwin == curwin && lastwin_nofloating() == curwin) {
+    // just one window
     beep_flush();
     return;
   }
@@ -1463,7 +1481,13 @@ static void win_rotate(int upwards, int count)
   frame_T     *frp;
   int n;
 
-  if (ONE_WINDOW) {            /* nothing to do */
+  if (curwin->w_floating) {
+    EMSG(_("EXXX: Cannot rotate float"));
+    return;
+  }
+
+  if (firstwin == curwin && lastwin_nofloating() == curwin) {
+   // nothing to do
     beep_flush();
     return;
   }
@@ -1532,16 +1556,24 @@ static void win_rotate(int upwards, int count)
  */
 static void win_totop(int size, int flags)
 {
-  int dir;
+  int dir = 0;
   int height = curwin->w_height;
 
-  if (ONE_WINDOW) {
+  if (firstwin == curwin && lastwin_nofloating() == curwin) {
     beep_flush();
     return;
   }
 
-  /* Remove the window and frame from the tree of frames. */
-  (void)winframe_remove(curwin, &dir, NULL);
+  if (curwin->w_floating) {
+    // TODO: does this distinction make sense
+    if (!curwin->w_float_config.standalone) {
+      EMSG(_("EXXX: cannot attach this float"));
+      return;
+    }
+  } else {
+    /* Remove the window and frame from the tree of frames. */
+    (void)winframe_remove(curwin, &dir, NULL);
+  }
   win_remove(curwin, NULL);
   last_status(FALSE);       /* may need to remove last status line */
   (void)win_comp_pos();     /* recompute window positions */
@@ -1969,13 +2001,13 @@ static bool last_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
 }
 
 /// Check that current tab page contains no more then one window other than
-/// "aucmd_win".
+/// "aucmd_win". Only counts floating window if it is current.
 bool one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
 {
   bool seen_one = false;
 
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-    if (wp != aucmd_win) {
+    if (wp != aucmd_win && (!wp->w_floating || wp == curwin)) {
       if (seen_one) {
         return false;
       }
@@ -2073,11 +2105,13 @@ int win_close(win_T *win, int free_buf)
     EMSG(_("E813: Cannot close autocmd window"));
     return FAIL;
   }
-  if ((firstwin == aucmd_win || lastwin == aucmd_win) && one_window()) {
+  if ((firstwin == aucmd_win || lastwin_nofloating() == aucmd_win)
+      && one_window()) {
     EMSG(_("E814: Cannot close window, only autocmd window would remain"));
     return FAIL;
   }
-  if ((firstwin == win && lastwin_nofloating() == win)) {
+  if ((firstwin == win && lastwin_nofloating() == win)
+      && lastwin->w_floating) {
     // TODO: under some circumstance we might close the float also instead
     EMSG(_("EXXX: Cannot close window, only floating window would remain"));
     return FAIL;
@@ -2391,6 +2425,9 @@ void win_free_all(void)
 
   while (first_tabpage->tp_next != NULL)
     tabpage_close(TRUE);
+
+  while (lastwin != NULL && lastwin->w_floating)
+    (void)win_free_mem(lastwin, &dummy, NULL);
 
   if (aucmd_win != NULL) {
     (void)win_free_mem(aucmd_win, &dummy, NULL);
@@ -3037,6 +3074,7 @@ frame_minwidth (
  *
  * Used by ":bdel" and ":only".
  */
+// TODO: make me handle floats correctly
 void 
 close_others (
     int message,
@@ -4442,7 +4480,14 @@ void win_setheight_win(int height, win_T *win)
       height = 1;
   }
 
-  if (!win->w_floating) {
+  if (win->w_floating) {
+    if (win->w_float_config.standalone) {
+      win_config_float(win, win->w_width, height, win->w_float_config);
+    } else {
+      beep_flush();
+      return;
+    }
+  } else {
     frame_setheight(win->w_frame, height + win->w_status_height);
   }
 
@@ -4642,7 +4687,14 @@ void win_setwidth_win(int width, win_T *wp)
       width = 1;
   }
 
-  if (!wp->w_floating) {
+  if (wp->w_floating) {
+    if (wp->w_float_config.standalone) {
+      win_config_float(wp, width, wp->w_height, wp->w_float_config);
+    } else {
+      beep_flush();
+      return;
+    }
+  } else {
     frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
   }
 
@@ -6216,6 +6268,7 @@ void win_findbuf(typval_T *argvars, list_T *list)
   }
 }
 
+// TODO: memoize this?
 win_T *lastwin_nofloating(void) {
   win_T *res = lastwin;
   while (res->w_floating) {
