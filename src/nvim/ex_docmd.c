@@ -6230,7 +6230,7 @@ void tabpage_close_other(tabpage_T *tp, int forceit)
    * one.  OK, so I'm paranoid... */
   while (++done < 1000) {
     sprintf((char *)prev_idx, "%i", tabpage_index(tp));
-    wp = tp->tp_firstwin;
+    wp = tp->tp_lastwin;
     ex_win_close(forceit, wp, tp);
 
     /* Autocommands may delete the tab page under our fingers and we may
