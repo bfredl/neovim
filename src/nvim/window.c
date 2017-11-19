@@ -745,9 +745,11 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
     oldwin = curwin;
   }
 
+  bool new_in_layout = (new_wp == NULL || new_wp->w_floating);
+
   /* add a status line when p_ls == 1 and splitting the first window */
   if (ONE_WINDOW && p_ls == 1 && oldwin->w_status_height == 0) {
-    if (oldwin->w_height <= p_wmh && new_wp == NULL) {
+    if (oldwin->w_height <= p_wmh && new_in_layout) {
       EMSG(_(e_noroom));
       return FAIL;
     }
@@ -796,7 +798,7 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
       available = oldwin->w_frame->fr_width;
       needed += minwidth;
     }
-    if (available < needed && new_wp == NULL) {
+    if (available < needed && new_in_layout) {
       EMSG(_(e_noroom));
       return FAIL;
     }
@@ -873,7 +875,7 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
       available = oldwin->w_frame->fr_height;
       needed += minheight;
     }
-    if (available < needed && new_wp == NULL) {
+    if (available < needed && new_in_layout) {
       EMSG(_(e_noroom));
       return FAIL;
     }
@@ -956,6 +958,9 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
 
     /* make the contents of the new window the same as the current one */
     win_init(wp, curwin, flags);
+  } else if (wp->w_floating) {
+    new_frame(wp);
+    wp->w_floating = false;
   }
 
   /*
@@ -1534,9 +1539,7 @@ static void win_totop(int size, int flags)
 
   if (curwin->w_floating) {
     // TODO: does this distinction make sense
-    if (curwin->w_float_config.standalone) {
-      curwin->w_floating = false;
-    } else {
+    if (!curwin->w_float_config.standalone) {
       EMSG(_("EXXX: cannot attach this float"));
       return;
     }
