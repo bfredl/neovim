@@ -4445,7 +4445,14 @@ void win_setheight_win(int height, win_T *win)
       height = 1;
   }
 
-  if (!win->w_floating) {
+  if (win->w_floating) {
+    if (win->w_float_config.standalone) {
+      win_config_float(win, win->w_width, height, win->w_float_config);
+    } else {
+      beep_flush();
+      return;
+    }
+  } else {
     frame_setheight(win->w_frame, height + win->w_status_height);
   }
 
@@ -4645,7 +4652,14 @@ void win_setwidth_win(int width, win_T *wp)
       width = 1;
   }
 
-  if (!wp->w_floating) {
+  if (wp->w_floating) {
+    if (wp->w_float_config.standalone) {
+      win_config_float(wp, width, wp->w_height, wp->w_float_config);
+    } else {
+      beep_flush();
+      return;
+    }
+  } else {
     frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
   }
 
