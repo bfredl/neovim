@@ -262,6 +262,11 @@ newwindow:
       tabpage_T   *oldtab = curtab;
       tabpage_T   *newtab;
 
+      if (curwin->w_floating && !curwin->w_float_config.standalone) {
+        EMSG(_("EXXX: cannot attach this float"));
+        break;
+      }
+
       /* First create a new tab with the window, then go back to
        * the old tab and close the window there. */
       wp = curwin;
@@ -1967,13 +1972,13 @@ static bool last_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
 }
 
 /// Check that current tab page contains no more then one window other than
-/// "aucmd_win".
+/// "aucmd_win". Only counts floating window if it is current.
 bool one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
 {
   bool seen_one = false;
 
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-    if (wp != aucmd_win) {
+    if (wp != aucmd_win && (!wp->w_floating || wp == curwin)) {
       if (seen_one) {
         return false;
       }
@@ -2071,7 +2076,8 @@ int win_close(win_T *win, int free_buf)
     EMSG(_("E813: Cannot close autocmd window"));
     return FAIL;
   }
-  if ((firstwin == aucmd_win || lastwin == aucmd_win) && one_window()) {
+  if ((firstwin == aucmd_win || lastwin_nofloating() == aucmd_win)
+      && one_window()) {
     EMSG(_("E814: Cannot close window, only autocmd window would remain"));
     return FAIL;
   }
