@@ -23,6 +23,7 @@ static uint64_t next_chan_id = CHAN_STDERR+1;
 typedef struct {
   Channel *chan;
   Callback *callback;
+  dict_T *self;
   const char *type;
   list_T *received;
   int status;
@@ -552,8 +553,8 @@ static list_T *buffer_to_tv_list(char *buf, size_t count)
 
 // vimscript job callbacks must be executed on Nvim main loop
 static inline void process_channel_event(Channel *chan, Callback *callback,
-                                         const char *type, char *buf,
-                                         size_t count, int status)
+                                         dict_T *self, const char *type,
+                                         char *buf, size_t count, int status)
 {
   assert(callback);
   ChannelEvent *event_data = xmalloc(sizeof(*event_data));
@@ -566,6 +567,7 @@ static inline void process_channel_event(Channel *chan, Callback *callback,
   channel_incref(chan);  // Hold on ref to callback
   event_data->chan = chan;
   event_data->callback = callback;
+  event_data->self = self;
   event_data->type = type;
 
   multiqueue_put(chan->events, on_channel_event, 1, event_data);
@@ -610,19 +612,14 @@ static void on_channel_output(Stream *stream, Channel *chan, RBuffer *buf,
 
   if (eof) {
     if (reader->buffered) {
-      if (reader->cb.type != kCallbackNone) {
-        process_channel_event(chan, &reader->cb, type, reader->buffer.ga_data,
+      if (reader->cb.type != kCallbackNone || reader->self) {
+        process_channel_event(chan, &reader->cb, reader->self, type,
+                              reader->buffer.ga_data,
                               (size_t)reader->buffer.ga_len, 0);
-        ga_clear(&reader->buffer);
-      } else if (reader->self) {
-        list_T *data = buffer_to_tv_list(reader->buffer.ga_data,
-                                         (size_t)reader->buffer.ga_len);
-        tv_dict_add_list(reader->self, type, strlen(type), data);
-      } else {
-        abort();
       }
+      ga_clear(&reader->buffer);
     } else if (reader->cb.type != kCallbackNone) {
-      process_channel_event(chan, &reader->cb, type, ptr, 0, 0);
+      process_channel_event(chan, &reader->cb, NULL, type, ptr, 0, 0);
     }
     return;
   }
@@ -637,7 +634,7 @@ static void on_channel_output(Stream *stream, Channel *chan, RBuffer *buf,
   if (reader->buffered) {
     ga_concat_len(&reader->buffer, ptr, count);
   } else if (callback_reader_set(*reader)) {
-    process_channel_event(chan, &reader->cb, type, ptr, count, 0);
+    process_channel_event(chan, &reader->cb, NULL, type, ptr, count, 0);
   }
 }
 
@@ -652,8 +649,8 @@ static void channel_process_exit_cb(Process *proc, int status, void *data)
 
   // if status is -1 the process did not really exit,
   // we just closed the handle onto a detached process
-  if (status >= 0) {
-    process_channel_event(chan, &chan->on_exit, "exit", NULL, 0, status);
+  if (status >= 0 && chan->on_exit.type != kCallbackNone) {
+    process_channel_event(chan, &chan->on_exit, NULL, "exit", NULL, 0, status);
   }
 
   channel_decref(chan);
@@ -663,30 +660,39 @@ static void on_channel_event(void **args)
 {
   ChannelEvent *ev = (ChannelEvent *)args[0];
 
-  typval_T argv[4];
+  if (ev->callback->type != kCallbackNone) {
+    if (ev->self) {
+      abort();
+    }
+    typval_T argv[4];
 
-  argv[0].v_type = VAR_NUMBER;
-  argv[0].v_lock = VAR_UNLOCKED;
-  argv[0].vval.v_number = (varnumber_T)ev->chan->id;
+    argv[0].v_type = VAR_NUMBER;
+    argv[0].v_lock = VAR_UNLOCKED;
+    argv[0].vval.v_number = (varnumber_T)ev->chan->id;
 
-  if (ev->received) {
-    argv[1].v_type = VAR_LIST;
-    argv[1].v_lock = VAR_UNLOCKED;
-    argv[1].vval.v_list = ev->received;
-    argv[1].vval.v_list->lv_refcount++;
+    if (ev->received) {
+      argv[1].v_type = VAR_LIST;
+      argv[1].v_lock = VAR_UNLOCKED;
+      argv[1].vval.v_list = ev->received;
+      argv[1].vval.v_list->lv_refcount++;
+    } else {
+      argv[1].v_type = VAR_NUMBER;
+      argv[1].v_lock = VAR_UNLOCKED;
+      argv[1].vval.v_number = ev->status;
+    }
+
+    argv[2].v_type = VAR_STRING;
+    argv[2].v_lock = VAR_UNLOCKED;
+    argv[2].vval.v_string = (uint8_t *)ev->type;
+
+    typval_T rettv = TV_INITIAL_VALUE;
+    callback_call(ev->callback, 3, argv, &rettv);
+    tv_clear(&rettv);
+  } else if (ev->self && ev->received) {
+    tv_dict_add_list(ev->self, ev->type, strlen(ev->type), ev->received);
   } else {
-    argv[1].v_type = VAR_NUMBER;
-    argv[1].v_lock = VAR_UNLOCKED;
-    argv[1].vval.v_number = ev->status;
+    abort();
   }
-
-  argv[2].v_type = VAR_STRING;
-  argv[2].v_lock = VAR_UNLOCKED;
-  argv[2].vval.v_string = (uint8_t *)ev->type;
-
-  typval_T rettv = TV_INITIAL_VALUE;
-  callback_call(ev->callback, 3, argv, &rettv);
-  tv_clear(&rettv);
   channel_decref(ev->chan);
   xfree(ev);
 }
