@@ -60,7 +60,6 @@ static bool pending_cursor_update = false;
 static int busy = 0;
 static int height, width;
 static int old_mode_idx = -1;
-static bool pending_grid_update = false;
 static int draw_grid = 1;
 static int grid = 1;
 
@@ -475,11 +474,10 @@ void ui_set_draw_grid(int new_grid) {
   ui_set_grid(new_grid);
 }
 
-
 void ui_set_grid(int new_grid) {
   if (new_grid != grid) {
     grid = new_grid;
-    pending_grid_update = true;
+    pending_cursor_update = true;
   }
 }
 
@@ -563,13 +561,13 @@ void ui_linefeed(void)
 
 static void flush_cursor_update(void)
 {
-  if (pending_grid_update) {
-    pending_grid_update = false;
-    ui_call_set_grid(grid);
-  }
   if (pending_cursor_update) {
     pending_cursor_update = false;
-    ui_call_cursor_goto(row, col);
+    if (ui_is_external(kUIMultigrid)) {
+      ui_call_grid_cursor_goto(grid, row, col);
+    } else {
+      ui_call_cursor_goto(row, col);
+    }
   }
 }
 
