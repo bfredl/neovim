@@ -1180,6 +1180,7 @@ void save_typebuf(void)
 
 static int old_char = -1;       /* character put back by vungetc() */
 static int old_mod_mask;        /* mod_mask for ungotten character */
+static int old_mouse_grid;       /* mouse_grid related to old_char */
 static int old_mouse_row;       /* mouse_row related to old_char */
 static int old_mouse_col;       /* mouse_col related to old_char */
 
@@ -1380,6 +1381,7 @@ int vgetc(void)
     c = old_char;
     old_char = -1;
     mod_mask = old_mod_mask;
+    mouse_grid = old_mouse_grid;
     mouse_row = old_mouse_row;
     mouse_col = old_mouse_col;
   } else {
@@ -1573,6 +1575,7 @@ vungetc ( /* unget one character (can only be done once!) */
 {
   old_char = c;
   old_mod_mask = mod_mask;
+  old_mouse_grid = mouse_grid;
   old_mouse_row = mouse_row;
   old_mouse_col = mouse_col;
 }

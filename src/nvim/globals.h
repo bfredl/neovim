@@ -461,6 +461,7 @@ EXTERN win_T *au_pending_free_win INIT(= NULL);
 /*
  * Mouse coordinates, set by check_termcode()
  */
+EXTERN int mouse_grid;
 EXTERN int mouse_row;
 EXTERN int mouse_col;
 EXTERN bool mouse_past_bottom INIT(= false);    /* mouse below last line */

@@ -2205,6 +2205,7 @@ do_mouse (
        * one. Speeds up dragging the status line. */
       if (vpeekc() != NUL) {
         int nc;
+        int save_mouse_grid = mouse_row;
         int save_mouse_row = mouse_row;
         int save_mouse_col = mouse_col;
 
@@ -2214,6 +2215,7 @@ do_mouse (
         if (c == nc)
           continue;
         vungetc(nc);
+        mouse_grid = save_mouse_grid;
         mouse_row = save_mouse_row;
         mouse_col = save_mouse_col;
       }
@@ -3979,13 +3981,14 @@ static void nv_mousescroll(cmdarg_T *cap)
   win_T *old_curwin = curwin;
 
   if (mouse_row >= 0 && mouse_col >= 0) {
-    int row, col;
+    int grid, row, col;
 
+    grid = mouse_grid;
     row = mouse_row;
     col = mouse_col;
 
     /* find the window at the pointer coordinates */
-    curwin = mouse_find_win(&row, &col);
+    curwin = mouse_find_win(grid, &row, &col);
     curbuf = curwin->w_buffer;
   }
 
