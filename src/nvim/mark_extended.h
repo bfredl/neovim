@@ -12,8 +12,6 @@
 
 #define extline_cmp(a, b) (kb_generic_cmp((a)->lnum, (b)->lnum))
 
-// TODO(timeyyy): implement kb_itr_interval
-
 // Macro Documentation: FOR_ALL_?
 // Search exclusively using the range values given.
 // -1 can be input for range values to the start and end of the buffer

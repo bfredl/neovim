@@ -1,7 +1,7 @@
 -- TODO(timeyyy):
 -- do_bang needs to be tested
 -- do_sub needs to be tested, when subbing from a big to small word
---   behavior of open office is to delete...
+--   behavior of open office is to delete... (delete (unset) and then insert)
 -- diff needs to be tested
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
@@ -631,7 +631,7 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[1], 1, 1, 1, 1)
   end)
 
-  it('marks outside of deleted range move with char deletes #fail5', function()
+  it('marks outside of deleted range move with char deletes #extmarks', function()
     -- op_delete in ops.c
     buffer('set_mark', buf, ns, marks[1], 1, 4)
     feed('0x<esc>')

@@ -5369,7 +5369,6 @@ void bufhl_clear_line_range(buf_T *buf,
 {
   linenr_T first_changed = MAXLNUM, last_changed = -1;
 
-  // TODO(bfredl): implement kb_itr_interval to jump directly to the first line
   kbitr_t(bufhl) itr;
   BufhlLine *l, t = BUFHLLINE_INIT(line_start);
   if (!kb_itr_get(bufhl, &buf->b_bufhl_info, &t, &itr)) {
