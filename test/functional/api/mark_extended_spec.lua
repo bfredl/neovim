@@ -452,7 +452,7 @@ describe('Extmarks buffer api', function()
   end)
 
   -- TODO mark_adjust is busted i vim/neovim
-  pending('marks move with line splits (using enter) #extmarks', function()
+  pending('marks move with line splits (using enter) #fail3', function()
     -- open_line in misc1.c
     -- testing marks below are also moved
     feed("yyP")

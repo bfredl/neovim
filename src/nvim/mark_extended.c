@@ -10,10 +10,12 @@
 // Marks are moved by calls to extmark_col_adjust or
 // extmark_adjust which are based on col_adjust and mark_adjust from mark.c
 //
+// TODO: document the header file here..
 // Undo/Redo of marks is implemented by storing the call arguments to
 // extmark_col_adjust or extmark_adjust. The list of arguments
 // is applied in extmark_apply_undo
 //
+// TODO: documentaion needs to be update
 // Marks live in namespaces that allow plugins/users to segregate marks
 // from other users, namespaces have to be initialized before usage
 //
