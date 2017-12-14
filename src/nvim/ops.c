@@ -1628,23 +1628,24 @@ setmarks:
 
   // TODO refactor
   // Move extended marks
-    // + 1 to change to buf mode, then plus 1 because we only move marks after the deleted col
+  // + 1 to change to buf mode, then plus 1 because we only move marks after the deleted col
   colnr_T mincol = oap->start.col + 1 + 1;
-  colnr_T endcol;
+  colnr_T endcol = oap->end.col + 1 + 1;
   if (oap->motion_type == kMTBlockWise) {
     // TODO refactor extmark_col_adjust to take lnumstart, lnum_end ?
     for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
       extmark_col_adjust_delete(curbuf, lnum, mincol, bd.end_vcol + 1, kExtmarkUndo);
     }
   } else if (oap->motion_type == kMTCharWise) {
-      lnum = curwin->w_cursor.lnum;
-    // TODO: try using n for both visual and otherwise!
-       if (oap->is_VIsual) {
-         endcol = n + 1;
-       } else {
-        endcol = oap->end.col + 1;
-       }
-      extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo);
+    lnum = curwin->w_cursor.lnum;
+    if (oap->is_VIsual) {
+      // + 1 to change to buf mode, then plus 1 because we copy one more than what we modify
+      endcol = oap->end.col + 1 + 1;
+    } else {
+      // for some reason the end.col in normal modde is + 1 as when in visual mode
+      endcol = oap->end.col + 1;
+    }
+    extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo);
   }
   return OK;
 }

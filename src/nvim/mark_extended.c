@@ -601,11 +601,8 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
   // use extmark_col_adjust_delete
   } else if (undo_info.type == kColAdjustDelete) {
     if (undo) {
-      mincol = undo_info.data.col_adjust_delete.endcol + 1;
-      col_amount = abs(undo_info.data.col_adjust_delete.endcol
-                       - undo_info.data.col_adjust_delete.endcol
-                       - 1
-                       - 1);
+      mincol = undo_info.data.col_adjust_delete.mincol;
+      col_amount = (undo_info.data.col_adjust_delete.endcol - undo_info.data.col_adjust_delete.mincol) + 1;
       extmark_col_adjust(curbuf,
                          undo_info.data.col_adjust_delete.lnum,
                          mincol,
@@ -619,7 +616,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                                 undo_info.data.col_adjust_delete.mincol,
                                 undo_info.data.col_adjust_delete.endcol,
                                 kExtmarkNoUndo);
-      }
+    }
   // use extmark_adjust
   } else if (undo_info.type == kAdjust) {
     if (undo) {
