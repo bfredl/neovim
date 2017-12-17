@@ -29,6 +29,7 @@ a dictionary with these (optional) keys:
 	`ext_tabline`		Externalize the tabline. |ui-tabline|
 	`ext_cmdline`		Externalize the cmdline. |ui-cmdline|
 	`ext_wildmenu`		Externalize the wildmenu. |ui-ext-wildmenu|
+	`ext_float`		Externalize floating windows. |ui-ext-float|
 
 Nvim will then send msgpack-rpc notifications, with the method name "redraw"
 and a single argument, an array of screen update events.
@@ -136,8 +137,21 @@ Global Events							    *ui-global*
 ["visual_bell"]
 	Notify the user with an audible or visual bell, respectively.
 
+["update_fg", color]
+["update_bg", color]
+["update_sp", color]
+	Set the default foreground, background and special colors
+	respectively.
+
 ==============================================================================
 Grid Events							      *ui-grid*
+
+By default, Nvim will only draw windows on one single grid, just like a
+terminal emulator. But when multigrid mode is activated Nvim might use
+multiple grids. Currently this is only used for floting windows |ui-float|,
+but their usecase might be expanded later. In this mode
+|ui-event-grid_cursor_goto| will indicate which grid is current, and all other
+grid events will act implicitly on this grid. Grid 1 is the global grid,
 
 ["resize", width, height]
 	The grid is resized to `width` and `height` cells.
@@ -155,11 +169,12 @@ Grid Events							      *ui-grid*
 	array in the "redraw" event, is intended to be a visible cursor
 	position.
 
-["update_fg", color]
-["update_bg", color]
-["update_sp", color]
-	Set the default foreground, background and special colors
-	respectively.
+						      *ui-event-grid_cursor_goto*
+["grid_cursor_goto", grid, row, col]
+	Replaces "cursor_goto" in multigrid mode. Move the cursor to position
+	(row, col) on the specifid grid. Follows the same pattren as
+	"cursor_goto", the grid that is active at the end of a "redraw" array
+	should be considered the focused grid.
 
 						      *ui-event-highlight_set*
 ["highlight_set", attrs]
@@ -274,7 +289,7 @@ Only sent if `ext_cmdline` option is set in |ui-options|
 
 	The Nvim command line can be invoked recursively, for instance by
 	typing `<c-r>=` at the command line prompt. The `level` field is used
-	to distinguish different command lines active at the same time. The
+	to distinguish different command :slines active at the same time. The
 	first invoked command line has level 1, the next recursively-invoked
 	prompt has level 2. A command line invoked from the |cmd-line-window|
 	has a higher level than than the edited command line.
@@ -325,6 +340,19 @@ Only sent if `ext_wildmenu` option is set in |ui-options|
 
 ["wildmenu_hide"]
 	Hide the wildmenu.
+
+==============================================================================
+Wildmenu Events							     *ui-float*
+
+Only sent if `ext_float` option is set in |ui-options|. 
+
+["float_info", win, grid, width, height, options]
+	Display or reconfigure floating window `win`. A `grid` handle is
+	allocated for drawing on the window, see |ui-grid|. For the meaning of
+	options see |nvim_open_float_win|.
+
+["float_hide", win, grid]
+	Hide the floating window `win`. 
 
 ==============================================================================
  vim:tw=78:ts=8:noet:ft=help:norl:
