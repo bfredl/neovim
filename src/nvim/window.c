@@ -539,6 +539,13 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 {
   wp->w_height =  MAX(height,1);
   wp->w_width = MAX(width,2);
+
+  if (config.relative == kFloatRelativeCursor) {
+    config.relative = kFloatRelativeEditor;
+    config.x += ui_current_col() + 1;
+    config.y += ui_current_row() + 1;
+  }
+
   wp->w_float_config = config;
 
   // TODO: recalculate when ui attaches/dataches
@@ -572,8 +579,9 @@ static void ui_ext_float_info(win_T *wp)
   };
 
   const char *const relative_str[] = {
+    "none",
     "editor",
-    "cursor",
+    NULL, // cursor shouldn't be forwarded
     "display",
   };
   FloatConfig c = wp->w_float_config;
@@ -616,7 +624,9 @@ static bool parse_float_relative(String relative, FloatRelative *out)
     *out = kFloatRelativeEditor;
   }
   char *str = relative.data;
-  if (!STRICMP(str, "editor")) {
+  if (!STRICMP(str, "none")) {
+    *out = kFloatRelativeNone;
+  } else if (!STRICMP(str, "editor")) {
     *out = kFloatRelativeEditor;
   } else if (!STRICMP(str, "cursor")) {
     *out = kFloatRelativeCursor;
@@ -630,6 +640,9 @@ static bool parse_float_relative(String relative, FloatRelative *out)
 
 bool parse_float_config(Dictionary config, FloatConfig *out)
 {
+  // TODO: reconfiguring is a bit awkward with this design
+  // perhaps specifying any position key should imply
+  // reseting the entire position state.
   for (size_t i = 0; i < config.size; i++) {
     char *key = config.items[i].key.data;
     Object val = config.items[i].value;
