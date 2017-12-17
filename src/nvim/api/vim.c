@@ -713,6 +713,52 @@ Buffer nvim_create_buf(Boolean listed, Error *err)
   return buffer;
 }
 
+/// Open a new floating window.
+///
+/// Floats are windows that are drawn above the split layout.
+///
+/// @param buffer handle of buffer to be displayed in the window
+/// @param enter whetehr the window should be entered (made the current window)
+/// @param width width of window (in character cells)
+/// @param height height of window (in character cells)
+/// @param options detailed options for configuring floating window
+///                accepts the following keys:
+///     `standalone` whether a GUI should display the float as a standalone
+///         window. If false (default), the float should be draw with fixed
+///         position on top of the editor grid. If true, the GUI should draw the
+///         float in an indepedend top-level window.
+///     `unfocusable`: if true, the window will not be focused by wincmds and
+///         mouse events. It can still be made current by API calls.
+///     `relative`: the origin for the x,y position
+///        "editor" the global editor grid (default)
+///        "cursor" the current cursor position
+///        "none"   position not specified (only for standalone floats)
+///     `anchor`:   the corner of the float that the x,y position defines
+///        "NW" north-west (default)
+///        "NE" north-east
+///        "SW" south-west
+///        "SE" south-east
+///     `x` x potition. With "editor" and "cursor"  uses screen cells as units.
+///         Can be floating point.
+///     `y` y position. Same units apply.
+///
+///  Currently positions can only be specified as screen cells. With editor
+///  positioning (x=0,y=0) refers to the top-left corner of the screen-grid
+///  and (x=&Columns,y=&Lines) refers to the bottorm-right corner. Floating
+///  point values are allowed, but the builtin implementation (used by TUI and
+///  GUIs that do not render floating windows themselves) will always round
+///  down to an integer.
+///
+///  The behavior of out-of-bounds values, and other configurations that make
+///  the float not fit inside the main editor, is not specified. The builtin
+///  implementation will currently truncate values so floats are completely
+///  within the main screen grid, but this behavior could change. External GUIs
+///  could let floats "hover" slightly outside of the main window, like a
+///  tooltip, but this sholud not be abused to specify arbitrary WM screen
+///  positions.
+///
+/// @param[out] err Error details, if any
+/// @return the buffer handle or 0 when error
 Window nvim_open_float_win(Buffer buffer, Boolean enter,
                            Integer w, Integer h,
                            Dictionary options, Error *err)
@@ -720,7 +766,7 @@ Window nvim_open_float_win(Buffer buffer, Boolean enter,
 {
   win_T *old = curwin;
   FloatConfig config = {0};
-  if (!parse_float_config(options, &config)) {
+  if (!parse_float_config(options, &config, false)) {
     // TODO: set err
     return 0;
   }

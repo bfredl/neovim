@@ -539,6 +539,13 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 {
   wp->w_height = MAX(height, 1);
   wp->w_width = MAX(width, 2);
+
+  if (config.relative == kFloatRelativeCursor) {
+    config.relative = kFloatRelativeEditor;
+    config.x += ui_current_col();
+    config.y += ui_current_row();
+  }
+
   wp->w_float_config = config;
 
   // TODO: recalculate when ui attaches/dataches
@@ -548,9 +555,9 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 
     ui_ext_float_info(wp);
   } else {
+    // TUI only:
     wp->w_height = MIN(wp->w_height,Rows-1);
     wp->w_width = MIN(wp->w_width,Columns);
-    // TUI only:
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
     int x = (int)config.x;
@@ -571,20 +578,22 @@ static void ui_ext_float_info(win_T *wp)
     "SE"
   };
 
+  // Only one posible value right now, but this is a point of extension.
   const char *const relative_str[] = {
     "editor",
-    "cursor",
-    "display",
+    NULL, // cursor shouldn't be forwarded
   };
+
   FloatConfig c = wp->w_float_config;
   Dictionary conf = ARRAY_DICT_INIT;
-  PUT(conf, "x", FLOAT_OBJ(c.x));
-  PUT(conf, "y", FLOAT_OBJ(c.y));
-  PUT(conf, "anchor", STRING_OBJ(cstr_to_string(anchor_str[c.anchor])));
-  PUT(conf, "relative", STRING_OBJ(cstr_to_string(relative_str[c.relative])));
   PUT(conf, "standalone", BOOLEAN_OBJ(c.standalone));
+  if (!c.standalone) {
+    PUT(conf, "x", FLOAT_OBJ(c.x));
+    PUT(conf, "y", FLOAT_OBJ(c.y));
+    PUT(conf, "anchor", STRING_OBJ(cstr_to_string(anchor_str[c.anchor])));
+    PUT(conf, "relative", STRING_OBJ(cstr_to_string(relative_str[c.relative])));
+  }
 
-  // TODO: seriazize mode/position as dict of options
   ui_call_float_info(wp->handle, wp->w_grid_handle,
                      wp->w_width, wp->w_height, conf);
 }
@@ -593,7 +602,7 @@ static void ui_ext_float_info(win_T *wp)
 static bool parse_float_anchor(String anchor, FloatAnchor *out)
 {
   if (anchor.size == 0) {
-    *out = kFloatAnchorNW;
+    *out = (FloatAnchor)0;
   }
   char *str = anchor.data;
   if (!STRICMP(str, "NW")) {
@@ -613,23 +622,40 @@ static bool parse_float_anchor(String anchor, FloatAnchor *out)
 static bool parse_float_relative(String relative, FloatRelative *out)
 {
   if (relative.size == 0) {
-    *out = kFloatRelativeEditor;
+    *out = (FloatRelative)0;
   }
   char *str = relative.data;
   if (!STRICMP(str, "editor")) {
     *out = kFloatRelativeEditor;
   } else if (!STRICMP(str, "cursor")) {
     *out = kFloatRelativeCursor;
-  } else if (!STRICMP(str, "display")) {
-    *out = kFloatRelativeDisplay;
   } else {
     return false;
   }
   return true;
 }
 
-bool parse_float_config(Dictionary config, FloatConfig *out)
+bool parse_float_config(Dictionary config, FloatConfig *out, bool reconf)
 {
+  // To simplify the the design, changing any of x,y,relative
+  // implyies reseting the entire position state.
+  if (reconf) {
+    bool has_pos = false;
+    for (size_t i = 0; i < config.size; i++) {
+      char *key = config.items[i].key.data;
+      if (strequal(key, "x") || strequal(key, "y")
+          || strequal(key, "relative")) {
+        has_pos = true;
+        break;
+      }
+    }
+    if (has_pos) {
+      out->x = 0;
+      out->y = 0;
+      out->relative = (FloatRelative)0;
+    }
+  }
+
   for (size_t i = 0; i < config.size; i++) {
     char *key = config.items[i].key.data;
     Object val = config.items[i].value;
