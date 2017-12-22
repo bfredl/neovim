@@ -3845,7 +3845,7 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
 
           ADJUST_SUB_FIRSTLNUM();
 
-          // Adjust extmarks
+          // Adjust extmarks, by delete and then insert
           colnr_T  mincol = regmatch.startpos[0].col + 1;
           colnr_T endcol = regmatch.endpos[0].col + 1;
           colnr_T col_amount = endcol - mincol;

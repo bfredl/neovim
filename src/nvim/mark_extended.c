@@ -1,4 +1,3 @@
-
 // mark_extended.c --
 // Implements extended marks for text widgets.
 // Each Mark exists in a btree of lines containing btrees
@@ -490,10 +489,9 @@ void u_extmark_col_adjust_delete(buf_T *buf,
   col_adjust_delete.endcol = endcol;
 
   ExtmarkUndoObject undo = { .type = kColAdjustDelete,
-                             .op = op,
                              .data.col_adjust_delete = col_adjust_delete };
 
-    kv_push(uhp->uh_extmark, undo);
+  kv_push(uhp->uh_extmark, undo);
 }
 
 // Save adjust info so we can undo/redo

@@ -225,7 +225,7 @@ typedef enum {
 
 struct undo_object {
   UndoObjectType type;
-  ExtmarkOp op; // TODO(timeyyy): what does this do? Document
+  ExtmarkOp op; // TODO(timeyyy): what does this do? Document, or remove
   union {
     Adjust adjust;
     ColAdjust col_adjust;

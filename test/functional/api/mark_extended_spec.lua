@@ -1037,30 +1037,15 @@ describe('Extmarks buffer api', function()
 
   -- How should substitue of marks be implemented so that
   -- tagging of a range is substitued like libre? Just delete all?
-  it('substitutes by deleting inside the replace matches #fail2', function()
+  --   mm so i guess if an on insert autocmd is used, it would be possible
+  --   to reapply the tag on the range.
+  it('substitutes by deleting inside the replace matches #extmarks', function()
     -- do_sub in ex_cmds.c
     buffer('set_mark', buf, ns, marks[1], 1, 3)
     buffer('set_mark', buf, ns, marks[2], 1, 4)
     feed(':s/34/xx<cr>')
-    rv = buffer('lookup_mark', buf, ns, marks[1])
-    eq(1, rv[2])
-    eq(5, rv[3])
-    rv = buffer('lookup_mark', buf, ns, marks[2])
-    eq(1, rv[2])
-    eq(5, rv[3])
-    -- check_undo_redo(buf, ns, marks[1], 1, 3, 1, 5)
-    -- check_undo_redo(buf, ns, marks[2], 1, 4, 1, 5)
-    feed("u")
-    rv = buffer('lookup_mark', buf, ns, marks[1])
-    eq(1, rv[2])
-    eq(3, rv[3])
-    -- TODO no idea why this isn't working fml,
-    -- seems chanes going on the old undo head..
-    feed("<c-r>")
-    -- TODO redo isn't working, seems no kextmarkundo is being applied..
-    rv = buffer('lookup_mark', buf, ns, marks[1])
-    eq(1, rv[2])
-    -- eq(5, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 5)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 5)
   end)
   -- TODO multiline substitute?
 
