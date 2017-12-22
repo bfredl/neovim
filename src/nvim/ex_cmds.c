@@ -3848,11 +3848,11 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
           // Adjust extmarks, by delete and then insert
           colnr_T  mincol = regmatch.startpos[0].col + 1;
           colnr_T endcol = regmatch.endpos[0].col + 1;
-          colnr_T col_amount = endcol - mincol;
           // Delete, + 1 because we only move marks after the deleted col
           extmark_col_adjust_delete(curbuf, lnum, mincol + 1, endcol,
                                     kExtmarkUndo);
-          // Insert
+          // Insert, sublen seems to be the value we need but + 1...
+          colnr_T col_amount = sublen - 1;
           extmark_col_adjust(curbuf, lnum, mincol, 0, col_amount,
                              kExtmarkUndo);
 

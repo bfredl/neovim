@@ -1,7 +1,5 @@
 -- TODO(timeyyy):
 -- do_bang needs to be tested
--- do_sub needs to be tested, when subbing from a big to small word
---   behavior of open office is to delete... (delete (unset) and then insert)
 -- diff needs to be tested
 -- do_filter needs to be tested
 -- filter_lines needs to be tested (mark_col_adjust)
@@ -1047,7 +1045,15 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[1], 1, 3, 1, 5)
     check_undo_redo(buf, ns, marks[2], 1, 4, 1, 5)
   end)
-  -- TODO multiline substitute?
+
+  it('substitutes when insert text > deleted #extmarks', function()
+    -- do_sub in ex_cmds.c
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    buffer('set_mark', buf, ns, marks[2], 1, 4)
+    feed(':s/34/xxx<cr>')
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 6)
+    check_undo_redo(buf, ns, marks[2], 1, 4, 1, 6)
+  end)
 
   it('using <c-a> when increase in order of magnitude #extmarks', function()
     -- do_addsub in ops.c
