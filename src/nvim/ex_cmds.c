@@ -3227,6 +3227,9 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
   int save_b_changed = curbuf->b_changed;
   bool preview = (State & CMDPREVIEW);
 
+  // Mark so Undo works
+  u_save_cursor();
+
   if (!global_busy) {
     sub_nsubs = 0;
     sub_nlines = 0;
