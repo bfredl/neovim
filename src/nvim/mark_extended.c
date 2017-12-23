@@ -31,6 +31,19 @@
 //
 // deleting on a mark will leave it in that same position
 //
+// Testing for correct mark behavior.
+// ----------------------------------
+// the tkinter ui library can be used to play with a correct implementation.
+// from a python3 shell:
+//
+// from tkinter import *
+// text = Text()
+// text.pack()
+// # Check the net for a full guide but in general the following are useful:
+// # text.mark_set("1", "1.5")
+// # text.index("1")
+// # text.get("1")
+//
 // Glossary:
 // extmark_copy:
 // deleting over a range
