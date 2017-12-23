@@ -5,6 +5,8 @@
 -- filter_lines needs to be tested (mark_col_adjust)
 -- change representation of stored marks to have location start at 0
 -- make sure marks can exist at end of line
+-- setting mark in a bad position should go to end position of buffer
+-- deleting should pump a mark
 -- marks shouldd never be deleted.. inexplicitily (test visual)
 -- deleteing on mark at end position should move it.. FML
 
@@ -553,6 +555,17 @@ describe('Extmarks buffer api', function()
     eq(1, rv[2])
     eq(4, rv[3])
     check_undo_redo(buf, ns, marks[2], 1, 4, 1, 4)
+  end)
+
+  it('deleting marks at end of line works #extmarks', function()
+    -- mark_extended.c/extmark_col_adjust_delete
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    feed('$x')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(1, rv[2])
+    -- This remains where it is because marks exist
+    eq(4, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 4)
   end)
 
   it('marks move with blockwise deletes #extmarks', function()

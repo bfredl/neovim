@@ -34,6 +34,7 @@
 // Testing for correct mark behavior.
 // ----------------------------------
 // the tkinter ui library can be used to play with a correct implementation.
+// Warning: tkinter col starts at 0 while neovim starts at 1
 // from a python3 shell:
 //
 // from tkinter import *
@@ -50,7 +51,9 @@
 
 #include <assert.h>
 #include "nvim/vim.h"
+#include "charset.h"           // skipwhite
 #include "nvim/mark_extended.h"
+#include "nvim/memline.h"      // memline
 #include "nvim/memory.h"
 #include "nvim/pos.h"          // MAXLNUM
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
@@ -821,12 +824,16 @@ bool show_data(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount)
 }
 
 // for anything other than deletes
+// Return, desired col amount where the adjustment should take place
+// (not taking) eol into account
 long update_constantly(colnr_T _, colnr_T __, long col_amount)
 {
   return col_amount;
 }
 
-// for deletes
+// for deletes,
+// Return, desired col amount where the adjustment should take place
+// (not taking) eol into account
 long update_variably(colnr_T mincol, colnr_T current, long endcol)
 {
   colnr_T start_effected_range = mincol - 1;
@@ -840,6 +847,22 @@ long update_variably(colnr_T mincol, colnr_T current, long endcol)
     col_amount = -(endcol - start_effected_range);
   }
   return col_amount;
+}
+
+
+// Return pointer to line.
+char_u *get_line_ptr(linenr_T lnum)
+{
+  return ml_get_buf(curbuf, lnum, false);
+}
+
+// Get the length of the current line, including trailing white space.
+// based from ex_cmds.c/linelen
+int len_of_line_inclusive_white_space(linenr_T lnum)
+{
+  char_u *line = get_line_ptr(lnum);
+  int len = linetabsize(line);
+  return len;
 }
 
 // Adjust columns and rows for extmarks
@@ -874,7 +897,7 @@ static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
                            BufPosStartCol, kExtmarkNoUndo, &mitr);
       // Update the mark
       } else if (*cp >= mincol) {
-          show_data(lnum, mincol, lnum_amount, col_amount);
+          // show_data(lnum, mincol, lnum_amount, col_amount);
           // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
           extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
                          extline->lnum + lnum_amount,
@@ -927,13 +950,22 @@ bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
                                     &update_variably, (long)endcol);
 
+  // Deletes at the end of the line have different behaviour than the normal
+  // case when deleted.
+  // Cleanup any marks that are floating beyond the end of line.
+  int line_length = len_of_line_inclusive_white_space(lnum);
+ // TODO 1 -> first namespace key
+  FOR_ALL_EXTMARKS(buf, 1, lnum, line_length, lnum, -1, {
+    extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                   extline->lnum, (colnr_T)line_length, kExtmarkNoUndo, &mitr);
+  })
+
   // Record the undo for the actual move
   if (marks_moved && undo != kExtmarkNoUndo) {
     u_extmark_col_adjust_delete(buf, lnum, mincol, endcol, undo);
   }
   return marks_moved;
 }
-
 
 // Adjust extmark row for inserted/deleted rows (columns stay fixed).
 void extmark_adjust(buf_T * buf,
