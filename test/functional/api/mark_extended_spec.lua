@@ -6,9 +6,9 @@
 -- change representation of stored marks to have location start at 0
 -- make sure marks can exist at end of line
 -- setting mark in a bad position should go to end position of buffer
--- deleting should pump a mark
 -- marks shouldd never be deleted.. inexplicitily (test visual)
--- deleteing on mark at end position should move it.. FML
+-- go through the TODO's
+-- check with memsan, asan etc
 
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')

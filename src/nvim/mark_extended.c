@@ -6,13 +6,15 @@
 // The btree provides efficent range lookus.
 // A map of pointers to the marks is used for fast lookup by mark id.
 //
-// Marks are moved by calls to extmark_col_adjust or
-// extmark_adjust which are based on col_adjust and mark_adjust from mark.c
+// Marks are moved by calls to: extmark_col_adjust, extmark_adjust, or
+// extmark_col_adjust_delete which are based on col_adjust and mark_adjust from
+// mark.c
 //
 // TODO: document the header file here..
 // Undo/Redo of marks is implemented by storing the call arguments to
 // extmark_col_adjust or extmark_adjust. The list of arguments
-// is applied in extmark_apply_undo
+// is applied in extmark_apply_undo. The only case where we have to
+// copy extmarks is for the area being effected by a delete.
 //
 // TODO: documentaion needs to be update
 // Marks live in namespaces that allow plugins/users to segregate marks
@@ -22,19 +24,22 @@
 // http://blog.atom.io/2015/06/16/optimizing-an-important-atom-primitive.html
 // Other implementations exist in gtk and tk toolkits.
 //
-// To play around with what the marks SHOULD do, check out the tk
-// text marks to use as a reference (for off by one behaviour etc)
 //
-// Some Notes and misconeption points:
+// Some Notes and misconeption points
+// ----------------------------------
 // Deleting marks only happens explicitly extmark_unset, deleteing over a
-// range of marks will only move the marks
+// range of marks will only move the marks.
 //
-// deleting on a mark will leave it in that same position
+// deleting on a mark will leave it in that same position unless it is on
+// the eol of the line.
 //
 // Testing for correct mark behavior.
 // ----------------------------------
-// the tkinter ui library can be used to play with a correct implementation.
+// To play around with what the marks SHOULD do, check out the tk
+// text marks to use as a reference (for off by one behaviour etc)
+//
 // Warning: tkinter col starts at 0 while neovim starts at 1
+//
 // from a python3 shell:
 //
 // from tkinter import *
@@ -44,16 +49,12 @@
 // # text.mark_set("1", "1.5")
 // # text.index("1")
 // # text.get("1")
-//
-// Glossary:
-// extmark_copy:
-// deleting over a range
 
 #include <assert.h>
 #include "nvim/vim.h"
 #include "charset.h"           // skipwhite
 #include "nvim/mark_extended.h"
-#include "nvim/memline.h"      // memline
+#include "nvim/memline.h"      // ml_get_buf
 #include "nvim/memory.h"
 #include "nvim/pos.h"          // MAXLNUM
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
@@ -92,6 +93,7 @@ int extmark_set(buf_T *buf,
   }
 }
 
+// Remove an extmark
 // Returns 0 on missing id
 int extmark_unset(buf_T *buf,
                   uint64_t ns,
@@ -259,6 +261,7 @@ static int extmark_delete(ExtendedMark *extmark,
   return true;
 }
 
+// Lookup an extmark by id
 ExtendedMark *extmark_from_id(buf_T *buf, uint64_t ns, uint64_t id)
 {
   if (!buf->b_extmark_ns) {
@@ -282,6 +285,7 @@ ExtendedMark *extmark_from_id(buf_T *buf, uint64_t ns, uint64_t id)
   return NULL;
 }
 
+// Lookup an extmark by position
 ExtendedMark *extmark_from_pos(buf_T *buf,
                                uint64_t ns, linenr_T lnum, colnr_T col)
 {
@@ -313,13 +317,14 @@ uint64_t extmark_free_id_get(buf_T *buf, uint64_t ns)
   return ns_obj->free_id;
 }
 
-// Set the free id in a namesapce
+// Set the next free id in a namesapce
 static void extmark_free_id_set(ExtmarkNs *ns_obj, uint64_t id)
 {
   // Simply Heurstic, the largest id + 1
   ns_obj->free_id = id + 1;
 }
 
+// free extmarks from the buffej
 void extmark_free_all(buf_T *buf)
 {
   if (!buf->b_extmark_ns) {
@@ -374,7 +379,7 @@ static u_header_T *get_undo_header(buf_T *buf)
   return uhp;
 }
 
-// Save info for undo/redo of set, unset marks
+// Save info for undo/redo of set marks
 static void u_extmark_set(buf_T *buf,
                           uint64_t ns,
                           uint64_t id,
@@ -397,6 +402,7 @@ static void u_extmark_set(buf_T *buf,
   kv_push(uhp->uh_extmark, undo);
 }
 
+// Save info for undo/redo of unset marks
 static void u_extmark_update(buf_T *buf,
                              uint64_t ns,
                              uint64_t id,
@@ -491,6 +497,7 @@ void u_extmark_col_adjust(buf_T *buf,
   }
 }
 
+// Save col_adjust_delete info so we can undo/redo
 void u_extmark_col_adjust_delete(buf_T *buf,
                                  linenr_T lnum,
                                  colnr_T mincol,
@@ -559,7 +566,7 @@ void u_extmark_move(buf_T *buf,
 }
 
 // copy extmarks data between range, useful when we cannot simply reverse
-// the operation. This will do nothing on redo, enforces correect position when
+// the operation. This will do nothing on redo, enforces correct position when
 // undo
 void u_extmark_copy(buf_T *buf,
                     linenr_T l_lnum,
@@ -584,6 +591,7 @@ void u_extmark_copy(buf_T *buf,
  });
 }
 
+// undo or redo an extmark operation
 void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
 {
   linenr_T lnum;
@@ -733,6 +741,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
   }
 }
 
+// undo/redo an kExtmarkMove operation
 static void apply_undo_move(ExtmarkUndoObject undo_info, bool undo)
 {
   // 3 calls are required , see comment in function do_move (ex_cmds.c)
@@ -912,6 +921,7 @@ static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
   }
 }
 
+// use _extmark_col_adjust to move columns by inserting
 bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
                         colnr_T mincol, long lnum_amount,
                         long col_amount, ExtmarkOp undo)

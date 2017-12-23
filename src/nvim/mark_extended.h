@@ -14,9 +14,9 @@
 
 // Macro Documentation: FOR_ALL_?
 // Search exclusively using the range values given.
-// -1 can be input for range values to the start and end of the buffer
+// -1 can be input for range values to the start and end of the line/col
 
-// see FOR_ALL_ for documentation
+// see FOR_ALL_? for documentation
 #define FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, code)\
   kbitr_t(extlines) itr;\
   ExtMarkLine t;\
@@ -33,7 +33,7 @@
       code;\
     }
 
-// see FOR_ALL_ for documentation
+// see FOR_ALL_? for documentation
 #define FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, code)\
   kbitr_t(extlines) itr;\
   ExtMarkLine t;\
@@ -50,7 +50,7 @@
     code;\
   }
 
-// see FOR_ALL_ for documentation
+// see FOR_ALL_? for documentation
 #define FOR_ALL_EXTMARKS(buf, ns, l_lnum, l_col, u_lnum, u_col, code)\
   kbitr_t(markitems) mitr;\
   ExtendedMark mt;\
@@ -75,7 +75,7 @@
   })
 
 
-// see FOR_ALL_ for documentation
+// see FOR_ALL_? for documentation
 #define FOR_ALL_EXTMARKS_PREV(buf, ns, l_lnum, l_col, u_lnum, u_col, code)\
   kbitr_t(markitems) mitr;\
   ExtendedMark mt;\
