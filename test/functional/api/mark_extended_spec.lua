@@ -1,8 +1,4 @@
 -- TODO(timeyyy):
--- do_bang needs to be tested
--- diff needs to be tested
--- do_filter needs to be tested
--- filter_lines needs to be tested (mark_col_adjust)
 -- change representation of stored marks to have location start at 0
 -- make sure marks can exist at end of line
 -- setting mark in a bad position should go to end position of buffer
@@ -891,24 +887,11 @@ describe('Extmarks buffer api', function()
     eq(2, table.getn(rv))
   end)
 
-  pending('undo and redo of marks deleted during edits #extmarks', function()
+  it('undo and redo of marks deleted during edits #extmarks', function()
     -- test extmark_adjust
     feed('A<cr>12345<esc>')
     buffer('set_mark', buf, ns, marks[1], 2, 3)
     feed('dd')
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(0, table.getn(rv))
-    feed("u")
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(1, table.getn(rv))
-    feed("<c-r>")
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(0, table.getn(rv))
-
-    -- test extmark_col_adust
-    feed('A<cr>12345<esc>')
-    buffer('set_mark', buf, ns, marks[1], 2, 3)
-    feed('0lv3lx')
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
     eq(0, table.getn(rv))
     feed("u")
