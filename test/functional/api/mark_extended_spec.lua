@@ -447,8 +447,7 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[1], 2, 3, 2, 4)
   end)
 
-  -- TODO mark_adjust is busted i vim/neovim
-  it('marks move with line splits (using enter) #fail3', function()
+  it('marks move with line splits (using enter) #extmarks', function()
     -- open_line in misc1.c
     -- testing marks below are also moved
     feed("yyP")
@@ -463,9 +462,18 @@ describe('Extmarks buffer api', function()
     eq(5, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 1, 5, 2, 3)
     check_undo_redo(buf, ns, marks[2], 2, 5, 3, 5)
-    --test cursor at col 1
-    feed('3Gi<cr><esc>')
-    check_undo_redo(buf, ns, marks[2], 3, 5, 4, 5)
+  end)
+
+  -- TODO mark_col_adjust for normal marks fails in vim/neovim
+  -- because flags is 9 in: if (flags & OPENLINE_MARKFIX) {
+  it('marks at last line move on insert new line #extmarks', function()
+    -- open_line in misc1.c
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    feed('0i<cr><esc>')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq(2, rv[2])
+    eq(5, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 2, 5)
   end)
 
   it('yet again marks move with line splits #extmarks', function()
