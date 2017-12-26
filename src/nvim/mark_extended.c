@@ -934,7 +934,7 @@ static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
 }
 
 // use _extmark_col_adjust to move columns by inserting
-bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
+void extmark_col_adjust(buf_T *buf, linenr_T lnum,
                         colnr_T mincol, long lnum_amount,
                         long col_amount, ExtmarkOp undo)
 {
@@ -946,16 +946,13 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
   if (undo == kExtmarkUndo && marks_moved) {
     u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
   }
-
-  // TODO why is this being returned?
-  return marks_moved;
 }
 
 // Adjust marks by doing a delete on a line
 // TODO change mincol to be for the mark toe be copied, not moved
 // mincol: First column that needs to be moved (start of delete range)
 // endcol: Last column which needs to be copied (end of delete range + 1)
-bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
+void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
                                colnr_T mincol, colnr_T endcol,
                                ExtmarkOp undo)
 {
@@ -995,7 +992,6 @@ bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   if (marks_moved && undo == kExtmarkUndo) {
     u_extmark_col_adjust_delete(buf, lnum, mincol, endcol);
   }
-  return marks_moved;
 }
 
 // Adjust extmark row for inserted/deleted rows (columns stay fixed).
