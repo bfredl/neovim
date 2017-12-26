@@ -584,8 +584,7 @@ void u_extmark_copy(buf_T *buf,
 {
   u_header_T  *uhp = get_undo_header(buf);
 
- // TODO 1 -> first namespace key
- FOR_ALL_EXTMARKS(buf, 1, l_lnum, l_col, u_lnum, u_col, {
+ FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, l_lnum, l_col, u_lnum, u_col, {
      ExtmarkCopy copy;
      ExtmarkUndoObject undo;
    copy.ns_id = extmark->ns_id;
@@ -982,8 +981,7 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   if (line_length == 0) {
     line_length = BufPosStartCol;
   }
- // TODO 1 -> first namespace key
-  FOR_ALL_EXTMARKS(buf, 1, lnum, line_length, lnum, -1, {
+  FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, lnum, line_length, lnum, -1, {
     extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
                    extline->lnum, (colnr_T)line_length, kExtmarkNoUndo, &mitr);
   })
