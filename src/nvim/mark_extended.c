@@ -72,18 +72,38 @@
 colnr_T BufPosStartCol = 1;
 linenr_T BufPosStartRow = 1;
 
+static linenr_T check_lnum(buf_T *buf, linenr_T lnum)
+{
+  linenr_T maxlen = buf->b_ml.ml_line_count + 1;
+  if (lnum > maxlen) {
+    return maxlen;
+  }
+  return lnum;
+}
 
-// TODO(timeyyy): currently possible to set marks where there is no text...
-// Create or update an extmark
+static colnr_T check_col(buf_T *buf, linenr_T lnum, colnr_T col)
+{
+  int line_len = len_of_line_inclusive_white_space(buf, lnum);
+  colnr_T maxlen = (colnr_T)line_len + 1;
+  if (col > maxlen) {
+    return maxlen;
+  }
+  return col;
+}
+
+// Create or update an extmark, marks are force to a valid position.
 // Returns 1 on new mark created
 // Returns 2 on succesful update
 int extmark_set(buf_T *buf,
                 uint64_t ns,
                 uint64_t id,
-                linenr_T lnum,
-                colnr_T col,
+                linenr_T _lnum,
+                colnr_T _col,
                 ExtmarkOp op)
 {
+  linenr_T lnum = check_lnum(buf, _lnum);
+  colnr_T col = check_col(buf, lnum, _col);
+
   ExtendedMark *extmark = extmark_from_id(buf, ns, id);
   if (!extmark) {
     return extmark_create(buf, ns, id, lnum, col, op);
@@ -866,9 +886,13 @@ char_u *get_line_ptr(linenr_T lnum)
 }
 
 // Get the length of the current line, including trailing white space.
+// If the lnum doesn't exist, returns 0
 // based from ex_cmds.c/linelen
-int len_of_line_inclusive_white_space(linenr_T lnum)
+int len_of_line_inclusive_white_space(buf_T *buf, linenr_T lnum)
 {
+  if (lnum > buf->b_ml.ml_line_count) {
+    return 0;
+  }
   char_u *line = get_line_ptr(lnum);
   int len = linetabsize(line);
   return len;
@@ -969,7 +993,10 @@ bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   // Deletes at the end of the line have different behaviour than the normal
   // case when deleted.
   // Cleanup any marks that are floating beyond the end of line.
-  int line_length = len_of_line_inclusive_white_space(lnum);
+  int line_length = len_of_line_inclusive_white_space(buf, lnum);
+  if (line_length == 0) {
+    line_length = BufPosStartCol;
+  }
  // TODO 1 -> first namespace key
   FOR_ALL_EXTMARKS(buf, 1, lnum, line_length, lnum, -1, {
     extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,

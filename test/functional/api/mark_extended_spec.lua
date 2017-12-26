@@ -1,7 +1,6 @@
 -- TODO(timeyyy):
 -- change representation of stored marks to have location start at 0
 -- make sure marks can exist at end of line
--- setting mark in a bad position should go to end position of buffer
 -- marks shouldd never be deleted.. inexplicitily (test visual)
 -- go through the TODO's
 -- check with memsan, asan etc
@@ -466,7 +465,7 @@ describe('Extmarks buffer api', function()
 
   -- TODO mark_col_adjust for normal marks fails in vim/neovim
   -- because flags is 9 in: if (flags & OPENLINE_MARKFIX) {
-  it('marks at last line move on insert new line #extmarks', function()
+  it('marks at last line move on insert new line #extmarksg', function()
     -- open_line in misc1.c
     buffer('set_mark', buf, ns, marks[1], 1, 5)
     feed('0i<cr><esc>')
@@ -862,7 +861,7 @@ describe('Extmarks buffer api', function()
   it('undo and redo of set and unset marks #extmarks', function()
     -- Force a new undo head
     feed('o<esc>')
-    buffer('set_mark', buf, ns, marks[1], 1, 7)
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
     feed('o<esc>')
     buffer('set_mark', buf, ns, marks[2], 1, 8)
     buffer('set_mark', buf, ns, marks[3], 1, 9)
@@ -882,7 +881,7 @@ describe('Extmarks buffer api', function()
     rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
     feed("u")
     feed("<c-r>")
-    check_undo_redo(buf, ns, marks[1], 1, 7, positions[1][1], positions[1][2])
+    check_undo_redo(buf, ns, marks[1], 1, 2, positions[1][1], positions[1][2])
 
     -- Test unset
     feed('o<esc>')
@@ -1103,6 +1102,26 @@ describe('Extmarks buffer api', function()
     rv = buffer('get_marks', buf, ns_invalid, positions[1], positions[2], ALL, 0)
     rv = buffer('lookup_mark', buf, ns_invalid, marks[1])
 
+  end)
+
+  it('when col > line-length, set the mark on eol #extmarks', function()
+    local invalid_col = init_text:len() + 1
+    buffer('set_mark', buf, ns, marks[1], 1, invalid_col)
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, init_text:len() + 1}, rv)
+    -- Test another
+    local invalid_col = init_text:len() + 2
+    buffer('set_mark', buf, ns, marks[1], 1, invalid_col)
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 1, init_text:len() + 1}, rv)
+  end)
+
+  it('when line > line, set the mark on end of buffer #extmarks', function()
+    local invalid_col = init_text:len() + 1
+    local invalid_lnum = 3 -- line1 ends in an eol. so line 2 contains a valid position (eol)?
+    buffer('set_mark', buf, ns, marks[1], invalid_lnum, invalid_col)
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    eq({marks[1], 2, 1}, rv)
   end)
 
 end)
