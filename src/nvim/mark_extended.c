@@ -553,7 +553,7 @@ static void u_extmark_adjust(buf_T * buf,
   adjust.amount = amount;
   adjust.amount_after = amount_after;
 
-  ExtmarkUndoObject undo = { .type = kAdjust,
+  ExtmarkUndoObject undo = { .type = kLineAdjust,
                              .op = op,
                              .data.adjust = adjust };
 
@@ -662,7 +662,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                                 kExtmarkNoUndo);
     }
   // use extmark_adjust
-  } else if (undo_info.type == kAdjust) {
+  } else if (undo_info.type == kLineAdjust) {
     if (undo) {
       // Undo - call signature type one - insert now
       if (undo_info.data.adjust.amount == MAXLNUM) {

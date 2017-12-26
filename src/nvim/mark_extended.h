@@ -208,7 +208,7 @@ typedef struct {
 typedef struct undo_object ExtmarkUndoObject;
 
 typedef enum {
-  kAdjust,  // TODO(timeyyy): rename all references to adjust to LineAdjust?
+  kLineAdjust,
   kColAdjust,
   kColAdjustDelete,
   kAdjustMove,
