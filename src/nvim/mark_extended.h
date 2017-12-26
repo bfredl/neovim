@@ -207,11 +207,6 @@ typedef struct {
 
 typedef struct undo_object ExtmarkUndoObject;
 
-typedef struct {
-  ExtmarkUndoObject *items;
-  size_t size, capacity;
-} ExtmarkUndoArray; // TODO del
-
 typedef enum {
   kAdjust,  // TODO(timeyyy): rename all references to adjust to LineAdjust?
   kColAdjust,

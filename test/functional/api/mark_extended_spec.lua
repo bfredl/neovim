@@ -1,8 +1,5 @@
--- TODO(timeyyy):
+-- TODO(timeyyy): go through todo's lol
 -- change representation of stored marks to have location start at 0
--- make sure marks can exist at end of line
--- marks shouldd never be deleted.. inexplicitily (test visual)
--- go through the TODO's
 -- check with memsan, asan etc
 
 local helpers = require('test.functional.helpers')(after_each)
@@ -465,7 +462,7 @@ describe('Extmarks buffer api', function()
 
   -- TODO mark_col_adjust for normal marks fails in vim/neovim
   -- because flags is 9 in: if (flags & OPENLINE_MARKFIX) {
-  it('marks at last line move on insert new line #extmarksg', function()
+  it('marks at last line move on insert new line #extmarks', function()
     -- open_line in misc1.c
     buffer('set_mark', buf, ns, marks[1], 1, 5)
     feed('0i<cr><esc>')
@@ -846,16 +843,6 @@ describe('Extmarks buffer api', function()
     eq(2, rv[1][2])
     eq(1, rv[1][3])
     check_undo_redo(buf, ns, marks[1], 4, 1, 2, 1)
-  end)
-
-  -- TODO mark_adjust is busted in vim/neovim
-  pending('multiple redo works #extmarks', function()
-    buffer('set_mark', buf, ns, marks[1], 1, 1)
-    feed('0i<cr><cr><esc>')
-    rv = buffer('get_marks', buf, ns, marks[1], marks[1], 1, 0)
-    eq(3, rv[1][2])
-    eq(1, rv[1][3])
-    check_undo_redo(buf, ns, marks[1], 1, 1, 3, 1)
   end)
 
   it('undo and redo of set and unset marks #extmarks', function()
