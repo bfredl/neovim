@@ -55,13 +55,11 @@
 #include "charset.h"           // skipwhite
 #include "nvim/mark_extended.h"
 #include "nvim/memline.h"      // ml_get_buf
-#include "nvim/memory.h"
 #include "nvim/pos.h"          // MAXLNUM
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
-#include "nvim/undo_defs.h"    // u_header_T
-#include "nvim/undo.h"         // u_save_cursor
+#include "nvim/undo.h"         // get_undo_header
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
@@ -377,27 +375,6 @@ void extmark_free_all(buf_T *buf)
   kv_init(buf->b_extmark_move_space);
 }
 
-// TODO(timeyyy): make this non static ..
-static u_header_T *get_undo_header(buf_T *buf)
-{
-  u_header_T *uhp = NULL;
-  if (buf->b_u_curhead != NULL) {
-    uhp = buf->b_u_curhead;
-  } else if (buf->b_u_newhead) {
-    uhp = buf->b_u_newhead;
-  }
-  // Create the first undo header for the buffer
-  if (!uhp) {
-    // TODO(timeyyy): there would be a better way to do this!
-    u_save_cursor();
-    uhp = buf->b_u_curhead;
-    if (!uhp) {
-      uhp = buf->b_u_newhead;
-      assert(uhp);
-    }
-  }
-  return uhp;
-}
 
 // Save info for undo/redo of set marks
 static void u_extmark_set(buf_T *buf,
@@ -872,6 +849,7 @@ char_u *get_line_ptr(linenr_T lnum)
   return ml_get_buf(curbuf, lnum, false);
 }
 
+// TODO: Does this belong somewhere else?
 // Get the length of the current line, including trailing white space.
 // If the lnum doesn't exist, returns 0
 // based from ex_cmds.c/linelen
