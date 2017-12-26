@@ -148,7 +148,7 @@ typedef kvec_t(ExtendedMark *) ExtmarkArray;
 
 typedef enum {
   kExtmarkNOOP,      // Extmarks shouldn't be moved
-  kExtmarkUndo,      // Operation should be reversable
+  kExtmarkUndo,      // Operation should be reversable/undoable
   kExtmarkNoUndo,    // Operation should not be reversable
 } ExtmarkOp;
 
@@ -220,7 +220,6 @@ typedef enum {
 
 struct undo_object {
   UndoObjectType type;
-  ExtmarkOp op; // TODO(timeyyy): what does this do? Document, or remove
   union {
     Adjust adjust;
     ColAdjust col_adjust;

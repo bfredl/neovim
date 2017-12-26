@@ -416,7 +416,6 @@ static void u_extmark_set(buf_T *buf,
   set.col = col;
 
   ExtmarkUndoObject undo = { .type = undo_type,
-                             .op = kExtmarkUndo,
                              .data.set = set };
 
   kv_push(uhp->uh_extmark, undo);
@@ -442,7 +441,6 @@ static void u_extmark_update(buf_T *buf,
   update.col = col;
 
   ExtmarkUndoObject undo = { .type = kExtmarkUpdate,
-                             .op = kExtmarkUndo,
                              .data.update = update };
   kv_push(uhp->uh_extmark, undo);
 }
@@ -455,29 +453,26 @@ static bool u_compact_col_adjust(buf_T *buf,
                                  linenr_T lnum,
                                  colnr_T mincol,
                                  long lnum_amount,
-                                 long col_amount,
-                                 ExtmarkOp op)
+                                 long col_amount)
 {
-  if (op != kExtmarkUndo) {
-    return false;
-  }
-
   u_header_T  *uhp = get_undo_header(buf);
   if (kv_size(uhp->uh_extmark) < 1) {
     return false;
   }
-
   // Check the last action
   ExtmarkUndoObject object = kv_last(uhp->uh_extmark);
+
+  if (object.type != kColAdjust) {
+    return false;
+  }
   ColAdjust undo = object.data.col_adjust;
   bool compactable = false;
 
   if (!undo.lnum_amount && !lnum_amount) {
     if (undo.lnum == lnum) {
       if ((undo.mincol + undo.col_amount) >= mincol) {
-        if (object.op == kExtmarkUndo) {
           compactable = true;
-  } } } }
+  } } }
 
   if (!compactable) {
     return false;
@@ -485,7 +480,6 @@ static bool u_compact_col_adjust(buf_T *buf,
 
   undo.col_amount = undo.col_amount + col_amount;
   ExtmarkUndoObject new_undo = { .type = kColAdjust,
-                                 .op = kExtmarkUndo,
                                  .data.col_adjust = undo };
   kv_last(uhp->uh_extmark) = new_undo;
   return true;
@@ -496,13 +490,11 @@ void u_extmark_col_adjust(buf_T *buf,
                                  linenr_T lnum,
                                  colnr_T mincol,
                                  long lnum_amount,
-                                 long col_amount,
-                                 ExtmarkOp op)
+                                 long col_amount)
 {
   u_header_T  *uhp = get_undo_header(buf);
 
-  if (!u_compact_col_adjust(buf,
-                            lnum, mincol, lnum_amount, col_amount, op)) {
+  if (!u_compact_col_adjust(buf, lnum, mincol, lnum_amount, col_amount)) {
     ColAdjust col_adjust;
     col_adjust.lnum = lnum;
     col_adjust.mincol = mincol;
@@ -510,7 +502,6 @@ void u_extmark_col_adjust(buf_T *buf,
     col_adjust.col_amount = col_amount;
 
     ExtmarkUndoObject undo = { .type = kColAdjust,
-                               .op = op,
                                .data.col_adjust = col_adjust };
 
     kv_push(uhp->uh_extmark, undo);
@@ -521,8 +512,7 @@ void u_extmark_col_adjust(buf_T *buf,
 void u_extmark_col_adjust_delete(buf_T *buf,
                                  linenr_T lnum,
                                  colnr_T mincol,
-                                 colnr_T endcol,
-                                 ExtmarkOp op)
+                                 colnr_T endcol)
 {
   u_header_T  *uhp = get_undo_header(buf);
 
@@ -542,8 +532,7 @@ static void u_extmark_adjust(buf_T * buf,
                              linenr_T line1,
                              linenr_T line2,
                              long amount,
-                             long amount_after,
-                             ExtmarkOp op)
+                             long amount_after)
 {
   u_header_T  *uhp = get_undo_header(buf);
 
@@ -554,7 +543,6 @@ static void u_extmark_adjust(buf_T * buf,
   adjust.amount_after = amount_after;
 
   ExtmarkUndoObject undo = { .type = kLineAdjust,
-                             .op = op,
                              .data.adjust = adjust };
 
   kv_push(uhp->uh_extmark, undo);
@@ -955,8 +943,8 @@ bool extmark_col_adjust(buf_T *buf, linenr_T lnum,
   bool marks_moved =  _extmark_col_adjust(buf, lnum, mincol, lnum_amount,
                                     &update_constantly, col_amount);
 
-  if (undo != kExtmarkNoUndo && marks_moved) {
-    u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount, undo);
+  if (undo == kExtmarkUndo && marks_moved) {
+    u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
   }
 
   // TODO why is this being returned?
@@ -981,7 +969,7 @@ bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   // }
 
   bool marks_moved;
-  if (undo != kExtmarkNoUndo) {
+  if (undo == kExtmarkUndo) {
     // Copy marks that would be effected by delete
     // -1 because we need to restore if a mark existed at the start pos
     u_extmark_copy(buf, lnum, start_effected_range, lnum, endcol);
@@ -1004,8 +992,8 @@ bool extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   })
 
   // Record the undo for the actual move
-  if (marks_moved && undo != kExtmarkNoUndo) {
-    u_extmark_col_adjust_delete(buf, lnum, mincol, endcol, undo);
+  if (marks_moved && undo == kExtmarkUndo) {
+    u_extmark_col_adjust_delete(buf, lnum, mincol, endcol);
   }
   return marks_moved;
 }
@@ -1063,9 +1051,8 @@ void extmark_adjust(buf_T * buf,
     }
   })
 
-  if (undo != kExtmarkNoUndo
-      && marks_exist) {
-    u_extmark_adjust(buf, line1, line2, amount, amount_after, undo);
+  if (undo == kExtmarkUndo && marks_exist) {
+    u_extmark_adjust(buf, line1, line2, amount, amount_after);
   }
 }
 
