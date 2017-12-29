@@ -953,14 +953,14 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 ///
 /// @param buffer The buffer handle
 /// @param namespace a identifier returned previously with extmark_ns_create
-/// @param id The mark's id or ""
+/// @param id The mark's id or 0 for a randomly generated id
 /// @param row position of the mark
 /// @param col position of the mark
 /// @param[out] err Details of an error that may have occurred
-/// @return 1 on new, 2 on update; or a mark_id if argument mark_id was ""
+/// @return 1 on new, 2 on update; or a mark_id if argument mark_id was 0
 Integer nvim_buf_set_mark(Buffer buffer,
                           Integer namespace,
-                          Object mark_id,
+                          Integer mark_id,
                           Integer row,
                           Integer col,
                           Error *err)
@@ -983,23 +983,14 @@ Integer nvim_buf_set_mark(Buffer buffer,
 
   bool return_id = false;
   uint64_t id;
-  switch (mark_id.type) {
-    case kObjectTypeString:
-      // Test for "", we need to create and return a unique id in this case
-      if (strcmp(mark_id.data.string.data, "") == 0) {
-        id = extmark_free_id_get(buf, (uint64_t)namespace);
-        return_id = true;
-        break;
-      }
-    case kObjectTypeInteger:
-      if (mark_id.data.integer >= 0) {
-        id = (uint64_t)mark_id.data.integer;
-        return_id = false;
-        break;
-      }
-    default:
-      api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));
-      return rv;
+  if (mark_id == 0) {
+    id = extmark_free_id_get(buf, (uint64_t)namespace);
+    return_id = true;
+  } else if (mark_id > 0) {
+    id = (uint64_t)mark_id;
+  } else {
+    api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));
+    return rv;
   }
 
   rv = (Integer)extmark_set(buf, (uint64_t)namespace, id,

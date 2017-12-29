@@ -17,6 +17,7 @@ local SCREEN_WIDTH = 15
 local TO_START = {-1, -1}
 local TO_END = {-1, -1}
 local ALL = -1
+local RANDOM_MARK_ID = 0
 
 local function check_undo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
   feed("u")
@@ -945,17 +946,16 @@ describe('Extmarks buffer api', function()
   it('mark set can create unique identifiers #extmarks', function()
     local id = 0;
     -- id is 0
-    rv = buffer('set_mark', buf, ns, 0, positions[1][1], positions[1][2])
+    rv = buffer('set_mark', buf, ns, marks[1], positions[1][1], positions[1][2])
     eq(1, rv)
-    -- id should be 1
-    id = buffer('set_mark', buf, ns, "", positions[1][1], positions[1][2])
-    eq(1, id)
-    -- id is 2
-    rv = buffer('set_mark', buf, ns, 2, positions[2][1], positions[2][2])
+    -- id should be + 1
+    id = buffer('set_mark', buf, ns, RANDOM_MARK_ID, positions[1][1], positions[1][2])
+    eq(1 + 1, id)
+    -- id is 3
+    rv = buffer('set_mark', buf, ns, 3, positions[2][1], positions[2][2])
     eq(1, rv)
-    -- id should be 3
-    id = buffer('set_mark', buf, ns, "", positions[1][1], positions[1][2])
-    eq(3, id)
+    id = buffer('set_mark', buf, ns, RANDOM_MARK_ID, positions[1][1], positions[1][2])
+    eq(1 + 3, id)
   end)
 
   it('auto indenting with enter works #extmarks', function()
