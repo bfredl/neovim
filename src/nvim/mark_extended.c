@@ -1012,9 +1012,7 @@ void extmark_adjust(buf_T * buf,
                         kExtmarkUndo);
         })
         // TODO(timeyyy): make freeing the line a undoable action
-        // Maybe a pool of lines...
-        // kb_del_itr(extlines, &buf->b_extlines, &itr);
-        // xfree(extline);
+        // see branch extmarks_broken_delete_lines
       } else {
         *lp += amount;
       }
