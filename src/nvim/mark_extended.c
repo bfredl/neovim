@@ -811,11 +811,6 @@ static void apply_undo_move(ExtmarkUndoObject undo_info, bool undo)
   }
 }
 
-bool show_data(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount) {
-  int i = 1+1;
-  return true;
-}
-
 // for anything other than deletes
 // Return, desired col amount where the adjustment should take place
 // (not taking) eol into account
@@ -895,7 +890,6 @@ static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
                            BufPosStartCol, kExtmarkNoUndo, &mitr);
       // Update the mark
       } else if (*cp >= mincol) {
-          // show_data(lnum, mincol, lnum_amount, col_amount);
           // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
           extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
                          extline->lnum + lnum_amount,
