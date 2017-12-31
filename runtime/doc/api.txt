@@ -225,7 +225,7 @@ An example of calling the api from vimscript: >
 Buffer extended marks	                                  *api-extended-marks*
 
 An extended mark represents a buffer annotation that remains logically
-stationary even as the buffer changes. They coulb be used to represent cursors,
+stationary even as the buffer changes. They could be used to represent cursors,
 folds, misspelled words, and anything else that needs to track a logical
 location in the buffer over time.
 
