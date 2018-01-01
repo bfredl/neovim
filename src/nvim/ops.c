@@ -1652,7 +1652,7 @@ setmarks:
 
 /*
  * Adjust end of operating area for ending on a multi-byte character.
- * Used for deletikUon.
+ * Used for deletion.
  */
 static void mb_adjust_opend(oparg_T *oap)
 {
