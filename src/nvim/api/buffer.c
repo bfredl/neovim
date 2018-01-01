@@ -1022,10 +1022,10 @@ Integer nvim_buf_set_mark(Buffer buffer,
 /// @param id The extended mark's id
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on success, 0 on no mark found
-Integer nvim_buf_unset_mark(Buffer buffer,
-                            Integer namespace,
-                            Integer id,
-                            Error *err)
+Integer nvim_buf_del_mark(Buffer buffer,
+                          Integer namespace,
+                          Integer id,
+                          Error *err)
     FUNC_API_SINCE(3)
 {
   Integer rv = 0;
@@ -1039,7 +1039,7 @@ Integer nvim_buf_unset_mark(Buffer buffer,
     return rv;
   }
 
-  rv = (Integer)extmark_unset(buf, (uint64_t)namespace, (uint64_t)id,
+  rv = (Integer)extmark_del(buf, (uint64_t)namespace, (uint64_t)id,
                               kExtmarkUndo);
   return rv;
 }

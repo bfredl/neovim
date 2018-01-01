@@ -213,7 +213,7 @@ typedef enum {
   kColAdjustDelete,
   kAdjustMove,
   kExtmarkSet,
-  kExtmarkUnset,
+  kExtmarkDel,
   kExtmarkUpdate,
   kExtmarkCopy,
 } UndoObjectType;

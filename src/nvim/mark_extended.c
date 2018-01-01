@@ -27,7 +27,7 @@
 //
 // Some Notes and misconeption points
 // ----------------------------------
-// Deleting marks only happens explicitly extmark_unset, deleteing over a
+// Deleting marks only happens explicitly extmark_del, deleteing over a
 // range of marks will only move the marks.
 //
 // deleting on a mark will leave it in that same position unless it is on
@@ -113,10 +113,10 @@ int extmark_set(buf_T *buf,
 
 // Remove an extmark
 // Returns 0 on missing id
-int extmark_unset(buf_T *buf,
-                  uint64_t ns,
-                  uint64_t id,
-                  ExtmarkOp op)
+int extmark_del(buf_T *buf,
+                uint64_t ns,
+                uint64_t id,
+                ExtmarkOp op)
 {
   ExtendedMark *extmark = extmark_from_id(buf, ns, id);
   if (!extmark) {
@@ -262,7 +262,7 @@ static int extmark_delete(ExtendedMark *extmark,
 {
   if (op != kExtmarkNoUndo) {
     u_extmark_set(buf, ns, id, extmark->line->lnum, extmark->col,
-                  kExtmarkUnset);
+                  kExtmarkDel);
   }
 
   // Remove our key from the namespace
@@ -398,7 +398,7 @@ static void u_extmark_set(buf_T *buf,
   kv_push(uhp->uh_extmark, undo);
 }
 
-// Save info for undo/redo of unset marks
+// Save info for undo/redo of deleted marks
 static void u_extmark_update(buf_T *buf,
                              uint64_t ns,
                              uint64_t id,
@@ -675,10 +675,10 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
   // extmark_set
   } else if (undo_info.type == kExtmarkSet) {
     if (undo) {
-      extmark_unset(curbuf,
-                    undo_info.data.set.ns_id,
-                    undo_info.data.set.mark_id,
-                    kExtmarkNoUndo);
+      extmark_del(curbuf,
+                  undo_info.data.set.ns_id,
+                  undo_info.data.set.mark_id,
+                  kExtmarkNoUndo);
     // Redo
     } else {
       extmark_set(curbuf,
@@ -706,8 +706,8 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                   undo_info.data.update.col,
                   kExtmarkNoUndo);
     }
-  // extmark_unset
-  } else if (undo_info.type == kExtmarkUnset)  {
+  // extmark_del
+  } else if (undo_info.type == kExtmarkDel)  {
     if (undo) {
       extmark_set(curbuf,
                   undo_info.data.set.ns_id,
@@ -717,7 +717,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                   kExtmarkNoUndo);
     // Redo
     } else {
-      extmark_unset(curbuf,
+      extmark_del(curbuf,
                     undo_info.data.set.ns_id,
                     undo_info.data.set.mark_id,
                     kExtmarkNoUndo);
@@ -1002,7 +1002,7 @@ void extmark_adjust(buf_T * buf,
       // Delete the line
       if (amount == MAXLNUM) {
         FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
-          extmark_unset(buf, extmark->ns_id, extmark->mark_id,
+          extmark_del(buf, extmark->ns_id, extmark->mark_id,
                         kExtmarkUndo);
         })
         // TODO(timeyyy): make freeing the line a undoable action

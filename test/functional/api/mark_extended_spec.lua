@@ -101,11 +101,11 @@ describe('Extmarks buffer api', function()
     eq({marks[1], row, col}, rv)
 
     -- remove the test marks
-    rv = buffer('unset_mark', buf, ns, marks[1])
+    rv = buffer('del_mark', buf, ns, marks[1])
     eq(1, rv)
-    rv = buffer('unset_mark', buf, ns, marks[2])
+    rv = buffer('del_mark', buf, ns, marks[2])
     eq(1, rv)
-    rv = buffer('unset_mark', buf, ns, marks[3])
+    rv = buffer('del_mark', buf, ns, marks[3])
     eq(1, rv)
   end)
 
@@ -873,7 +873,7 @@ describe('Extmarks buffer api', function()
 
     -- Test unset
     feed('o<esc>')
-    buffer('unset_mark', buf, ns, marks[3])
+    buffer('del_mark', buf, ns, marks[3])
     feed("u")
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
     eq(3, table.getn(rv))
@@ -935,10 +935,10 @@ describe('Extmarks buffer api', function()
     rv = buffer('get_marks', buf, ns2, positions[1], positions[2], ALL, 1)
     eq(2, table.getn(rv))
 
-    buffer('unset_mark', buf, ns, marks[1])
+    buffer('del_mark', buf, ns, marks[1])
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
     eq(2, table.getn(rv))
-    buffer('unset_mark', buf, ns2, marks[1])
+    buffer('del_mark', buf, ns2, marks[1])
     rv = buffer('get_marks', buf, ns2, TO_START, TO_END, ALL, 0)
     eq(2, table.getn(rv))
   end)
@@ -1077,15 +1077,15 @@ describe('Extmarks buffer api', function()
   end)
 
   -- TODO catch exceptions
-  pending('throws consistent error codes #todo', function()
+  it('throws consistent error codes #todo', function()
     local buf_invalid = 9
     local ns_invalid = ns2 + 1
     rv = buffer('set_mark', buf_invalid, ns, marks[1], positions[1][1], positions[1][2])
-    rv = buffer('unset_mark', buf_invalid, ns, marks[1])
+    rv = buffer('del_mark', buf_invalid, ns, marks[1])
     rv = buffer('get_marks', buf_invalid, ns, positions[1], positions[2], ALL, 0)
     rv = buffer('lookup_mark', buf_invalid, ns, marks[1])
     rv = buffer('set_mark', buf, ns_invalid, marks[1], positions[1][1], positions[1][2])
-    rv = buffer('unset_mark', buf, ns_invalid, marks[1])
+    rv = buffer('del_mark', buf, ns_invalid, marks[1])
     rv = buffer('get_marks', buf, ns_invalid, positions[1], positions[2], ALL, 0)
     rv = buffer('lookup_mark', buf, ns_invalid, marks[1])
 
