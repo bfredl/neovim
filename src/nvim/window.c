@@ -1556,7 +1556,7 @@ static void win_rotate(int upwards, int count)
  */
 static void win_totop(int size, int flags)
 {
-  int dir;
+  int dir = 0;
   int height = curwin->w_height;
 
   if (firstwin == curwin && lastwin_nofloating() == curwin) {
