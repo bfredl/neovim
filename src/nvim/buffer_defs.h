@@ -939,10 +939,8 @@ typedef enum {
 } FloatAnchor;
 
 typedef enum {
-    kFloatRelativeNone = 0,
-    kFloatRelativeEditor = 1,
-    kFloatRelativeCursor = 2,
-    kFloatRelativeDisplay = 3,
+    kFloatRelativeEditor = 0,
+    kFloatRelativeCursor = 1,
 } FloatRelative;
 
 typedef struct {
