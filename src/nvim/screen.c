@@ -6323,30 +6323,30 @@ void alloc_screengrid(ScreenGrid *grid, int Rows, int Columns, bool copy)
             0, (size_t)Columns * sizeof(u8char_T));
       (void)memset(new.ScreenAttrs + new_row * Columns,
           0, (size_t)Columns * sizeof(sattr_T));
-      old_row = new_row + (screen_Rows - Rows);
+      old_row = new_row + (grid->Rows - Rows);
       if (old_row >= 0 && grid->ScreenLines != NULL) {
-        if (screen_Columns < Columns)
-          len = screen_Columns;
+        if (grid->Columns < Columns)
+          len = grid->Columns;
         else
           len = Columns;
         /* When switching to utf-8 don't copy characters, they
          * may be invalid now.  Also when p_mco changes. */
         if (grid->ScreenLinesUC != NULL && p_mco == Screen_mco)
           memmove(new.ScreenLines + new.LineOffset[new_row],
-              grid->ScreenLines + LineOffset[old_row],
+              grid->ScreenLines + grid->LineOffset[old_row],
               (size_t)len * sizeof(schar_T));
         if (grid->ScreenLinesUC != NULL && p_mco == Screen_mco) {
           memmove(new.ScreenLinesUC + new.LineOffset[new_row],
-              grid->ScreenLinesUC + LineOffset[old_row],
+              grid->ScreenLinesUC + grid->LineOffset[old_row],
               (size_t)len * sizeof(u8char_T));
           for (i = 0; i < p_mco; ++i)
             memmove(new.ScreenLinesC[i]
                 + new.LineOffset[new_row],
-                grid->ScreenLinesC[i] + LineOffset[old_row],
+                grid->ScreenLinesC[i] + grid->LineOffset[old_row],
                 (size_t)len * sizeof(u8char_T));
         }
         memmove(new.ScreenAttrs + new.LineOffset[new_row],
-            grid->ScreenAttrs + LineOffset[old_row],
+            grid->ScreenAttrs + grid->LineOffset[old_row],
             (size_t)len * sizeof(sattr_T));
       }
     }
