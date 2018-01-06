@@ -496,6 +496,18 @@ wingotofile:
       cmdmod.tab = tabpage_index(curtab) + 1;
       nchar = xchar;
       goto wingotofile;
+
+    case 's':
+      if (curwin->w_floating || !ui_is_external(kUIMultigrid)) {
+        beep_flush();
+        break;
+      }
+      FloatConfig config = FLOAT_CONFIG_INIT;
+      config.standalone = true;
+      if(!win_new_float(curwin, curwin->w_width, curwin->w_height, config)) {
+        beep_flush();
+      }
+      break;
     default:
       beep_flush();
       break;
@@ -517,21 +529,43 @@ static void cmd_with_count(char *cmd, char_u *bufp, size_t bufsize,
   }
 }
 
-/// config must already been validated!
-win_T *win_new_float(int width, int height, FloatConfig config)
+/// Create a new float.
+///
+/// if wp == NULL allocate a new window, otherwise turn existing window into a
+/// float. It must then already belong to the current tabpage!
+///
+/// config must already have been validated!
+win_T *win_new_float(win_T *wp, int width, int height, FloatConfig config)
 {
-  win_T *wp;
   // TODO: verify that wincmds preserve that floating windows are last
   // in window order
-  wp = win_alloc(lastwin_nofloating(), false);
+  bool new = false;
+  if (wp == NULL) {
+    new = true;
+    wp = win_alloc(lastwin_nofloating(), false);
+    win_init(wp, curwin, 0);
+  } else {
+    // TODO: either check or disable non-current tabpage
+    assert(!wp->w_floating);
+    if (firstwin == wp && lastwin_nofloating() == wp) {
+      // last non-float
+      return NULL;
+    }
+    int dir;
+    winframe_remove(wp, &dir, NULL);
+    (void)win_comp_pos();     /* recompute window positions */
+    win_remove(wp, NULL);
+    win_append(lastwin_nofloating(), wp);
+  }
   wp->w_floating = 1;
-  win_init(wp, curwin, 0);
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
   wp->w_grid_handle = next_grid_handle++;
   win_config_float(wp, width, height, config);
   redraw_win_later(wp, VALID);
-  win_enter(wp, false);
+  if (new) {
+    win_enter(wp, false);
+  }
   return wp;
 }
 

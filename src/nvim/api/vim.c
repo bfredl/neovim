@@ -760,17 +760,17 @@ Buffer nvim_create_buf(Boolean listed, Error *err)
 /// @param[out] err Error details, if any
 /// @return the buffer handle or 0 when error
 Window nvim_open_float_win(Buffer buffer, Boolean enter,
-                           Integer w, Integer h,
+                           Integer width, Integer height,
                            Dictionary options, Error *err)
   FUNC_API_SINCE(3)
 {
   win_T *old = curwin;
-  FloatConfig config = {0};
+  FloatConfig config = FLOAT_CONFIG_INIT;
   if (!parse_float_config(options, &config, false)) {
     // TODO: set err
     return 0;
   }
-  win_T *wp = win_new_float((int)w, (int)h, config);
+  win_T *wp = win_new_float(NULL, (int)width, (int)height, config);
   // TODO: -1 to alloc a fresh buffer?
   if (buffer > 0) {
     nvim_set_current_buf(buffer, err);
