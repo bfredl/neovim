@@ -72,9 +72,7 @@ int process_spawn(Process *proc, bool in, bool out, bool err)
       uv_close((uv_handle_t *)&proc->err.uv.pipe, NULL);
     }
 
-    if (proc->type == kProcessTypeUv) {
-      uv_close((uv_handle_t *)&(((LibuvProcess *)proc)->uv), NULL);
-    } else {
+    if (proc->type == kProcessTypePty) {
       process_close(proc);
     }
     shell_free_argv(proc->argv);
