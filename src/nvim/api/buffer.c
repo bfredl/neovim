@@ -827,13 +827,13 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
   return rv;
 }
 
-/// Returns extended mark info for a given mark identifier
+/// Returns namespace mark info for a given mark identifier
 ///
 /// @param buffer The buffer handle
 /// @param namespace a identifier returned previously with nvim_create_namespace
-/// @param id any mark identifier that uniquely selects a mark (no positions)
+/// @param id any nsmark identifier that uniquely selects a nsmark (no positions)
 /// @param[out] err Details of an error that may have occurred
-/// @return [mark_id, row, col]
+/// @return [nsmark_id, row, col]
 ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
                                      Integer namespace,
                                      Integer id,
@@ -865,16 +865,16 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
   return rv;
 }
 
-/// Returns extended mark info in a range (inclusive)
+/// Returns a namespaced mark info in a range (inclusive)
 ///
 /// @param buffer The buffer handle
 /// @param namespace An id returned previously from nvim_create_namespace
-/// @param lower One of: extended mark id, (row, col) or -1 for start of buffer
-/// @param upper One of: extended mark id, (row, col) or -1 for end of buffer
+/// @param lower One of:  nsmark id, (row, col) or -1 for start of buffer
+/// @param upper One of: nsmark id, (row, col) or -1 for end of buffer
 /// @param amount Maximum number of marks to return or -1 for all marks found
 /// @param reverse Boolean to switch the search direction.
 /// /// @param[out] err Details of an error that may have occurred
-/// @return [[mark_id, row, col], ...]
+/// @return [[nsmark_id, row, col], ...]
 ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
                                    Integer namespace,
                                    Object lower,
@@ -948,20 +948,20 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 
 }
 
-/// Create or update an extended mark at a position
+/// Create or update a namespaced mark at a position
 ///
 /// If an invalid namespace is given, an error will be raised.
 ///
 /// @param buffer The buffer handle
 /// @param namespace a identifier returned previously with nvim_create_namespace
-/// @param id The extended mark's id or 0 for a randomly generated id
-/// @param row The row to set the extended mark to.
-/// @param col The column to set the extended mark to.
+/// @param id The nsmark's id or 0 for a randomly generated id
+/// @param row The row to set the nsmark to.
+/// @param col The column to set the nsmark to.
 /// @param[out] err Details of an error that may have occurred
-/// @return 1 on new, 2 on update; or a mark_id if argument mark_id was 0
+/// @return 1 on new, 2 on update; or a nsmark_id if id was 0
 Integer nvim_buf_set_mark(Buffer buffer,
                           Integer namespace,
-                          Integer mark_id,
+                          Integer id,
                           Integer row,
                           Integer col,
                           Error *err)
@@ -983,33 +983,33 @@ Integer nvim_buf_set_mark(Buffer buffer,
   }
 
   bool return_id = false;
-  uint64_t id;
-  if (mark_id == 0) {
-    id = extmark_free_id_get(buf, (uint64_t)namespace);
+  uint64_t id_num;
+  if (id == 0) {
+    id_num = extmark_free_id_get(buf, (uint64_t)namespace);
     return_id = true;
-  } else if (mark_id > 0) {
-    id = (uint64_t)mark_id;
+  } else if (id > 0) {
+    id_num = (uint64_t)id;
   } else {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));
     return rv;
   }
 
-  rv = (Integer)extmark_set(buf, (uint64_t)namespace, id,
+  rv = (Integer)extmark_set(buf, (uint64_t)namespace, id_num,
                             (linenr_T)row, (colnr_T)col, kExtmarkUndo);
   if (return_id) {
-    return (Integer)id;
+    return (Integer)id_num;
   } else {
     return rv;
   }
 }
 
-/// Remove an extended mark
+/// Remove a namespaced mark
 ///
 /// @param buffer The buffer handle
 /// @param namespace a identifier returned previously with nvim_create_namespace
-/// @param id The extended mark's id
+/// @param id The nsmark's id
 /// @param[out] err Details of an error that may have occurred
-/// @return 1 on success, 0 on no mark found
+/// @return 1 on success, 0 on no nsmark found
 Integer nvim_buf_del_mark(Buffer buffer,
                           Integer namespace,
                           Integer id,
