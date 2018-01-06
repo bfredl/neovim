@@ -951,6 +951,10 @@ typedef struct {
   bool unfocusable;
 } FloatConfig;
 
+#define FLOAT_CONFIG_INIT ((FloatConfig){ .x = 0, .y = 0, .anchor = 0, \
+                                          .relative = 0, .standalone = false, \
+                                          .unfocusable = false })
+
 /*
  * Structure which contains all information that belongs to a window
  *
