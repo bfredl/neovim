@@ -498,7 +498,7 @@ wingotofile:
       goto wingotofile;
 
     case 's':
-      if (curwin->w_floating || !ui_is_external(kUIMultigrid)) {
+      if (curwin->w_floating || ui_is_external(kUIMultigrid)) {
         beep_flush();
         break;
       }
