@@ -561,18 +561,18 @@ void u_extmark_copy(buf_T *buf,
 {
   u_header_T  *uhp = get_undo_header(buf);
 
- FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, l_lnum, l_col, u_lnum, u_col, {
-     ExtmarkCopy copy;
-     ExtmarkUndoObject undo;
-   copy.ns_id = extmark->ns_id;
-   copy.mark_id = extmark->mark_id;
-   copy.lnum = extmark->line->lnum;
-   copy.col = extmark->col;
+  ExtmarkCopy copy;
+  ExtmarkUndoObject undo;
+  FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, l_lnum, l_col, u_lnum, u_col, {
+    copy.ns_id = extmark->ns_id;
+    copy.mark_id = extmark->mark_id;
+    copy.lnum = extmark->line->lnum;
+    copy.col = extmark->col;
 
-   undo.data.copy = copy;
-   undo.type = kExtmarkCopy;
-   kv_push(uhp->uh_extmark, undo);
- });
+    undo.data.copy = copy;
+    undo.type = kExtmarkCopy;
+    kv_push(uhp->uh_extmark, undo);
+  });
 }
 
 // undo or redo an extmark operation
