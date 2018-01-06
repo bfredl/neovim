@@ -880,7 +880,8 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
     curbuf->b_op_start.lnum = dest - num_lines + 1;
     curbuf->b_op_end.lnum = dest;
   } else {
-    mark_adjust_nofold(dest + 1, line1 - 1, num_lines, 0L, false, kExtmarkNoUndo);
+    mark_adjust_nofold(dest + 1, line1 - 1, num_lines, 0L, false,
+                       kExtmarkNoUndo);
     FOR_ALL_TAB_WINDOWS(tab, win) {
       if (win->w_buffer == curbuf) {
         foldMoveRange(&win->w_folds, dest + 1, line1 - 1, line2);
@@ -3259,8 +3260,10 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
   int save_b_changed = curbuf->b_changed;
   bool preview = (State & CMDPREVIEW);
 
-  // Mark so Undo works
-  u_save_cursor();
+  // Mark so Undo works, inccomand tests fail without this
+  if (!preview) {
+    u_save_cursor();
+  }
 
   if (!global_busy) {
     sub_nsubs = 0;
@@ -3519,6 +3522,7 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
         if (regmatch.startpos[0].lnum > 0) {
           current_match.pre_match = lnum;
           lnum += regmatch.startpos[0].lnum;
+          sub_firstlnum += regmatch.startpos[0].lnum;
           nmatch -= regmatch.startpos[0].lnum;
           xfree(sub_firstline);
           sub_firstline = NULL;

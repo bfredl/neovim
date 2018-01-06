@@ -10,13 +10,13 @@
 // extmark_col_adjust_delete which are based on col_adjust and mark_adjust from
 // mark.c
 //
-// TODO: document the header file here..
+// TODO(timeyyy): document the header file here..
 // Undo/Redo of marks is implemented by storing the call arguments to
 // extmark_col_adjust or extmark_adjust. The list of arguments
 // is applied in extmark_apply_undo. The only case where we have to
 // copy extmarks is for the area being effected by a delete.
 //
-// TODO: documentaion needs to be update
+// TODO(timeyyy): documentaion needs to be update
 // Marks live in namespaces that allow plugins/users to segregate marks
 // from other users, namespaces have to be initialized before usage
 //
@@ -59,7 +59,7 @@
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
-#include "nvim/undo.h"         // get_undo_header
+#include "nvim/undo.h"         // force_get_undo_header
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
@@ -251,7 +251,6 @@ static void extmark_update(ExtendedMark *extmark,
   } else {
     extmark->col = col;
   }
-
 }
 
 static int extmark_delete(ExtendedMark *extmark,
@@ -384,7 +383,10 @@ static void u_extmark_set(buf_T *buf,
                           colnr_T col,
                           UndoObjectType undo_type)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   ExtmarkSet set;
   set.ns_id = ns;
@@ -407,7 +409,10 @@ static void u_extmark_update(buf_T *buf,
                              linenr_T lnum,
                              colnr_T col)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   ExtmarkUpdate update;
   update.ns_id = ns;
@@ -432,7 +437,11 @@ static bool u_compact_col_adjust(buf_T *buf,
                                  long lnum_amount,
                                  long col_amount)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return false;
+  }
+
   if (kv_size(uhp->uh_extmark) < 1) {
     return false;
   }
@@ -464,12 +473,15 @@ static bool u_compact_col_adjust(buf_T *buf,
 
 // Save col_adjust info so we can undo/redo
 void u_extmark_col_adjust(buf_T *buf,
-                                 linenr_T lnum,
-                                 colnr_T mincol,
-                                 long lnum_amount,
-                                 long col_amount)
+                          linenr_T lnum,
+                          colnr_T mincol,
+                          long lnum_amount,
+                          long col_amount)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   if (!u_compact_col_adjust(buf, lnum, mincol, lnum_amount, col_amount)) {
     ColAdjust col_adjust;
@@ -491,7 +503,10 @@ void u_extmark_col_adjust_delete(buf_T *buf,
                                  colnr_T mincol,
                                  colnr_T endcol)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   ColAdjustDelete col_adjust_delete;
   col_adjust_delete.lnum = lnum;
@@ -511,7 +526,10 @@ static void u_extmark_adjust(buf_T * buf,
                              long amount,
                              long amount_after)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   Adjust adjust;
   adjust.line1 = line1;
@@ -534,7 +552,10 @@ void u_extmark_move(buf_T *buf,
                     linenr_T num_lines,
                     linenr_T extra)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   AdjustMove move;
   move.line1 = line1;
@@ -559,20 +580,23 @@ void u_extmark_copy(buf_T *buf,
                     linenr_T u_lnum,
                     colnr_T u_col)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
- FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, l_lnum, l_col, u_lnum, u_col, {
-     ExtmarkCopy copy;
-     ExtmarkUndoObject undo;
-   copy.ns_id = extmark->ns_id;
-   copy.mark_id = extmark->mark_id;
-   copy.lnum = extmark->line->lnum;
-   copy.col = extmark->col;
+  ExtmarkCopy copy;
+  ExtmarkUndoObject undo;
+  FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, l_lnum, l_col, u_lnum, u_col, {
+    copy.ns_id = extmark->ns_id;
+    copy.mark_id = extmark->mark_id;
+    copy.lnum = extmark->line->lnum;
+    copy.col = extmark->col;
 
-   undo.data.copy = copy;
-   undo.type = kExtmarkCopy;
-   kv_push(uhp->uh_extmark, undo);
- });
+    undo.data.copy = copy;
+    undo.type = kExtmarkCopy;
+    kv_push(uhp->uh_extmark, undo);
+  });
 }
 
 // undo or redo an extmark operation
@@ -610,7 +634,8 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
   } else if (undo_info.type == kColAdjustDelete) {
     if (undo) {
       mincol = undo_info.data.col_adjust_delete.mincol;
-      col_amount = (undo_info.data.col_adjust_delete.endcol - undo_info.data.col_adjust_delete.mincol) + 1;
+      col_amount = (undo_info.data.col_adjust_delete.endcol
+                    - undo_info.data.col_adjust_delete.mincol) + 1;
       extmark_col_adjust(curbuf,
                          undo_info.data.col_adjust_delete.lnum,
                          mincol,
@@ -718,9 +743,9 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
     // Redo
     } else {
       extmark_del(curbuf,
-                    undo_info.data.set.ns_id,
-                    undo_info.data.set.mark_id,
-                    kExtmarkNoUndo);
+                  undo_info.data.set.ns_id,
+                  undo_info.data.set.mark_id,
+                  kExtmarkNoUndo);
     }
   }
 }
@@ -844,7 +869,7 @@ char_u *get_line_ptr(linenr_T lnum)
   return ml_get_buf(curbuf, lnum, false);
 }
 
-// TODO: Does this belong somewhere else?
+// TODO(timeyyy): Does this belong somewhere else?
 // Get the length of the current line, including trailing white space.
 // If the lnum doesn't exist, returns 0
 // based from ex_cmds.c/linelen
@@ -912,7 +937,7 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum,
   assert(col_amount > INT_MIN && col_amount <= INT_MAX);
 
   bool marks_moved =  _extmark_col_adjust(buf, lnum, mincol, lnum_amount,
-                                    &update_constantly, col_amount);
+                                          &update_constantly, col_amount);
 
   if (undo == kExtmarkUndo && marks_moved) {
     u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
@@ -920,7 +945,7 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum,
 }
 
 // Adjust marks by doing a delete on a line
-// TODO change mincol to be for the mark toe be copied, not moved
+// TODO(timeyyy): change mincol to be for the mark toe be copied, not moved
 // mincol: First column that needs to be moved (start of delete range)
 // endcol: Last column which needs to be copied (end of delete range + 1)
 void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
@@ -928,9 +953,10 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
                                ExtmarkOp undo)
 {
   colnr_T start_effected_range = mincol - 1;
-  // TODO: For some reason our extmark tests work with the assert but not with
-  // the return... wtf. I'm not really sure what happens in the case below..
-  // some of the other existing tests where tripping over this though.
+  // TODO(timeyyy): For some reason our extmark tests work with the assert,
+  // but not with the return... wtf. I'm not really sure what happens in
+  // case below..  some of the other existing tests where tripping over this
+  // though.
   // assert(start_effected_range <= endcol);
   // if (start_effected_range <= endcol) {
     // return false;
@@ -1002,8 +1028,7 @@ void extmark_adjust(buf_T * buf,
       // Delete the line
       if (amount == MAXLNUM) {
         FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
-          extmark_del(buf, extmark->ns_id, extmark->mark_id,
-                        kExtmarkUndo);
+          extmark_del(buf, extmark->ns_id, extmark->mark_id, kExtmarkUndo);
         })
         // TODO(timeyyy): make freeing the line a undoable action
         // see branch extmarks_broken_delete_lines

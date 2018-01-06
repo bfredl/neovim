@@ -1628,7 +1628,6 @@ change_indent (
   vcol = vc;
 
   /*
-     l
    * For Replace mode we need to fix the replace stack later, which is only
    * possible when the cursor is in the indent.  Remember the number of
    * characters before the cursor if it's possible.

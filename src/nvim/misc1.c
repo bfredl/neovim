@@ -1727,8 +1727,8 @@ truncate_line (
  * Delete "nlines" lines at the cursor.
  * Saves the lines for undo first if "undo" is TRUE.
  */
-void 
-del_lines (
+void
+del_lines(
     long nlines,                    // number of lines to delete
     int undo                        // if TRUE, prepare for undo
 )

@@ -131,7 +131,7 @@ describe(":substitute, inccommand=split", function()
   end)
 end)
 
-describe(":substitute, 'inccommand' preserves", function()
+describe(":substitute, 'inccommand' preserves #inc", function()
   before_each(clear)
 
   it('listed buffers (:ls)', function()
@@ -293,7 +293,7 @@ describe(":substitute, 'inccommand' preserves", function()
 
 end)
 
-describe(":substitute, 'inccommand' preserves undo", function()
+describe(":substitute, 'inccommand' preserves undo #inc", function()
   local cases = { "", "split", "nosplit" }
 
   local substrings = {
@@ -2045,7 +2045,7 @@ describe(":substitute", function()
     ]])
   end)
 
-  it("inccommand=split, with \\zs", function()
+  it("inccommand=split, with \\zs #inc", function()
     common_setup(screen, "split", multiline_text)
     feed("gg")
 
@@ -2069,7 +2069,7 @@ describe(":substitute", function()
     ]])
   end)
 
-  it("inccommand=nosplit, with \\zs", function()
+  it("inccommand=nosplit, with \\zs #inc", function()
     common_setup(screen, "nosplit", multiline_text)
     feed("gg")
 

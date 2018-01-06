@@ -788,8 +788,8 @@ struct file_buffer {
   kvec_t(BufhlLine *) b_bufhl_move_space;  // temporary space for highlights
 
   IntMap *b_extmark_ns;         // extmark namespaces
-  kbtree_t(extlines) b_extlines; // extmarks
-  kvec_t(ExtMarkLine *) b_extmark_move_space; // temp space for extmarks
+  kbtree_t(extlines) b_extlines;  // extmarks
+  kvec_t(ExtMarkLine *) b_extmark_move_space;  // temp space for extmarks
 
   // array of channelids which have asked to receive updates for this
   // buffer.
