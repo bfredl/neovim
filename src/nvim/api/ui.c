@@ -16,6 +16,8 @@
 #include "nvim/api/private/helpers.h"
 #include "nvim/popupmnu.h"
 #include "nvim/cursor_shape.h"
+#include "nvim/screen.h"
+#include "nvim/window.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/ui.c.generated.h"
@@ -156,6 +158,39 @@ void nvim_ui_try_resize(uint64_t channel_id, Integer width,
   ui->width = (int)width;
   ui->height = (int)height;
   ui_refresh();
+}
+
+void nvim_ui_grid_try_resize(uint64_t channel_id, Integer grid, Integer width,
+                             Integer height, Error *err)
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY
+{
+  if (grid == 1) {
+    nvim_ui_try_resize(channel_id, width, height, err);
+    return;
+  }
+
+  if (!pmap_has(uint64_t)(connected_uis, channel_id)) {
+    api_set_error(err, kErrorTypeException, "UI is not attached for channel");
+    return;
+  }
+
+  if (width <= 0 || height <= 0) {
+    api_set_error(err, kErrorTypeValidation,
+                  "Expected width > 0 and height > 0");
+    return;
+  }
+
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if (wp->w_floating && wp->w_grid_handle == grid) {
+      if (width != wp->w_width && height != wp->w_height) {
+        win_config_float(wp, (int)width, (int)height, wp->w_float_config);
+        redraw_win_later(wp, NOT_VALID);
+      }
+      return;
+    }
+  }
+
+  api_set_error(err, kErrorTypeValidation, "No such grid");
 }
 
 void nvim_ui_set_option(uint64_t channel_id, String name,
