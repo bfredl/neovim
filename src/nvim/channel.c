@@ -242,7 +242,9 @@ void channel_incref(Channel *channel)
 void channel_decref(Channel *channel)
 {
   if (!(--channel->refcount)) {
-    multiqueue_put(main_loop.fast_events, free_channel_event, 1, channel);
+    //multiqueue_put(main_loop.fast_events, free_channel_event, 1, channel);
+  loop_schedule(&main_loop,
+                event_create(free_channel_event, 1, channel));
   }
 }
 
@@ -291,7 +293,9 @@ static void channel_destroy_early(Channel *chan)
   }
 
   // uv will still keep a reference to our memory until next event loop tick, so delay free
-  multiqueue_put(main_loop.fast_events, free_channel_event, 1, chan);
+  //multiqueue_put(main_loop.fast_events, free_channel_event, 1, chan);
+  loop_schedule(&main_loop,
+                event_create(free_channel_event, 1, chan));
 }
 
 
