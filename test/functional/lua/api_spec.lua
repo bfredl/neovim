@@ -153,7 +153,7 @@ describe('luaeval(vim.api.…)', function()
     eq(4, eval([[type(luaeval('vim.api.nvim__id_dictionary({})'))]]))
   end)
 
-  it('errors out correctly when working with API', function()
+  pending('errors out correctly when working with API', function()
     -- Conversion errors
     eq('Vim(call):E5108: Error while calling lua chunk for luaeval(): [string "<VimL compiled string>"]:1: Cannot convert given lua type',
        exc_exec([[call luaeval("vim.api.nvim__id(vim.api.nvim__id)")]]))
