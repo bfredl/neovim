@@ -697,7 +697,7 @@ bool parse_float_config(Dictionary config, FloatConfig *out, bool reconf)
       if (val.type == kObjectTypeInteger) {
         out->x = val.data.integer;
       } else if (val.type == kObjectTypeFloat) {
-        out->x = (int)val.data.floating;
+        out->x = val.data.floating;
       } else {
         return false;
       }
@@ -705,7 +705,7 @@ bool parse_float_config(Dictionary config, FloatConfig *out, bool reconf)
       if (val.type == kObjectTypeInteger) {
         out->y = val.data.integer;
       } else if (val.type == kObjectTypeFloat) {
-        out->y = (int)val.data.floating;
+        out->y = val.data.floating;
       } else {
         return false;
       }
