@@ -283,12 +283,15 @@ static void channel_destroy_early(Channel *chan)
   if ((chan->id != --next_chan_id)) {
     abort();
   }
+  pmap_del(uint64_t)(channels, chan->id);
+  chan->id = 0;
 
   if ((--chan->refcount != 0)) {
     abort();
   }
 
-  free_channel_event((void **)&chan);
+  // uv will still keep a reference to our memory until next event loop tick, so delay free
+  multiqueue_put(main_loop.fast_events, free_channel_event, 1, chan);
 }
 
 
