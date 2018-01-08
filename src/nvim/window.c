@@ -2460,6 +2460,9 @@ void win_free_all(void)
   while (first_tabpage->tp_next != NULL)
     tabpage_close(TRUE);
 
+  while (lastwin != NULL && lastwin->w_floating)
+    (void)win_free_mem(lastwin, &dummy, NULL);
+
   if (aucmd_win != NULL) {
     (void)win_free_mem(aucmd_win, &dummy, NULL);
     aucmd_win = NULL;
@@ -3105,6 +3108,7 @@ frame_minwidth (
  *
  * Used by ":bdel" and ":only".
  */
+// TODO: make me handle floats correctly
 void 
 close_others (
     int message,
