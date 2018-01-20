@@ -1077,7 +1077,7 @@ describe('Extmarks buffer api', function()
   end)
 
   -- TODO catch exceptions
-  it('throws consistent error codes #todo', function()
+  pending('throws consistent error codes #todo', function()
     local buf_invalid = 9
     local ns_invalid = ns2 + 1
     rv = buffer('set_mark', buf_invalid, ns, marks[1], positions[1][1], positions[1][2])

@@ -838,7 +838,7 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
                                      Integer namespace,
                                      Integer id,
                                      Error *err)
-    FUNC_API_SINCE(3)
+    FUNC_API_SINCE(4)
 {
   Array rv = ARRAY_DICT_INIT;
 
@@ -882,7 +882,7 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
                                    Integer amount,
                                    Boolean reverse,
                                    Error *err)
-    FUNC_API_SINCE(3)
+    FUNC_API_SINCE(4)
 {
   Array rv = ARRAY_DICT_INIT;
 
@@ -965,7 +965,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
                           Integer row,
                           Integer col,
                           Error *err)
-    FUNC_API_SINCE(3)
+    FUNC_API_SINCE(4)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1014,7 +1014,7 @@ Integer nvim_buf_del_mark(Buffer buffer,
                           Integer namespace,
                           Integer id,
                           Error *err)
-    FUNC_API_SINCE(3)
+    FUNC_API_SINCE(4)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
