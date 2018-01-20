@@ -59,7 +59,7 @@
 #include "nvim/globals.h"      // FOR_ALL_BUFFERS
 #include "nvim/map.h"          // pmap ...
 #include "nvim/lib/kbtree.h"   // kbitr ...
-#include "nvim/undo.h"         // get_undo_header
+#include "nvim/undo.h"         // force_get_undo_header
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
@@ -384,7 +384,10 @@ static void u_extmark_set(buf_T *buf,
                           colnr_T col,
                           UndoObjectType undo_type)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   ExtmarkSet set;
   set.ns_id = ns;
@@ -407,7 +410,10 @@ static void u_extmark_update(buf_T *buf,
                              linenr_T lnum,
                              colnr_T col)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   ExtmarkUpdate update;
   update.ns_id = ns;
@@ -432,7 +438,11 @@ static bool u_compact_col_adjust(buf_T *buf,
                                  long lnum_amount,
                                  long col_amount)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return false;
+  }
+
   if (kv_size(uhp->uh_extmark) < 1) {
     return false;
   }
@@ -469,7 +479,10 @@ void u_extmark_col_adjust(buf_T *buf,
                                  long lnum_amount,
                                  long col_amount)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   if (!u_compact_col_adjust(buf, lnum, mincol, lnum_amount, col_amount)) {
     ColAdjust col_adjust;
@@ -491,7 +504,10 @@ void u_extmark_col_adjust_delete(buf_T *buf,
                                  colnr_T mincol,
                                  colnr_T endcol)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   ColAdjustDelete col_adjust_delete;
   col_adjust_delete.lnum = lnum;
@@ -511,7 +527,10 @@ static void u_extmark_adjust(buf_T * buf,
                              long amount,
                              long amount_after)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   Adjust adjust;
   adjust.line1 = line1;
@@ -534,7 +553,10 @@ void u_extmark_move(buf_T *buf,
                     linenr_T num_lines,
                     linenr_T extra)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   AdjustMove move;
   move.line1 = line1;
@@ -559,7 +581,10 @@ void u_extmark_copy(buf_T *buf,
                     linenr_T u_lnum,
                     colnr_T u_col)
 {
-  u_header_T  *uhp = get_undo_header(buf);
+  u_header_T  *uhp = force_get_undo_header(buf);
+  if (!uhp) {
+    return;
+  }
 
   ExtmarkCopy copy;
   ExtmarkUndoObject undo;
