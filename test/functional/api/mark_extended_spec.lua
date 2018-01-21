@@ -8,10 +8,8 @@ local Screen = require('test.functional.ui.screen')
 local request = helpers.request
 local eq = helpers.eq
 local buffer = helpers.buffer
-local nvim = helpers.nvim
 local insert = helpers.insert
 local feed = helpers.feed
-local expect = helpers.expect
 
 local SCREEN_WIDTH = 15
 local TO_START = {-1, -1}
@@ -19,12 +17,10 @@ local TO_END = {-1, -1}
 local ALL = -1
 local RANDOM_MARK_ID = 0
 
-local function check_undo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
-  feed("u")
-  rv = buffer('lookup_mark', buf, ns, mark)
-  eq(sr, rv[2])
-  eq(sc, rv[3])
-end
+local rv = nil
+local rv1 = nil
+local rv2 = nil
+local buf = nil
 
 local function check_undo_redo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
   feed("u")
@@ -39,7 +35,6 @@ end
 
 describe('Extmarks buffer api', function()
   local screen
-  local curbuf
   local marks, positions, ns_string2, ns_string, init_text, row, col
   local ns, ns2
 
