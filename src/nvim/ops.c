@@ -1626,23 +1626,27 @@ setmarks:
   }
   curbuf->b_op_start = oap->start;
 
-  // TODO refactor
+  // TODO(timeyyy): refactor
   // Move extended marks
-  // + 1 to change to buf mode, then plus 1 because we only move marks after the deleted col
+  // + 1 to change to buf mode, then plus 1 because we only move marks after
+  // the deleted col
   colnr_T mincol = oap->start.col + 1 + 1;
   colnr_T endcol = oap->end.col + 1 + 1;
   if (oap->motion_type == kMTBlockWise) {
-    // TODO refactor extmark_col_adjust to take lnumstart, lnum_end ?
+    // TODO(timeyyy): refactor extmark_col_adjust to take lnumstart, lnum_end ?
     for (lnum = curwin->w_cursor.lnum; lnum <= oap->end.lnum; lnum++) {
-      extmark_col_adjust_delete(curbuf, lnum, mincol, bd.end_vcol + 1, kExtmarkUndo);
+      extmark_col_adjust_delete(curbuf, lnum, mincol, bd.end_vcol + 1,
+                                kExtmarkUndo);
     }
   } else if (oap->motion_type == kMTCharWise) {
     lnum = curwin->w_cursor.lnum;
     if (oap->is_VIsual) {
-      // + 1 to change to buf mode, then plus 1 because we copy one more than what we modify
+      // + 1 to change to buf mode, then plus 1 because we copy one more than
+      // what we modify
       endcol = oap->end.col + 1 + 1;
     } else {
-      // for some reason the end.col in normal modde is + 1 as when in visual mode
+      // for some reason the end.col in normal modde is + 1 as when
+      // in visual mode
       endcol = oap->end.col + 1;
     }
     extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo);
@@ -3341,7 +3345,9 @@ end:
     extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
   // Move extmark with blockwise put
   } else if (y_type == kMTBlockWise) {
-    for (lnum = curbuf->b_op_start.lnum; lnum <= curbuf->b_op_end.lnum; lnum++) {
+    for (lnum = curbuf->b_op_start.lnum;
+         lnum <= curbuf->b_op_end.lnum;
+         lnum++) {
       extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
     }
   }

@@ -831,14 +831,14 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
 ///
 /// @param buffer The buffer handle
 /// @param namespace a identifier returned previously with nvim_create_namespace
-/// @param id any nsmark identifier that uniquely selects a nsmark (no positions)
+/// @param id any nsmark id that selects only one nsmark (no positions)
 /// @param[out] err Details of an error that may have occurred
 /// @return [nsmark_id, row, col]
 ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
                                      Integer namespace,
                                      Integer id,
                                      Error *err)
-    FUNC_API_SINCE(4)
+  FUNC_API_SINCE(4)
 {
   Array rv = ARRAY_DICT_INIT;
 
@@ -882,7 +882,7 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
                                    Integer amount,
                                    Boolean reverse,
                                    Error *err)
-    FUNC_API_SINCE(4)
+  FUNC_API_SINCE(4)
 {
   Array rv = ARRAY_DICT_INIT;
 
@@ -915,7 +915,7 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
     return rv;
   }
 
-  // TODO: assert lower <= upper
+  // TODO(timeyyy): assert lower <= upper
 
   ExtendedMark *extmark;
   Array mark = ARRAY_DICT_INIT;
@@ -945,7 +945,6 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
   }
   kv_destroy(extmarks_in_range);
   return rv;
-
 }
 
 /// Create or update a namespaced mark at a position
@@ -965,7 +964,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
                           Integer row,
                           Integer col,
                           Error *err)
-    FUNC_API_SINCE(4)
+  FUNC_API_SINCE(4)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -978,7 +977,9 @@ Integer nvim_buf_set_mark(Buffer buffer,
     return rv;
   }
   if (row < 1 || col < 1) {
-    api_set_error(err, kErrorTypeValidation, _("Row and column must be greater than 0"));
+    api_set_error(err,
+                  kErrorTypeValidation,
+                  _("Row and column must be greater than 0"));
     return rv;
   }
 
@@ -1014,7 +1015,7 @@ Integer nvim_buf_del_mark(Buffer buffer,
                           Integer namespace,
                           Integer id,
                           Error *err)
-    FUNC_API_SINCE(4)
+  FUNC_API_SINCE(4)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1028,7 +1029,7 @@ Integer nvim_buf_del_mark(Buffer buffer,
   }
 
   rv = (Integer)extmark_del(buf, (uint64_t)namespace, (uint64_t)id,
-                              kExtmarkUndo);
+                            kExtmarkUndo);
   return rv;
 }
 
@@ -1094,7 +1095,7 @@ Integer nvim_buf_add_highlight(Buffer buffer,
   }
 
   ns_id = bufhl_add_hl(buf, (int)ns_id, hlg_id, (linenr_T)line+1,
-                        (colnr_T)col_start+1, (colnr_T)col_end);
+                       (colnr_T)col_start+1, (colnr_T)col_end);
   return ns_id;
 }
 

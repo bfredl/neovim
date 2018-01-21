@@ -822,7 +822,8 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
     curbuf->b_op_start.lnum = dest - num_lines + 1;
     curbuf->b_op_end.lnum = dest;
   } else {
-    mark_adjust_nofold(dest + 1, line1 - 1, num_lines, 0L, false, kExtmarkNoUndo);
+    mark_adjust_nofold(dest + 1, line1 - 1, num_lines, 0L, false,
+                       kExtmarkNoUndo);
     FOR_ALL_TAB_WINDOWS(tab, win) {
       if (win->w_buffer == curbuf) {
         foldMoveRange(&win->w_folds, dest + 1, line1 - 1, line2);

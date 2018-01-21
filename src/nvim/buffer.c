@@ -5293,7 +5293,8 @@ int bufhl_add_hl(buf_T *buf,
                  int hl_id,
                  linenr_T lnum,
                  colnr_T col_start,
-                 colnr_T col_end) {
+                 colnr_T col_end)
+{
   if (src_id == 0) {
     // Deprecated: create anonymous namespace
     src_id = (int)nvim_create_namespace((String)STRING_INIT);

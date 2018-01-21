@@ -59,7 +59,7 @@ struct u_header {
   long uh_cursor_vcol;
   int uh_flags;                 /* see below */
   fmark_T uh_namedm[NMARKS];    /* marks before undo/after redo */
-  extmark_undo_vec_t uh_extmark; /* info to move extmarks */
+  extmark_undo_vec_t uh_extmark;  // info to move extmarks */
   visualinfo_T uh_visual;       /* Visual areas before undo/after redo */
   time_t uh_time;               /* timestamp when the change was made */
   long uh_save_nr;              /* set when the file was saved after the
