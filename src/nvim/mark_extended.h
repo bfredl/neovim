@@ -63,7 +63,9 @@
         kb_itr_next(markitems, &extline->items, &mitr);\
     } \
     ExtendedMark *extmark;\
-    for (; kb_itr_valid(&mitr); kb_itr_next(markitems, &extline->items, &mitr)) { \
+    for (; \
+         kb_itr_valid(&mitr); \
+         kb_itr_next(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
       if (u_col != Extremity \
           && extmark->line->lnum == u_lnum \
@@ -87,7 +89,9 @@
         kb_itr_prev(markitems, &extline->items, &mitr);\
     } \
     ExtendedMark *extmark;\
-    for (; kb_itr_valid(&mitr); kb_itr_prev(markitems, &extline->items, &mitr)) { \
+    for (; \
+         kb_itr_valid(&mitr); \
+         kb_itr_prev(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
       if (l_col != Extremity \
           && extmark->line->lnum == l_lnum \

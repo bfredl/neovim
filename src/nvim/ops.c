@@ -4202,7 +4202,7 @@ format_lines (
           (void)del_bytes(next_leader_len, false, false);
           mark_col_adjust(curwin->w_cursor.lnum, (colnr_T)0, 0L,
                           (long)-next_leader_len, kExtmarkUndo);
-        } else if (second_indent > 0) {  /* the "leader" for FO_Q_SECOND */
+        } else if (second_indent > 0) {  // the "leader" for FO_Q_SECOND
           char_u *p = get_cursor_line_ptr();
           int indent = (int)(skipwhite(p) - p);
 
