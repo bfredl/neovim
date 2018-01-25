@@ -4232,6 +4232,8 @@ win_free (
 
   xfree(wp->w_p_cc_cols);
 
+  free_screengrid(&wp->grid);
+
   if (wp != aucmd_win)
     win_remove(wp, tp);
   if (autocmd_busy) {
