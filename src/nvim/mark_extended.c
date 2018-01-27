@@ -945,7 +945,7 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum,
 }
 
 // Adjust marks by doing a delete on a line
-// TODO(timeyyy): change mincol to be for the mark toe be copied, not moved
+// TODO(timeyyy): change mincol to be for the mark to be copied, not moved
 // mincol: First column that needs to be moved (start of delete range)
 // endcol: Last column which needs to be copied (end of delete range + 1)
 void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
@@ -953,14 +953,7 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
                                ExtmarkOp undo)
 {
   colnr_T start_effected_range = mincol - 1;
-  // TODO(timeyyy): For some reason our extmark tests work with the assert,
-  // but not with the return... wtf. I'm not really sure what happens in
-  // case below..  some of the other existing tests where tripping over this
-  // though.
-  // assert(start_effected_range <= endcol);
-  // if (start_effected_range <= endcol) {
-    // return false;
-  // }
+  assert(start_effected_range <= endcol);
 
   bool marks_moved;
   if (undo == kExtmarkUndo) {
