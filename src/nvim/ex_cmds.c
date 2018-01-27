@@ -3260,8 +3260,9 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
   int save_b_changed = curbuf->b_changed;
   bool preview = (State & CMDPREVIEW);
 
-  // Mark so Undo works, inccomand tests fail without this
+  // inccomand tests fail without this check
   if (!preview) {
+    // Requried for Undo to work for nsmarks,
     u_save_cursor();
   }
 
@@ -3878,16 +3879,19 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
 
           ADJUST_SUB_FIRSTLNUM();
 
-          // Adjust extmarks, by delete and then insert
-          colnr_T  mincol = regmatch.startpos[0].col + 1;
-          colnr_T endcol = regmatch.endpos[0].col + 1;
-          // Delete, + 1 because we only move marks after the deleted col
-          extmark_col_adjust_delete(curbuf, lnum, mincol + 1, endcol,
-                                    kExtmarkUndo);
-          // Insert, sublen seems to be the value we need but + 1...
-          colnr_T col_amount = sublen - 1;
-          extmark_col_adjust(curbuf, lnum, mincol, 0, col_amount,
-                             kExtmarkUndo);
+          // TODO(timeyyy): should we be moving when preview?
+          if (!preview) {
+            // Adjust extmarks, by delete and then insert
+            colnr_T  mincol = regmatch.startpos[0].col + 1;
+            colnr_T endcol = regmatch.endpos[0].col + 1;
+            // Delete, + 1 because we only move marks after the deleted col
+            extmark_col_adjust_delete(curbuf, lnum, mincol + 1, endcol,
+                                      kExtmarkUndo);
+            // Insert, sublen seems to be the value we need but + 1...
+            colnr_T col_amount = sublen - 1;
+            extmark_col_adjust(curbuf, lnum, mincol, 0, col_amount,
+                               kExtmarkUndo);
+          }
 
           // Now the trick is to replace CTRL-M chars with a real line
           // break.  This would make it impossible to insert a CTRL-M in
