@@ -283,6 +283,14 @@ void reset_grid(void) {
   }
 }
 
+static inline bool overlap(win_T *wp1, win_T *wp2)
+{
+    return wp1->w_winrow + wp1->w_height > wp2->w_winrow
+           && wp2->w_winrow + wp2->w_height > wp1->w_winrow
+           && wp1->w_wincol + wp1->w_width > wp2->w_winrow
+           && wp2->w_wincol + wp2->w_width > wp1->w_winrow;
+}
+
 /*
  * update_screen()
  *
@@ -467,6 +475,8 @@ void update_screen(int type)
         start_search_hl();
       }
       win_update(wp);
+      // set to true later, when overdrawn
+      wp->w_grid_is_dirty = false;
     }
 
     /* redraw status line after the window to minimize cursor movement */
@@ -497,6 +507,12 @@ void update_screen(int type)
         start_search_hl();
       }
       win_update(wp);
+      wp->w_grid_is_dirty = false;
+      FOR_ALL_WINDOWS_IN_TAB(wp2, curtab) {
+        if (wp != wp2 && overlap(wp,wp2)) {
+          wp2->w_grid_is_dirty = true;
+        }
+      }
     }
 
   }
@@ -6627,6 +6643,11 @@ int win_del_lines(win_T *wp, int row, int line_count, int invalid, int mayclear)
 static int win_do_lines(win_T *wp, int row, int line_count, int mayclear, int del)
 {
   if (!redrawing() || line_count <= 0) {
+    return FAIL;
+  }
+
+  if (wp->w_grid_is_dirty) {
+    // TODO(bfredl): use double buffering and copy in the dirty lines
     return FAIL;
   }
 

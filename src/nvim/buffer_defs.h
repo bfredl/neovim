@@ -1189,6 +1189,8 @@ struct window_S {
   ScreenGrid grid; // own grid, only used for floats
   int w_grid_handle;
 
+  bool w_grid_is_dirty; ///< wheter window is below a float (TUI only)
+
   /*
    * w_fraction is the fractional row of the cursor within the window, from
    * 0 at the top row to FRACTION_MULT at the last row.
