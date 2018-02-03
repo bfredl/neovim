@@ -110,6 +110,7 @@
 #include "nvim/syntax.h"
 #include "nvim/terminal.h"
 #include "nvim/ui.h"
+#include "nvim/compositor.h"
 #include "nvim/undo.h"
 #include "nvim/version.h"
 #include "nvim/window.h"
@@ -6004,6 +6005,10 @@ retry:
    * thus we must not redraw here!
    */
   ++RedrawingDisabled;
+
+  // win_new_shellsize will recompute floats posititon, but tell the
+  // compositor to now redraw them yet
+  compositor_invalidate_screen();
 
   win_new_shellsize();      /* fit the windows in the new sized shell */
 

@@ -33,6 +33,7 @@
 #include "nvim/popupmnu.h"
 #include "nvim/screen.h"
 #include "nvim/highlight.h"
+#include "nvim/compositor.h"
 #include "nvim/window.h"
 #include "nvim/cursor_shape.h"
 #ifdef FEAT_TUI
@@ -85,21 +86,25 @@ static char uilog_last_event[1024] = { 0 };
 //
 // See http://stackoverflow.com/a/11172679 for how it works.
 #ifdef _MSC_VER
-# define UI_CALL(funname, ...) \
+# define UI_CALL_CND(CND, funname, ...) \
     do { \
       UI_LOG(funname, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
-        UI_CALL_MORE(funname, __VA_ARGS__); \
+        if (CND) { \
+          UI_CALL_MORE(funname, __VA_ARGS__); \
+        } \
       } \
     } while (0)
 #else
-# define UI_CALL(...) \
+# define UI_CALL_CND(CND, ...) \
     do { \
       UI_LOG(__VA_ARGS__, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
-        UI_CALL_HELPER(CNT(__VA_ARGS__), __VA_ARGS__); \
+        if (CND) { \
+          UI_CALL_HELPER(CNT(__VA_ARGS__), __VA_ARGS__); \
+        } \
       } \
     } while (0)
 #endif
@@ -112,9 +117,17 @@ static char uilog_last_event[1024] = { 0 };
 #define UI_CALL_MORE(method, ...) if (ui->method) ui->method(ui, __VA_ARGS__)
 #define UI_CALL_ZERO(method) if (ui->method) ui->method(ui)
 
+#define UI_CALL(...) UI_CALL_CND(true, __VA_ARGS__)
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ui_events_call.generated.h"
 #endif
+
+void ui_init(void)
+{
+  default_grid.handle = 1;
+  compositor_init();
+}
 
 void ui_builtin_start(void)
 {
@@ -155,7 +168,7 @@ bool ui_rgb_attached(void)
 
 bool ui_active(void)
 {
-  return ui_count != 0;
+  return ui_count > 1;
 }
 
 void ui_event(char *name, Array args)
@@ -257,6 +270,9 @@ void ui_attach_impl(UI *ui)
   if (ui_count == MAX_UI_COUNT) {
     abort();
   }
+  if (!ui->ui_ext[kUIFloat] && !ui->ui_ext[kUIMultigrid]) {
+    compositor_attach(ui);
+  }
 
   uis[ui_count++] = ui;
   ui_refresh_options();
@@ -303,6 +319,10 @@ void ui_detach_impl(UI *ui)
       && !exiting) {
     ui_schedule_refresh();
   }
+
+  if (!ui->ui_ext[kUIFloat]) {
+    compositor_detach(ui);
+  }
 }
 
 void ui_set_ext_option(UI *ui, UIExtension ext, bool active)
@@ -322,9 +342,10 @@ void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol,
 {
   size_t off = grid->line_offset[row] + (size_t)startcol;
 
-  UI_CALL(raw_line, grid->handle, row, startcol, endcol, clearcol, clearattr,
-          wrap, (const schar_T *)grid->chars + off,
-          (const sattr_T *)grid->attrs + off);
+  UI_CALL_CND(!ui->composed, raw_line, grid->handle, row,
+              startcol, endcol, clearcol,
+              clearattr, wrap, (const schar_T *)grid->chars + off,
+              (const sattr_T *)grid->attrs + off);
 
   if (p_wd) {  // 'writedelay': flush & delay each time.
     int old_row = cursor_row, old_col = cursor_col;
@@ -336,6 +357,15 @@ void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol,
     os_microdelay(wd * 1000u, true);
     ui_grid_cursor_goto(old_grid, old_row, old_col);
   }
+}
+
+void ui_composed_call_raw_line(Integer draw_grid, Integer row,
+                               Integer startcol, Integer endcol,
+                               Integer clearcol, Integer clearattr, bool wrap,
+                               const schar_T *chunk, const sattr_T *attrs)
+{
+  UI_CALL_CND(ui->composed, raw_line, draw_grid, row, startcol, endcol,
+              clearcol, clearattr, wrap, chunk, attrs);
 }
 
 void ui_cursor_goto(int new_row, int new_col)
@@ -421,7 +451,7 @@ bool ui_is_external(UIExtension widget)
 Array ui_array(void)
 {
   Array all_uis = ARRAY_DICT_INIT;
-  for (size_t i = 0; i < ui_count; i++) {
+  for (size_t i = 1; i < ui_count; i++) {
     UI *ui = uis[i];
     Dictionary info = ARRAY_DICT_INIT;
     PUT(info, "width", INTEGER_OBJ(ui->width));

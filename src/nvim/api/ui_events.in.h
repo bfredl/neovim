@@ -29,7 +29,7 @@ void bell(void)
 void visual_bell(void)
   FUNC_API_SINCE(3);
 void flush(void)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void suspend(void)
   FUNC_API_SINCE(3) FUNC_API_BRIDGE_IMPL;
 void set_title(String title)
@@ -71,16 +71,16 @@ void hl_attr_define(Integer id, HlAttrs rgb_attrs, HlAttrs cterm_attrs,
                     Array info)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
 void grid_resize(Integer grid, Integer width, Integer height)
-  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL;
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void grid_clear(Integer grid)
-  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL;
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void grid_cursor_goto(Integer grid, Integer row, Integer col)
-  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL;
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void grid_line(Integer grid, Integer row, Integer col_start, Array data)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 void grid_scroll(Integer grid, Integer top, Integer bot,
                  Integer left, Integer right, Integer rows, Integer cols)
-  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL;
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void grid_destroy(Integer grid)
   FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
 
@@ -90,9 +90,9 @@ void win_pos(Integer grid, Integer win, Integer startrow,
 void win_hide(Integer grid)
   FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
 void win_scroll_over_start(void)
-  FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(6) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void win_scroll_over_reset(void)
-  FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(6) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 
 void popupmenu_show(Array items, Integer selected,
                     Integer row, Integer col, Integer grid)

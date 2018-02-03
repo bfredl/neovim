@@ -54,6 +54,11 @@ typedef struct {
   int requested_cols;
 
   int was_resized;
+
+  // state owned by the compositor.
+  int comp_row;
+  int comp_col;
+  size_t comp_index;
 } ScreenGrid;
 
 #endif  // NVIM_GRID_DEFS_H
