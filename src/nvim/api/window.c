@@ -429,12 +429,21 @@ void nvim_win_config_float(Window window, Integer width, Integer height,
   redraw_later(NOT_VALID);
 }
 
-Boolean nvim__win_dirty(Window window, Error* err)
+Integer nvim__win_dirty(Window window, Error* err)
 {
   win_T *win = find_window_by_handle(window, err);
   if (!win) {
     return false;;
   }
-  return win->w_grid_is_dirty;
+  return 1*(int)win->w_buffer_overdrawn + 2*(int)win->w_status_overdrawn;
+}
+
+Integer nvim__win_redraw_count(Window window, Error* err)
+{
+  win_T *win = find_window_by_handle(window, err);
+  if (!win) {
+    return false;;
+  }
+  return win->w_redraw_count;
 }
 

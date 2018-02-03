@@ -157,6 +157,12 @@ StlClickDefinition *tab_page_click_defs = NULL;
 
 long tab_page_click_defs_size = 0;
 
+typedef enum {
+  kOverlapBuffer,
+  kOverlapStatus,
+  kOverlapAll,
+} OverlapPart;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "screen.c.generated.h"
 #endif
@@ -283,12 +289,23 @@ void reset_grid(void) {
   }
 }
 
-static inline bool overlap(win_T *wp1, win_T *wp2)
+static inline bool overlap(win_T *wp1, win_T *wp2, OverlapPart what)
 {
-    return wp1->w_winrow + wp1->w_height > wp2->w_winrow
-           && wp2->w_winrow + wp2->w_height > wp1->w_winrow
-           && wp1->w_wincol + wp1->w_width > wp2->w_winrow
-           && wp2->w_wincol + wp2->w_width > wp1->w_winrow;
+  int wp1_startrow = wp1->w_winrow;
+  int wp1_height = wp1->w_height;
+  if (what == kOverlapAll) {
+    wp1_height += wp1->w_status_height;
+  } else if (what == kOverlapStatus) {
+    if (wp1->w_status_height == 0) {
+      return false;
+    }
+    wp1_startrow += wp1_height;
+    wp1_height = wp1->w_status_height;
+  }
+  return wp1_startrow + wp1_height > wp2->w_winrow
+         && wp2->w_winrow + wp2->w_height > wp1_startrow
+         && wp1->w_wincol + wp1->w_width > wp2->w_winrow
+         && wp2->w_wincol + wp2->w_width > wp1->w_winrow;
 }
 
 /*
@@ -454,7 +471,6 @@ void update_screen(int type)
   did_one = FALSE;
   search_hl.rm.regprog = NULL;
 
-
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
 
     if (wp->w_redr_type != 0) {
@@ -470,19 +486,28 @@ void update_screen(int type)
         }
       }
 
+      if (!multigrid && wp->w_buffer_overdrawn)
+        FOR_ALL_WINDOWS_IN_TAB(wp2, curtab) {
+        if (wp2->w_floating && overlap(wp, wp2, kOverlapBuffer)) {
+          wp2->w_redr_type = NOT_VALID;
+        }
+      }
+
       if (!did_one) {
         did_one = TRUE;
         start_search_hl();
       }
       win_update(wp);
+      wp->w_redraw_count++;
       // set to true later, when overdrawn
-      wp->w_grid_is_dirty = false;
+      wp->w_buffer_overdrawn = false;
     }
 
     /* redraw status line after the window to minimize cursor movement */
     if (wp->w_redr_status) {
       // TODO: we could do better:
       //assert(!wp->w_floating);
+
       win_redr_status(wp);
     }
   }
@@ -496,21 +521,29 @@ void update_screen(int type)
       continue;
     }
 
-    if (did_one) {
-      // TODO: be a lot more precise
-      wp->w_redr_type = NOT_VALID;
-    }
-
     if (wp->w_redr_type != 0) {
       if (!did_one) {
         did_one = TRUE;
         start_search_hl();
       }
       win_update(wp);
-      wp->w_grid_is_dirty = false;
+      wp->w_redraw_count++;
+      wp->w_buffer_overdrawn = false;
+      bool after_wp = false;
       FOR_ALL_WINDOWS_IN_TAB(wp2, curtab) {
-        if (wp != wp2 && overlap(wp,wp2)) {
-          wp2->w_grid_is_dirty = true;
+        if (wp2 == wp) {
+          after_wp = true;
+          continue;
+        }
+        if (overlap(wp2, wp, kOverlapBuffer)) {
+          if (after_wp) {
+            wp2->w_redr_type = NOT_VALID;
+          } else {
+            wp2->w_buffer_overdrawn = true;
+          }
+        }
+        if (overlap(wp2, wp, kOverlapStatus)) {
+          wp2->w_status_overdrawn = true;
         }
       }
     }
@@ -5007,6 +5040,14 @@ void win_redr_status(win_T *wp)
   busy = true;
 
   wp->w_redr_status = FALSE;
+
+  if (wp->w_status_overdrawn)
+    FOR_ALL_WINDOWS_IN_TAB(wp2, curtab) {
+    if (wp2->w_floating && overlap(wp, wp2, kOverlapStatus)) {
+      redraw_win_later(wp2, NOT_VALID);
+    }
+  }
+  wp->w_status_overdrawn = false;
   if (wp->w_status_height == 0) {
     // no status line, can only be last window
     redraw_cmdline = true;
@@ -6646,7 +6687,7 @@ static int win_do_lines(win_T *wp, int row, int line_count, int mayclear, int de
     return FAIL;
   }
 
-  if (wp->w_grid_is_dirty) {
+  if (wp->w_buffer_overdrawn) {
     // TODO(bfredl): use double buffering and copy in the dirty lines
     return FAIL;
   }

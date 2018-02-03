@@ -1189,7 +1189,10 @@ struct window_S {
   ScreenGrid grid; // own grid, only used for floats
   int w_grid_handle;
 
-  bool w_grid_is_dirty; ///< wheter window is below a float (TUI only)
+  bool w_buffer_overdrawn; ///< wheter window is below a float (TUI only)
+  bool w_status_overdrawn; ///< wheter window is below a float (TUI only)
+
+  uint64_t w_redraw_count; ///< TODO(bfredl): only for debugging! Is not precise!
 
   /*
    * w_fraction is the fractional row of the cursor within the window, from
