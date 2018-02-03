@@ -74,6 +74,7 @@
 local helpers = require('test.functional.helpers')(nil)
 local request, run, uimeths = helpers.request, helpers.run, helpers.uimeths
 local dedent = helpers.dedent
+local get_session = helpers.get_session
 
 local Screen = {}
 Screen.__index = Screen
@@ -164,10 +165,12 @@ function Screen:attach(options)
     options = {rgb=true}
   end
   uimeths.attach(self._width, self._height, options)
+  self._session = get_session()
 end
 
 function Screen:detach()
   uimeths.detach()
+  self._session = nil
 end
 
 function Screen:try_resize(columns, rows)
@@ -264,7 +267,17 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
   end)
 end
 
+function Screen:check_session()
+  if self._session == nil then
+    error("screen must be attached before receiving screen updates")
+  elseif self._session ~= get_session() then
+    error("screen is not attached to current session")
+  end
+end
+
+
 function Screen:wait(check, timeout)
+  self:check_session()
   local err, checked = false
   local success_seen = false
   local failure_after_success = false
@@ -552,6 +565,7 @@ function Screen:snapshot_util(attrs, ignore)
 end
 
 function Screen:redraw_debug(attrs, ignore, timeout)
+  self:check_session()
   self:print_snapshot(attrs, ignore)
   local function notification_cb(method, args)
     assert(method == 'redraw')

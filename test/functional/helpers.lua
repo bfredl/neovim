@@ -76,6 +76,10 @@ end
 
 local session, loop_running, last_error
 
+local function get_session()
+  return session
+end
+
 local function set_session(s, keep)
   if session and not keep then
     session:close()
@@ -716,6 +720,7 @@ local module = {
   curbuf_contents = curbuf_contents,
   wait = wait,
   sleep = sleep,
+  get_session = get_session,
   set_session = set_session,
   write_file = write_file,
   read_file = read_file,
