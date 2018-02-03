@@ -258,18 +258,19 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
   // global variables. This is ugly but its how the rest of the code expects to
   // find mouse coordinates, and it would be too expensive to refactor this
   // now.
-  int grid = 0, col, row, advance;
+  int grid = -1, col, row, advance;
   // TODO: sscanf probably does not behave as inteded py the original code
+  // TODO: this is reprehensibly ugly
   if ((sscanf(*ptr, "<%d,%d,%d>%n", &grid, &col, &row, &advance) == 3 && advance)
-      || (sscanf(*ptr, "<%d,%d>%n", &col, &row, &advance) == 2 && advance)) {
+      || ((grid = -1) && sscanf(*ptr, "<%d,%d>%n", &col, &row, &advance) == 2 && advance)) {
     if (col >= 0 && row >= 0) {
       // Make sure the mouse position is valid.  Some terminals may
       // return weird values.
-      // TODO: handle multigrid here as well?
-      if (grid == 0 && col >= Columns) {
+      // TODO: handle multigrid validation here as well? 
+      if (grid == -1 && col >= Columns) {
         col = (int)Columns - 1;
       }
-      if (grid == 0 && row >= Rows) {
+      if (grid == -1 && row >= Rows) {
         row = (int)Rows - 1;
       }
       mouse_grid = grid;

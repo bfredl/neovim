@@ -11,13 +11,13 @@
 #include "nvim/ui.h"
 
 void resize(Integer rows, Integer columns)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void clear(void)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void eol_clear(void)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void cursor_goto(Integer row, Integer col)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void mode_info_set(Boolean enabled, Array cursor_styles)
   FUNC_API_SINCE(3);
 void update_menu(void)
@@ -33,19 +33,19 @@ void mouse_off(void)
 void mode_change(String mode, Integer mode_idx)
   FUNC_API_SINCE(3);
 void set_scroll_region(Integer top, Integer bot, Integer left, Integer right)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void scroll(Integer count)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void highlight_set(HlAttrs attrs)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void put(String str)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void bell(void)
   FUNC_API_SINCE(3);
 void visual_bell(void)
   FUNC_API_SINCE(3);
 void flush(void)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void update_fg(Integer fg)
   FUNC_API_SINCE(3) FUNC_API_BRIDGE_IMPL;
 void update_bg(Integer bg)
@@ -64,7 +64,7 @@ void set_icon(String icon)
 void option_set(String name, Object value)
   FUNC_API_SINCE(4);
 void grid_cursor_goto(Integer grid, Integer row, Integer col)
-  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(4) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 
 void popupmenu_show(Array items, Integer selected, Integer row, Integer col)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;

@@ -153,6 +153,7 @@ void event_init(void)
   // finish mspgack-rpc initialization
   channel_init();
   terminal_init();
+  ui_init();
 }
 
 /// @returns false if main_loop could not be closed gracefully

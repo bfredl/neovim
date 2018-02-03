@@ -146,7 +146,7 @@ EXTERN int screen_Columns INIT(= 0);        /* actual size of ScreenLines[] */
 EXTERN int next_grid_handle INIT(= 2);
 EXTERN ScreenGrid default_grid INIT(= {0});
 EXTERN ScreenGrid *current_grid INIT(= &default_grid);
-#define default_grid_handle 1
+
 /*
  * When vgetc() is called, it sets mod_mask to the set of modifiers that are
  * held down based on the MOD_MASK_* symbols that are read first.
