@@ -157,6 +157,7 @@ void event_init(void)
   channel_init();
   server_init();
   terminal_init();
+  ui_init();
 }
 
 /// @returns false if main_loop could not be closed gracefully

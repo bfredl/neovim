@@ -97,6 +97,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->set_title = remote_ui_set_title;
   ui->set_icon = remote_ui_set_icon;
   ui->option_set = remote_ui_option_set;
+  ui->grid_cursor_goto = remote_ui_grid_cursor_goto;
   ui->event = remote_ui_event;
 
   memset(ui->ui_ext, 0, sizeof(ui->ui_ext));
@@ -181,7 +182,7 @@ void nvim_ui_grid_try_resize(uint64_t channel_id, Integer grid, Integer width,
   }
 
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-    if (wp->w_floating && wp->w_grid_handle == grid) {
+    if (wp->w_floating && wp->grid.handle == grid) {
       if (width != wp->w_width && height != wp->w_height) {
         win_config_float(wp, (int)width, (int)height, wp->w_float_config);
         redraw_win_later(wp, NOT_VALID);

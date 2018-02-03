@@ -790,16 +790,16 @@ int utfc_ptr2char_len(const char_u *p, int *pcc, int maxlen)
  * Only to be used when ScreenLinesUC[off] != 0.
  * Returns the produced number of bytes.
  */
-int utfc_char2bytes(int off, char_u *buf)
+int utfc_char2bytes(ScreenGrid *g, int off, char_u *buf)
 {
   int len;
   int i;
 
-  len = utf_char2bytes(ScreenLinesUC[off], buf);
-  for (i = 0; i < Screen_mco; ++i) {
-    if (ScreenLinesC[i][off] == 0)
+  len = utf_char2bytes(g->ScreenLinesUC[off], buf);
+  for (i = 0; i < g->Screen_mco; ++i) {
+    if (g->ScreenLinesC[i][off] == 0)
       break;
-    len += utf_char2bytes(ScreenLinesC[i][off], buf + len);
+    len += utf_char2bytes(g->ScreenLinesC[i][off], buf + len);
   }
   return len;
 }

@@ -1250,7 +1250,7 @@ static void redraw(bool restore_cursor)
     save_row = ui_current_row();
     save_col = ui_current_col();
     // TODO: this is probably not necessary
-    save_grid = ui_get_grid();
+    //save_grid = ui_get_grid();
   }
   block_autocmds();
 
@@ -1263,7 +1263,7 @@ static void redraw(bool restore_cursor)
   }
 
   if (restore_cursor) {
-    ui_set_grid(save_grid);
+    //ui_set_grid(save_grid);
     ui_cursor_goto(save_row, save_col);
   } else if (term) {
     curwin->w_wrow = term->cursor.row;

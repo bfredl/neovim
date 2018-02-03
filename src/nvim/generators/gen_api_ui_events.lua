@@ -113,6 +113,7 @@ for i = 1, #events do
           recv_argv = recv_argv..', PTR2INT(argv['..argc..'])'
           argc = argc+1
         else
+        print(param[1])
           assert(false)
         end
       end
@@ -130,15 +131,21 @@ for i = 1, #events do
       bridge_output:write(send)
       bridge_output:write('  UI_BRIDGE_CALL(ui, '..ev.name..', '..argc..', ui'..argv..');\n}\n\n')
     end
+
   end
 
   call_output:write('void ui_call_'..ev.name)
   write_signature(call_output, ev, '')
   call_output:write('\n{\n')
+  call_output:write('  flush_cursor_update(); \n')
   if ev.remote_only then
     write_arglist(call_output, ev, false)
     call_output:write('  UI_LOG('..ev.name..', 0);\n')
     call_output:write('  ui_event("'..ev.name..'", args);\n')
+  elseif ev.compositor_impl then
+    call_output:write('  UI_CALL_CND')
+    write_signature(call_output, ev, '!ui->composed, '..ev.name, true)
+    call_output:write(";\n")
   else
     call_output:write('  UI_CALL')
     write_signature(call_output, ev, ev.name, true)
@@ -146,11 +153,22 @@ for i = 1, #events do
   end
   call_output:write("}\n\n")
 
+  if ev.compositor_impl then
+    call_output:write('void ui_composed_call_'..ev.name)
+    write_signature(call_output, ev, '')
+    call_output:write('\n{\n')
+    call_output:write('  UI_CALL_CND')
+    write_signature(call_output, ev, 'ui->composed, '..ev.name, true)
+    call_output:write(";\n")
+    call_output:write("}\n\n")
+  end
+
 end
 
 proto_output:close()
 call_output:close()
 remote_output:close()
+bridge_output:close()
 
 -- don't expose internal attributes like "impl_name" in public metadata
 exported_attributes = {'name', 'parameters',

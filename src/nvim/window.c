@@ -50,6 +50,7 @@
 #include "nvim/terminal.h"
 #include "nvim/undo.h"
 #include "nvim/ui.h"
+#include "nvim/ui_compositor.h"
 #include "nvim/os/os.h"
 
 
@@ -498,7 +499,8 @@ wingotofile:
       goto wingotofile;
 
     case 's':
-      if (curwin->w_floating || !ui_is_external(kUIMultigrid)) {
+      // TODO: also allow when compositor-only?
+      if (curwin->w_floating) {
         beep_flush();
         break;
       }
@@ -560,7 +562,7 @@ win_T *win_new_float(win_T *wp, int width, int height, FloatConfig config)
   wp->w_floating = 1;
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
-  wp->w_grid_handle = next_grid_handle++;
+  wp->grid.handle = next_grid_handle++;
   win_config_float(wp, width, height, config);
   redraw_win_later(wp, VALID);
   if (new) {
@@ -582,25 +584,35 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 
   wp->w_float_config = config;
 
-  // TODO: recalculate when ui attaches/dataches
-  if (ui_is_external(kUIMultigrid)) {
-    wp->w_wincol = 0;
-    wp->w_winrow = 0;
+  wp->w_wincol = 0;
+  wp->w_winrow = 0;
 
-    ui_ext_float_info(wp);
-  } else {
-    // TUI only:
+
+  if (compositor_active()) {
     wp->w_height = MIN(wp->w_height,Rows-1);
     wp->w_width = MIN(wp->w_width,Columns);
+  }
+
+  if (wp->grid.Columns != wp->w_width || wp->grid.Rows != wp->w_height) {
+    redraw_win_later(wp, NOT_VALID);
+  }
+
+  // TODO: we currently can't handle turning on/off the compositor,
+  // so run it always
+  if (true || compositor_active()) {
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
     int x = (int)config.x;
     int y = (int)config.y;
-    wp->w_wincol = x - (east ? width : 0);
-    wp->w_winrow = y - (south ? height : 0);
-    wp->w_wincol = MAX(MIN(wp->w_wincol, Columns-width),0);
-    wp->w_winrow = MAX(MIN(wp->w_winrow, Rows-height-1),0);
+    x -= (east ? width : 0);
+    y -= (south ? height : 0);
+    x = MAX(MIN(x, Columns-width),0);
+    y = MAX(MIN(y, Rows-height-1),0);
+    compositor_put_grid(&wp->grid, y, x, wp->w_redr_type < NOT_VALID);
   }
+
+  // can now be conditional?
+  ui_ext_float_info(wp);
 }
 
 static void ui_ext_float_info(win_T *wp)
@@ -628,7 +640,7 @@ static void ui_ext_float_info(win_T *wp)
     PUT(conf, "relative", STRING_OBJ(cstr_to_string(relative_str[c.relative])));
   }
 
-  ui_call_float_info(wp->handle, wp->w_grid_handle,
+  ui_call_float_info(wp->handle, wp->grid.handle,
                      wp->w_width, wp->w_height, conf);
 }
 
@@ -2206,9 +2218,10 @@ int win_close(win_T *win, int free_buf)
   }
 
   if (win->w_floating) {
-    if (ui_is_external(kUIMultigrid)) {
-      ui_call_float_close(win->handle, win->w_grid_handle);
+    if (true || compositor_active()) {
+      compositor_remove_grid(&win->grid);
     }
+    ui_call_float_close(win->handle, win->grid.handle);
   }
 
 
