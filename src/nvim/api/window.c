@@ -429,3 +429,12 @@ void nvim_win_config_float(Window window, Integer width, Integer height,
   redraw_later(NOT_VALID);
 }
 
+Boolean nvim__win_dirty(Window window, Error* err)
+{
+  win_T *win = find_window_by_handle(window, err);
+  if (!win) {
+    return false;;
+  }
+  return win->w_grid_is_dirty;
+}
+
