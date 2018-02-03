@@ -29,6 +29,7 @@ typedef struct ui_t UI;
 
 struct ui_t {
   bool rgb;
+  bool composed;
   bool ui_ext[UI_WIDGETS];  ///< Externalized widgets
   int width, height;
   void *data;
@@ -37,6 +38,7 @@ struct ui_t {
 #endif
   void (*event)(UI *ui, char *name, Array args, bool *args_consumed);
   void (*stop)(UI *ui);
+
 };
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS

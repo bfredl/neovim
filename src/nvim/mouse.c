@@ -464,14 +464,13 @@ win_T *mouse_find_float(int grid, int *rowp, int *colp)
     if (!wp->w_floating || wp->w_float_config.unfocusable) {
       continue;
     }
-    // NB: we might want to support "multigrid" without that
-    // "floats are multigrid", then this logic will be more involved...
-    if (ui_is_external(kUIMultigrid)) {
+    if (true) {
       if (grid == wp->w_grid_handle) {
         // row and col unchanged
         return wp;
       }
     } else {
+      // TODO: move to compositor!
       if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow+wp->w_height
           && *colp >= wp->w_wincol && *colp < wp->w_wincol+wp->w_width) {
         *rowp -= wp->w_winrow;

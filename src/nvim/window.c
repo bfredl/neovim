@@ -50,6 +50,7 @@
 #include "nvim/terminal.h"
 #include "nvim/undo.h"
 #include "nvim/ui.h"
+#include "nvim/ui_compositor.h"
 #include "nvim/os/os.h"
 
 
@@ -498,7 +499,8 @@ wingotofile:
       goto wingotofile;
 
     case 's':
-      if (curwin->w_floating || !ui_is_external(kUIMultigrid)) {
+      // TODO: also allow when compositor-only?
+      if (curwin->w_floating) {
         beep_flush();
         break;
       }
@@ -582,16 +584,18 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
 
   wp->w_float_config = config;
 
-  // TODO: recalculate when ui attaches/dataches
-  if (ui_is_external(kUIMultigrid)) {
-    wp->w_wincol = 0;
-    wp->w_winrow = 0;
+  wp->w_wincol = 0;
+  wp->w_winrow = 0;
 
-    ui_ext_float_info(wp);
-  } else {
-    // TUI only:
+  if (compositor_active()) {
     wp->w_height = MIN(wp->w_height,Rows-1);
     wp->w_width = MIN(wp->w_width,Columns);
+  }
+
+  ui_ext_float_info(wp);
+
+  // move to compositor!
+  if (false) {
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
     int x = (int)config.x;
@@ -2205,9 +2209,7 @@ int win_close(win_T *win, int free_buf)
   }
 
   if (win->w_floating) {
-    if (ui_is_external(kUIMultigrid)) {
-      ui_call_float_close(win->handle, win->w_grid_handle);
-    }
+    ui_call_float_close(win->handle, win->w_grid_handle);
   }
 
 

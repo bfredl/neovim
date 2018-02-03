@@ -11,13 +11,13 @@
 #include "nvim/ui.h"
 
 void resize(Integer rows, Integer columns)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void clear(void)
   FUNC_API_SINCE(3);
 void eol_clear(void)
   FUNC_API_SINCE(3);
 void cursor_goto(Integer row, Integer col)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void mode_info_set(Boolean enabled, Array cursor_styles)
   FUNC_API_SINCE(3);
 void update_menu(void)
@@ -61,7 +61,7 @@ void set_icon(String icon)
 void option_set(String name, Object value)
   FUNC_API_SINCE(4) FUNC_API_BRIDGE_IMPL;
 void grid_cursor_goto(Integer grid, Integer row, Integer col)
-  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(4) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 
 void popupmenu_show(Array items, Integer selected, Integer row, Integer col)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
@@ -97,7 +97,7 @@ void wildmenu_hide(void)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 
 void float_info(Window win, Integer grid, Integer width, Integer height, Dictionary options)
-  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(4) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void float_close(Window win, Integer grid)
-  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(4) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 #endif  // NVIM_API_UI_EVENTS_IN_H

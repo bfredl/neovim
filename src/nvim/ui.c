@@ -33,6 +33,7 @@
 #include "nvim/popupmnu.h"
 #include "nvim/screen.h"
 #include "nvim/syntax.h"
+#include "nvim/ui_compositor.h"
 #include "nvim/window.h"
 #include "nvim/cursor_shape.h"
 #ifdef FEAT_TUI
@@ -89,37 +90,49 @@ static char uilog_last_event[1024] = { 0 };
 //
 // See http://stackoverflow.com/a/11172679 for how it works.
 #ifdef _MSC_VER
-# define UI_CALL(funname, ...) \
+# define UI_CALL_CND(CND, funname, ...) \
     do { \
       flush_cursor_update(); \
       UI_LOG(funname, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
-        UI_CALL_MORE(funname, __VA_ARGS__); \
+        if (CND) { \
+          UI_CALL_MORE(funname, __VA_ARGS__); \
+        } \
       } \
     } while (0)
 #else
-# define UI_CALL(...) \
+# define UI_CALL_CND(CND, ...) \
     do { \
       flush_cursor_update(); \
       UI_LOG(__VA_ARGS__, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
-        UI_CALL_HELPER(CNT(__VA_ARGS__), __VA_ARGS__); \
+        if (CND) { \
+          UI_CALL_HELPER(CNT(__VA_ARGS__), __VA_ARGS__); \
+        } \
       } \
     } while (0)
 #endif
-#define CNT(...) SELECT_NTH(__VA_ARGS__, MORE, MORE, MORE, MORE, ZERO, ignore)
-#define SELECT_NTH(a1, a2, a3, a4, a5, a6, ...) a6
+#define CNT(...) SELECT_NTH(__VA_ARGS__, MORE, MORE, MORE, MORE, MORE, ZERO, ignore)
+#define SELECT_NTH(a1, a2, a3, a4, a5, a6, a7, ...) a7
 #define UI_CALL_HELPER(c, ...) UI_CALL_HELPER2(c, __VA_ARGS__)
 // Resolves to UI_CALL_MORE or UI_CALL_ZERO.
 #define UI_CALL_HELPER2(c, ...) UI_CALL_##c(__VA_ARGS__)
 #define UI_CALL_MORE(method, ...) if (ui->method) ui->method(ui, __VA_ARGS__)
 #define UI_CALL_ZERO(method) if (ui->method) ui->method(ui)
 
+#define UI_CALL(...) UI_CALL_CND(true, __VA_ARGS__)
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ui_events_call.generated.h"
 #endif
+
+void ui_init(void)
+{
+  // TODO: start compositor on demand
+  ui_compositor_init();
+}
 
 void ui_builtin_start(void)
 {
@@ -163,7 +176,7 @@ bool ui_rgb_attached(void)
 
 bool ui_active(void)
 {
-  return ui_count != 0;
+  return ui_count > 1;
 }
 
 void ui_event(char *name, Array args)
@@ -346,6 +359,9 @@ void ui_attach_impl(UI *ui)
   if (ui_count == MAX_UI_COUNT) {
     abort();
   }
+  if (!ui->ui_ext[kUIMultigrid]) {
+    ui_compositor_attach(ui);
+  }
 
   uis[ui_count++] = ui;
   ui_refresh_options();
@@ -379,6 +395,10 @@ void ui_detach_impl(UI *ui)
       // https://github.com/neovim/neovim/pull/5119#issuecomment-258667046
       && !exiting) {
     ui_schedule_refresh();
+  }
+
+  if (!ui->ui_ext[kUIMultigrid]) {
+    ui_compositor_detach(ui);
   }
 }
 
@@ -563,11 +583,7 @@ static void flush_cursor_update(void)
 {
   if (pending_cursor_update) {
     pending_cursor_update = false;
-    if (ui_is_external(kUIMultigrid)) {
-      ui_call_grid_cursor_goto(grid, row, col);
-    } else {
-      ui_call_cursor_goto(row, col);
-    }
+    ui_call_grid_cursor_goto(grid, row, col);
   }
 }
 

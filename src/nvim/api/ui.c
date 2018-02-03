@@ -96,6 +96,9 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->set_title = remote_ui_set_title;
   ui->set_icon = remote_ui_set_icon;
   ui->option_set = remote_ui_option_set;
+  ui->grid_cursor_goto = remote_ui_grid_cursor_goto;
+  ui->float_info = remote_ui_float_info;
+  ui->float_close = remote_ui_float_close;
   ui->event = remote_ui_event;
 
   memset(ui->ui_ext, 0, sizeof(ui->ui_ext));

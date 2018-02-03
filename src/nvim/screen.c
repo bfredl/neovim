@@ -293,7 +293,6 @@ void update_screen(int type)
 {
   static int did_intro = FALSE;
   int did_one;
-  bool multigrid = ui_is_external(kUIMultigrid);
 
   /* Don't do anything if the screen structures are (not yet) valid. */
   if (!screen_valid(TRUE))
@@ -450,16 +449,10 @@ void update_screen(int type)
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
 
     if (wp->w_redr_type != 0) {
-      if (multigrid) {
-        if (wp->w_floating) {
-          set_float_grid(wp);
-        } else {
-          reset_grid();
-        }
+      if (wp->w_floating) {
+        set_float_grid(wp);
       } else {
-        if (wp->w_floating) {
-          continue;
-        }
+        reset_grid();
       }
 
       if (!did_one) {
@@ -478,36 +471,9 @@ void update_screen(int type)
       win_redr_status(wp);
     }
   }
-  if (multigrid) {
-    reset_grid();
-  }
+  reset_grid();
   ui_reset_scroll_region();
 
-  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-    if (multigrid || !wp->w_floating) {
-      continue;
-    }
-
-    if (did_one) {
-      // TODO: be a lot more precise
-      wp->w_redr_type = NOT_VALID;
-    }
-
-    if (wp->w_redr_type != 0) {
-      if (!did_one) {
-        did_one = TRUE;
-        start_search_hl();
-      }
-      win_update(wp);
-      wp->w_grid_is_dirty = false;
-      FOR_ALL_WINDOWS_IN_TAB(wp2, curtab) {
-        if (wp != wp2) {
-          wp2->w_grid_is_dirty = true;
-        }
-      }
-    }
-
-  }
   end_search_hl();
   // May need to redraw the popup menu.
   if (pum_drawn()) {
@@ -580,7 +546,6 @@ void update_single_line(win_T *wp, linenr_T lnum)
     return;
   }
   updating_screen = true;
-  bool multigrid = ui_is_external(kUIMultigrid);
 
   if (lnum >= wp->w_topline && lnum < wp->w_botline
       && foldedCount(wp, lnum, &win_foldinfo) == 0) {
@@ -590,12 +555,11 @@ void update_single_line(win_T *wp, linenr_T lnum)
         init_search_hl(wp);
         start_search_hl();
         prepare_search_hl(wp, lnum);
-        if (multigrid) {
-          if (wp->w_floating) {
-            set_float_grid(wp);
-          } else {
-            reset_grid();
-          }
+        if (wp->w_floating) {
+          set_float_grid(wp);
+        } else {
+          // TODO: assume default grid here?
+          reset_grid();
         }
         win_line(wp, lnum, row, row + wp->w_lines[j].wl_size, false);
         end_search_hl();
@@ -604,9 +568,7 @@ void update_single_line(win_T *wp, linenr_T lnum)
       row += wp->w_lines[j].wl_size;
     }
   }
-  if (multigrid) {
-    reset_grid();
-  }
+  reset_grid();
   need_cursor_line_redraw = false;
   updating_screen = false;
 }
@@ -6490,7 +6452,7 @@ static void linecopy(int to, int from, win_T *wp)
 }
 
 void focus_curwin_grid(void) {
-  if (curwin->w_floating && ui_is_external(kUIMultigrid)) {
+  if (curwin->w_floating) {
     ui_set_grid(curwin->w_grid_handle);
   } else {
     ui_set_grid(default_grid_handle);
@@ -6678,7 +6640,7 @@ static int win_do_lines(win_T *wp, int row, int line_count, int mayclear, int de
  */
 static void win_rest_invalid(win_T *wp)
 {
-  while (wp != NULL) {
+  while (wp != NULL && !wp->w_floating) {
     redraw_win_later(wp, NOT_VALID);
     wp->w_redr_status = TRUE;
     wp = wp->w_next;
