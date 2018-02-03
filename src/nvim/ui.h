@@ -36,6 +36,7 @@ typedef struct ui_t UI;
 
 struct ui_t {
   bool rgb;
+  bool composed;
   bool ui_ext[kUIExtCount];  ///< Externalized widgets
   int width, height;
   void *data;
