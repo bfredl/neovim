@@ -4051,7 +4051,7 @@ static void win_enter_ext(win_T *wp, bool undo_sync, int curwin_invalid,
     win_setheight(1);
 
   /* set window width to desired minimal value */
-  if (curwin->w_width < p_wiw && !curwin->w_p_wfw)
+  if (curwin->w_width < p_wiw && !curwin->w_p_wfw && !wp->w_floating)
     win_setwidth((int)p_wiw);
 
   setmouse();                   /* in case jumped to/from help buffer */
