@@ -129,6 +129,7 @@
 #include "nvim/syntax.h"
 #include "nvim/terminal.h"
 #include "nvim/ui.h"
+#include "nvim/ui_compositor.h"
 #include "nvim/undo.h"
 #include "nvim/version.h"
 #include "nvim/window.h"
@@ -270,7 +271,7 @@ void set_float_grid(win_T* wp) {
   }
   set_screengrid(&wp->grid);
 
-  ui_set_draw_grid(wp->w_grid_handle);
+  ui_set_draw_grid(&wp->grid);
   if (resize) {
     ui_call_resize(current_grid->Columns, current_grid->Rows);
   }
@@ -279,7 +280,7 @@ void set_float_grid(win_T* wp) {
 void reset_grid(void) {
   if (current_grid != &default_grid) {
     set_screengrid(&default_grid);
-    ui_set_draw_grid(default_grid_handle);
+    ui_set_draw_grid(&default_grid);
   }
 }
 
@@ -461,7 +462,8 @@ void update_screen(int type)
       }
       win_update(wp);
       // set to true later, when overdrawn
-      wp->w_grid_is_dirty = false;
+      // HAXXOR
+      wp->w_grid_is_dirty = compositor_active();
     }
 
     /* redraw status line after the window to minimize cursor movement */
@@ -6256,7 +6258,7 @@ void alloc_screengrid(ScreenGrid *grid, int Rows, int Columns, bool copy)
   int i;
   
   int new_row, old_row;
-  ScreenGrid new = {0};
+  ScreenGrid new = *grid;
 
   new.ScreenLines = xmalloc((size_t)((Rows + 1) * Columns * sizeof(schar_T)));
   memset(new.ScreenLinesC, 0, sizeof(u8char_T *) * MAX_MCO);
@@ -6453,9 +6455,9 @@ static void linecopy(int to, int from, win_T *wp)
 
 void focus_curwin_grid(void) {
   if (curwin->w_floating) {
-    ui_set_grid(curwin->w_grid_handle);
+    ui_set_grid(&curwin->grid);
   } else {
-    ui_set_grid(default_grid_handle);
+    ui_set_grid(&default_grid);
   }
 }
 

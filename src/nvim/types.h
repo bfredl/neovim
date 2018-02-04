@@ -25,6 +25,8 @@ typedef unsigned short sattr_T;
 
 // TODO(bfredl): find me a good home
 typedef struct {
+  uint64_t handle;
+
   schar_T  *ScreenLines;
   sattr_T  *ScreenAttrs;
   unsigned *LineOffset;
@@ -36,6 +38,9 @@ typedef struct {
 
   int Rows;
   int Columns;
+
+  int comp_x;
+  int comp_y;
 } ScreenGrid;
 
 #endif  // NVIM_TYPES_H

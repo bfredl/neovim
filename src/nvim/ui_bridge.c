@@ -15,7 +15,6 @@
 #include "nvim/ui.h"
 #include "nvim/memory.h"
 #include "nvim/ui_bridge.h"
-#include "nvim/ui_compositor.h"
 #include "nvim/ugrid.h"
 #include "nvim/api/private/helpers.h"
 

@@ -61,8 +61,8 @@ static bool pending_cursor_update = false;
 static int busy = 0;
 static int height, width;
 static int old_mode_idx = -1;
-static int draw_grid = 1;
-static int grid = 1;
+static ScreenGrid *draw_grid = &default_grid;
+static ScreenGrid *grid = &default_grid;
 
 #if MIN_LOG_LEVEL > DEBUG_LOG_LEVEL
 # define UI_LOG(funname, ...)
@@ -131,6 +131,7 @@ static char uilog_last_event[1024] = { 0 };
 void ui_init(void)
 {
   // TODO: start compositor on demand
+  default_grid.handle = 1;
   ui_compositor_init();
 }
 
@@ -489,21 +490,21 @@ void ui_putc(uint8_t c)
   ui_puts(buf);
 }
 
-void ui_set_draw_grid(int new_grid) {
+void ui_set_draw_grid(ScreenGrid *new_grid) {
   draw_grid = new_grid;
   ui_set_grid(new_grid);
 }
 
-void ui_set_grid(int new_grid) {
+void ui_set_grid(ScreenGrid *new_grid) {
   if (new_grid != grid) {
     grid = new_grid;
     pending_cursor_update = true;
   }
 }
 
-int ui_get_grid(void) {
-  return grid;
-}
+//int ui_get_grid(void) {
+//  return grid;
+//}
 
 void ui_eol_clear(void) {
   ui_set_grid(draw_grid);
@@ -583,7 +584,8 @@ static void flush_cursor_update(void)
 {
   if (pending_cursor_update) {
     pending_cursor_update = false;
-    ui_call_grid_cursor_goto(grid, row, col);
+    ui_compositor_set_grid(grid);
+    ui_call_grid_cursor_goto(grid->handle, row, col);
   }
 }
 

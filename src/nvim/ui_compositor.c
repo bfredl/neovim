@@ -34,6 +34,8 @@ int composed_uis = 0;
 static UI *compositor = NULL;
 static Integer curgrid;
 
+static ScreenGrid *grid, *float_grid;
+
 void ui_compositor_init(void) {
   if (compositor != NULL) {
     return;
@@ -58,7 +60,7 @@ void ui_compositor_init(void) {
   //compositor.float_info = ui_compositor_float_info;
   //compositor.float_close = ui_compositor_float_close;
 
-  // Be unoptionated: will be attached togheter with a "real" ui anyway
+  // Be unoptionated: will be attached together with a "real" ui anyway
   compositor->width = INT_MAX;
   compositor->height = INT_MAX;
   for (UIWidget i = 0; (int)i < UI_WIDGETS; i++) {
@@ -66,6 +68,7 @@ void ui_compositor_init(void) {
   }
 
   curgrid = 1;
+  grid = &default_grid;
   ui_attach_impl(compositor);
 }
 
@@ -87,15 +90,36 @@ bool compositor_active(void) {
   return composed_uis != 0;
 }
 
-static void ui_compositor_grid_cursor_goto(UI *ui, Integer grid, Integer x, Integer y)
+void ui_compositor_set_grid(ScreenGrid *new_grid)
 {
-  curgrid = grid;
-  ui_compositor_call_cursor_goto(x,y);
+  if (new_grid->handle != 1) {
+    float_grid = new_grid;
+  }
+  grid = new_grid;
+}
+
+void ui_compositor_remove_grid(ScreenGrid *g)
+{
+  assert(grid != g);
+  if (float_grid == g) {
+    float_grid = NULL;
+  }
+}
+
+static void ui_compositor_grid_cursor_goto(UI *ui, Integer grid_handle, Integer row, Integer col)
+{
+  assert(grid->handle == grid_handle);
+  col += grid->comp_x;
+  row += grid->comp_y;
+  // TODO: this should be assured downstream instead
+  if (col < default_grid.Columns && row < default_grid.Rows) {
+    ui_compositor_call_cursor_goto(row,col);
+  }
 }
 
 static void ui_compositor_resize(UI *ui, Integer rows, Integer columns)
 {
-  if (curgrid == 1) {
+  if (grid->handle == 1) {
     ui_compositor_call_resize(rows, columns);
   }
 }

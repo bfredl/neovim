@@ -465,7 +465,7 @@ win_T *mouse_find_float(int grid, int *rowp, int *colp)
       continue;
     }
     if (true) {
-      if (grid == wp->w_grid_handle) {
+      if (grid == wp->grid.handle) {
         // row and col unchanged
         return wp;
       }

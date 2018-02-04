@@ -562,7 +562,7 @@ win_T *win_new_float(win_T *wp, int width, int height, FloatConfig config)
   wp->w_floating = 1;
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
-  wp->w_grid_handle = next_grid_handle++;
+  wp->grid.handle = next_grid_handle++;
   win_config_float(wp, width, height, config);
   redraw_win_later(wp, VALID);
   if (new) {
@@ -590,21 +590,18 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
   if (compositor_active()) {
     wp->w_height = MIN(wp->w_height,Rows-1);
     wp->w_width = MIN(wp->w_width,Columns);
-  }
-
-  ui_ext_float_info(wp);
-
-  // move to compositor!
-  if (false) {
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
     int x = (int)config.x;
     int y = (int)config.y;
-    wp->w_wincol = x - (east ? width : 0);
-    wp->w_winrow = y - (south ? height : 0);
-    wp->w_wincol = MAX(MIN(wp->w_wincol, Columns-width),0);
-    wp->w_winrow = MAX(MIN(wp->w_winrow, Rows-height-1),0);
+    x -= (east ? width : 0);
+    y -= (south ? height : 0);
+    wp->grid.comp_x = MAX(MIN(x, Columns-width),0);
+    wp->grid.comp_y = MAX(MIN(y, Rows-height-1),0);
   }
+
+  // can now be conditional?
+  ui_ext_float_info(wp);
 }
 
 static void ui_ext_float_info(win_T *wp)
@@ -632,7 +629,7 @@ static void ui_ext_float_info(win_T *wp)
     PUT(conf, "relative", STRING_OBJ(cstr_to_string(relative_str[c.relative])));
   }
 
-  ui_call_float_info(wp->handle, wp->w_grid_handle,
+  ui_call_float_info(wp->handle, wp->grid.handle,
                      wp->w_width, wp->w_height, conf);
 }
 
@@ -2209,7 +2206,8 @@ int win_close(win_T *win, int free_buf)
   }
 
   if (win->w_floating) {
-    ui_call_float_close(win->handle, win->w_grid_handle);
+    ui_compositor_remove_grid(&wp->grid);
+    ui_call_float_close(win->handle, win->grid.handle);
   }
 
 
