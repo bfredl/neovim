@@ -522,7 +522,11 @@ void ui_linefeed(void)
   if (new_row < sr.bot) {
     new_row++;
   } else {
-    ui_call_scroll(1);
+    // Floating window might draw all the way to the bottom right corner
+    // don't scroll in this case, scolling will be invoked later when needed
+    if (current_grid == &default_grid) {
+      ui_call_scroll(1);
+    }
   }
   ui_cursor_goto(new_row, new_col);
 }

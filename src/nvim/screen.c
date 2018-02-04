@@ -5939,6 +5939,8 @@ static void screen_char(unsigned off, int row, int col)
   // Don't to it!  Mark the character invalid (update it when scrolled up)
   // FIXME: The premise here is not actually true (cf. deferred wrap).
   if (row == screen_Rows - 1 && col == screen_Columns - 1
+      // only applies to global grid
+      && current_grid == &default_grid
       // account for first command-line character in rightleft mode
       && !cmdmsg_rl) {
     ScreenAttrs[off] = (sattr_T)-1;
