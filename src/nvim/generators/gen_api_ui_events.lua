@@ -137,6 +137,7 @@ for i = 1, #events do
   call_output:write('void ui_call_'..ev.name)
   write_signature(call_output, ev, '')
   call_output:write('\n{\n')
+  call_output:write('  flush_cursor_update(); \n')
   if ev.remote_only then
     write_arglist(call_output, ev, false)
     call_output:write('  UI_LOG('..ev.name..', 0);\n')

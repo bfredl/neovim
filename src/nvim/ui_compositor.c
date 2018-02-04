@@ -36,6 +36,9 @@ static Integer curgrid;
 
 static ScreenGrid *grid, *float_grid;
 
+static int row,col;
+bool curinvalid;
+
 void ui_compositor_init(void) {
   if (compositor != NULL) {
     return;
@@ -50,7 +53,7 @@ void ui_compositor_init(void) {
   //compositor->set_scroll_region = ui_compositor_set_scroll_region;
   //compositor->scroll = ui_compositor_scroll;
   //compositor->highlight_set = ui_compositor_highlight_set;
-  //compositor->put = ui_compositor_put;
+  compositor->put = ui_compositor_put;
   //compositor->update_fg = ui_compositor_update_fg;
   //compositor->update_bg = ui_compositor_update_bg;
   //compositor->update_sp = ui_compositor_update_sp;
@@ -106,15 +109,31 @@ void ui_compositor_remove_grid(ScreenGrid *g)
   }
 }
 
-static void ui_compositor_grid_cursor_goto(UI *ui, Integer grid_handle, Integer row, Integer col)
+static void ui_compositor_grid_cursor_goto(UI *ui, Integer grid_handle, Integer r, Integer c)
 {
   assert(grid->handle == grid_handle);
-  col += grid->comp_x;
-  row += grid->comp_y;
+  row = r + grid->comp_y;
+  col = c + grid->comp_x;
   // TODO: this should be assured downstream instead
   if (col < default_grid.Columns && row < default_grid.Rows) {
     ui_compositor_call_cursor_goto(row,col);
+    curinvalid = false;
   }
+}
+
+static void ui_compositor_put(UI *ui, String str)
+{
+  if (grid != float_grid && float_grid != NULL
+    && float_grid->comp_x <= col && col < float_grid->comp_x + float_grid->Columns
+    && float_grid->comp_y <= row && row < float_grid->comp_y + float_grid->Rows) {
+      curinvalid = true;
+  } else {
+    if (curinvalid) {
+      ui_compositor_call_cursor_goto(row,col);
+    }
+    ui_compositor_call_put(str);
+  }
+  col++;
 }
 
 static void ui_compositor_resize(UI *ui, Integer rows, Integer columns)

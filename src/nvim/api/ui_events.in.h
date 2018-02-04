@@ -39,7 +39,7 @@ void scroll(Integer count)
 void highlight_set(HlAttrs attrs)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
 void put(String str)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void bell(void)
   FUNC_API_SINCE(3);
 void visual_bell(void)

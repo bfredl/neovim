@@ -92,7 +92,6 @@ static char uilog_last_event[1024] = { 0 };
 #ifdef _MSC_VER
 # define UI_CALL_CND(CND, funname, ...) \
     do { \
-      flush_cursor_update(); \
       UI_LOG(funname, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
@@ -104,7 +103,6 @@ static char uilog_last_event[1024] = { 0 };
 #else
 # define UI_CALL_CND(CND, ...) \
     do { \
-      flush_cursor_update(); \
       UI_LOG(__VA_ARGS__, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
@@ -564,6 +562,7 @@ static void set_highlight_args(int attr_code)
   cterm_attrs = attrentry2hlattrs(aep, false);
 
 end:
+  flush_cursor_update(); // needed?
   UI_CALL(highlight_set, (ui->rgb ? rgb_attrs : cterm_attrs));
 }
 
