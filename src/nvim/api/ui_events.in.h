@@ -15,7 +15,7 @@ void resize(Integer rows, Integer columns)
 void clear(void)
   FUNC_API_SINCE(3);
 void eol_clear(void)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void cursor_goto(Integer row, Integer col)
   FUNC_API_SINCE(3) FUNC_API_COMPOSITOR_IMPL;
 void mode_info_set(Boolean enabled, Array cursor_styles)

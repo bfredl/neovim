@@ -49,7 +49,7 @@ void ui_compositor_init(void) {
   //compositor->stop = ui_compositor_stop;
   compositor->resize = ui_compositor_resize;
   //compositor->clear = ui_compositor_clear;
-  //compositor->eol_clear = ui_compositor_eol_clear;
+  compositor->eol_clear = ui_compositor_eol_clear;
   //compositor->set_scroll_region = ui_compositor_set_scroll_region;
   //compositor->scroll = ui_compositor_scroll;
   //compositor->highlight_set = ui_compositor_highlight_set;
@@ -134,6 +134,23 @@ static void ui_compositor_put(UI *ui, String str)
     ui_compositor_call_put(str);
   }
   col++;
+}
+
+static void ui_compositor_eol_clear(UI *ui)
+{
+  static String wh = STATIC_CSTR_AS_STRING(" ");
+  if (grid != float_grid && float_grid != NULL) {
+    int save_col = col, save_row = row;
+    while (col < grid->Columns) {
+      ui_compositor_put(ui,wh);
+    }
+    col = save_col;
+    row = save_row;
+    // curinvalid = true; will be enough when we handle all grid events
+    ui_compositor_grid_cursor_goto(ui, grid->handle, row, col);
+  } else {
+    ui_compositor_call_eol_clear();
+  }
 }
 
 static void ui_compositor_resize(UI *ui, Integer rows, Integer columns)
