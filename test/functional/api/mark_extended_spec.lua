@@ -33,6 +33,17 @@ local function check_undo_redo(buf, ns, mark, sr, sc, er, ec) --s = start, e = e
   eq(ec, rv[3])
 end
 
+local function check_undo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
+  feed("u")
+  rv = buffer('lookup_mark', buf, ns, mark)
+  eq(sr, rv[2])
+  eq(sc, rv[3])
+  -- feed("<c-r>")
+  -- rv = buffer('lookup_mark', buf, ns, mark)
+  -- eq(er, rv[2])
+  -- eq(ec, rv[3])
+end
+
 describe('Extmarks buffer api', function()
   local screen
   local marks, positions, ns_string2, ns_string, init_text, row, col
@@ -608,7 +619,7 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[3], 2, 3, 2, 3)
   end)
 
-  it('works with char deletes over multilines #fail', function()
+  it('works with char deletes over multilines #extmarks', function()
     feed('a<cr>12345<cr>test-me<esc>')
     buffer('set_mark', buf, ns, marks[1], 3, 6)
     feed('gg')
@@ -616,7 +627,7 @@ describe('Extmarks buffer api', function()
     rv = buffer('lookup_mark', buf, ns, marks[1])
     eq(1, rv[2])
     eq(1, rv[3])
-    -- check_undo_redo(buf, ns, marks[2], 3, 6, 1, 1)
+    check_undo_redo(buf, ns, marks[1], 3, 6, 1, 1)
   end)
 
   it('marks outside of deleted range move with visual char deletes #extmarks', function()

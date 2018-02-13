@@ -1621,6 +1621,8 @@ int op_delete(oparg_T *oap)
       curwin->w_cursor.col = 0;
       (void)del_bytes((colnr_T)n, !virtual_op,
                       oap->op_type == OP_DELETE && !oap->is_VIsual);
+      mark_col_adjust(curwin->w_cursor.lnum,
+                      (colnr_T)0, 0L, (long)-n, kExtmarkUndo);
       curwin->w_cursor = curpos;  // restore curwin->w_cursor
       (void)do_join(2, false, false, false, false);
     }
@@ -1639,7 +1641,7 @@ setmarks:
 
   // TODO(timeyyy): refactor
   // Move extended marks
-  // + 1 to change to buf mode, then plus 1 because we only move marks after
+  // + 1 to change to buhttps://www.youtube.com/watch?v=kdEftS89rLYf mode, then plus 1 because we only move marks after
   // the deleted col
   colnr_T mincol = oap->start.col + 1 + 1;
   colnr_T endcol = oap->end.col + 1 + 1;
@@ -1650,17 +1652,21 @@ setmarks:
                                 kExtmarkUndo);
     }
   } else if (oap->motion_type == kMTCharWise) {
-    lnum = curwin->w_cursor.lnum;
-    if (oap->is_VIsual) {
-      // + 1 to change to buf mode, then plus 1 because we copy one more than
-      // what we modify
-      endcol = oap->end.col + 1 + 1;
-    } else {
-      // for some reason the end.col in normal modde is + 1 as when
-      // in visual mode
-      endcol = oap->end.col + 1;
+    // Delete characters within one line,
+    // The case with multiple lines is handled by do_join
+    if (oap->line_count == 1) {
+      lnum = curwin->w_cursor.lnum;
+      if (oap->is_VIsual) {
+        // + 1 to change to buf mode, then plus 1 because we copy one more than
+        // what    } we modify
+        endcol = oap->end.col + 1 + 1;
+      } else {
+        // for some reason the end.col in normal modde is + 1 as when
+        // in visual mode
+        endcol = oap->end.col + 1;
+      }
+      extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo);
     }
-    extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo);
   }
   return OK;
 }
