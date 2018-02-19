@@ -52,18 +52,56 @@ function! provider#clipboard#Error() abort
   return s:err
 endfunction
 
+function! s:parse_gselection(clipboard, sel)
+  let has_copy = type('') != type(get(a:clipboard.copy, a:sel, v:null))
+  let has_paste = type('') != type(get(a:clipboard.paste, a:sel, v:null))
+  if xor(has_copy, has_paste)
+    let s:err = 'g:clipboard should have '.a:reg.' set for both copy and paste'
+    return 0
+  else
+    return has_copy && has_paste
+  end
+endfunction
+
+" Our code does a few assumptions about the clipboard dictionary.
+" Check for all required keys and their properly typed values.
+function! s:parse_gclipboard(clipboard) abort
+  if type({}) != type(a:clipboard)
+    let s:err = 'g:clipboard is no Dictionary'
+  elseif empty(a:clipboard)
+      let s:err = 'clipboard disabled by empty g:clipboard'
+      return ''
+  elseif type({}) != type(get(a:clipboard, 'copy', v:null))
+    let s:err = 'g:clipboard has no `copy` key with type Dictionary'
+  elseif type({}) != type(get(a:clipboard, 'paste', v:null))
+    let s:err = 'g:clipboard has no `paste` key with type Dictionary'
+  else
+    let has_plus = s:parse_gselection(a:clipboard, '+')
+    let has_star = s:parse_gselection(a:clipboard, '*')
+    if !empty(s:err)
+      return ''
+    end
+    let s:copy = copy(a:clipboard.copy)
+    let s:paste = copy(a:clipboard.paste)
+    if has_plus && !has_star
+      let s:copy['*'] = s:copy['+']
+      let s:paste['*'] = s:paste['+']
+    elseif has_star && !has_plus
+      let s:copy['*'] = s:copy['+']
+      let s:paste['*'] = s:paste['+']
+    elseif !has_star && !has_plus
+      let s:err = "g:clipoard has no register conifgured"
+      return ''
+    end
+    let s:cache_enabled = get(a:clipboard, 'cache_enabled', 0)
+    return get(a:clipboard, 'name', 'g:clipboard')
+  end
+  return ''
+endfunction
+
 function! provider#clipboard#Executable() abort
   if exists('g:clipboard')
-    if type({}) isnot# type(g:clipboard)
-          \ || type({}) isnot# type(get(g:clipboard, 'copy', v:null))
-          \ || type({}) isnot# type(get(g:clipboard, 'paste', v:null))
-      let s:err = 'clipboard: invalid g:clipboard'
-      return ''
-    endif
-    let s:copy = get(g:clipboard, 'copy', { '+': v:null, '*': v:null })
-    let s:paste = get(g:clipboard, 'paste', { '+': v:null, '*': v:null })
-    let s:cache_enabled = get(g:clipboard, 'cache_enabled', 0)
-    return get(g:clipboard, 'name', 'g:clipboard')
+    return s:parse_gclipboard(g:clipboard)
   elseif has('mac') && executable('pbpaste') && s:cmd_ok('pbpaste')
     let s:copy['+'] = 'pbcopy'
     let s:paste['+'] = 'pbpaste'
