@@ -22,6 +22,7 @@
 #include "nvim/fileio.h"
 #include "nvim/fold.h"
 #include "nvim/hashtab.h"
+#include "nvim/highlight.h"
 #include "nvim/indent_c.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"
@@ -42,7 +43,6 @@
 #include "nvim/ui.h"
 #include "nvim/os/os.h"
 #include "nvim/os/time.h"
-#include "nvim/api/private/helpers.h"
 
 static bool did_syntax_onoff = false;
 
@@ -211,30 +211,9 @@ struct name_list {
   char        *name;
 };
 
-// TODO: move this and the low lewel functions to highlight.c
-typedef enum {
-  kHlUI,
-  kHlSyntax,
-  kHlTerminal,
-  kHlComibne,
-} HlKind;
-
-typedef struct {
-  HlAttrs attr;
-  HlKind kind;
-  int id1;
-  int id2;
-} HlEntry;
-
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "syntax.c.generated.h"
 #endif
-
-/*
- * An attribute number is the index in attr_table plus ATTR_OFF.
- */
-#define ATTR_OFF 1
-
 
 static char *(spo_name_tab[SPO_COUNT]) =
 {"ms=", "me=", "hs=", "he=", "rs=", "re=", "lc="};
@@ -7007,170 +6986,6 @@ static void highlight_clear(int idx)
 }
 
 
-static kvec_t(HlEntry) attr_entries = KV_INITIAL_VALUE;
-
-static Map(HlAttrs, int) *term_attr_entries;
-static Map(int, int) *combine_attr_entries;
-
-void highlight_init(void)
-{
-  term_attr_entries = map_new(HlAttrs, int)();
-  combine_attr_entries = map_new(int, int)();
-}
-
-
-static int put_attr_entry(HlEntry entry)
-{
-  static bool recursive = false;
-  if (kv_size(attr_entries) + ATTR_OFF > MAX_TYPENR) {
-    /*
-     * Running out of attribute entries!  remove all attributes, and
-     * compute new ones for all groups.
-     * When called recursively, we are really out of numbers.
-     */
-    if (recursive) {
-      EMSG(_("E424: Too many different highlighting attributes in use"));
-      return 0;
-    }
-    recursive = true;
-
-    clear_hl_tables(true);
-
-    must_redraw = CLEAR;
-
-    for (int i = 0; i < highlight_ga.ga_len; ++i) {
-      set_hl_attr(i);
-    }
-
-    recursive = false;
-    if (entry.kind == kHlComibne) {
-      // This entry is now invalid, don't put it
-      return 0;
-    }
-  }
-
-  int id = kv_size(attr_entries);
-  kv_push(attr_entries, entry);
-
-  return id+ATTR_OFF;
-}
-
-/// Return the attr number for a set of colors and font.
-/// Add a new entry to the term_attr_table, attr_table or gui_attr_table
-/// if the combination is new.
-/// @return 0 for error.
-int get_term_attr_entry(HlAttrs *aep)
-{
-  int id = map_get(HlAttrs, int)(term_attr_entries, *aep);
-  if (id > 0) {
-    return id;
-  }
-
-  id = put_attr_entry((HlEntry){.attr=*aep, .kind = kHlTerminal, .id1 = 0, .id2 = 0});
-  if (id > 0) {
-    map_put(HlAttrs, int)(term_attr_entries, *aep, id);
-  }
-  return id;
-}
-
-// Clear all highlight tables.
-void clear_hl_tables(bool reinit)
-{
-  kv_destroy(attr_entries);
-  if (reinit) {
-    kv_init(attr_entries);
-    map_clear(HlAttrs, int)(term_attr_entries);
-    map_clear(int, int)(combine_attr_entries);
-  } else {
-    map_free(HlAttrs, int)(term_attr_entries);
-    map_free(int, int)(combine_attr_entries);
-  }
-}
-
-// Combine special attributes (e.g., for spelling) with other attributes
-// (e.g., for syntax highlighting).
-// "prim_attr" overrules "char_attr".
-// This creates a new group when required.
-// Since we expect there to be few spelling mistakes we don't cache the
-// result.
-// Return the resulting attributes.
-int hl_combine_attr(int char_attr, int prim_attr)
-{
-  if (char_attr == 0) {
-    return prim_attr;
-  }
-
-  if (prim_attr == 0) {
-    return char_attr;
-  }
-
-  // TODO FIXME XXX
-  int combine_tag = (char_attr << 16) + prim_attr;
-  int id = map_get(int, int)(combine_attr_entries, combine_tag);
-  if (id > 0) {
-    return id;
-  }
-
-  HlAttrs *char_aep = NULL;
-  HlAttrs *spell_aep;
-  HlAttrs new_en = HLATTRS_INIT;
-
-
-  // Find the entry for char_attr
-  char_aep = syn_cterm_attr2entry(char_attr);
-
-  if (char_aep != NULL) {
-    // Copy all attributes from char_aep to the new entry
-    new_en = *char_aep;
-  }
-
-  spell_aep = syn_cterm_attr2entry(prim_attr);
-  if (spell_aep != NULL) {
-    new_en.cterm_ae_attr |= spell_aep->cterm_ae_attr;
-    new_en.rgb_ae_attr |= spell_aep->rgb_ae_attr;
-
-    if (spell_aep->cterm_fg_color > 0) {
-      new_en.cterm_fg_color = spell_aep->cterm_fg_color;
-    }
-
-    if (spell_aep->cterm_bg_color > 0) {
-      new_en.cterm_bg_color = spell_aep->cterm_bg_color;
-    }
-
-    if (spell_aep->rgb_fg_color >= 0) {
-      new_en.rgb_fg_color = spell_aep->rgb_fg_color;
-    }
-
-    if (spell_aep->rgb_bg_color >= 0) {
-      new_en.rgb_bg_color = spell_aep->rgb_bg_color;
-    }
-
-    if (spell_aep->rgb_sp_color >= 0) {
-      new_en.rgb_sp_color = spell_aep->rgb_sp_color;
-    }
-  }
-
-  id = put_attr_entry((HlEntry){.attr=new_en, .kind = kHlComibne, .id1 = char_attr, .id2 = prim_attr});
-  if (id > 0) {
-    map_put(int, int)(combine_attr_entries, combine_tag, id);
-  }
-
-  return id;
-}
-
-/// \note this function does not apply exclusively to cterm attr contrary
-/// to what its name implies
-/// \warn don't call it with attr 0 (i.e., the null attribute)
-HlAttrs *syn_cterm_attr2entry(int attr)
-{
-  attr -= ATTR_OFF;
-  if (attr >= (int)kv_size(attr_entries)) {
-    // did ":syntax clear"
-    return NULL;
-  }
-  return &(kv_A(attr_entries, attr).attr);
-}
-
 /// \addtogroup LIST_XXX
 /// @{
 #define LIST_ATTR   1
@@ -7425,18 +7240,8 @@ static void set_hl_attr(int idx)
   at_en.rgb_bg_color = sgp->sg_rgb_bg_name ? sgp->sg_rgb_bg : -1;
   at_en.rgb_sp_color = sgp->sg_rgb_sp_name ? sgp->sg_rgb_sp : -1;
 
-  // TODO: unconditional!
-  if (at_en.cterm_fg_color != 0 || at_en.cterm_bg_color != 0
-      || at_en.rgb_fg_color != -1 || at_en.rgb_bg_color != -1
-      || at_en.rgb_sp_color != -1 || at_en.cterm_ae_attr != 0
-      || at_en.rgb_ae_attr != 0) {
+  hl_update_attr(idx, &sgp->sg_attr, at_en);
 
-    // Fubbit, with new semantics we can update the table in place
-    sgp->sg_attr = put_attr_entry((HlEntry){.attr=at_en, .kind = kHlSyntax, .id1 = idx, .id2 = 0});
-  } else {
-    // If all the fields are cleared, clear the attr field back to default value
-    sgp->sg_attr = 0;
-  }
 }
 
 /// Lookup a highlight group name and return its ID.
@@ -7608,7 +7413,7 @@ int syn_get_final_id(int hl_id)
 }
 
 /// Refresh the color attributes of all highlight groups.
-static void highlight_attr_set_all(void)
+void highlight_attr_set_all(void)
 {
   for (int idx = 0; idx < highlight_ga.ga_len; idx++) {
     struct hl_group *sgp = &HL_TABLE()[idx];
@@ -8536,26 +8341,6 @@ RgbValue name_to_color(const char_u *name)
   }
 
   return -1;
-}
-
-/// Gets highlight description for id `attr_id` as a map.
-Dictionary hl_get_attr_by_id(Integer attr_id, Boolean rgb, Error *err)
-{
-  HlAttrs *aep = NULL;
-  Dictionary dic = ARRAY_DICT_INIT;
-
-  if (attr_id == 0) {
-    return dic;
-  }
-
-  aep = syn_cterm_attr2entry((int)attr_id);
-  if (!aep) {
-    api_set_error(err, kErrorTypeException,
-                  "Invalid attribute id: %" PRId64, attr_id);
-    return dic;
-  }
-
-  return hlattrs2dict(aep, rgb);
 }
 
 

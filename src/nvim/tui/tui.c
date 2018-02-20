@@ -20,6 +20,7 @@
 #include "nvim/vim.h"
 #include "nvim/log.h"
 #include "nvim/ui.h"
+#include "nvim/highlight.h"
 #include "nvim/map.h"
 #include "nvim/main.h"
 #include "nvim/memory.h"
@@ -37,7 +38,6 @@
 #include "nvim/tui/tui.h"
 #include "nvim/tui/terminfo.h"
 #include "nvim/cursor_shape.h"
-#include "nvim/syntax.h"
 #include "nvim/macros.h"
 
 // Space reserved in two output buffers to make the cursor normal or invisible
