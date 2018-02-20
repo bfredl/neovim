@@ -211,6 +211,21 @@ struct name_list {
   char        *name;
 };
 
+// TODO: move this and the low lewel functions to highlight.c
+typedef enum {
+  kHlUI,
+  kHlSyntax,
+  kHlTerminal,
+  kHlComibne,
+} HlKind;
+
+typedef struct {
+  HlAttrs attr;
+  HlKind kind;
+  int id1;
+  int id2;
+} HlEntry;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "syntax.c.generated.h"
 #endif
@@ -6992,48 +7007,22 @@ static void highlight_clear(int idx)
 }
 
 
-/// Table with the specifications for an attribute number.
-/// Note that this table is used by ALL buffers.  This is required because the
-/// GUI can redraw at any time for any buffer.
-static garray_T attr_table = GA_EMPTY_INIT_VALUE;
+static kvec_t(HlEntry) attr_entries = KV_INITIAL_VALUE;
 
-static inline HlAttrs * ATTR_ENTRY(int idx)
+static Map(HlAttrs, int) *term_attr_entries;
+static Map(int, int) *combine_attr_entries;
+
+void highlight_init(void)
 {
-  return &((HlAttrs *)attr_table.ga_data)[idx];
+  term_attr_entries = map_new(HlAttrs, int)();
+  combine_attr_entries = map_new(int, int)();
 }
 
 
-/// Return the attr number for a set of colors and font.
-/// Add a new entry to the term_attr_table, attr_table or gui_attr_table
-/// if the combination is new.
-/// @return 0 for error.
-int get_attr_entry(HlAttrs *aep)
+static int put_attr_entry(HlEntry entry)
 {
-  garray_T *table = &attr_table;
-  HlAttrs *taep;
-  static int recursive = false;
-
-  /*
-   * Init the table, in case it wasn't done yet.
-   */
-  table->ga_itemsize = sizeof(HlAttrs);
-  ga_set_growsize(table, 7);
-
-  // Try to find an entry with the same specifications.
-  for (int i = 0; i < table->ga_len; i++) {
-    taep = &(((HlAttrs *)table->ga_data)[i]);
-    if (aep->cterm_ae_attr == taep->cterm_ae_attr
-        && aep->cterm_fg_color == taep->cterm_fg_color
-        && aep->cterm_bg_color == taep->cterm_bg_color
-        && aep->rgb_ae_attr == taep->rgb_ae_attr
-        && aep->rgb_fg_color == taep->rgb_fg_color
-        && aep->rgb_bg_color == taep->rgb_bg_color
-        && aep->rgb_sp_color == taep->rgb_sp_color) {
-      return i + ATTR_OFF;
-    }
-  }
-
-  if (table->ga_len + ATTR_OFF > MAX_TYPENR) {
+  static bool recursive = false;
+  if (kv_size(attr_entries) + ATTR_OFF > MAX_TYPENR) {
     /*
      * Running out of attribute entries!  remove all attributes, and
      * compute new ones for all groups.
@@ -7043,9 +7032,9 @@ int get_attr_entry(HlAttrs *aep)
       EMSG(_("E424: Too many different highlighting attributes in use"));
       return 0;
     }
-    recursive = TRUE;
+    recursive = true;
 
-    clear_hl_tables();
+    clear_hl_tables(true);
 
     must_redraw = CLEAR;
 
@@ -7053,28 +7042,49 @@ int get_attr_entry(HlAttrs *aep)
       set_hl_attr(i);
     }
 
-    recursive = FALSE;
+    recursive = false;
+    if (entry.kind == kHlComibne) {
+      // This entry is now invalid, don't put it
+      return 0;
+    }
   }
 
-  
-  // This is a new combination of colors and font, add an entry.
-  taep = GA_APPEND_VIA_PTR(HlAttrs, table);
-  memset(taep, 0, sizeof(*taep));
-  taep->cterm_ae_attr = aep->cterm_ae_attr;
-  taep->cterm_fg_color = aep->cterm_fg_color;
-  taep->cterm_bg_color = aep->cterm_bg_color;
-  taep->rgb_ae_attr = aep->rgb_ae_attr;
-  taep->rgb_fg_color = aep->rgb_fg_color;
-  taep->rgb_bg_color = aep->rgb_bg_color;
-  taep->rgb_sp_color = aep->rgb_sp_color;
+  int id = kv_size(attr_entries);
+  kv_push(attr_entries, entry);
 
-  return table->ga_len - 1 + ATTR_OFF;
+  return id+ATTR_OFF;
+}
+
+/// Return the attr number for a set of colors and font.
+/// Add a new entry to the term_attr_table, attr_table or gui_attr_table
+/// if the combination is new.
+/// @return 0 for error.
+int get_term_attr_entry(HlAttrs *aep)
+{
+  int id = map_get(HlAttrs, int)(term_attr_entries, *aep);
+  if (id > 0) {
+    return id;
+  }
+
+  id = put_attr_entry((HlEntry){.attr=*aep, .kind = kHlTerminal, .id1 = 0, .id2 = 0});
+  if (id > 0) {
+    map_put(HlAttrs, int)(term_attr_entries, *aep, id);
+  }
+  return id;
 }
 
 // Clear all highlight tables.
-void clear_hl_tables(void)
+void clear_hl_tables(bool reinit)
 {
-  ga_clear(&attr_table);
+  kv_destroy(attr_entries);
+  if (reinit) {
+    kv_init(attr_entries);
+    map_clear(HlAttrs, int)(term_attr_entries);
+    map_clear(int, int)(combine_attr_entries);
+  } else {
+    map_free(HlAttrs, int)(term_attr_entries);
+    map_free(int, int)(combine_attr_entries);
+  }
 }
 
 // Combine special attributes (e.g., for spelling) with other attributes
@@ -7086,10 +7096,6 @@ void clear_hl_tables(void)
 // Return the resulting attributes.
 int hl_combine_attr(int char_attr, int prim_attr)
 {
-  HlAttrs *char_aep = NULL;
-  HlAttrs *spell_aep;
-  HlAttrs new_en = HLATTRS_INIT;
-
   if (char_attr == 0) {
     return prim_attr;
   }
@@ -7097,6 +7103,18 @@ int hl_combine_attr(int char_attr, int prim_attr)
   if (prim_attr == 0) {
     return char_attr;
   }
+
+  // TODO FIXME XXX
+  int combine_tag = (char_attr << 16) + prim_attr;
+  int id = map_get(int, int)(combine_attr_entries, combine_tag);
+  if (id > 0) {
+    return id;
+  }
+
+  HlAttrs *char_aep = NULL;
+  HlAttrs *spell_aep;
+  HlAttrs new_en = HLATTRS_INIT;
+
 
   // Find the entry for char_attr
   char_aep = syn_cterm_attr2entry(char_attr);
@@ -7131,7 +7149,13 @@ int hl_combine_attr(int char_attr, int prim_attr)
       new_en.rgb_sp_color = spell_aep->rgb_sp_color;
     }
   }
-  return get_attr_entry(&new_en);
+
+  id = put_attr_entry((HlEntry){.attr=new_en, .kind = kHlComibne, .id1 = char_attr, .id2 = prim_attr});
+  if (id > 0) {
+    map_put(int, int)(combine_attr_entries, combine_tag, id);
+  }
+
+  return id;
 }
 
 /// \note this function does not apply exclusively to cterm attr contrary
@@ -7140,11 +7164,11 @@ int hl_combine_attr(int char_attr, int prim_attr)
 HlAttrs *syn_cterm_attr2entry(int attr)
 {
   attr -= ATTR_OFF;
-  if (attr >= attr_table.ga_len) {
+  if (attr >= (int)kv_size(attr_entries)) {
     // did ":syntax clear"
     return NULL;
   }
-  return ATTR_ENTRY(attr);
+  return &(kv_A(attr_entries, attr).attr);
 }
 
 /// \addtogroup LIST_XXX
@@ -7401,11 +7425,14 @@ static void set_hl_attr(int idx)
   at_en.rgb_bg_color = sgp->sg_rgb_bg_name ? sgp->sg_rgb_bg : -1;
   at_en.rgb_sp_color = sgp->sg_rgb_sp_name ? sgp->sg_rgb_sp : -1;
 
+  // TODO: unconditional!
   if (at_en.cterm_fg_color != 0 || at_en.cterm_bg_color != 0
       || at_en.rgb_fg_color != -1 || at_en.rgb_bg_color != -1
       || at_en.rgb_sp_color != -1 || at_en.cterm_ae_attr != 0
       || at_en.rgb_ae_attr != 0) {
-    sgp->sg_attr = get_attr_entry(&at_en);
+
+    // Fubbit, with new semantics we can update the table in place
+    sgp->sg_attr = put_attr_entry((HlEntry){.attr=at_en, .kind = kHlSyntax, .id1 = idx, .id2 = 0});
   } else {
     // If all the fields are cleared, clear the attr field back to default value
     sgp->sg_attr = 0;
