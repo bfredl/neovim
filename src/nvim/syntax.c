@@ -7451,13 +7451,15 @@ void highlight_changed(void)
     if (id == 0) {
       abort();
     }
+    int final_id = syn_get_final_id(id);
     attr = syn_id2attr(id);
     if (hlf == (int)HLF_SNC) {
-      id_SNC = syn_get_final_id(id);
+      id_SNC = final_id;
     } else if (hlf == (int)HLF_S) {
-      id_S = syn_get_final_id(id);
+      id_S = final_id;
     }
-    highlight_attr[hlf] = attr;
+
+    update_ui_hl(hlf, attr, final_id);
   }
 
   /* Setup the user highlights

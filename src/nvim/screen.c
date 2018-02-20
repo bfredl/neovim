@@ -105,6 +105,7 @@
 #include "nvim/fold.h"
 #include "nvim/indent.h"
 #include "nvim/getchar.h"
+#include "nvim/highlight.h"
 #include "nvim/main.h"
 #include "nvim/mark.h"
 #include "nvim/mbyte.h"
@@ -5587,6 +5588,7 @@ static void update_window_hl(win_T *wp, bool invalid)
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int attr;
     if (wp->w_hl_ids[hlf] > 0) {
+      // FIXME
       attr = syn_id2attr(wp->w_hl_ids[hlf]);
     } else {
       attr = hl_attr(hlf);

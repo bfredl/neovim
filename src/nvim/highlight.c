@@ -73,7 +73,7 @@ static int put_attr_entry(HlEntry entry)
     }
   }
 
-  int id = kv_size(attr_entries);
+  int id = (int)kv_size(attr_entries);
   kv_push(attr_entries, entry);
 
   return id+ATTR_OFF;
@@ -93,6 +93,21 @@ void hl_update_attr(int idx, int *id, HlAttrs at_en) {
     *id = 0;
   }
 }
+
+void update_ui_hl(int idx, int attr_code, int final_id)
+{
+  HlAttrs attrs = HLATTRS_INIT;
+
+  if (attr_code != 0) {
+    HlAttrs *aep = syn_cterm_attr2entry(attr_code);
+    if (aep) {
+      attrs = *aep;
+    }
+  }
+  highlight_attr[idx] = put_attr_entry((HlEntry){.attr=attrs, .kind = kHlUI, .id1 = idx, .id2 = final_id});
+
+}
+
 /// Return the attr number for a set of colors and font.
 /// Add a new entry to the term_attr_table, attr_table or gui_attr_table
 /// if the combination is new.
@@ -289,3 +304,34 @@ Dictionary hlattrs2dict(const HlAttrs *aep, bool use_rgb)
   return hl;
 }
 
+Dictionary hl_inspect(int attr)
+{
+  Dictionary ret = ARRAY_DICT_INIT;
+  if (attr < ATTR_OFF || attr >= (int)kv_size(attr_entries)+ATTR_OFF) {
+    return ret;
+  }
+
+  HlEntry e = kv_A(attr_entries, attr-ATTR_OFF);
+  switch (e.kind) {
+    case kHlSyntax:
+      PUT(ret, "kind", STRING_OBJ(cstr_to_string("syntax")));
+      PUT(ret, "name", STRING_OBJ(cstr_to_string((char *)syn_id2name(e.id1))));
+      break;
+
+    case kHlUI:
+      PUT(ret, "kind", STRING_OBJ(cstr_to_string("ui")));
+      PUT(ret, "ui_name", STRING_OBJ(cstr_to_string(hlf_names[e.id1])));
+      PUT(ret, "syn_name", STRING_OBJ(cstr_to_string((char *)syn_id2name(e.id2))));
+      break;
+
+    case kHlComibne:
+      PUT(ret, "kind", STRING_OBJ(cstr_to_string("combine")));
+      PUT(ret, "char", DICTIONARY_OBJ(hl_inspect(e.id1)));
+      PUT(ret, "prim", DICTIONARY_OBJ(hl_inspect(e.id2)));
+      break;
+
+    case kHlTerminal:
+      PUT(ret, "kind", STRING_OBJ(cstr_to_string("term")));
+  }
+  return ret;
+}
