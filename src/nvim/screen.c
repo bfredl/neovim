@@ -303,6 +303,9 @@ void update_screen(int type)
     must_redraw = 0;
   }
 
+  // some false positives but OK.
+  bool clear_floats = (type == CLEAR);
+
   /* Need to update w_lines[]. */
   if (curwin->w_lines_valid == 0 && type < NOT_VALID)
     type = NOT_VALID;
@@ -333,6 +336,9 @@ void update_screen(int type)
       if (screen_ins_lines(0, 0, msg_scrolled, (int)Rows, NULL) == FAIL)
         type = CLEAR;
       FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+        if(wp->w_floating) {
+          continue;
+        }
         if (wp->w_winrow < msg_scrolled) {
           if (wp->w_winrow + wp->w_height > msg_scrolled
               && wp->w_redr_type < REDRAW_TOP
@@ -441,6 +447,13 @@ void update_screen(int type)
 
 
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if(wp->w_floating) {
+      if (clear_floats) {
+        set_float_grid(wp);
+        screenclear2();
+        wp->w_redr_type = NOT_VALID;
+      }
+    }
 
     if (wp->w_redr_type != 0) {
       if (wp->w_floating) {
@@ -6367,6 +6380,10 @@ static void screenclear2(void)
   }
 
   ui_call_clear();  // clear the display
+  if (current_grid != &default_grid) {
+    return;
+  }
+
   clear_cmdline = false;
   mode_displayed = false;
   screen_cleared = true;  // can use contents of ScreenLines now
