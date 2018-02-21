@@ -109,6 +109,7 @@ static void ui_bridge_stop(UI *b)
   UIBridgeData *bridge = (UIBridgeData *)b;
   bool stopped = bridge->stopped = false;
   UI_BRIDGE_CALL(b, stop, 1, b);
+  bridge->scheduler(event_create(NULL, 0), UI(b));
   for (;;) {
     uv_mutex_lock(&bridge->mutex);
     stopped = bridge->stopped;
@@ -131,6 +132,18 @@ static void ui_bridge_stop_event(void **argv)
   ui->stop(ui);
 }
 
+static void ui_bridge_flush(UI *b)
+{
+  UIBridgeData *bridge = (UIBridgeData *)b;
+  UI_BRIDGE_CALL(b, flush, 1, b);
+  bridge->scheduler(event_create(NULL, 0), UI(b));
+}
+static void ui_bridge_flush_event(void **argv)
+{
+  UI *ui = UI(argv[0]);
+  ui->flush(ui);
+}
+
 static void ui_bridge_highlight_set(UI *b, HlAttrs attrs)
 {
   HlAttrs *a = xmalloc(sizeof(HlAttrs));
@@ -149,6 +162,7 @@ static void ui_bridge_suspend(UI *b)
   UIBridgeData *data = (UIBridgeData *)b;
   uv_mutex_lock(&data->mutex);
   UI_BRIDGE_CALL(b, suspend, 1, b);
+  data->scheduler(event_create(NULL, 0), UI(b));
   data->ready = false;
   // Suspend the main thread until CONTINUE is called by the UI thread.
   while (!data->ready) {

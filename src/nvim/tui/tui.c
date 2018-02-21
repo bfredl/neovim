@@ -68,6 +68,7 @@ typedef struct {
 
 typedef struct {
   UIBridgeData *bridge;
+  kvec_t(Event) queued;
   Loop *loop;
   unibi_var_t params[9];
   char buf[OUTBUF_SIZE];
@@ -388,7 +389,24 @@ static void tui_scheduler(Event event, void *d)
     return;  // tui_stop was handled, teardown underway.
   }
   TUIData *data = ui->data;
-  loop_schedule(data->loop, event);  // `tui_loop` local to tui_main().
+  kv_push(data->queued, event);
+  if (kv_size(data->queued) > 100 || event.handler == NULL) {
+    loop_schedule(data->loop, event_create(schedule_event, 3, data, data->queued.items, data->queued.size));
+    memset(&data->queued, 0, sizeof(data->queued));
+  }
+}
+
+static void schedule_event(void **argv)
+{
+  TUIData *data = argv[0];
+  Event *events = argv[1];
+  size_t size = argv[2];
+  for (size_t i = 0; i < size; i++) {
+    if (events[i].handler) {
+      events[i].handler(events[i].argv);
+    }
+  }
+  free(events);
 }
 
 #ifdef UNIX
