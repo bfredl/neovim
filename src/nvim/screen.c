@@ -885,9 +885,10 @@ static void win_update(win_T *wp)
            * If not the last window, delete the lines at the bottom.
            * win_ins_lines may fail when the terminal can't do it.
            */
-          if (i > 0)
-            check_for_delay(FALSE);
-          if (win_ins_lines(wp, 0, i, FALSE, wp == firstwin) == OK) {
+          if (i > 0) {
+            check_for_delay(false);
+          }
+          if (win_ins_lines(wp, 0, i) == OK) {
             if (wp->w_lines_valid != 0) {
               /* Need to update rows that are new, stop at the
                * first one that scrolled down. */
@@ -945,11 +946,12 @@ static void win_update(win_T *wp)
         /* ... but don't delete new filler lines. */
         row -= wp->w_topfill;
         if (row > 0) {
-          check_for_delay(FALSE);
-          if (win_del_lines(wp, 0, row, FALSE, wp == firstwin) == OK)
+          check_for_delay(false);
+          if (win_del_lines(wp, 0, row) == OK) {
             bot_start = wp->w_height - row;
-          else
-            mid_start = 0;                      /* redraw all lines */
+          } else {
+            mid_start = 0;  // redraw all lines
+          }
         }
         if ((row == 0 || bot_start < 999) && wp->w_lines_valid != 0) {
           /*
@@ -1321,12 +1323,12 @@ static void win_update(win_T *wp)
             if (row - xtra_rows >= wp->w_height - 2)
               mod_bot = MAXLNUM;
             else {
-              check_for_delay(FALSE);
-              if (win_del_lines(wp, row,
-                      -xtra_rows, FALSE, FALSE) == FAIL)
+              check_for_delay(false);
+              if (win_del_lines(wp, row, -xtra_rows) == FAIL) {
                 mod_bot = MAXLNUM;
-              else
+              } else {
                 bot_start = wp->w_height + xtra_rows;
+              }
             }
           } else if (xtra_rows > 0) {
             /* May scroll text down.  If there is not enough
@@ -1335,14 +1337,14 @@ static void win_update(win_T *wp)
             if (row + xtra_rows >= wp->w_height - 2)
               mod_bot = MAXLNUM;
             else {
-              check_for_delay(FALSE);
-              if (win_ins_lines(wp, row + old_rows,
-                      xtra_rows, FALSE, FALSE) == FAIL)
+              check_for_delay(false);
+              if (win_ins_lines(wp, row + old_rows, xtra_rows) == FAIL) {
                 mod_bot = MAXLNUM;
-              else if (top_end > row + old_rows)
-                /* Scrolled the part at the top that requires
-                 * updating down. */
+              } else if (top_end > row + old_rows) {
+                // Scrolled the part at the top that requires
+                // updating down.
                 top_end += xtra_rows;
+              }
             }
           }
 
@@ -6439,46 +6441,32 @@ void setcursor(void)
 }
 
 /// Insert 'line_count' lines at 'row' in window 'wp'.
-/// If 'invalid' is TRUE the wp->w_lines[].wl_lnum is invalidated.
-/// If 'mayclear' is TRUE the screen will be cleared if it is faster than
-/// scrolling.
 /// Returns FAIL if the lines are not inserted, OK for success.
-int win_ins_lines(win_T *wp, int row, int line_count, int invalid, int mayclear)
+int win_ins_lines(win_T *wp, int row, int line_count)
 {
-  if (wp->w_height < 5)
+  if (wp->w_height < 5) {
     return FAIL;
+  }
 
-  return win_do_lines(wp, row, line_count, invalid, mayclear, FALSE);
+  return win_do_lines(wp, row, line_count, false);
 }
 
 /// Delete "line_count" window lines at "row" in window "wp".
-/// If "invalid" is TRUE curwin->w_lines[] is invalidated.
-/// If "mayclear" is TRUE the screen will be cleared if it is faster than
-/// scrolling
 /// Return OK for success, FAIL if the lines are not deleted.
-int win_del_lines(win_T *wp, int row, int line_count, int invalid, int mayclear)
+int win_del_lines(win_T *wp, int row, int line_count)
 {
-  return win_do_lines(wp, row, line_count, invalid, mayclear, TRUE);
+  return win_do_lines(wp, row, line_count, true);
 }
 
 // Common code for win_ins_lines() and win_del_lines().
 // Returns OK or FAIL when the work has been done.
-static int win_do_lines(win_T *wp, int row, int line_count,
-                        int invalid, int mayclear, int del)
+static int win_do_lines(win_T *wp, int row, int line_count, int del)
 {
-  if (invalid)
-    wp->w_lines_valid = 0;
-
-  if (line_count > wp->w_height - row)
+  if (line_count > wp->w_height - row) {
     line_count = wp->w_height - row;
-
-  if (!redrawing() || line_count <= 0) {
-    return FAIL;
   }
 
-  // only a few lines left: redraw is faster
-  if (mayclear && Rows - line_count < 5 && wp->w_width == Columns) {
-    screenclear();          /* will set wp->w_lines_valid to 0 */
+  if (!redrawing() || line_count <= 0) {
     return FAIL;
   }
 

@@ -903,9 +903,9 @@ void curs_columns(
 
     extra = ((int)prev_skipcol - (int)curwin->w_skipcol) / width;
     if (extra > 0) {
-      win_ins_lines(curwin, 0, extra, false, false);
+      win_ins_lines(curwin, 0, extra);
     } else if (extra < 0) {
-      win_del_lines(curwin, 0, -extra, false, false);
+      win_del_lines(curwin, 0, -extra);
     }
   } else {
     curwin->w_skipcol = 0;
