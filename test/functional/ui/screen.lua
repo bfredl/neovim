@@ -72,8 +72,10 @@
 -- To debug screen tests, see Screen:redraw_debug().
 
 local helpers = require('test.functional.helpers')(nil)
-local request, run, uimeths = helpers.request, helpers.run, helpers.uimeths
+local request, run_session = helpers.request, helpers.run_session
 local dedent = helpers.dedent
+local get_session = helpers.get_session
+local create_callindex = helpers.create_callindex
 
 local Screen = {}
 Screen.__index = Screen
@@ -138,6 +140,7 @@ function Screen.new(width, height)
     suspended = false,
     mode = 'normal',
     options = {},
+    _session = nil,
     _default_attr_ids = nil,
     _default_attr_ignore = nil,
     _mouse_enabled = true,
@@ -147,6 +150,13 @@ function Screen.new(width, height)
     },
     _busy = false
   }, Screen)
+  local function ui(method, ...)
+    status, rv = self._session:request('nvim_ui_'..method, ...)
+    if not status then
+      error(rv[2])
+    end
+  end
+  self.uimeths = create_callindex(ui)
   self:_handle_resize(width, height)
   return self
 end
@@ -159,26 +169,31 @@ function Screen:set_default_attr_ignore(attr_ignore)
   self._default_attr_ignore = attr_ignore
 end
 
-function Screen:attach(options)
+function Screen:attach(options, session)
   if options == nil then
     options = {rgb=true}
   end
-  uimeths.attach(self._width, self._height, options)
+  if session == nil then
+    session = get_session()
+  end
+  self._session = session
+  self.uimeths.attach(self._width, self._height, options)
 end
 
 function Screen:detach()
-  uimeths.detach()
+  self.uimeths.detach()
+  self._session = nil
 end
 
 function Screen:try_resize(columns, rows)
-  uimeths.try_resize(columns, rows)
+  self.uimeths.try_resize(columns, rows)
   -- Give ourselves a chance to _handle_resize, which requires using
   -- self.sleep() (for the resize notification) rather than run()
   self:sleep(0.1)
 end
 
 function Screen:set_option(option, value)
-  uimeths.set_option(option, value)
+  self.uimeths.set_option(option, value)
 end
 
 -- Asserts that `expected` eventually matches the screen state.
@@ -275,7 +290,7 @@ function Screen:wait(check, timeout)
     checked = true
     if not err then
       success_seen = true
-      helpers.stop()
+      self._session:stop()
     elseif success_seen and #args > 0 then
       failure_after_success = true
       --print(require('inspect')(args))
@@ -283,7 +298,7 @@ function Screen:wait(check, timeout)
 
     return true
   end
-  run(nil, notification_cb, nil, timeout or self.timeout)
+  run_session(self._session, nil, notification_cb, nil, timeout or self.timeout)
   if not checked then
     err = check()
   end
@@ -568,7 +583,7 @@ function Screen:redraw_debug(attrs, ignore, timeout)
   if timeout == nil then
     timeout = 250
   end
-  run(nil, notification_cb, nil, timeout)
+  run_session(self._session, nil, notification_cb, nil, timeout)
 end
 
 function Screen:print_snapshot(attrs, ignore)
