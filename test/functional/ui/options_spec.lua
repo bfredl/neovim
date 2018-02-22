@@ -32,6 +32,7 @@ describe('ui receives option updates', function()
     ext_wildmenu=false,
     ext_newgrid=false,
     ext_hlstate=false,
+    ext_multigrid=false,
   }
 
   it("for defaults", function()
