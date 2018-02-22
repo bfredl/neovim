@@ -74,9 +74,11 @@
 local global_helpers = require('test.helpers')
 local shallowcopy = global_helpers.shallowcopy
 local helpers = require('test.functional.helpers')(nil)
-local request, run, uimeths = helpers.request, helpers.run, helpers.uimeths
+local request, run_session = helpers.request, helpers.run_session
 local eq = helpers.eq
 local dedent = helpers.dedent
+local get_session = helpers.get_session
+local create_callindex = helpers.create_callindex
 
 local inspect = require('inspect')
 
@@ -168,6 +170,13 @@ function Screen.new(width, height)
     _busy = false,
     _multigrid = false
   }, Screen)
+  local function ui(method, ...)
+    status, rv = self._session:request('nvim_ui_'..method, ...)
+    if not status then
+      error(rv[2])
+    end
+  end
+  self.uimeths = create_callindex(ui)
   self:_handle_resize(width, height)
   return self
 end
@@ -184,33 +193,41 @@ function Screen:set_hlstate_cterm(val)
   self._hlstate_cterm = val
 end
 
-function Screen:attach(options)
+function Screen:attach(options, session)
+  if session == nil then
+    session = get_session()
+  end
   if options == nil then
-    options = {rgb=true}
+    options = {}
   end
-  if options.ext_newgrid == nil then
+  if options.rgb == nil then
+    options.rgb = true
+  end
+  if options.ext_multigrid then
     options.ext_newgrid = true
-  end
-  if options.ext_multigrid == true then
     self._multigrid = true
-    options.ext_newgrid = true
   end
+
+  self._session = session
   self._options = options
   self._clear_attrs = (options.ext_newgrid and {{},{}}) or {}
-  uimeths.attach(self._grid.width, self._grid.height, options)
-  self._session = session
+  self.uimeths.attach(self._grid.width, self._grid.height, options)
 end
 
 function Screen:detach()
-  uimeths.detach()
+  self.uimeths.detach()
+  self._session = nil
 end
 
 function Screen:try_resize(columns, rows)
-  uimeths.try_resize(columns, rows)
+  self.uimeths.try_resize(columns, rows)
+  -- Give ourselves a chance to _handle_resize, which requires using
+  -- self.sleep() (for the resize notification) rather than run()
+  self:sleep(0.1)
 end
 
 function Screen:set_option(option, value)
-  uimeths.set_option(option, value)
+  self.uimeths.set_option(option, value)
   self._options[option] = value
 end
 
@@ -391,7 +408,7 @@ function Screen:wait(check, timeout)
     checked = true
     if not err then
       success_seen = true
-      helpers.stop()
+      self._session:stop()
     elseif success_seen and #args > 0 then
       failure_after_success = true
       --print(require('inspect')(args))
@@ -399,7 +416,7 @@ function Screen:wait(check, timeout)
 
     return true
   end
-  run(nil, notification_cb, nil, timeout or self.timeout)
+  run_session(self._session, nil, notification_cb, nil, timeout or self.timeout)
   if not checked then
     err = check()
   end
@@ -502,10 +519,10 @@ function Screen:_handle_clear()
   -- newer clients, to check we remain compatible with both kind of clients,
   -- ensure the scroll region is in a reset state.
   local expected_region = {
-    top = 1, bot = self._height, left = 1, right = self._width
+    top = 1, bot = self._grid.height, left = 1, right = self._grid.width
   }
   eq(expected_region, self._scroll_region)
-  self:_clear_block(1, self._height, 1, self._width)
+  self:_handle_grid_clear(1)
 end
 
 function Screen:_handle_grid_clear(grid)
@@ -554,9 +571,9 @@ function Screen:_handle_mode_change(mode, idx)
 end
 
 function Screen:_handle_set_scroll_region(top, bot, left, right)
-  self._scroll_region.top = top
+  self._scroll_region.top = top + 1
   self._scroll_region.bot = bot + 1
-  self._scroll_region.left = left
+  self._scroll_region.left = left + 1
   self._scroll_region.right = right + 1
 end
 
@@ -565,13 +582,14 @@ function Screen:_handle_scroll(count)
   local bot = self._scroll_region.bot
   local left = self._scroll_region.left
   local right = self._scroll_region.right
-  self:_handle_grid_scroll(1, top, bot, left, right, count, 0)
+  self:_handle_grid_scroll(1, top-1, bot, left-1, right, count, 0)
 end
 
-function Screen:_handle_grid_scroll(grid, top, bot, left, right, rows, cols)
+function Screen:_handle_grid_scroll(g, top, bot, left, right, rows, cols)
   top = top+1
   left = left+1
-  local grid = self._grids[grid]
+  assert(cols == 0)
+  local grid = self._grids[g]
   local start, stop, step
 
   if rows > 0 then
@@ -850,10 +868,10 @@ function Screen:redraw_debug(attrs, ignore, timeout)
   if timeout == nil then
     timeout = 250
   end
-  run(nil, notification_cb, nil, timeout)
+  run_session(self._session, nil, notification_cb, nil, timeout)
 end
 
-function Screen:find_attrs(attrs)
+function Screen:find_attrs(attrs, id_to_index)
   for i,grid in ipairs(self._grids) do
     for i = 1, grid.height do
       local row = grid.rows[i]
