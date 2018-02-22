@@ -12,19 +12,20 @@ describe('floating windows', function()
   before_each(function()
     clear()
   end)
+  local attrs = {
+    [0] = {bold=true, foreground=Screen.colors.Blue},
+    [1] = {background = Screen.colors.LightMagenta},
+    [2] = {background = Screen.colors.LightMagenta, bold = true, foreground = Screen.colors.Blue1},
+    [3] = {bold = true},
+    [4] = {bold = true, reverse = true},
+    [5] = {reverse = true},
+  }
   function with_multigrid(multigrid)
     before_each(function()
       info = {}
       screen = Screen.new(40,7)
       screen:attach({ext_multigrid=multigrid})
-      screen:set_default_attr_ids( {
-        [0] = {bold=true, foreground=Screen.colors.Blue},
-        [1] = {background = Screen.colors.LightMagenta},
-        [2] = {background = Screen.colors.LightMagenta, bold = true, foreground = Screen.colors.Blue1},
-        [3] = {bold = true},
-        [4] = {bold = true, reverse = true},
-        [5] = {reverse = true},
-      } )
+      screen:set_default_attr_ids(attrs)
       screen:set_on_event_handler(function(name, data)
         if name == "float_info" then
           local win, grid, width, height, options = unpack(data)
@@ -116,6 +117,56 @@ describe('floating windows', function()
         ]])
       end
     end)
+
+    if multigrid then
+      it("supports second UI without multigrid", function()
+        local session2 = helpers.connect(eval('v:servername'))
+        print(session2:request("nvim_eval", "2+2"))
+        local screen2 = Screen.new(40,7)
+        screen2:attach(nil, session2)
+        screen2:set_default_attr_ids(attrs)
+        -- TODO: delet this:
+        screen2:set_on_event_handler(function(name, data)
+        end)
+        buf = meths.create_buf(false)
+        win = meths.open_float_win(buf, true, 20, 2, {x=5, y=2})
+        meths.win_set_option(win, 'winhl', 'Normal:PMenu')
+        local expected_info = {[2]={
+          {id=1001}, 20, 2, {
+            anchor='NW',
+            relative='editor',
+            standalone=false,
+            x=5,y=2,
+          }
+        }}
+        print("x")
+        screen:expect([[
+        ## grid 1
+                                                  |
+          {0:~                                       }|
+          {0:~                                       }|
+          {0:~                                       }|
+          {0:~                                       }|
+          {0:~                                       }|
+                                                  |
+        ## grid 2
+          {1:^                    }|
+          {2:~                   }|
+        ]], nil, nil, function()
+          eq(expected_info, info)
+        end)
+        screen2:expect([[
+                                                  |
+          {0:~                                       }|
+          {0:~    }{1:^                    }{0:               }|
+          {0:~    }{2:~                   }{0:               }|
+          {0:~                                       }|
+          {0:~                                       }|
+                                                  |
+          ]])
+      end)
+    end
+
 
     describe("handles :wincmd", function()
       local expected_info = {[2]={
