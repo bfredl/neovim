@@ -77,6 +77,10 @@ end
 
 local session, loop_running, last_error
 
+local function get_session()
+  return session
+end
+
 local function set_session(s, keep)
   if session and not keep then
     session:close()
@@ -157,7 +161,7 @@ local function expect_msg_seq(...)
   error(final_error)
 end
 
-local function call_and_stop_on_error(...)
+local function call_and_stop_on_error(session, ...)
   local status, result = copcall(...)  -- luacheck: ignore
   if not status then
     session:stop()
@@ -167,24 +171,24 @@ local function call_and_stop_on_error(...)
   return result
 end
 
-local function run(request_cb, notification_cb, setup_cb, timeout)
+local function run_session(session, request_cb, notification_cb, setup_cb, timeout)
   local on_request, on_notification, on_setup
 
   if request_cb then
     function on_request(method, args)
-      return call_and_stop_on_error(request_cb, method, args)
+      return call_and_stop_on_error(session, request_cb, method, args)
     end
   end
 
   if notification_cb then
     function on_notification(method, args)
-      call_and_stop_on_error(notification_cb, method, args)
+      call_and_stop_on_error(session, notification_cb, method, args)
     end
   end
 
   if setup_cb then
     function on_setup()
-      call_and_stop_on_error(setup_cb)
+      call_and_stop_on_error(session, setup_cb)
     end
   end
 
@@ -196,6 +200,10 @@ local function run(request_cb, notification_cb, setup_cb, timeout)
     last_error = nil
     error(err)
   end
+end
+
+local function run(request_cb, notification_cb, setup_cb, timeout)
+  run_session(session, request_cb, notification_cb, setup_cb, timeout)
 end
 
 local function stop()
@@ -720,6 +728,7 @@ local module = {
   buffer = buffer,
   bufmeths = bufmeths,
   call = nvim_call,
+  create_callindex = create_callindex,
   clear = clear,
   command = nvim_command,
   connect = connect,
@@ -743,6 +752,7 @@ local module = {
   filter = filter,
   funcs = funcs,
   get_pathsep = get_pathsep,
+  get_session = get_session,
   hexdump = hexdump,
   insert = insert,
   iswin = iswin,
@@ -773,6 +783,7 @@ local module = {
   retry = retry,
   rmdir = rmdir,
   run = run,
+  run_session = run_session,
   set_session = set_session,
   set_shell_powershell = set_shell_powershell,
   skip_fragile = skip_fragile,
