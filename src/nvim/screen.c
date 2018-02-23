@@ -6201,6 +6201,7 @@ retry:
       (size_t) Columns, sizeof(*new_tab_page_click_defs));
 
   FOR_ALL_TAB_WINDOWS(tp, wp) {
+    // TODO(bfredl): this will not work with a float larger than global grid
     win_alloc_lines(wp);
   }
   if (aucmd_win != NULL && aucmd_win->w_lines == NULL) {
