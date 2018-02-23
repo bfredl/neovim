@@ -45,7 +45,7 @@ void bell(void)
 void visual_bell(void)
   FUNC_API_SINCE(3);
 void flush(void)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_COMPOSITOR_IMPL;
 void update_fg(Integer fg)
   FUNC_API_SINCE(3) FUNC_API_BRIDGE_IMPL;
 void update_bg(Integer bg)

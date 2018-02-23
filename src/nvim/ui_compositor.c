@@ -42,9 +42,13 @@ static ScreenGrid *curgrid;
 kvec_t(ScreenGrid *) layers = KV_INITIAL_VALUE;
 static size_t cur_index;
 
-/// TODO: separate "our" cursor from the incoming cursor
-static int cursor_row,cursor_col;
-bool cursor_invalid;
+static bool was_ambiwidth = false;
+static int cursor_row, cursor_col;
+static int put_row, put_col;
+
+static bool cached_draw = false;
+static int cached_until = -1;
+
 bool scroll_native = false;
 int scroll_top, scroll_bot, scroll_left, scroll_right;
 
@@ -68,7 +72,7 @@ void compositor_init(void) {
   //compositor->update_fg = compositor_update_fg;
   //compositor->update_bg = compositor_update_bg;
   //compositor->update_sp = compositor_update_sp;
-  //compositor->flush = compositor_flush;
+  compositor->flush = compositor_flush;
   //compositor->option_set = compositor_option_set;
   compositor->grid_cursor_goto = compositor_grid_cursor_goto;
   //compositor.float_info = compositor_float_info;
@@ -111,20 +115,19 @@ bool compositor_active(void) {
 
 void compositor_put_grid(ScreenGrid *grid, int rowpos, int colpos, bool valid)
 {
+  cached_until = -1;
   for (size_t i = 0; i < kv_size(layers); i++) {
     ScreenGrid *layer = kv_A(layers, i);
     if (kv_A(layers,i) != grid) {
       continue;
     }
     if (rowpos != layer->comp_row || colpos != layer->comp_col) {
-      int save_row = cursor_row, save_col = cursor_col;
       grid_clear(grid);
       grid->comp_row = rowpos;
       grid->comp_col = colpos;
       if (valid) {
         grid_draw(grid);
       }
-      move_cursor(save_row, save_col);
     }
     return;
   }
@@ -136,15 +139,14 @@ void compositor_put_grid(ScreenGrid *grid, int rowpos, int colpos, bool valid)
 
 void compositor_remove_grid(ScreenGrid *grid)
 {
+  cached_until = -1;
   assert(curgrid != grid);
   for (size_t i = 0; i < kv_size(layers); i++) {
     if (kv_A(layers,i) != grid) {
       continue;
     }
 
-    int save_row = cursor_row, save_col = cursor_col;
     grid_clear(grid);
-    move_cursor(save_row, save_col);
     size_t after = kv_size(layers)-i-1;
     if (after > 0) {
       if (cur_index > i) {
@@ -173,16 +175,27 @@ void compositor_set_grid(ScreenGrid *grid)
 static void compositor_grid_cursor_goto(UI *ui, Integer grid_handle, Integer r, Integer c)
 {
   assert(curgrid->handle == grid_handle);
-  move_cursor(curgrid->comp_row+(int)r, curgrid->comp_col+(int)c);
+  int new_row = curgrid->comp_row+(int)r;
+  int new_col = curgrid->comp_col+(int)c;
+  if (new_row != put_row || new_col < put_col) {
+    cached_until = -1;
+  }
+  put_row = new_row;
+  put_col = new_col;
+  move_cursor(put_row, put_col, true);
 }
 
-static void move_cursor(Integer r, Integer c) {
+static void move_cursor(Integer r, Integer c, bool force) {
+  if (cursor_row == r && cursor_col == c && !was_ambiwidth && !force) {
+    return;
+  }
   cursor_row = (int)r;
   cursor_col = (int)c;
+  was_ambiwidth = false;
+
   // TODO: this should be assured downstream instead
   if (cursor_col < default_grid.Columns && cursor_row < default_grid.Rows) {
     ui_composed_call_cursor_goto(cursor_row, cursor_col);
-    cursor_invalid = false;
   }
 }
 
@@ -199,24 +212,40 @@ static void compositor_highlight_set(UI *ui, HlAttrs attrs)
 
 static void compositor_put(UI *ui, String str)
 {
-  for (size_t i = cur_index+1; i < kv_size(layers); i++) {
-    ScreenGrid *grid = kv_A(layers, i);
-    if (grid->Rows > 0
-        && grid->comp_col <= cursor_col
-        && cursor_col < grid->comp_col + grid->Columns
-        && grid->comp_row <= cursor_row
-    && cursor_row < grid->comp_row + grid->Rows) {
-      cursor_col++;
-      cursor_invalid = true;
-      return;
+  //String xx = STATIC_CSTR_AS_STRING("x");
+  if (put_col >= cached_until) {
+    //str = xx;
+    cached_until = INT32_MAX;
+    cached_draw = true;
+    for (size_t i = cur_index+1; i < kv_size(layers); i++) {
+      ScreenGrid *grid = kv_A(layers, i);
+      if (grid->Rows > 0
+          && grid->comp_row <= put_row
+          && put_row < grid->comp_row + grid->Rows) {
+
+          if (grid->comp_col <= put_col
+              && put_col < grid->comp_col + grid->Columns) {
+            cached_draw = false;
+            cached_until = grid->comp_col + grid->Columns;
+            break;
+          } else if (grid->comp_col > put_col) {
+            cached_until = MIN(cached_until, grid->comp_col);
+          }
+
+      }
     }
   }
-
-  if (cursor_invalid) {
-    ui_composed_call_cursor_goto(cursor_row,cursor_col);
+  if (cached_draw) {
+    move_cursor(put_row, put_col, false);
+    ui_composed_call_put(str);
   }
-  ui_composed_call_put(str);
-  cursor_col++;
+  put_col++;
+}
+
+static void compositor_flush(UI *ui)
+{
+  move_cursor(put_row, put_col, false);
+  ui_composed_call_flush();
 }
 
 static void compositor_clear(UI *ui)
@@ -229,6 +258,8 @@ static void compositor_clear(UI *ui)
       grid_draw(kv_A(layers, i));
     }
   } else {
+    // fubbit: we know that we will be overdraw. Use damage regions
+    // or just composed mode already.
     grid_draw(curgrid);
   }
 }
@@ -238,11 +269,12 @@ static void compositor_eol_clear(UI *ui)
   String wh = STATIC_CSTR_AS_STRING(" ");
   // fubbit, check if actually necessary
   if (kv_size(layers) > 1) {
-    int save_col = cursor_col, save_row = cursor_row;
-    while (cursor_col < curgrid->Columns) {
+    int save_col = put_col, save_row = put_row;
+    while (put_col < curgrid->Columns) {
       compositor_put(ui,wh);
     }
-    move_cursor(save_row, save_col);
+    put_col = save_col;
+    put_row = save_row;
   } else {
     ui_composed_call_eol_clear();
   }
@@ -292,9 +324,9 @@ static void compositor_resize(UI *ui, Integer rows, Integer columns)
 static void grid_clear(ScreenGrid *grid) {
   // TODO: be more effective for small moves?
   for (int r = 0; r < grid->Rows; r++) {
+    move_cursor(grid->comp_row+r, grid->comp_col, false);
     for (int c = 0; c < grid->Columns; c++) {
       // if(cursor_invalid) blah blah
-      move_cursor(grid->comp_row+r, grid->comp_col+c);
       grid_char(&default_grid, grid->comp_row+r, grid->comp_col+c);
     }
   }
@@ -302,10 +334,10 @@ static void grid_clear(ScreenGrid *grid) {
 
 static void grid_draw(ScreenGrid *grid) {
   for (int r = 0; r < grid->Rows; r++) {
+    move_cursor(grid->comp_row+r, grid->comp_col, false);
     for (int c = 0; c < grid->Columns; c++) {
       // TODO: mask just like compositor_put
       // if(cursor_invalid) blah blah
-      move_cursor(grid->comp_row+r, grid->comp_col+c);
       grid_char(grid, r, c);
     }
   }
@@ -319,10 +351,18 @@ static void grid_char(ScreenGrid *grid, int r, int c)
     abort();
 
   size_t off = grid->LineOffset[r] + (size_t)c;
+  if (grid->ScreenLines[off] == NUL) {
+    cursor_col++;
+    return;
+  }
+
   int attr = grid->ScreenAttrs[off];
   if (last_attr != attr) {
     set_highlight_args(attr);
     last_attr = attr;
+  }
+  if (was_ambiwidth) {
+    move_cursor(cursor_row, cursor_col, true);
   }
 
   if (grid->ScreenLinesUC[off] != 0) {
@@ -332,11 +372,13 @@ static void grid_char(ScreenGrid *grid, int r, int c)
     buf[utfc_char2bytes(grid, (int)off, (char_u *)buf)] = NUL;
     ui_composed_call_put(cstr_as_string(buf));
     if (utf_ambiguous_width((int)grid->ScreenLinesUC[off])) {
-      cursor_invalid = true;
+      was_ambiwidth = true;
     }
+    cursor_col++;
   } else {
     ui_composed_call_put((String){.data = (char *)grid->ScreenLines+off,
                                   .size = 1});
+    cursor_col++;
   }
 }
 
