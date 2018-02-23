@@ -226,6 +226,10 @@ retnomove:
 
     row -= curwin->w_winrow;
     col -= curwin->w_wincol;
+    if (mouse_grid == -1 && curwin->w_floating) {
+      row -= curwin->grid.comp_row;
+      col -= curwin->grid.comp_col;
+    }
 
     // When clicking beyond the end of the window, scroll the screen.
     // Scroll by however many rows outside the window we are.
