@@ -46,6 +46,11 @@ static bool was_ambiwidth = false;
 static int cursor_row, cursor_col;
 static int put_row, put_col;
 
+static bool put_attr_pending = false;
+static HlAttrs put_attr = HLATTRS_INIT;
+
+static bool cached_compose = false;
+static ScreenGrid *cached_compose_grid = NULL;
 static bool cached_draw = false;
 static int cached_until = -1;
 
@@ -203,11 +208,9 @@ static int last_attr = 0;
 
 static void compositor_highlight_set(UI *ui, HlAttrs attrs)
 {
-  // TODO: missmatch :(
   last_attr = -1;
-  // only supports rgb...
-  // also be lazy: right now we spam composited output with unused highlights
-  ui_composed_call_highlight_set(attrs);
+  put_attr = attrs;
+  put_attr_pending = true;
 }
 
 static void compositor_put(UI *ui, String str)
@@ -217,6 +220,8 @@ static void compositor_put(UI *ui, String str)
     //str = xx;
     cached_until = INT32_MAX;
     cached_draw = true;
+    cached_compose = false;
+    cached_compose_grid = curgrid;
     for (size_t i = cur_index+1; i < kv_size(layers); i++) {
       ScreenGrid *grid = kv_A(layers, i);
       if (grid->Rows > 0
@@ -225,19 +230,37 @@ static void compositor_put(UI *ui, String str)
 
           if (grid->comp_col <= put_col
               && put_col < grid->comp_col + grid->Columns) {
-            cached_draw = false;
-            cached_until = grid->comp_col + grid->Columns;
-            break;
+            if (true) {
+              cached_compose = true;
+              cached_compose_grid = kv_A(layers,i);
+              cached_until = MIN(cached_until, grid->comp_col + grid->Columns);
+            } else {
+              cached_draw = false;
+              cached_until = grid->comp_col + grid->Columns;
+              break;
+            }
           } else if (grid->comp_col > put_col) {
             cached_until = MIN(cached_until, grid->comp_col);
           }
 
       }
     }
+    if (true && cur_index > 0) {
+      cached_compose = true;
+    }
   }
   if (cached_draw) {
     move_cursor(put_row, put_col, false);
-    ui_composed_call_put(str);
+    if (cached_compose) {
+      grid_char_compose(cached_compose_grid, put_row-cached_compose_grid->comp_row, put_col-cached_compose_grid->comp_col);
+      put_attr_pending = true;
+    } else {
+      if (put_attr_pending) {
+        ui_composed_call_highlight_set(put_attr);
+        put_attr_pending = false;
+      }
+      ui_composed_call_put(str);
+    }
   }
   put_col++;
 }
@@ -338,7 +361,11 @@ static void grid_draw(ScreenGrid *grid) {
     for (int c = 0; c < grid->Columns; c++) {
       // TODO: mask just like compositor_put
       // if(cursor_invalid) blah blah
-      grid_char(grid, r, c);
+      if (true && grid != &default_grid) {
+        grid_char_compose(grid, r, c);
+      } else {
+        grid_char(grid, r, c);
+      }
     }
   }
 }
@@ -358,7 +385,16 @@ static void grid_char(ScreenGrid *grid, int r, int c)
 
   int attr = grid->ScreenAttrs[off];
   if (last_attr != attr) {
-    set_highlight_args(attr);
+    HlAttrs attrs = get_attrs(attr);
+
+    // when $NVIM_COMPOSITOR_DEBUG, invert recomposed regions to separate them
+    // from redrawn regions
+    if (debug_recompose) {
+      attrs.rgb_fg_color = 0x00ffffff - (attrs.rgb_fg_color != -1 ? attrs.rgb_fg_color : normal_fg);
+      attrs.rgb_bg_color = 0x00ffffff - (attrs.rgb_bg_color != -1 ? attrs.rgb_bg_color : normal_bg);
+    }
+
+    ui_composed_call_highlight_set(attrs);
     last_attr = attr;
   }
   if (was_ambiwidth) {
@@ -382,7 +418,7 @@ static void grid_char(ScreenGrid *grid, int r, int c)
   }
 }
 
-static void set_highlight_args(int attr_code)
+static HlAttrs get_attrs(int attr_code)
 {
   HlAttrs attrs = HLATTRS_INIT;
 
@@ -398,14 +434,86 @@ static void set_highlight_args(int attr_code)
   }
 
 end:
-  // when $NVIM_COMPOSITOR_DEBUG, invert recomposed regions to separate them
-  // from redrawn regions
-  if (debug_recompose) {
-    attrs.rgb_fg_color = 0x00ffffff - (attrs.rgb_fg_color != -1 ? attrs.rgb_fg_color : normal_fg);
-    attrs.rgb_bg_color = 0x00ffffff - (attrs.rgb_bg_color != -1 ? attrs.rgb_bg_color : normal_bg);
+  if (attrs.rgb_bg_color == -1) {
+    attrs.rgb_bg_color = normal_bg;
   }
 
-  ui_composed_call_highlight_set(attrs);
+  if (attrs.rgb_fg_color == -1) {
+    attrs.rgb_fg_color = normal_fg;
+  }
+
+
+
+  return attrs;
 }
 
+static void grid_char_compose(ScreenGrid *grid, int r, int c)
+{
+  /* Check for illegal values, just in case (could happen just after
+   * resizing). */
+  if (r>= grid->Rows || c>= grid->Columns)
+    abort();
 
+  size_t off = grid->LineOffset[r] + (size_t)c;
+  if (grid->ScreenLines[off] == NUL) {
+    cursor_col++;
+    return;
+  }
+
+  HlAttrs gattrs = get_attrs(grid->ScreenAttrs[off]);
+
+  size_t moff = default_grid.LineOffset[r+grid->comp_row] + (size_t)c + grid->comp_col;
+  HlAttrs mattrs = get_attrs(default_grid.ScreenAttrs[moff]);
+  HlAttrs cattrs;
+
+  bool thru = (c > 0 && grid->ScreenLines[off-1] == ' ' && grid->ScreenLines[off] == ' ' && (c == grid->Columns-1 || grid->ScreenLines[off+1] == ' '));
+
+  if (thru) {
+    cattrs = mattrs;
+    cattrs.rgb_fg_color = mix(gattrs.rgb_bg_color, mattrs.rgb_fg_color);
+    grid = &default_grid;
+    off = moff;
+  } else {
+    cattrs = gattrs;
+    cattrs.rgb_fg_color = mix(gattrs.rgb_fg_color, mattrs.rgb_bg_color);
+  }
+  cattrs.rgb_bg_color = mix(gattrs.rgb_bg_color, mattrs.rgb_bg_color);
+
+  ui_composed_call_highlight_set(cattrs);
+  last_attr = -1;
+
+  if (was_ambiwidth) {
+    move_cursor(cursor_row, cursor_col, true);
+  }
+
+  if (grid->ScreenLinesUC[off] != 0) {
+    char buf[MB_MAXBYTES + 1];
+
+    // Convert UTF-8 character to bytes and write it.
+    buf[utfc_char2bytes(grid, (int)off, (char_u *)buf)] = NUL;
+    ui_composed_call_put(cstr_as_string(buf));
+    if (utf_ambiguous_width((int)grid->ScreenLinesUC[off])) {
+      was_ambiwidth = true;
+    }
+    cursor_col++;
+  } else {
+    ui_composed_call_put((String){.data = (char *)grid->ScreenLines+off,
+                                  .size = 1});
+    cursor_col++;
+  }
+}
+
+static int mix(int front, int back) {
+  float a = 0.66f;
+  float b = 1.0f-a;
+  int fr = (front & 0xFF0000) >> 16;
+  int fg = (front & 0x00FF00) >> 8;
+  int fb = (front & 0x0000FF) >> 0;
+  int br = (back & 0xFF0000) >> 16;
+  int bg = (back & 0x00FF00) >> 8;
+  int bb = (back & 0x0000FF) >> 0;
+  int mr = (int)(a*fr+b*br);
+  int mg = (int)(a*fg+b*bg);
+  int mb = (int)(a*fb+b*bb);
+  return (mr << 16) + (mg << 8) + mb;
+}
