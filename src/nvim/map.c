@@ -140,7 +140,7 @@ static inline bool String_eq(String a, String b)
   return memcmp(a.data, b.data, a.size) == 0;
 }
 
-static inline khint_t HlAttrs_hash(HlAttrs ae)
+static inline khint_t HlEntry_hash(HlEntry ae)
 {
   const uint8_t *data = (const uint8_t *)&ae;
   khint_t h = 0;
@@ -150,7 +150,7 @@ static inline khint_t HlAttrs_hash(HlAttrs ae)
   return h;
 }
 
-static inline bool HlAttrs_eq(HlAttrs ae1, HlAttrs ae2)
+static inline bool HlEntry_eq(HlEntry ae1, HlEntry ae2)
 {
   return memcmp(&ae1, &ae2, sizeof(ae1)) == 0;
 }
@@ -165,4 +165,4 @@ MAP_IMPL(handle_T, ptr_t, DEFAULT_INITIALIZER)
 #define MSGPACK_HANDLER_INITIALIZER { .fn = NULL, .async = false }
 MAP_IMPL(String, MsgpackRpcRequestHandler, MSGPACK_HANDLER_INITIALIZER)
 #define KVEC_INITIALIZER { .size = 0, .capacity = 0, .items = NULL }
-MAP_IMPL(HlAttrs, int, DEFAULT_INITIALIZER)
+MAP_IMPL(HlEntry, int, DEFAULT_INITIALIZER)

@@ -7240,7 +7240,7 @@ static void set_hl_attr(int idx)
   at_en.rgb_bg_color = sgp->sg_rgb_bg_name ? sgp->sg_rgb_bg : -1;
   at_en.rgb_sp_color = sgp->sg_rgb_sp_name ? sgp->sg_rgb_sp : -1;
 
-  hl_update_attr(idx, &sgp->sg_attr, at_en);
+  sgp->sg_attr = hl_get_syn_attr(idx, at_en);
 
 }
 
@@ -7436,7 +7436,6 @@ void highlight_attr_set_all(void)
 /// screen redraw after any :highlight command.
 void highlight_changed(void)
 {
-  int attr;
   int id;
   char_u userhl[10];
   int id_SNC = -1;
@@ -7452,14 +7451,13 @@ void highlight_changed(void)
       abort();
     }
     int final_id = syn_get_final_id(id);
-    attr = syn_id2attr(id);
     if (hlf == (int)HLF_SNC) {
       id_SNC = final_id;
     } else if (hlf == (int)HLF_S) {
       id_S = final_id;
     }
 
-    update_ui_hl(hlf, attr, final_id);
+    highlight_attr[hlf] = hl_get_ui_attr(hlf, final_id);
   }
 
   /* Setup the user highlights

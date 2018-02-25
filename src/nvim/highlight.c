@@ -9,22 +9,9 @@
 #include "nvim/map.h"
 #include "nvim/screen.h"
 #include "nvim/syntax.h"
+#include "nvim/ui.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
-
-typedef enum {
-  kHlUI,
-  kHlSyntax,
-  kHlTerminal,
-  kHlComibne,
-} HlKind;
-
-typedef struct {
-  HlAttrs attr;
-  HlKind kind;
-  int id1;
-  int id2;
-} HlEntry;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "highlight.c.generated.h"
@@ -36,17 +23,22 @@ typedef struct {
 
 static kvec_t(HlEntry) attr_entries = KV_INITIAL_VALUE;
 
-static Map(HlAttrs, int) *term_attr_entries;
+static Map(HlEntry, int) *attr_entry_ids;
 static Map(int, int) *combine_attr_entries;
 
 void highlight_init(void)
 {
-  term_attr_entries = map_new(HlAttrs, int)();
+  attr_entry_ids = map_new(HlEntry, int)();
   combine_attr_entries = map_new(int, int)();
 }
 
-static int put_attr_entry(HlEntry entry)
+static int get_attr_entry(HlEntry entry)
 {
+  int id = map_get(HlEntry, int)(attr_entry_ids, entry);
+  if (id > 0) {
+    return id;
+  }
+
   static bool recursive = false;
   if (kv_size(attr_entries) + ATTR_OFF > MAX_TYPENR) {
     /*
@@ -73,13 +65,18 @@ static int put_attr_entry(HlEntry entry)
     }
   }
 
-  int id = (int)kv_size(attr_entries);
+  id = (int)kv_size(attr_entries)+ATTR_OFF;
   kv_push(attr_entries, entry);
 
-  return id+ATTR_OFF;
+  map_put(HlEntry, int)(attr_entry_ids, entry, id);
+
+  Dictionary inspect = hl_inspect(id);
+  ui_call_hl_attr_set(id, entry.attr, inspect);
+  api_free_dictionary(inspect);
+  return id;
 }
 
-void hl_update_attr(int idx, int *id, HlAttrs at_en) {
+int hl_get_syn_attr(int idx, HlAttrs at_en) {
   // TODO: unconditional!
   if (at_en.cterm_fg_color != 0 || at_en.cterm_bg_color != 0
       || at_en.rgb_fg_color != -1 || at_en.rgb_bg_color != -1
@@ -87,25 +84,60 @@ void hl_update_attr(int idx, int *id, HlAttrs at_en) {
       || at_en.rgb_ae_attr != 0) {
 
     // Fubbit, with new semantics we can update the table in place
-    *id = put_attr_entry((HlEntry){.attr=at_en, .kind = kHlSyntax, .id1 = idx, .id2 = 0});
+    return get_attr_entry((HlEntry){.attr=at_en, .kind = kHlSyntax, .id1 = idx, .id2 = 0});
   } else {
     // If all the fields are cleared, clear the attr field back to default value
-    *id = 0;
+    return 0;
   }
 }
 
-void update_ui_hl(int idx, int attr_code, int final_id)
+int hl_get_ui_attr(int idx, int final_id)
 {
   HlAttrs attrs = HLATTRS_INIT;
 
-  if (attr_code != 0) {
-    HlAttrs *aep = syn_cterm_attr2entry(attr_code);
+  int syn_attr = syn_id2attr(final_id);
+  if (syn_attr != 0) {
+    HlAttrs *aep = syn_cterm_attr2entry(syn_attr);
     if (aep) {
       attrs = *aep;
     }
   }
-  highlight_attr[idx] = put_attr_entry((HlEntry){.attr=attrs, .kind = kHlUI, .id1 = idx, .id2 = final_id});
+  return get_attr_entry((HlEntry){.attr=attrs, .kind = kHlUI, .id1 = idx, .id2 = final_id});
 
+}
+
+void update_window_hl(win_T *wp, bool invalid)
+{
+  if (!wp->w_hl_needs_update && !invalid) {
+    return;
+  }
+  wp->w_hl_needs_update = false;
+
+  // determine window specific background set in 'winhighlight'
+  if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] > 0) {
+    wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE, wp->w_hl_ids[HLF_INACTIVE]);
+  } else if (wp->w_hl_id_normal > 0) {
+    wp->w_hl_attr_normal = hl_get_ui_attr(-1,wp->w_hl_id_normal);
+  } else {
+    wp->w_hl_attr_normal = 0;
+  }
+  if (wp != curwin) {
+    wp->w_hl_attr_normal = hl_combine_attr(hl_attr(HLF_INACTIVE),
+                                           wp->w_hl_attr_normal);
+  }
+
+  for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
+    int attr;
+    if (wp->w_hl_ids[hlf] > 0) {
+      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf]);
+    } else {
+      attr = hl_attr(hlf);
+    }
+    if (wp->w_hl_attr_normal != 0) {
+      attr = hl_combine_attr(wp->w_hl_attr_normal, attr);
+    }
+    wp->w_hl_attrs[hlf] = attr;
+  }
 }
 
 /// Return the attr number for a set of colors and font.
@@ -114,16 +146,7 @@ void update_ui_hl(int idx, int attr_code, int final_id)
 /// @return 0 for error.
 int get_term_attr_entry(HlAttrs *aep)
 {
-  int id = map_get(HlAttrs, int)(term_attr_entries, *aep);
-  if (id > 0) {
-    return id;
-  }
-
-  id = put_attr_entry((HlEntry){.attr=*aep, .kind = kHlTerminal, .id1 = 0, .id2 = 0});
-  if (id > 0) {
-    map_put(HlAttrs, int)(term_attr_entries, *aep, id);
-  }
-  return id;
+  return get_attr_entry((HlEntry){.attr=*aep, .kind = kHlTerminal, .id1 = 0, .id2 = 0});
 }
 
 // Clear all highlight tables.
@@ -132,10 +155,10 @@ void clear_hl_tables(bool reinit)
   kv_destroy(attr_entries);
   if (reinit) {
     kv_init(attr_entries);
-    map_clear(HlAttrs, int)(term_attr_entries);
+    map_clear(HlEntry, int)(attr_entry_ids);
     map_clear(int, int)(combine_attr_entries);
   } else {
-    map_free(HlAttrs, int)(term_attr_entries);
+    map_free(HlEntry, int)(attr_entry_ids);
     map_free(int, int)(combine_attr_entries);
   }
 }
@@ -203,7 +226,7 @@ int hl_combine_attr(int char_attr, int prim_attr)
     }
   }
 
-  id = put_attr_entry((HlEntry){.attr=new_en, .kind = kHlComibne, .id1 = char_attr, .id2 = prim_attr});
+  id = get_attr_entry((HlEntry){.attr=new_en, .kind = kHlComibne, .id1 = char_attr, .id2 = prim_attr});
   if (id > 0) {
     map_put(int, int)(combine_attr_entries, combine_tag, id);
   }
@@ -241,14 +264,14 @@ Dictionary hl_get_attr_by_id(Integer attr_id, Boolean rgb, Error *err)
     return dic;
   }
 
-  return hlattrs2dict(aep, rgb);
+  return hlattrs2dict(aep, rgb ? kTrue : kFalse);
 }
 
 /// Converts an HlAttrs into Dictionary
 ///
 /// @param[in] aep data to convert
 /// @param use_rgb use 'gui*' settings if true, else resorts to 'cterm*'
-Dictionary hlattrs2dict(const HlAttrs *aep, bool use_rgb)
+Dictionary hlattrs2dict(const HlAttrs *aep, TriState use_rgb)
 {
   assert(aep);
   Dictionary hl = ARRAY_DICT_INIT;
@@ -279,7 +302,7 @@ Dictionary hlattrs2dict(const HlAttrs *aep, bool use_rgb)
   }
 
 
-  if (use_rgb) {
+  else if (use_rgb != kFalse) {
     if (aep->rgb_fg_color != -1) {
       PUT(hl, "foreground", INTEGER_OBJ(aep->rgb_fg_color));
     }
@@ -290,6 +313,15 @@ Dictionary hlattrs2dict(const HlAttrs *aep, bool use_rgb)
 
     if (aep->rgb_sp_color != -1) {
       PUT(hl, "special", INTEGER_OBJ(aep->rgb_sp_color));
+    }
+    if (use_rgb == kNone) {
+      if (cterm_normal_fg_color != aep->cterm_fg_color) {
+        PUT(hl, "cterm_fg", INTEGER_OBJ(aep->cterm_fg_color - 1));
+      }
+
+      if (cterm_normal_bg_color != aep->cterm_bg_color) {
+        PUT(hl, "cterm_bg", INTEGER_OBJ(aep->cterm_bg_color - 1));
+      }
     }
   } else {
     if (cterm_normal_fg_color != aep->cterm_fg_color) {
@@ -304,6 +336,7 @@ Dictionary hlattrs2dict(const HlAttrs *aep, bool use_rgb)
   return hl;
 }
 
+// TODO: make me a flat array of combines, they are associative after all...
 Dictionary hl_inspect(int attr)
 {
   Dictionary ret = ARRAY_DICT_INIT;

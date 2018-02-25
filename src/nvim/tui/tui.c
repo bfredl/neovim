@@ -32,6 +32,7 @@
 #include "nvim/os/input.h"
 #include "nvim/os/os.h"
 #include "nvim/strings.h"
+#include "nvim/syntax.h"
 #include "nvim/ui_bridge.h"
 #include "nvim/ugrid.h"
 #include "nvim/tui/input.h"

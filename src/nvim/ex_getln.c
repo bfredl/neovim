@@ -2947,7 +2947,7 @@ static void ui_ext_cmdline_show(CmdlineInfo *line)
         HlAttrs *aep = syn_cterm_attr2entry(chunk.attr);
         // TODO(bfredl): this desicion could be delayed by making attr_code a
         // recognized type
-        Dictionary rgb_attrs = hlattrs2dict(aep, true);
+        Dictionary rgb_attrs = hlattrs2dict(aep, kNone);
         ADD(item, DICTIONARY_OBJ(rgb_attrs));
       } else {
         ADD(item, DICTIONARY_OBJ((Dictionary)ARRAY_DICT_INIT));
