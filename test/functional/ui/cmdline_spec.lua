@@ -29,6 +29,9 @@ describe('external cmdline', function()
       if name == "cmdline_show" then
         local content, pos, firstc, prompt, indent, level = unpack(data)
         ok(level > 0)
+        for _,item in ipairs(content) do
+          item[1] = screen:get_hl(item[1])
+        end
         cmdline[level] = {content=content, pos=pos, firstc=firstc,
                           prompt=prompt, indent=indent}
         last_level = level
@@ -87,6 +90,7 @@ describe('external cmdline', function()
                                |
     ]], nil, nil, function()
       eq(1, last_level)
+      --print(require('inspect')(cmdline))
       eq({{
         content = { { {}, "" } },
         firstc = ":",
