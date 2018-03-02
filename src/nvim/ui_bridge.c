@@ -44,7 +44,6 @@ UI *ui_bridge_attach(UI *ui, ui_main_fn ui_main, event_scheduler scheduler)
   rv->bridge.stop = ui_bridge_stop;
   rv->bridge.resize = ui_bridge_resize;
   rv->bridge.clear = ui_bridge_clear;
-  rv->bridge.eol_clear = ui_bridge_eol_clear;
   rv->bridge.cursor_goto = ui_bridge_cursor_goto;
   rv->bridge.mode_info_set = ui_bridge_mode_info_set;
   rv->bridge.update_menu = ui_bridge_update_menu;
@@ -55,8 +54,7 @@ UI *ui_bridge_attach(UI *ui, ui_main_fn ui_main, event_scheduler scheduler)
   rv->bridge.mode_change = ui_bridge_mode_change;
   rv->bridge.set_scroll_region = ui_bridge_set_scroll_region;
   rv->bridge.scroll = ui_bridge_scroll;
-  rv->bridge.highlight_set = ui_bridge_highlight_set;
-  rv->bridge.put = ui_bridge_put;
+  rv->bridge.hl_attr_define = ui_bridge_hl_attr_define;
   rv->bridge.bell = ui_bridge_bell;
   rv->bridge.visual_bell = ui_bridge_visual_bell;
   rv->bridge.default_colors_set = ui_bridge_default_colors_set;
@@ -65,6 +63,7 @@ UI *ui_bridge_attach(UI *ui, ui_main_fn ui_main, event_scheduler scheduler)
   rv->bridge.set_title = ui_bridge_set_title;
   rv->bridge.set_icon = ui_bridge_set_icon;
   rv->bridge.option_set = ui_bridge_option_set;
+  rv->bridge.raw_line = ui_bridge_raw_line;
   rv->scheduler = scheduler;
 
   for (UIExtension i = 0; (int)i < kUIExtCount; i++) {
@@ -133,18 +132,35 @@ static void ui_bridge_stop_event(void **argv)
   ui->stop(ui);
 }
 
-static void ui_bridge_highlight_set(UI *b, HlAttrs attrs)
+static void ui_bridge_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Array info)
 {
   HlAttrs *a = xmalloc(sizeof(HlAttrs));
   *a = attrs;
-  UI_BRIDGE_CALL(b, highlight_set, 2, b, a);
+  UI_BRIDGE_CALL(ui, hl_attr_define, 3, ui, INT2PTR(id), a);
 }
-static void ui_bridge_highlight_set_event(void **argv)
+static void ui_bridge_hl_attr_define_event(void **argv)
 {
   UI *ui = UI(argv[0]);
-  ui->highlight_set(ui, *((HlAttrs *)argv[1]));
-  xfree(argv[1]);
+  Array info = ARRAY_DICT_INIT;
+  ui->hl_attr_define(ui, PTR2INT(argv[1]), *((HlAttrs *)argv[2]), info);
+  xfree(argv[2]);
 }
+
+static void ui_bridge_raw_line_event(void **argv)
+{
+  UI *ui = UI(argv[0]);
+  ui->raw_line(ui, PTR2INT(argv[1]), PTR2INT(argv[2]), PTR2INT(argv[3]), PTR2INT(argv[4]), PTR2INT(argv[5]), argv[6], argv[7]);
+  xfree(argv[6]);
+  xfree(argv[7]);
+}
+static void ui_bridge_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, Integer clearattr, schar_T *chunk, sattr_T *attrs)
+{
+  size_t ncol = (size_t)(endcol-startcol);
+  schar_T *c = xmemdup(chunk,ncol*sizeof(schar_T));
+  sattr_T *hl = xmemdup(attrs,ncol*sizeof(sattr_T));
+  UI_BRIDGE_CALL(ui, raw_line, 8, ui, INT2PTR(row), INT2PTR(startcol), INT2PTR(endcol), INT2PTR(clearcol), INT2PTR(clearattr), c, hl);
+}
+
 
 static void ui_bridge_suspend(UI *b)
 {

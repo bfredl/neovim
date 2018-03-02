@@ -6300,6 +6300,7 @@ static void ex_stop(exarg_T *eap)
     if (!eap->forceit) {
       autowrite_all();
     }
+    // TODO
     ui_cursor_goto((int)Rows - 1, 0);
     ui_linefeed();
     ui_flush();

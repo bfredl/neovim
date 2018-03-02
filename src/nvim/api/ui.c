@@ -26,6 +26,9 @@
 typedef struct {
   uint64_t channel_id;
   Array buffer;
+  int hl_id;
+  Integer cursor_row, cursor_col;
+  Integer client_row, client_col;
 } UIData;
 
 static PMap(uint64_t) *connected_uis = NULL;
@@ -73,8 +76,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->rgb = true;
   ui->resize = remote_ui_resize;
   ui->clear = remote_ui_clear;
-  ui->eol_clear = remote_ui_eol_clear;
-  ui->cursor_goto = remote_ui_cursor_goto;
+  ui->cursor_goto = remote_ui_grid_cursor_goto;
   ui->mode_info_set = remote_ui_mode_info_set;
   ui->update_menu = remote_ui_update_menu;
   ui->busy_start = remote_ui_busy_start;
@@ -84,15 +86,11 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->mode_change = remote_ui_mode_change;
   ui->set_scroll_region = remote_ui_set_scroll_region;
   ui->scroll = remote_ui_scroll;
-  ui->highlight_set = remote_ui_highlight_set;
   ui->hl_attr_define = remote_ui_hl_attr_define;
-  ui->put = remote_ui_put;
+  ui->raw_line = remote_ui_raw_line;
   ui->bell = remote_ui_bell;
   ui->visual_bell = remote_ui_visual_bell;
   ui->default_colors_set = remote_ui_default_colors_set;
-  ui->update_fg = remote_ui_update_fg;
-  ui->update_bg = remote_ui_update_bg;
-  ui->update_sp = remote_ui_update_sp;
   ui->flush = remote_ui_flush;
   ui->suspend = remote_ui_suspend;
   ui->set_title = remote_ui_set_title;
@@ -113,6 +111,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   UIData *data = xmalloc(sizeof(UIData));
   data->channel_id = channel_id;
   data->buffer = (Array)ARRAY_DICT_INIT;
+  data->hl_id = 0;
   ui->data = data;
 
   pmap_put(uint64_t)(connected_uis, channel_id, ui);
@@ -242,30 +241,164 @@ static void push_call(UI *ui, char *name, Array args)
   kv_A(data->buffer, kv_size(data->buffer) - 1).data.array = call;
 }
 
-
-static void remote_ui_highlight_set(UI *ui, HlAttrs attrs)
+static void remote_ui_default_colors_set(UI *ui, Integer rgb_fg, Integer rgb_bg, Integer rgb_sp, Integer cterm_fg, Integer cterm_bg)
 {
   Array args = ARRAY_DICT_INIT;
+  ADD(args, INTEGER_OBJ(rgb_fg));
+  ADD(args, INTEGER_OBJ(rgb_bg));
+  ADD(args, INTEGER_OBJ(rgb_sp));
+  ADD(args, INTEGER_OBJ(cterm_fg));
+  ADD(args, INTEGER_OBJ(cterm_bg));
+  push_call(ui, "default_colors_set", args);
+
+  // Deprecated
+  if (!ui->ui_ext[kUIMultigrid]) {
+    args = (Array)ARRAY_DICT_INIT;
+    ADD(args, INTEGER_OBJ(ui->rgb ? normal_fg : cterm_normal_fg_color - 1));
+    push_call(ui, "update_fg", args);
+
+    args = (Array)ARRAY_DICT_INIT;
+    ADD(args, INTEGER_OBJ(ui->rgb ? normal_bg : cterm_normal_bg_color - 1));
+    push_call(ui, "update_bg", args);
+
+    args = (Array)ARRAY_DICT_INIT;
+    ADD(args, INTEGER_OBJ(ui->rgb ? normal_bg : cterm_normal_bg_color - 1));
+    push_call(ui, "update_sp", args);
+  }
+}
+
+static void remote_ui_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Array info)
+{
+  if (!ui->ui_ext[kUIMultigrid]) {
+    return;
+  }
+  Array args = ARRAY_DICT_INIT;
+  Dictionary hl = hlattrs2dict(&attrs, kNone);
+
+  ADD(args, INTEGER_OBJ(id));
+  ADD(args, DICTIONARY_OBJ(hl));
+  if (ui->ui_ext[kUIHlState]) {
+    ADD(args, ARRAY_OBJ(copy_array(info)));
+  } else {
+    // TODO: actually map the same hls to the same id also
+    ADD(args, ARRAY_OBJ((Array)ARRAY_DICT_INIT));
+  }
+
+  push_call(ui, "hl_attr_define", args);
+}
+
+static void remote_ui_highlight_set(UI *ui, int id)
+{
+  Array args = ARRAY_DICT_INIT;
+  UIData *data = ui->data;
+
+  HlAttrs attrs = HLATTRS_INIT;
+
+  if (data->hl_id == id) {
+    return;
+  }
+  data->hl_id = id;
+
+  if (id != 0) {
+    HlAttrs *aep = syn_cterm_attr2entry(id);
+    if (aep) {
+      attrs = *aep;
+    }
+  }
+
   Dictionary hl = hlattrs2dict(&attrs, ui->rgb);
 
   ADD(args, DICTIONARY_OBJ(hl));
   push_call(ui, "highlight_set", args);
 }
 
-static void remote_ui_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Array info)
+static void remote_ui_grid_cursor_goto(UI *ui, Integer row, Integer col)
 {
-  Array args = ARRAY_DICT_INIT;
-  Dictionary hl = hlattrs2dict(&attrs, kNone);
+  UIData *data = ui->data;
+  data->cursor_row = row;
+  data->cursor_col = col;
+  remote_ui_cursor_goto(ui, row, col);
+}
 
-  ADD(args, INTEGER_OBJ(id));
-  ADD(args, DICTIONARY_OBJ(hl));
-  ADD(args, ARRAY_OBJ(copy_array(info)));
-  push_call(ui, "hl_attr_define", args);
+
+static void remote_ui_cursor_goto(UI *ui, Integer row, Integer col)
+{
+  UIData *data = ui->data;
+  if (data->client_row == row && data->client_col == col) {
+    return;
+  }
+  data->client_row = row;
+  data->client_col = col;
+  Array args = ARRAY_DICT_INIT;
+  ADD(args, INTEGER_OBJ(row));
+  ADD(args, INTEGER_OBJ(col));
+  push_call(ui, "cursor_goto", args);
+}
+
+static void remote_ui_put(UI *ui, const char *cell)
+{
+  UIData *data = ui->data;
+  data->client_col++;
+  Array args = ARRAY_DICT_INIT;
+  ADD(args, STRING_OBJ(cstr_to_string(cell)));
+  push_call(ui, "put", args);
+}
+
+static void remote_ui_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, Integer clearattr, schar_T *chunk, sattr_T *attrs)
+{
+  UIData *data = ui->data;
+  if (ui->ui_ext[kUIMultigrid]) {
+    Array args = ARRAY_DICT_INIT;
+    ADD(args, INTEGER_OBJ(row));
+    ADD(args, INTEGER_OBJ(startcol));
+    // TODO: this is messy, use [utf8, attr, repeat] instead!
+    ADD(args, INTEGER_OBJ(clearcol));
+    ADD(args, INTEGER_OBJ(clearattr));
+    Array cells = ARRAY_DICT_INIT;
+    int last_hl = -1;
+    for (int i = 0; i < endcol-startcol; i++) {
+      Array cell = ARRAY_DICT_INIT;
+      ADD(cell, STRING_OBJ(cstr_to_string((const char *)chunk[i])));
+      if (attrs[i] != last_hl) {
+        ADD(cell, INTEGER_OBJ(attrs[i]));
+        last_hl = attrs[i];
+      }
+      ADD(cells, ARRAY_OBJ(cell));
+    }
+    ADD(args, ARRAY_OBJ(cells));
+
+    push_call(ui, "line", args);
+  } else {
+    for (int i = 0; i < endcol-startcol; i++) {
+      remote_ui_cursor_goto(ui, row, startcol+i);
+      remote_ui_highlight_set(ui, attrs[i]);
+      remote_ui_put(ui, (const char *)chunk[i]);
+      if (utf_ambiguous_width(utf_ptr2char(chunk[i]))) {
+        data->client_col = -1; // force cursor update
+      }
+    }
+    if (endcol < clearcol) {
+      remote_ui_highlight_set(ui, (int)clearattr);
+      if (clearattr== 0 &&  clearcol == Columns) {
+        remote_ui_cursor_goto(ui, row, endcol);
+        Array args = ARRAY_DICT_INIT;
+        push_call(ui, "eol_clear", args);
+      } else {
+        remote_ui_cursor_goto(ui, row, endcol);
+        for (Integer c = endcol; c < clearcol; c++) {
+          remote_ui_put(ui, " ");
+        }
+      }
+    }
+  }
 }
 
 static void remote_ui_flush(UI *ui)
 {
   UIData *data = ui->data;
+  if (!ui->ui_ext[kUIMultigrid]) {
+    remote_ui_cursor_goto(ui, data->cursor_row, data->cursor_col);
+  }
   if (data->buffer.size > 0) {
     rpc_send_event(data->channel_id, "redraw", data->buffer);
     data->buffer = (Array)ARRAY_DICT_INIT;

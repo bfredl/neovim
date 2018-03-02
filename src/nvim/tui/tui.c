@@ -88,6 +88,7 @@ typedef struct {
   bool cont_received;
   UGrid grid;
   kvec_t(Rect) invalid_regions;
+  int row, col;
   int out_fd;
   bool scroll_region_is_full_screen;
   bool can_change_scroll_region;
@@ -98,6 +99,7 @@ typedef struct {
   bool busy, is_invisible;
   bool cork, overflow;
   cursorentry_T cursor_shapes[SHAPE_IDX_COUNT];
+  kvec_t(HlAttrs) attrs;
   HlAttrs print_attrs;
   bool default_attr;
   ModeShape showing_mode;
@@ -128,7 +130,6 @@ UI *tui_start(void)
   ui->stop = tui_stop;
   ui->resize = tui_resize;
   ui->clear = tui_clear;
-  ui->eol_clear = tui_eol_clear;
   ui->cursor_goto = tui_cursor_goto;
   ui->mode_info_set = tui_mode_info_set;
   ui->update_menu = tui_update_menu;
@@ -139,8 +140,7 @@ UI *tui_start(void)
   ui->mode_change = tui_mode_change;
   ui->set_scroll_region = tui_set_scroll_region;
   ui->scroll = tui_scroll;
-  ui->highlight_set = tui_highlight_set;
-  ui->put = tui_put;
+  ui->hl_attr_define = tui_hl_attr_define;
   ui->bell = tui_bell;
   ui->visual_bell = tui_visual_bell;
   ui->default_colors_set = tui_default_colors_set;
@@ -149,6 +149,7 @@ UI *tui_start(void)
   ui->set_title = tui_set_title;
   ui->set_icon = tui_set_icon;
   ui->option_set= tui_option_set;
+  ui->raw_line = tui_raw_line;
 
   memset(ui->ui_ext, 0, sizeof(ui->ui_ext));
 
@@ -346,6 +347,9 @@ static void tui_main(UIBridgeData *bridge, UI *ui)
   signal_watcher_start(&data->cont_handle, sigcont_cb, SIGCONT);
 #endif
 
+  // TODO: zero hl is empty, send this explicitly?
+  kv_push(data->attrs, HLATTRS_INIT);
+
 #if TERMKEY_VERSION_MAJOR > 0 || TERMKEY_VERSION_MINOR > 18
   data->input.tk_ti_hook_fn = tui_tk_ti_getstr;
 #endif
@@ -380,6 +384,7 @@ static void tui_main(UIBridgeData *bridge, UI *ui)
   signal_watcher_close(&data->winch_handle, NULL);
   loop_close(&tui_loop, false);
   kv_destroy(data->invalid_regions);
+  kv_destroy(data->attrs);
   xfree(data);
 }
 
@@ -588,6 +593,8 @@ static void cursor_goto(UI *ui, int row, int col)
   if (row == grid->row && col == grid->col) {
     return;
   }
+  data->row = row;
+  data->col = col;
   if (0 == row && 0 == col) {
     unibi_out(ui, unibi_cursor_home);
     ugrid_goto(grid, row, col);
@@ -680,8 +687,6 @@ static void clear_region(UI *ui, int top, int bot, int left, int right)
 {
   TUIData *data = ui->data;
   UGrid *grid = &data->grid;
-  int saved_row = grid->row;
-  int saved_col = grid->col;
 
   bool cleared = false;
   bool nobg = ui->rgb ? grid->clear_attrs.rgb_bg_color == -1
@@ -722,7 +727,7 @@ static void clear_region(UI *ui, int top, int bot, int left, int right)
   }
 
   // restore cursor
-  cursor_goto(ui, saved_row, saved_col);
+  cursor_goto(ui, data->row, data->col);
 }
 
 static bool can_use_scroll(UI * ui)
@@ -816,16 +821,11 @@ static void tui_clear(UI *ui)
   clear_region(ui, grid->top, grid->bot, grid->left, grid->right);
 }
 
-static void tui_eol_clear(UI *ui)
-{
-  TUIData *data = ui->data;
-  UGrid *grid = &data->grid;
-  ugrid_eol_clear(grid);
-  clear_region(ui, grid->row, grid->row, grid->col, grid->right);
-}
-
 static void tui_cursor_goto(UI *ui, Integer row, Integer col)
 {
+  TUIData *data = ui->data;
+  data->row = (int)row;
+  data->col = (int)col;
   cursor_goto(ui, (int)row, (int)col);
 }
 
@@ -973,8 +973,6 @@ static void tui_scroll(UI *ui, Integer count)
   ugrid_scroll(grid, (int)count, &clear_top, &clear_bot);
 
   if (can_use_scroll(ui)) {
-    int saved_row = grid->row;
-    int saved_col = grid->col;
     bool scroll_clears_to_current_colour =
       unibi_get_bool(data->ut, unibi_back_color_erase);
 
@@ -1008,7 +1006,7 @@ static void tui_scroll(UI *ui, Integer count)
     if (!data->scroll_region_is_full_screen) {
       reset_scroll_region(ui);
     }
-    cursor_goto(ui, saved_row, saved_col);
+    cursor_goto(ui, data->row, data->col);
 
     if (!scroll_clears_to_current_colour) {
       // Scrolling will leave wrong background in the cleared area on non-BCE
@@ -1021,23 +1019,11 @@ static void tui_scroll(UI *ui, Integer count)
   }
 }
 
-static void tui_highlight_set(UI *ui, HlAttrs attrs)
-{
-  ((TUIData *)ui->data)->grid.attrs = attrs;
-}
-
-static void tui_put(UI *ui, String text)
+static void tui_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Array info)
 {
   TUIData *data = ui->data;
-  UGrid *grid = &data->grid;
-  UCell *cell;
-
-  cell = ugrid_put(&data->grid, (uint8_t *)text.data, text.size);
-  // ugrid_put does not advance the cursor correctly, as the actual terminal
-  // will when we print.  Its cursor motion model is simplistic and wrong.  So
-  // we have to undo what it has just done before doing it right.
-  grid->col--;
-  print_cell(ui, cell);
+  kv_a(data->attrs, (size_t)id);
+  kv_A(data->attrs, (size_t)id) = attrs;
 }
 
 static void tui_bell(UI *ui)
@@ -1079,9 +1065,6 @@ static void tui_flush(UI *ui)
     tui_busy_stop(ui);  // avoid hidden cursor
   }
 
-  int saved_row = grid->row;
-  int saved_col = grid->col;
-
   while (kv_size(data->invalid_regions)) {
     Rect r = kv_pop(data->invalid_regions);
     assert(r.bot < grid->height && r.right < grid->width);
@@ -1091,7 +1074,7 @@ static void tui_flush(UI *ui)
     });
   }
 
-  cursor_goto(ui, saved_row, saved_col);
+  cursor_goto(ui, data->row, data->col);
 
   flush_buf(ui);
 }
@@ -1174,6 +1157,22 @@ static void tui_option_set(UI *ui, String name, Object value)
     ui->rgb = value.data.boolean;
     invalidate(ui, 0, data->grid.height-1, 0, data->grid.width-1);
   }
+}
+
+static void tui_raw_line(UI *ui, Integer linerow, Integer startcol, Integer endcol, Integer clearcol, Integer clearattr, schar_T *chunk, sattr_T *attrs)
+{
+  TUIData *data = ui->data;
+  UGrid *grid = &data->grid;
+  for (Integer c = startcol; c < endcol; c++) {
+    memcpy(grid->cells[linerow][c].data, chunk[c-startcol], sizeof(schar_T));
+    grid->cells[linerow][c].attrs = kv_A(data->attrs, attrs[c-startcol]);
+  }
+  ugrid_clear_chunk(grid, (int)linerow, (int)endcol, (int)clearcol, kv_A(data->attrs, (size_t)clearattr));
+  // TODO: use clr_eol when possible
+  UGRID_FOREACH_CELL(grid, (int)linerow, (int)linerow, (int)startcol, (int)clearcol-1, {
+    cursor_goto(ui, row, col);
+    print_cell(ui, cell);
+  });
 }
 
 static void invalidate(UI *ui, int top, int bot, int left, int right)

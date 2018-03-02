@@ -4313,6 +4313,7 @@ static void screen_line(int row, int coloff, int endcol,
   int clear_next = FALSE;
   int char_cells;                       /* 1: normal char */
                                         /* 2: occupies two display cells */
+  int start_dirty = -1, end_dirty = 0;
 # define CHAR_CELLS char_cells
 
   /* Check for illegal row and col, just in case. */
@@ -4320,7 +4321,6 @@ static void screen_line(int row, int coloff, int endcol,
     row = Rows - 1;
   if (endcol > Columns)
     endcol = Columns;
-
 
   off_from = (unsigned)(current_ScreenLine - ScreenLines);
   off_to = LineOffset[row] + coloff;
@@ -4369,6 +4369,10 @@ static void screen_line(int row, int coloff, int endcol,
 
 
     if (redraw_this) {
+      if (start_dirty == -1) {
+        start_dirty = col;
+      }
+      end_dirty = col + char_cells;
       if (enc_dbcs != 0) {
         /* Check if overwriting a double-byte with a single-byte or
          * the other way around requires another character to be
@@ -4417,7 +4421,6 @@ static void screen_line(int row, int coloff, int endcol,
       if (char_cells == 2)
         ScreenAttrs[off_to + 1] = ScreenAttrs[off_from];
 
-      screen_char(off_to, row, col + coloff);
     }
 
     off_to += CHAR_CELLS;
@@ -4429,29 +4432,42 @@ static void screen_line(int row, int coloff, int endcol,
     /* Clear the second half of a double-wide character of which the left
      * half was overwritten with a single-wide character. */
     sc_from_ascii(ScreenLines[off_to], ' ');
-    screen_char(off_to, row, col + coloff);
+    end_dirty++;
   }
 
+  int clear_end = -1;
   if (clear_width > 0 && !rlflag) {
     // blank out the rest of the line
-    while (col < clear_width && ScreenLines[off_to][0] == ' '
-           && ScreenLines[off_to][1] == NUL
-           && ScreenAttrs[off_to] == bg_attr
+    // TODO: why not cache winline widths?
+    while (col < clear_width) {
+        // TODO: this (and the old code) cannot possibly be efficient with
+        // winhl=Normal:XXX but might be moot anyway when we 1) switch to
+        // grid-based rendering and 2) has separate default color per grid
+        // XXX: comment still valid after this change?
+        if (ScreenLines[off_to][0] != ' '
+           || ScreenLines[off_to][1] != NUL
+           || ScreenAttrs[off_to] != bg_attr
            ) {
-      ++off_to;
-      ++col;
-    }
-    if (col < clear_width) {
-      screen_fill(row, row + 1, col + coloff, clear_width + coloff, ' ', ' ',
-                  bg_attr);
-      off_to += clear_width - col;
-      col = clear_width;
+            ScreenLines[off_to][0] = ' ';
+            ScreenLines[off_to][1] = NUL;
+            ScreenAttrs[off_to] = bg_attr;
+            if (start_dirty == -1) {
+              start_dirty = col;
+              end_dirty = col;
+            } else if (clear_end == -1) {
+              end_dirty = endcol;
+            }
+            clear_end = col+1;
+        }
+        col++;
+        off_to++;
     }
   }
 
   if (clear_width > 0) {
     // For a window that's left of another, draw the separator char.
     if (col + coloff < Columns && wp->w_vsep_width > 0) {
+      // TODO: is this eliminable
       int c = fillchar_vsep(wp, &hl);
       char_u buf[MB_MAXBYTES + 1];
       buf[(*mb_char2bytes)(c, buf)] = NUL;
@@ -4460,11 +4476,25 @@ static void screen_line(int row, int coloff, int endcol,
           || ScreenAttrs[off_to] != hl) {
         sc_copy(ScreenLines[off_to], buf);
         ScreenAttrs[off_to] = hl;
-        screen_char(off_to, row, col + coloff);
+        if (start_dirty == -1) {
+          start_dirty = col;
+        }
+        end_dirty = col+1;
       }
     } else
       LineWraps[row] = FALSE;
   }
+
+  if (clear_end < end_dirty) {
+    clear_end = end_dirty;
+  }
+  if (start_dirty == -1) {
+    start_dirty = end_dirty;
+  }
+  if (clear_end > start_dirty) {
+    ui_line(row, coloff+start_dirty, coloff+end_dirty, coloff+clear_end, bg_attr);
+  }
+
 }
 
 /*
@@ -5116,6 +5146,8 @@ win_redr_custom (
   /*
    * Draw each snippet with the specified highlighting.
    */
+  screen_puts_line_start(row);
+
   curattr = attr;
   p = buf;
   for (n = 0; hltab[n].start != NULL; n++) {
@@ -5135,6 +5167,8 @@ win_redr_custom (
   }
   // Make sure to use an empty string instead of p, if p is beyond buf + len.
   screen_puts(p >= buf + len ? (char_u *)"" : p, row, col, curattr);
+
+  screen_puts_line_flush(false);
 
   if (wp == NULL) {
     // Fill the tab_page_click_defs array for clicking in the tab pages line.
@@ -5226,7 +5260,6 @@ void screen_getbytes(int row, int col, char_u *bytes, int *attrp)
   }
 }
 
-
 /*
  * Put string '*text' on the screen at position 'row' and 'col', with
  * attributes 'attr', and update ScreenLines[] and ScreenAttrs[].
@@ -5238,6 +5271,15 @@ void screen_puts(char_u *text, int row, int col, int attr)
   screen_puts_len(text, -1, row, col, attr);
 }
 
+static int put_dirty_row = -1;
+static int put_dirty_first = -1;
+static int put_dirty_last = 0;
+
+void screen_puts_line_start(int row)
+{
+  assert(put_dirty_row == -1);
+  put_dirty_row = row;
+}
 /*
  * Like screen_puts(), but output "text[len]".  When "len" is -1 output up to
  * a NUL.
@@ -5268,6 +5310,16 @@ void screen_puts_len(char_u *text, int textlen, int row, int col, int attr)
   assert((l_has_mbyte == (l_enc_utf8 || l_enc_dbcs))
          && !(l_enc_utf8 && l_enc_dbcs));
 
+  bool do_flush = false;
+  if (put_dirty_row == -1) {
+    screen_puts_line_start(row);
+    do_flush = true;
+  } else {
+    if (row != put_dirty_row) {
+      abort();
+    }
+  }
+
   if (ScreenLines == NULL || row >= screen_Rows)        /* safety check */
     return;
   off = LineOffset[row] + col;
@@ -5279,7 +5331,16 @@ void screen_puts_len(char_u *text, int textlen, int row, int col, int attr)
     sc_from_ascii(ScreenLines[off - 1], ' ');
     ScreenAttrs[off - 1] = 0;
     // redraw the previous cell, make it empty
-    screen_char(off - 1, row, col - 1);
+    if(put_dirty_first == -1) {
+      put_dirty_first = col-1;
+    }
+    // TODO: The +1 comes from the last
+    // if(force_redraw_next) screen_char(...)
+    // but is it really needed?
+    // or will the screen get corrupted if
+    // screen_puts_len is called with an empty string
+    // positioned in the middle of a double-with char??
+    put_dirty_last = col+1;
     /* force the cell at "col" to be redrawn */
     force_redraw_next = TRUE;
   }
@@ -5370,7 +5431,11 @@ void screen_puts_len(char_u *text, int textlen, int row, int col, int attr)
         ScreenLines[off + 1][0] = 0;
         ScreenAttrs[off + 1] = attr;
       }
-      screen_char(off, row, col);
+      if(put_dirty_first == -1) {
+        put_dirty_first = col;
+      }
+      put_dirty_last = col+mbyte_cells;
+
     }
     if (l_has_mbyte) {
       off += mbyte_cells;
@@ -5388,11 +5453,23 @@ void screen_puts_len(char_u *text, int textlen, int row, int col, int attr)
     }
   }
 
-  /* If we detected the next character needs to be redrawn, but the text
-   * doesn't extend up to there, update the character here. */
-  if (force_redraw_next && col < screen_Columns) {
-      screen_char(off, row, col);
+  if (do_flush) {
+    screen_puts_line_flush(true);
   }
+}
+
+void screen_puts_line_flush(bool set_cursor)
+{
+  assert(put_dirty_row != -1);
+  if (put_dirty_first != -1) {
+    if (set_cursor || p_wd) { // KOLLA
+      ui_cursor_goto(put_dirty_row, put_dirty_last);
+    }
+    ui_line(put_dirty_row, put_dirty_first, put_dirty_last, put_dirty_last, 0);
+    put_dirty_first = -1;
+    put_dirty_last = 0;
+  }
+  put_dirty_row = -1;
 }
 
 /*
@@ -5685,32 +5762,6 @@ next_search_hl_pos(
   return 0;
 }
 
-/*
- * Put character ScreenLines["off"] on the screen at position "row" and "col",
- * using the attributes from ScreenAttrs["off"].
- */
-static void screen_char(unsigned off, int row, int col)
-{
-  // Check for illegal values, just in case (could happen just after resizing).
-  if (row >= screen_Rows || col >= screen_Columns) {
-    return;
-  }
-
-  // Outputting the last character on the screen may scrollup the screen.
-  // Don't to it!  Mark the character invalid (update it when scrolled up)
-  // FIXME: The premise here is not actually true (cf. deferred wrap).
-  if (row == screen_Rows - 1 && col == screen_Columns - 1
-      // account for first command-line character in rightleft mode
-      && !cmdmsg_rl) {
-    ScreenAttrs[off] = (sattr_T)-1;
-    return;
-  }
-
-  ui_cursor_goto(row, col);
-  ui_set_highlight(ScreenAttrs[off]);
-
-  ui_puts(ScreenLines[off]);
-}
 
 /*
  * Fill the screen from 'start_row' to 'end_row', from 'start_col' to 'end_col'
@@ -5719,15 +5770,7 @@ static void screen_char(unsigned off, int row, int col)
  */
 void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1, int c2, int attr)
 {
-  int row;
-  int col;
-  int off;
-  int end_off;
-  int did_delete;
-  int c;
   schar_T sc;
-
-
 
   if (end_row > screen_Rows)            /* safety check */
     end_row = screen_Rows;
@@ -5739,7 +5782,7 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
     return;
 
   /* it's a "normal" terminal when not in a GUI or cterm */
-  for (row = start_row; row < end_row; ++row) {
+  for (int row = start_row; row < end_row; ++row) {
     if (has_mbyte) {
       // When drawing over the right halve of a double-wide char clear
       // out the left halve.  When drawing over the left halve of a
@@ -5752,63 +5795,42 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
         screen_puts_len((char_u *)" ", 1, row, end_col, 0);
       }
     }
-    /*
-     * Try to use delete-line termcap code, when no attributes or in a
-     * "normal" terminal, where a bold/italic space is just a
-     * space.
-     */
-    did_delete = FALSE;
-    if (c2 == ' '
-        && end_col == Columns
-        && attr == 0) {
-      /*
-       * check if we really need to clear something
-       */
-      col = start_col;
-      if (c1 != ' ')                            /* don't clear first char */
-        ++col;
 
-      off = LineOffset[row] + col;
-      end_off = LineOffset[row] + end_col;
-
-      // skip blanks (used often, keep it fast!)
-      while (off < end_off && ScreenLines[off][0] == ' '
-             && ScreenLines[off][1] == 0 && ScreenAttrs[off] == 0) {
-        off++;
-      }
-      if (off < end_off) {  // something to be cleared
-        col = off - LineOffset[row];
-        ui_clear_highlight();
-        ui_cursor_goto(row, col);        // clear rest of this screen line
-        ui_call_eol_clear();
-        col = end_col - col;
-        while (col--) {  // clear chars in ScreenLines
-          sc_from_ascii(ScreenLines[off], ' ');
-          ScreenAttrs[off] = 0;
-          ++off;
-        }
-      }
-      did_delete = TRUE;                /* the chars are cleared now */
-    }
-
-    off = LineOffset[row] + start_col;
-    c = c1;
-    sc_from_char(sc, c);
+    int dirty_first = INT_MAX;
+    int dirty_last = 0;
+    int col = start_col;
+    sc_from_char(sc, c1);
+    int lineoff = LineOffset[row];
     for (col = start_col; col < end_col; col++) {
+      int off = lineoff + col;
       if (sc_cmp(ScreenLines[off], sc) || ScreenAttrs[off] != attr) {
         sc_copy(ScreenLines[off], sc);
         ScreenAttrs[off] = attr;
-        if (!did_delete || c != ' ')
-          screen_char(off, row, col);
+        if (dirty_first == INT_MAX) {
+          dirty_first = col;
+        }
+        dirty_last = col+1;
       }
-      ++off;
       if (col == start_col) {
-        if (did_delete)
-          break;
-        c = c2;
-        sc_from_char(sc, c);
+        sc_from_char(sc, c2);
       }
     }
+    if (dirty_last > dirty_first) {
+      // TODO: this is ugly, use one set of vars?
+      if (put_dirty_row == row) {
+        if(put_dirty_first == -1) {
+          put_dirty_first = dirty_first;
+        }
+        put_dirty_last = MAX(put_dirty_last, dirty_last);
+      } else if (true || dirty_last > dirty_first + 1) {
+        ui_line(row, dirty_first, c2 != ' ' ? dirty_last : dirty_first + (c1 != ' ') , dirty_last, attr);
+      } else {
+        // TODO: this optimization should really be in the UI layer
+        //screen__char(lineoff+dirty_first, row, dirty_first);
+      }
+    }
+
+
     if (end_col == Columns)
       LineWraps[row] = FALSE;
     if (row == Rows - 1) {              /* overwritten the command line */
@@ -6077,8 +6099,6 @@ static void screenclear2(void)
   if (starting == NO_SCREEN || ScreenLines == NULL) {
     return;
   }
-
-  ui_clear_highlight();  // don't want highlighting here
 
   /* blank out ScreenLines */
   for (i = 0; i < Rows; ++i) {
@@ -7081,6 +7101,9 @@ void screen_resize(int width, int height)
   height = Rows;
   width = Columns;
   ui_resize(width, height);
+
+  // TODO(bfredl): update default colors when they changed, NOT on resize.
+  ui_default_colors_set();
 
   /* The window layout used to be adjusted here, but it now happens in
    * screenalloc() (also invoked from screenclear()).  That is because the

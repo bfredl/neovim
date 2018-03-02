@@ -76,6 +76,15 @@ static int get_attr_entry(HlEntry entry)
   return id;
 }
 
+void ui_send_all_hls(void) {
+  for (size_t i = 0; i < kv_size(attr_entries); i++) {
+    int id = (int)i+ATTR_OFF;
+    Array inspect = hl_inspect(id);
+    ui_call_hl_attr_define(id, kv_A(attr_entries,i).attr, inspect);
+    api_free_array(inspect);
+  }
+}
+
 int hl_get_syn_attr(int idx, HlAttrs at_en) {
   // TODO: unconditional!
   if (at_en.cterm_fg_color != 0 || at_en.cterm_bg_color != 0

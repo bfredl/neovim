@@ -15,9 +15,9 @@ void resize(Integer rows, Integer columns)
 void clear(void)
   FUNC_API_SINCE(3);
 void eol_clear(void)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void cursor_goto(Integer row, Integer col)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL;
 void mode_info_set(Boolean enabled, Array cursor_styles)
   FUNC_API_SINCE(3);
 void update_menu(void)
@@ -37,11 +37,11 @@ void set_scroll_region(Integer top, Integer bot, Integer left, Integer right)
 void scroll(Integer count)
   FUNC_API_SINCE(3);
 void highlight_set(HlAttrs attrs)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY FUNC_API_REMOTE_IMPL;
 void hl_attr_define(Integer id, HlAttrs attrs, Array info)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
 void put(String str)
-  FUNC_API_SINCE(3);
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void bell(void)
   FUNC_API_SINCE(3);
 void visual_bell(void)
@@ -49,14 +49,14 @@ void visual_bell(void)
 void flush(void)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL;
 void update_fg(Integer fg)
-  FUNC_API_SINCE(3) FUNC_API_BRIDGE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void update_bg(Integer bg)
-  FUNC_API_SINCE(3) FUNC_API_BRIDGE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void update_sp(Integer sp)
-  FUNC_API_SINCE(3) FUNC_API_BRIDGE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void default_colors_set(Integer rgb_fg, Integer rgb_bg, Integer rgb_sp,
                         Integer cterm_fg, Integer cterm_bg)
-  FUNC_API_SINCE(4);
+  FUNC_API_SINCE(4) FUNC_API_REMOTE_IMPL;
 void suspend(void)
   FUNC_API_SINCE(3) FUNC_API_BRIDGE_IMPL;
 void set_title(String title)
@@ -65,6 +65,9 @@ void set_icon(String icon)
   FUNC_API_SINCE(3);
 void option_set(String name, Object value)
   FUNC_API_SINCE(4);
+
+void line(Integer row, Integer startcol, Integer clearcol, Array data)
+  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
 
 void popupmenu_show(Array items, Integer selected, Integer row, Integer col)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;

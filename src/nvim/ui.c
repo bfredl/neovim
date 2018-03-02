@@ -89,7 +89,6 @@ static char uilog_last_event[1024] = { 0 };
 #ifdef _MSC_VER
 # define UI_CALL(funname, ...) \
     do { \
-      flush_cursor_update(); \
       UI_LOG(funname, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
@@ -99,7 +98,6 @@ static char uilog_last_event[1024] = { 0 };
 #else
 # define UI_CALL(...) \
     do { \
-      flush_cursor_update(); \
       UI_LOG(__VA_ARGS__, 0); \
       for (size_t i = 0; i < ui_count; i++) { \
         UI *ui = uis[i]; \
@@ -108,8 +106,8 @@ static char uilog_last_event[1024] = { 0 };
     } while (0)
 #endif
 #define CNT(...) SELECT_NTH(__VA_ARGS__, MORE, MORE, MORE, \
-                            MORE, MORE, ZERO, ignore)
-#define SELECT_NTH(a1, a2, a3, a4, a5, a6, a7, ...) a7
+                            MORE, MORE, MORE, MORE, ZERO, ignore)
+#define SELECT_NTH(a1, a2, a3, a4, a5, a6, a7, a8, a9, ...) a9
 #define UI_CALL_HELPER(c, ...) UI_CALL_HELPER2(c, __VA_ARGS__)
 // Resolves to UI_CALL_MORE or UI_CALL_ZERO.
 #define UI_CALL_HELPER2(c, ...) UI_CALL_##c(__VA_ARGS__)
@@ -231,20 +229,18 @@ void ui_resize(int new_width, int new_height)
   width = new_width;
   height = new_height;
 
-  // TODO(bfredl): update default colors when they changed, NOT on resize.
-  ui_call_default_colors_set(normal_fg, normal_bg, normal_sp,
-                             cterm_normal_fg_color, cterm_normal_bg_color);
-
-  // Deprecated:
-  UI_CALL(update_fg, (ui->rgb ? normal_fg : cterm_normal_fg_color - 1));
-  UI_CALL(update_bg, (ui->rgb ? normal_bg : cterm_normal_bg_color - 1));
-  UI_CALL(update_sp, (ui->rgb ? normal_sp : -1));
 
   sr.top = 0;
   sr.bot = height - 1;
   sr.left = 0;
   sr.right = width - 1;
   ui_call_resize(width, height);
+}
+
+void ui_default_colors_set(void)
+{
+  ui_call_default_colors_set(normal_fg, normal_bg, normal_sp,
+                             cterm_normal_fg_color, cterm_normal_bg_color);
 }
 
 void ui_busy_start(void)
@@ -269,6 +265,7 @@ void ui_attach_impl(UI *ui)
 
   uis[ui_count++] = ui;
   ui_refresh_options();
+  ui_send_all_hls();
   ui_refresh();
 }
 
@@ -329,68 +326,14 @@ void ui_reset_scroll_region(void)
   ui_call_set_scroll_region(sr.top, sr.bot, sr.left, sr.right);
 }
 
-void ui_set_highlight(int attr_code)
-{
-  if (current_attr_code == attr_code) {
-    return;
+void ui_line(int row, int startcol, int endcol, int clearcol, int clearattr) {
+  size_t off = LineOffset[row]+(size_t)startcol;
+  UI_CALL(raw_line, row, startcol, endcol, clearcol, clearattr, ScreenLines+off, ScreenAttrs+off);
+  if (p_wd) {  // 'writedelay': flush & delay each time.
+    ui_flush();
+    uint64_t wd = (uint64_t)labs(p_wd);
+    os_delay(wd, false);
   }
-  current_attr_code = attr_code;
-
-  HlAttrs attrs = HLATTRS_INIT;
-
-  if (attr_code != 0) {
-    HlAttrs *aep = syn_cterm_attr2entry(attr_code);
-    if (aep) {
-      attrs = *aep;
-    }
-  }
-
-  UI_CALL(highlight_set, attrs);
-}
-
-void ui_clear_highlight(void)
-{
-  ui_set_highlight(0);
-}
-
-void ui_puts(uint8_t *str)
-{
-  uint8_t *p = str;
-  uint8_t c;
-
-  while ((c = *p)) {
-    if (c < 0x20) {
-      abort();
-    }
-
-    size_t clen = (size_t)mb_ptr2len(p);
-    ui_call_put((String){ .data = (char *)p, .size = clen });
-    col++;
-    if (mb_ptr2cells(p) > 1) {
-      // double cell character, blank the next cell
-      ui_call_put((String)STRING_INIT);
-      col++;
-    }
-    if (utf_ambiguous_width(utf_ptr2char(p))) {
-      pending_cursor_update = true;
-    }
-    if (col >= width) {
-      ui_linefeed();
-    }
-    p += clen;
-
-    if (p_wd) {  // 'writedelay': flush & delay each time.
-      ui_flush();
-      uint64_t wd = (uint64_t)labs(p_wd);
-      os_delay(wd, false);
-    }
-  }
-}
-
-void ui_putc(uint8_t c)
-{
-  uint8_t buf[2] = {c, 0};
-  ui_puts(buf);
 }
 
 void ui_cursor_goto(int new_row, int new_col)
@@ -450,6 +393,10 @@ int ui_current_col(void)
 void ui_flush(void)
 {
   cmdline_ui_flush();
+  if (pending_cursor_update) {
+    ui_call_cursor_goto(row, col);
+    pending_cursor_update = false;
+  }
   ui_call_flush();
 }
 
@@ -464,14 +411,6 @@ void ui_linefeed(void)
     ui_call_scroll(1);
   }
   ui_cursor_goto(new_row, new_col);
-}
-
-static void flush_cursor_update(void)
-{
-  if (pending_cursor_update) {
-    pending_cursor_update = false;
-    ui_call_cursor_goto(row, col);
-  }
 }
 
 /// Check if current mode has changed.
