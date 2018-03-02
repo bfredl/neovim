@@ -142,6 +142,7 @@ function Screen.new(width, height)
     _default_attr_ignore = nil,
     _mouse_enabled = true,
     _attrs = {},
+    _attr_table = {[0]={}},
     _cursor = {
       row = 1, col = 1
     },
@@ -163,6 +164,8 @@ function Screen:attach(options)
   if options == nil then
     options = {rgb=true}
   end
+  options.ext_newgrid = true
+  self._options = options
   uimeths.attach(self._width, self._height, options)
 end
 
@@ -355,14 +358,22 @@ function Screen:_handle_resize(width, height)
   }
 end
 
+function Screen:_handle_grid_resize(grid, width, height)
+    self:_handle_resize(width, height)
+end
+
+
 function Screen:_handle_mode_info_set(cursor_style_enabled, mode_info)
   self._cursor_style_enabled = cursor_style_enabled
   self._mode_info = mode_info
 end
 
 function Screen:_handle_clear()
-  self:_clear_block(self._scroll_region.top, self._scroll_region.bot,
-                    self._scroll_region.left, self._scroll_region.right)
+  self:_clear_block(1, self._height, 1, self._width)
+end
+
+function Screen:_handle_grid_clear(grid)
+    self:_handle_clear()
 end
 
 function Screen:_handle_eol_clear()
@@ -371,6 +382,11 @@ function Screen:_handle_eol_clear()
 end
 
 function Screen:_handle_cursor_goto(row, col)
+  self._cursor.row = row + 1
+  self._cursor.col = col + 1
+end
+
+function Screen:_handle_grid_cursor_goto(grid, row, col)
   self._cursor.row = row + 1
   self._cursor.col = col + 1
 end
@@ -436,6 +452,32 @@ function Screen:_handle_scroll(count)
   end
 end
 
+function Screen:_handle_grid_scroll(grid, top, bot, left, right, rows, cols)
+    -- TODO: if we truly believe we should translate the other way
+    self:_handle_set_scroll_region(top,bot-1,left,right-1)
+    self:_handle_scroll(rows)
+end
+
+function Screen:_handle_hl_attr_define(id,attrs,inspect)
+  -- a bit ugly, but to avoid test churn
+  if self._options.rgb == false then
+    attrs.foreground = attrs.cterm_fg
+    attrs.background = attrs.cterm_bg
+    attrs.special = nil
+  end
+  attrs.cterm_fg = nil
+  attrs.cterm_bg = nil
+  self._attr_table[id] = attrs
+end
+
+function Screen:get_hl(val)
+  if self._options.ext_newgrid then
+    return self._attr_table[val]
+  else
+    return val
+  end
+end
+
 function Screen:_handle_highlight_set(attrs)
   self._attrs = attrs
 end
@@ -445,6 +487,24 @@ function Screen:_handle_put(str)
   cell.text = str
   cell.attrs = self._attrs
   self._cursor.col = self._cursor.col + 1
+end
+
+function Screen:_handle_grid_line(grid, row, col, cells)
+  local line = self._rows[row+1]
+  local colpos = col+1
+  local hl = {}
+  for _,cell in ipairs(cells) do
+    local text, hlid, count = unpack(cell)
+    if hlid ~= nil then
+      hl = self._attr_table[hlid]
+    end
+    for i = 1, (count or 1) do
+      local cell = line[colpos]
+      cell.text = text
+      cell.attrs = hl
+      colpos = colpos+1
+    end
+  end
 end
 
 function Screen:_handle_bell()

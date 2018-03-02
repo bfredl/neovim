@@ -7,7 +7,7 @@
 typedef struct ucell UCell;
 typedef struct ugrid UGrid;
 
-#define CELLBYTES (4 * (MAX_MCO+1))
+#define CELLBYTES (sizeof(schar_T))
 
 struct ucell {
   char data[CELLBYTES + 1];

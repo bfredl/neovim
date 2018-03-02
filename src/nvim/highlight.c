@@ -90,6 +90,16 @@ static int get_attr_entry(HlEntry entry)
   return id;
 }
 
+void ui_send_all_hls(UI *ui)
+{
+  for (size_t i = 0; i < kv_size(attr_entries); i++) {
+    int id = (int)i + ATTR_OFF;
+    Array inspect = hl_inspect(id);
+    ui->hl_attr_define(ui, id, kv_A(attr_entries, i).attr, inspect);
+    api_free_array(inspect);
+  }
+}
+
 int hl_get_syn_attr(int idx, HlAttrs at_en)
 {
   // TODO(bfredl): should we do this unconditionally
