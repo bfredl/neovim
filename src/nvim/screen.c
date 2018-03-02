@@ -4294,6 +4294,7 @@ static int char_needs_redraw(int off_from, int off_to, int cols)
           || p_wd < 0));
 }
 
+static int sc_silent = 0;
 /*
  * Move one "cooked" screen line to the screen, but only the characters that
  * have actually changed.  Handle insert/delete character.
@@ -4321,6 +4322,7 @@ static void screen_line(int row, int coloff, int endcol,
   int clear_next = FALSE;
   int char_cells;                       /* 1: normal char */
                                         /* 2: occupies two display cells */
+  int start_dirty = -1, end_dirty = 0;
 # define CHAR_CELLS char_cells
 
   /* Check for illegal row and col, just in case. */
@@ -4329,6 +4331,7 @@ static void screen_line(int row, int coloff, int endcol,
   if (endcol > Columns)
     endcol = Columns;
 
+  sc_silent++;
 
   off_from = (unsigned)(current_ScreenLine - ScreenLines);
   off_to = LineOffset[row] + coloff;
@@ -4369,6 +4372,10 @@ static void screen_line(int row, int coloff, int endcol,
 
 
     if (redraw_this) {
+      if (start_dirty == -1) {
+        start_dirty = col;
+      }
+      end_dirty = col + char_cells;
       if (enc_dbcs != 0) {
         /* Check if overwriting a double-byte with a single-byte or
          * the other way around requires another character to be
@@ -4432,6 +4439,7 @@ static void screen_line(int row, int coloff, int endcol,
     screen_char(off_to, row, col + coloff);
   }
 
+  ui_line(row, start_dirty, end_dirty);
   if (clear_width > 0 && !rlflag) {
     // blank out the rest of the line
     while (col < clear_width && ScreenLines[off_to][0] == ' '
@@ -4448,6 +4456,8 @@ static void screen_line(int row, int coloff, int endcol,
       col = clear_width;
     }
   }
+
+  sc_silent--;
 
   if (clear_width > 0) {
     // For a window that's left of another, draw the separator char.
@@ -5693,6 +5703,10 @@ static void screen_char(unsigned off, int row, int col)
 {
   // Check for illegal values, just in case (could happen just after resizing).
   if (row >= screen_Rows || col >= screen_Columns) {
+    return;
+  }
+
+  if (sc_silent) {
     return;
   }
 
