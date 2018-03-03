@@ -4437,24 +4437,40 @@ static void screen_line(int row, int coloff, int endcol,
      * half was overwritten with a single-wide character. */
     sc_from_ascii(ScreenLines[off_to], ' ');
     screen_char(off_to, row, col + coloff);
+    end_dirty++;
   }
 
-  ui_line(row, start_dirty, end_dirty);
+  int clear_end = -1;
   if (clear_width > 0 && !rlflag) {
     // blank out the rest of the line
-    while (col < clear_width && ScreenLines[off_to][0] == ' '
-           && ScreenLines[off_to][1] == NUL
-           && ScreenAttrs[off_to] == 0
+    // TODO: why not cache winline widths?
+    while (col < clear_width) {
+        // TODO: this (and the old code) cannot possibly be efficient with
+        // winhl=Normal:XXX but might be moot anyway when we 1) switch to
+        // grid-based rendering and 2) has separate default color per grid
+        if (ScreenLines[off_to][0] != ' '
+           || ScreenLines[off_to][1] != NUL
+           || ScreenAttrs[off_to] != 0
            ) {
-      ++off_to;
-      ++col;
+            ScreenLines[off_to][0] = ' ';
+            ScreenLines[off_to][1] = NUL;
+            ScreenAttrs[off_to] = 0;
+            clear_end = col+1;
+        }
+        col++;
+        off_to++;
     }
-    if (col < clear_width) {
-      screen_fill(row, row + 1, col + coloff, clear_width + coloff,
-          ' ', ' ', 0);
-      off_to += clear_width - col;
-      col = clear_width;
-    }
+  }
+  if (clear_end != -1) {
+    end_dirty = endcol;
+  } else {
+    clear_end = end_dirty;
+  }
+  if (start_dirty == -1) {
+    start_dirty = end_dirty;
+  }
+  if (clear_end > start_dirty) {
+    ui_line(row, coloff+start_dirty, coloff+end_dirty, coloff+clear_end);
   }
 
   sc_silent--;
