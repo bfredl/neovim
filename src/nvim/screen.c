@@ -2001,7 +2001,7 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
   }
 
   screen_line(row + wp->w_winrow, wp->w_wincol, wp->w_width,
-              wp->w_width, false, wp);
+              wp->w_width, false, wp, 0);
 
   /*
    * Update w_cline_height and w_cline_folded if the cursor line was
@@ -2882,7 +2882,7 @@ win_line (
         && lnum == wp->w_cursor.lnum && vcol >= (long)wp->w_virtcol
         && filler_todo <= 0
         ) {
-      screen_line(screen_row, wp->w_wincol, col, -wp->w_width, wp->w_p_rl, wp);
+      screen_line(screen_row, wp->w_wincol, col, -wp->w_width, wp->w_p_rl, wp, 0);
       // Pretend we have finished updating the window.  Except when
       // 'cursorcolumn' is set.
       if (wp->w_p_cuc) {
@@ -3646,7 +3646,7 @@ win_line (
                      (col < wp->w_width))) {
           c = ' ';
           ptr--;  // put it back at the NUL
-        } else if ((diff_hlf != (hlf_T)0 || line_attr != 0)
+        } else if ((diff_hlf != (hlf_T)0)
                    && (wp->w_p_rl
                        ? (col >= 0)
                        : (col - boguscols < wp->w_width))) {
@@ -3962,7 +3962,7 @@ win_line (
           col++;
         }
       }
-      screen_line(screen_row, wp->w_wincol, col, wp->w_width, wp->w_p_rl, wp);
+      screen_line(screen_row, wp->w_wincol, col, wp->w_width, wp->w_p_rl, wp, line_attr);
       row++;
 
       /*
@@ -4165,7 +4165,7 @@ win_line (
             || (n_extra != 0 && (c_extra != NUL || *p_extra != NUL)))
         ) {
       screen_line(screen_row, wp->w_wincol, col - boguscols,
-                  wp->w_width, wp->w_p_rl, wp);
+                  wp->w_width, wp->w_p_rl, wp, line_attr);
       boguscols = 0;
       ++row;
       ++screen_row;
@@ -4307,7 +4307,7 @@ static int sc_silent = 0;
  *    When FALSE and "clear_width" > 0, clear columns "endcol" to "clear_width"
  */
 static void screen_line(int row, int coloff, int endcol,
-                        int clear_width, int rlflag, win_T *wp)
+                        int clear_width, int rlflag, win_T *wp, int clear_attr)
 {
   unsigned off_from;
   unsigned off_to;
