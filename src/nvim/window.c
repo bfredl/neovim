@@ -820,7 +820,7 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
   bool new_in_layout = (new_wp == NULL || new_wp->w_floating);
 
   /* add a status line when p_ls == 1 and splitting the first window */
-  if (ONE_WINDOW && p_ls == 1 && oldwin->w_status_height == 0) {
+  if (one_nonfloat() && p_ls == 1 && oldwin->w_status_height == 0) {
     if (oldwin->w_height <= p_wmh && new_in_layout) {
       EMSG(_(e_noroom));
       return FAIL;
@@ -2061,6 +2061,12 @@ bool one_window(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
     }
   }
   return true;
+}
+
+/// Like ONE_WINDOW but only considers non-floating windows
+bool one_nonfloat(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
+{
+  return firstwin->w_next == NULL || firstwin->w_next->w_floating;
 }
 
 /// Close the possibly last window in a tab page.
