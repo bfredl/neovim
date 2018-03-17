@@ -23,6 +23,8 @@ local rv2 = nil
 local buf = nil
 
 local function check_undo_redo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
+  rv = buffer('lookup_mark', buf, ns, mark)
+  eq({mark, er, ec}, rv)
   feed("u")
   rv = buffer('lookup_mark', buf, ns, mark)
   eq(sr, rv[2])
@@ -34,14 +36,17 @@ local function check_undo_redo(buf, ns, mark, sr, sc, er, ec) --s = start, e = e
 end
 
 local function check_undo(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
+  rv = buffer('lookup_mark', buf, ns, mark)
+  eq({mark, er, ec}, rv)
   feed("u")
   rv = buffer('lookup_mark', buf, ns, mark)
   eq(sr, rv[2])
   eq(sc, rv[3])
-  -- feed("<c-r>")
-  -- rv = buffer('lookup_mark', buf, ns, mark)
-  -- eq(er, rv[2])
-  -- eq(ec, rv[3])
+end
+
+local function check(buf, ns, mark, sr, sc, er, ec) --s = start, e = end
+  rv = buffer('lookup_mark', buf, ns, mark)
+  eq({mark, er, ec}, rv)
 end
 
 describe('Extmarks buffer api', function()
@@ -51,7 +56,7 @@ describe('Extmarks buffer api', function()
 
   before_each(function()
     -- Initialize some namespaces and insert 12345 into a buffer
-    marks = {1, 2, 3}
+    marks = {1, 2, 3, 4, 5, 6}
     positions = {{1, 1,}, {1, 3}, {1, 4}}
 
     ns_string = "my-fancy-plugin"
@@ -118,13 +123,17 @@ describe('Extmarks buffer api', function()
   it('querying for information and ranges #extmarks', function()
     -- add some more marks
     for i, m in ipairs(marks) do
+      if positions[i] ~= nil then
         rv = buffer('set_mark', buf, ns, m, positions[i][1], positions[i][2])
         eq(1, rv)
+      end
     end
 
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
     for i, m in ipairs(marks) do
+      if positions[i] ~= nil then
         eq({m, positions[i][1], positions[i][2]}, rv[i])
+      end
     end
 
     -- next with mark id
@@ -221,8 +230,10 @@ describe('Extmarks buffer api', function()
   it('querying for information with amount #extmarks', function()
     -- add some more marks
     for i, m in ipairs(marks) do
+      if positions[i] ~= nil then
         rv = buffer('set_mark', buf, ns, m, positions[i][1], positions[i][2])
         eq(1, rv)
+      end
     end
 
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, 1, 0)
@@ -571,9 +582,15 @@ describe('Extmarks buffer api', function()
     feed('$x')
     rv = buffer('lookup_mark', buf, ns, marks[1])
     eq(1, rv[2])
-    -- This remains where it is because marks exist
-    eq(4, rv[3])
+    eq(5, rv[3])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 5)
+    -- check the copy happened correctly on delete at eol
+    feed('$x')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
     check_undo_redo(buf, ns, marks[1], 1, 5, 1, 4)
+    feed('u')
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 5)
   end)
 
   it('marks move with blockwise deletes #extmarks', function()
@@ -906,13 +923,8 @@ describe('Extmarks buffer api', function()
     buffer('set_mark', buf, ns, marks[1], 2, 3)
     feed('dd')
     rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(0, table.getn(rv))
-    feed("u")
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(1, table.getn(rv))
-    feed("<c-r>")
-    rv = buffer('get_marks', buf, ns, TO_START, TO_END, ALL, 0)
-    eq(0, table.getn(rv))
+    rv = buffer('lookup_mark', buf, ns, marks[1])
+    check_undo_redo(buf, ns, marks[1], 2, 3, 1, 6)
   end)
 
   it('namespaces work properly #extmarks', function()
@@ -1062,6 +1074,170 @@ describe('Extmarks buffer api', function()
     feed(':s/34/xxx<cr>')
     check_undo_redo(buf, ns, marks[1], 1, 3, 1, 6)
     check_undo_redo(buf, ns, marks[2], 1, 4, 1, 6)
+  end)
+
+  it('substitutes when marks around eol #extmarks', function()
+    -- do_sub in ex_cmds.c
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    buffer('set_mark', buf, ns, marks[2], 1, 6)
+    feed(':s/5/xxx<cr>')
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 8)
+    check_undo_redo(buf, ns, marks[2], 1, 6, 1, 8)
+  end)
+
+  it('substitutes over range insert text > deleted #extmarks', function()
+    -- do_sub in ex_cmds.c
+    feed('A<cr>x34xx<esc>')
+    feed('A<cr>xxx34<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 3)
+    buffer('set_mark', buf, ns, marks[2], 2, 2)
+    buffer('set_mark', buf, ns, marks[3], 3, 5)
+    feed(':1,3s/34/xxx<cr><esc>')
+    check_undo_redo(buf, ns, marks[1], 1, 3, 1, 6)
+    check_undo_redo(buf, ns, marks[2], 2, 2, 2, 5)
+    check_undo_redo(buf, ns, marks[3], 3, 5, 3, 7)
+  end)
+
+  -- Test should be working...
+  pending('substitutes multiple matches in a line #extmarks', function()
+    -- do_sub in ex_cmds.c
+    feed('ddi<cr>3x3x3<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 1)
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    buffer('set_mark', buf, ns, marks[3], 1, 5)
+    feed(':s/3/yy/g<cr><esc>')
+    check_undo_redo(buf, ns, marks[1], 1, 1, 1, 3)
+    check_undo_redo(buf, ns, marks[2], 1, 3, 1, 6)
+    check_undo_redo(buf, ns, marks[3], 1, 5, 1, 9)
+  end)
+
+  it('substitions over multiple lines with newline in pattern #extmarks2', function()
+    feed('A<cr>67890<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    buffer('set_mark', buf, ns, marks[2], 1, 5)
+    buffer('set_mark', buf, ns, marks[3], 2, 1)
+    buffer('set_mark', buf, ns, marks[4], 2, 6)
+    buffer('set_mark', buf, ns, marks[5], 3, 1)
+    feed([[:1,2s:5\n:5 <cr>]])
+
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 4)
+    check_undo_redo(buf, ns, marks[2], 1, 5, 1, 7)
+    check_undo_redo(buf, ns, marks[3], 2, 1, 1, 7)
+    check_undo_redo(buf, ns, marks[4], 2, 6, 1, 12)
+    check_undo_redo(buf, ns, marks[5], 3, 1, 2, 1)
+  end)
+
+  it('inserting #extmarks2', function()
+    feed('A<cr>67890<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 4)
+    buffer('set_mark', buf, ns, marks[2], 1, 5)
+    buffer('set_mark', buf, ns, marks[3], 2, 1)
+    buffer('set_mark', buf, ns, marks[4], 2, 6)
+    buffer('set_mark', buf, ns, marks[5], 3, 1)
+    buffer('set_mark', buf, ns, marks[6], 2, 3)
+
+    feed([[:1,2s:5\n67:X<cr>]])
+    check_undo_redo(buf, ns, marks[1], 1, 4, 1, 4)
+    check_undo_redo(buf, ns, marks[2], 1, 5, 1, 6)
+    check_undo_redo(buf, ns, marks[3], 2, 1, 1, 6)
+    check_undo_redo(buf, ns, marks[4], 2, 6, 1, 9)
+    check_undo_redo(buf, ns, marks[5], 3, 1, 2, 1)
+    check_undo_redo(buf, ns, marks[6], 2, 3, 1, 6)
+  end)
+
+  it('substitions with multiple newlines in pattern #extmarks2', function()
+    feed('A<cr>67890<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    buffer('set_mark', buf, ns, marks[2], 1, 6)
+    buffer('set_mark', buf, ns, marks[3], 2, 1)
+    buffer('set_mark', buf, ns, marks[4], 2, 6)
+    buffer('set_mark', buf, ns, marks[5], 3, 1)
+    feed([[:1,2s:\n.*\n:X<cr>]])
+    check_undo_redo(buf, ns, marks[1], 1, 5, 1, 5)
+    check_undo_redo(buf, ns, marks[2], 1, 6, 1, 7)
+    check_undo_redo(buf, ns, marks[3], 2, 1, 1, 7)
+    check_undo_redo(buf, ns, marks[4], 2, 6, 1, 7)
+    check_undo_redo(buf, ns, marks[5], 3, 1, 1, 7)
+  end)
+
+  it('substitions over multiple lines with replace in substition #extmarks2', function()
+    feed('A<cr>67890<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    buffer('set_mark', buf, ns, marks[3], 1, 5)
+    buffer('set_mark', buf, ns, marks[4], 2, 1)
+    buffer('set_mark', buf, ns, marks[5], 3, 1)
+    feed([[:1,2s:3:\r<cr>]])
+    check_undo_redo(buf, ns, marks[1], 1, 2, 1, 2)
+    check_undo_redo(buf, ns, marks[2], 1, 3, 2, 1)
+    check_undo_redo(buf, ns, marks[3], 1, 5, 2, 2)
+    check_undo_redo(buf, ns, marks[4], 2, 1, 3, 1)
+    check_undo_redo(buf, ns, marks[5], 3, 1, 4, 1)
+    feed('u')
+    feed([[:1,2s:3:\rxx<cr>]])
+    check(buf, ns, marks[3], 1, 5, 2, 4)
+  end)
+
+  it('substitions over multiple lines with replace in substition #extmarks2', function()
+    feed('A<cr>x3<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 2, 1)
+    buffer('set_mark', buf, ns, marks[2], 2, 2)
+    buffer('set_mark', buf, ns, marks[3], 2, 3)
+    feed([[:2,2s:3:\r<cr>]])
+    check_undo_redo(buf, ns, marks[1], 2, 1, 2, 1)
+    check_undo_redo(buf, ns, marks[2], 2, 2, 3, 1)
+    check_undo_redo(buf, ns, marks[3], 2, 3, 3, 1)
+  end)
+
+  it('substitions over multiple lines with replace in substition #extmarks2', function()
+    feed('A<cr>x3<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 2)
+    buffer('set_mark', buf, ns, marks[2], 1, 3)
+    buffer('set_mark', buf, ns, marks[3], 1, 5)
+    buffer('set_mark', buf, ns, marks[4], 2, 2)
+    buffer('set_mark', buf, ns, marks[5], 3, 1)
+    feed([[:1,2s:3:\r<cr>]])
+    check_undo_redo(buf, ns, marks[1], 1, 2, 1, 2)
+    check_undo_redo(buf, ns, marks[2], 1, 3, 2, 1)
+    check_undo_redo(buf, ns, marks[3], 1, 5, 2, 2)
+    check_undo_redo(buf, ns, marks[4], 2, 2, 4, 1)
+    check_undo_redo(buf, ns, marks[5], 3, 1, 5, 1)
+    feed('u')
+    feed([[:1,2s:3:\rxx<cr>]])
+    check_undo_redo(buf, ns, marks[3], 1, 5, 2, 4)
+  end)
+
+  it('substitions with newline in match and sub #tim1', function()
+    feed('A<cr>67890<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    buffer('set_mark', buf, ns, marks[2], 1, 6)
+    buffer('set_mark', buf, ns, marks[3], 2, 1)
+    buffer('set_mark', buf, ns, marks[4], 2, 6)
+    buffer('set_mark', buf, ns, marks[5], 3, 1)
+    feed([[:1,1s:5\n:\r<cr>]])
+    check(buf, ns, marks[1], 1, 5, 1, 5)
+    check(buf, ns, marks[2], 1, 6, 1, 5)
+    check(buf, ns, marks[3], 2, 1, 1, 5)
+    check(buf, ns, marks[4], 2, 6, 1, 10)
+    check(buf, ns, marks[5], 3, 1, 3, 1)
+  end)
+
+  -- Need to test no_of_lines_changes = < > 0
+  it('substitions with newline in match and sub #tim2', function()
+    feed('A<cr>67890<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[6], 1, 4)
+    buffer('set_mark', buf, ns, marks[1], 1, 5)
+    buffer('set_mark', buf, ns, marks[2], 1, 6)
+    buffer('set_mark', buf, ns, marks[3], 2, 1)
+    buffer('set_mark', buf, ns, marks[4], 2, 6)
+    buffer('set_mark', buf, ns, marks[5], 3, 1)
+    feed([[:1,1s:5\n:\r<cr>]])
+    check(buf, ns, marks[6], 1, 4, 1, 4)
+    check(buf, ns, marks[1], 1, 5, 2, 1)
+    check(buf, ns, marks[2], 1, 6, 2, 1)
+    check(buf, ns, marks[3], 2, 1, 2, 1)
+    check(buf, ns, marks[4], 2, 6, 2, 6)
+    check(buf, ns, marks[5], 3, 1, 3, 1)
   end)
 
   it('using <c-a> when increase in order of magnitude #extmarks', function()
