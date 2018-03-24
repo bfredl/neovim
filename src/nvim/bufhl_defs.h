@@ -19,13 +19,19 @@ typedef kvec_t(BufhlItem) BufhlItemVec;
 typedef struct {
   linenr_T line;
   BufhlItemVec items;
+  char *eol_text;
+  int eol_id;
+  int eol_src;
 } BufhlLine;
-#define BUFHLLINE_INIT(l) { l, KV_INITIAL_VALUE }
+#define BUFHLLINE_INIT(l) { l, KV_INITIAL_VALUE, NULL, 0, 0 }
 
+// TODO: merge me with BufhlLine?
 typedef struct {
   BufhlItemVec entries;
   int current;
   colnr_T valid_to;
+  char *eol_text;
+  int eol_attr;
 } BufhlLineInfo;
 
 #define BUFHL_CMP(a, b) ((int)(((a)->line - (b)->line)))
