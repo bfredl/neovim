@@ -967,6 +967,32 @@ void nvim_buf_clear_highlight(Buffer buffer,
   bufhl_clear_line_range(buf, (int)src_id, (int)line_start+1, (int)line_end);
 }
 
+Integer nvim_buf_set_eol_text(Buffer buffer,
+                               Integer src_id,
+                               String hl_group,
+                               Integer line,
+                               String text,
+                               Error *err)
+  FUNC_API_SINCE(4)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!buf) {
+    return 0;
+  }
+
+  if (line < 0 || line >= MAXLNUM) {
+    api_set_error(err, kErrorTypeValidation, "Line number outside range");
+    return 0;
+  }
+  int hlg_id = 0;
+  if (hl_group.size > 0) {
+    hlg_id = syn_check_group((char_u *)hl_group.data, (int)hl_group.size);
+  }
+
+  src_id = bufhl_add_eol_text(buf, (int)src_id, hlg_id, (linenr_T)line+1,
+                        xstrdup(text.data));
+  return src_id;
+}
 // Check if deleting lines made the cursor position invalid.
 // Changed the lines from "lo" to "hi" and added "extra" lines (negative if
 // deleted).

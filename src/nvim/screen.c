@@ -2216,8 +2216,9 @@ win_line (
 
   bool search_attr_from_match = false;  // if search_attr is from :match
   bool has_bufhl = false;               // this buffer has highlight matches
-  int bufhl_attr = 0;                   // attributes desired by bufhl
   BufhlLineInfo bufhl_info;             // bufhl data for this line
+
+  bool do_eoltext = false;
 
   /* draw_state: items that are drawn in sequence: */
 #define WL_START        0               /* nothing done yet */
@@ -2281,6 +2282,9 @@ win_line (
     if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
       has_bufhl = true;
       extra_check = true;
+      if (bufhl_info.eol_text) {
+          do_eoltext = true;
+      }
     }
 
     // Check for columns to display for 'colorcolumn'.
@@ -3089,6 +3093,20 @@ win_line (
       }
     }
 
+    if (*ptr == NUL && n_extra == 0 && do_eoltext) {
+      p_extra = (char_u *)bufhl_info.eol_text;
+      p_extra_free = NULL;
+      n_extra = STRLEN(p_extra);
+      c_extra = 0;
+      char_attr = 0;
+      area_attr = 0;
+      if (bufhl_info.eol_attr) {
+        extra_attr = bufhl_info.eol_attr;
+        n_attr = n_extra;
+      }
+      do_eoltext = false;
+    }
+
     /*
      * Get the next character to put on the screen.
      */
@@ -3429,7 +3447,7 @@ win_line (
         }
 
         if (has_bufhl && v > 0) {
-          bufhl_attr = bufhl_get_attr(&bufhl_info, (colnr_T)v);
+          int bufhl_attr = bufhl_get_attr(&bufhl_info, (colnr_T)v);
           if (bufhl_attr != 0) {
             if (!attr_pri) {
               char_attr = hl_combine_attr(char_attr, bufhl_attr);

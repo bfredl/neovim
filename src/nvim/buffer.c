@@ -5375,6 +5375,31 @@ void bufhl_add_hl_pos_offset(buf_T *buf,
   }
 }
 
+int bufhl_add_eol_text(buf_T *buf,
+                 int src_id,
+                 int hl_id,
+                 linenr_T lnum,
+                 char *text) {
+  static int next_src_id = 1;
+  if (src_id == 0) {
+    src_id = next_src_id++;
+  }
+
+  BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, true);
+  if (lineinfo->eol_text) {
+    xfree(lineinfo->eol_text);
+  }
+  lineinfo->eol_src = src_id;
+  lineinfo->eol_text = text;
+  lineinfo->eol_id = hl_id;
+
+  if (0 < lnum && lnum <= buf->b_ml.ml_line_count) {
+    changed_lines_buf(buf, lnum, lnum+1, 0);
+    redraw_buf_later(buf, VALID);
+  }
+  return src_id;
+}
+
 /// Clear bufhl highlights from a given source group and range of lines.
 ///
 /// @param buf The buffer to remove highlights from
@@ -5430,6 +5455,7 @@ void bufhl_clear_line_range(buf_T *buf,
 static BufhlLineStatus bufhl_clear_line(BufhlLine *lineinfo, int src_id,
                                         linenr_T lnum)
 {
+  BufhlLineStatus changed = kBLSUnchanged;
   size_t oldsize = kv_size(lineinfo->items);
   if (src_id < 0) {
     kv_size(lineinfo->items) = 0;
@@ -5445,12 +5471,21 @@ static BufhlLineStatus bufhl_clear_line(BufhlLine *lineinfo, int src_id,
     }
     kv_size(lineinfo->items) = newidx;
   }
+  if (kv_size(lineinfo->items) != oldsize) {
+    changed = kBLSChanged;
+  }
 
-  if (kv_size(lineinfo->items) == 0) {
+  if (lineinfo->eol_text && (src_id < 0 || src_id == lineinfo->eol_src)) {
+    xfree(lineinfo->eol_text);
+    lineinfo->eol_text = NULL;
+    changed = kBLSChanged;
+  }
+
+  if (kv_size(lineinfo->items) == 0 && lineinfo->eol_text == NULL) {
     kv_destroy(lineinfo->items);
     return kBLSDeleted;
   }
-  return kv_size(lineinfo->items) != oldsize ? kBLSChanged : kBLSUnchanged;
+  return changed;
 }
 
 /// Remove all highlights and free the highlight data
@@ -5528,7 +5563,9 @@ bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
   }
   info->valid_to = -1;
   info->entries = lineinfo->items;
-  return kv_size(info->entries) > 0;
+  info->eol_text = lineinfo->eol_text;
+  info->eol_attr = lineinfo->eol_id ? syn_id2attr(lineinfo->eol_id) : 0;
+  return true;
 }
 
 /// get highlighting at column col
