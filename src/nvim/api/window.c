@@ -425,6 +425,6 @@ void nvim_win_config_float(Window window, Integer width, Integer height,
     }
     redraw_later(NOT_VALID);
   } else {
-    win_config_float(win, (int)width, (int)height, config);
+    win_config_float(win, (int)width, (int)height, config, true);
   }
 }

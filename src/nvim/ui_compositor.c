@@ -40,7 +40,6 @@ static UI *compositor = NULL;
 static ScreenGrid *curgrid;
 
 kvec_t(ScreenGrid *) layers = KV_INITIAL_VALUE;
-static size_t cur_index;
 
 static bool was_ambiwidth = false;
 static int cursor_row, cursor_col;
@@ -118,13 +117,8 @@ bool compositor_active(void) {
 
 void compositor_put_grid(ScreenGrid *grid, int rowpos, int colpos, bool valid)
 {
-  cached_until = -1;
-  for (size_t i = 0; i < kv_size(layers); i++) {
-    ScreenGrid *layer = kv_A(layers, i);
-    if (kv_A(layers,i) != grid) {
-      continue;
-    }
-    if (rowpos != layer->comp_row || colpos != layer->comp_col) {
+  if (grid->comp_index != 0) {
+    if (rowpos != grid->comp_row || colpos != grid->comp_col) {
       grid_clear(grid);
       grid->comp_row = rowpos;
       grid->comp_col = colpos;
@@ -134,45 +128,38 @@ void compositor_put_grid(ScreenGrid *grid, int rowpos, int colpos, bool valid)
     }
     return;
   }
+#ifndef NDEBUG
+  for (size_t i = 0; i < kv_size(layers); i++) {
+    ScreenGrid *layer = kv_A(layers, i);
+    if (kv_A(layers,i) == grid) {
+      assert(false);
+    }
+  }
+#endif
   // not found: new grid
   kv_push(layers, grid);
   grid->comp_row = rowpos;
   grid->comp_col = colpos;
+  grid->comp_index = kv_size(layers)-1;
 }
 
 void compositor_remove_grid(ScreenGrid *grid)
 {
-  cached_until = -1;
   assert(curgrid != grid);
-  for (size_t i = 0; i < kv_size(layers); i++) {
-    if (kv_A(layers,i) != grid) {
-      continue;
-    }
+  cached_until = -1;
+  grid_clear(grid);
 
-    grid_clear(grid);
-    size_t after = kv_size(layers)-i-1;
-    if (after > 0) {
-      if (cur_index > i) {
-        cur_index--;
-      }
-      memmove(&kv_A(layers,i),&kv_A(layers,i+1),sizeof(ScreenGrid *)*after);
-    }
-    (void)kv_pop(layers);
-    return;
+  for (size_t i = grid->comp_index; i < kv_size(layers)-1; i++) {
+    kv_A(layers,i) = kv_A(layers,i+1);
+    kv_A(layers,i)->comp_index = i;
   }
-  abort();
+  (void)kv_pop(layers);
+  grid->comp_index = 0;
 }
 
 void compositor_set_grid(ScreenGrid *grid)
 {
   curgrid = grid;
-  for (size_t i = 0; i < kv_size(layers); i++) {
-    if (kv_A(layers, i) == grid) {
-      cur_index = i;
-      return;
-    }
-  }
-  abort();
 }
 
 static void compositor_grid_cursor_goto(UI *ui, Integer grid_handle, Integer r, Integer c)
@@ -219,7 +206,7 @@ static void compositor_put(UI *ui, String str)
     //str = xx;
     cached_until = INT32_MAX;
     cached_draw = true;
-    for (size_t i = cur_index+1; i < kv_size(layers); i++) {
+    for (size_t i = curgrid->comp_index+1; i < kv_size(layers); i++) {
       ScreenGrid *grid = kv_A(layers, i);
       if (grid->Rows > 0
           && grid->comp_row <= put_row
@@ -260,7 +247,7 @@ static void compositor_clear(UI *ui)
     // TODO: optimize for the common case: all grids being
     // cleared in the same flush event
     ui_composed_call_clear();
-    for (size_t i = cur_index+1; i < kv_size(layers); i++) {
+    for (size_t i = curgrid->comp_index+1; i < kv_size(layers); i++) {
       grid_draw(kv_A(layers, i));
     }
   } else {
@@ -290,7 +277,7 @@ static void compositor_set_scroll_region(UI *ui, Integer top, Integer bot,
                                   Integer left, Integer right)
 {
   bool fullscreen = false;
-  if (!fullscreen && kv_size(layers) > cur_index+1) {
+  if (!fullscreen && kv_size(layers) > curgrid->comp_index+1) {
     scroll_top = (int)top;
     scroll_bot = (int)bot;
     scroll_left = (int)left;
@@ -314,7 +301,7 @@ static void compositor_scroll(UI *ui, Integer count)
     // Fubbit:
     // 1. don't redraw the scrolled-in area
     // 2. check if rectangles actually overlap
-    for (size_t i = cur_index; i < kv_size(layers); i++) {
+    for (size_t i = curgrid->comp_index; i < kv_size(layers); i++) {
       grid_draw(kv_A(layers, i));
     }
   }

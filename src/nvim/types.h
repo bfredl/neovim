@@ -2,6 +2,7 @@
 #define NVIM_TYPES_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 // dummy to pass an ACL to a function
 typedef void *vim_acl_T;
@@ -39,6 +40,7 @@ typedef struct {
   // but avoids extra indirection
   int comp_row;
   int comp_col;
+  size_t comp_index;
 } ScreenGrid;
 
 #endif  // NVIM_TYPES_H

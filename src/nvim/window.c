@@ -563,7 +563,7 @@ win_T *win_new_float(win_T *wp, int width, int height, FloatConfig config)
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
   wp->grid.handle = next_grid_handle++;
-  win_config_float(wp, width, height, config);
+  win_config_float(wp, width, height, config, true);
   redraw_win_later(wp, VALID);
   if (new) {
     win_enter(wp, false);
@@ -571,8 +571,9 @@ win_T *win_new_float(win_T *wp, int width, int height, FloatConfig config)
   return wp;
 }
 
-void win_config_float(win_T *wp, int width, int height, FloatConfig config)
+void win_config_float(win_T *wp, int width, int height, FloatConfig config, bool update)
 {
+  int old_width = wp->w_width, old_height = wp->w_height;
   wp->w_height = MAX(height, 1);
   wp->w_width = MAX(width, 2);
 
@@ -597,9 +598,7 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
     redraw_win_later(wp, NOT_VALID);
   }
 
-  // TODO: we currently can't handle turning on/off the compositor,
-  // so run it always
-  if (true || compositor_active()) {
+  if (compositor_active()) {
     bool east = config.anchor & kFloatAnchorEast;
     bool south = config.anchor & kFloatAnchorSouth;
     int x = (int)config.x;
@@ -611,8 +610,9 @@ void win_config_float(win_T *wp, int width, int height, FloatConfig config)
     compositor_put_grid(&wp->grid, y, x, wp->w_redr_type < NOT_VALID);
   }
 
-  // can now be conditional?
-  ui_ext_float_info(wp);
+  if (update || old_width != wp->w_width || old_height != wp->w_height) {
+    ui_ext_float_info(wp);
+  }
 }
 
 static void ui_ext_float_info(win_T *wp)
@@ -4464,6 +4464,13 @@ int win_comp_pos(void)
   int col = 0;
 
   frame_comp_pos(topframe, &row, &col);
+
+  // Too often, but when we support anchoring floats to split windows, 
+  // this will be needed
+  for (win_T *wp = lastwin; wp && wp->w_floating; wp = wp->w_prev) {
+    win_config_float(wp, wp->w_width, wp->w_height, wp->w_float_config, false);
+  }
+
   return row;
 }
 
@@ -4535,7 +4542,7 @@ void win_setheight_win(int height, win_T *win)
 
   if (win->w_floating) {
     if (win->w_float_config.standalone) {
-      win_config_float(win, win->w_width, height, win->w_float_config);
+      win_config_float(win, win->w_width, height, win->w_float_config, false);
     } else {
       beep_flush();
       return;
@@ -4742,7 +4749,7 @@ void win_setwidth_win(int width, win_T *wp)
 
   if (wp->w_floating) {
     if (wp->w_float_config.standalone) {
-      win_config_float(wp, width, wp->w_height, wp->w_float_config);
+      win_config_float(wp, width, wp->w_height, wp->w_float_config, false);
     } else {
       beep_flush();
       return;

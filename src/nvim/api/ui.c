@@ -187,7 +187,7 @@ void nvim_ui_grid_try_resize(uint64_t channel_id, Integer grid, Integer width,
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_floating && wp->grid.handle == grid) {
       if (width != wp->w_width && height != wp->w_height) {
-        win_config_float(wp, (int)width, (int)height, wp->w_float_config);
+        win_config_float(wp, (int)width, (int)height, wp->w_float_config, false);
         redraw_win_later(wp, NOT_VALID);
       }
       return;
