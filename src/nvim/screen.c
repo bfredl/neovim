@@ -2246,6 +2246,7 @@ win_line (
   BufhlLineInfo bufhl_info;             // bufhl data for this line
 
   bool do_eoltext = false;
+  bool do_cur_extra = false; // set to true for silly demo
 
   /* draw_state: items that are drawn in sequence: */
 #define WL_START        0               /* nothing done yet */
@@ -3100,7 +3101,16 @@ win_line (
       }
     }
 
-    if (*ptr == NUL && n_extra == 0 && do_eoltext) {
+    if (wp == curwin && lnum == wp->w_cursor.lnum
+        && ptr - line >= wp->w_cursor.col && do_cur_extra && draw_state == WL_LINE) {
+      p_extra = "burf";
+      p_extra_free = NULL;
+      n_extra = 4;
+      c_extra = 0;
+      extra_attr = win_hl_attr(wp, HLF_8);
+      n_attr = n_extra;
+      do_cur_extra = false;
+    } else if (*ptr == NUL && n_extra == 0 && do_eoltext) {
       p_extra = bufhl_info.eol_text;
       p_extra_free = NULL;
       n_extra = STRLEN(p_extra);
