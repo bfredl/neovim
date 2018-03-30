@@ -464,7 +464,7 @@ void close_buffer(win_T *win, buf_T *buf, int action, int abort_if_last)
       return;
     }
     buf->b_locked--;
-    if (abort_if_last && one_window()) {
+    if (abort_if_last && last_nonfloat(win)) {
       /* Autocommands made this the only window. */
       EMSG(_(e_auabort));
       return;
@@ -481,7 +481,7 @@ void close_buffer(win_T *win, buf_T *buf, int action, int abort_if_last)
         return;
       }
       buf->b_locked--;
-      if (abort_if_last && one_window()) {
+      if (abort_if_last && last_nonfloat(win)) {
         /* Autocommands made this the only window. */
         EMSG(_(e_auabort));
         return;

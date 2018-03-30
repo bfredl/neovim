@@ -6256,10 +6256,6 @@ static void ex_only(exarg_T *eap)
   } else {
     wp = curwin;
   }
-  if (wp->w_floating) {
-    EMSG(_("EXXX: Cannot close window, only floating window would remain"));
-    return;
-  }
   if (wp != curwin) {
     win_goto(wp);
   }

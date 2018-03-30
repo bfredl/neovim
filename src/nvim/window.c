@@ -2069,6 +2069,15 @@ bool one_nonfloat(void) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
   return firstwin->w_next == NULL || firstwin->w_next->w_floating;
 }
 
+/// if wp is the last non-floating window
+/// TODO: maybe can replace some ad-hoc logic in this branch
+///
+/// always false for a floating window
+bool last_nonfloat(win_T *wp) FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT
+{
+  return firstwin == wp && !(wp->w_next && !wp->w_floating);
+}
+
 /// Close the possibly last window in a tab page.
 ///
 /// @param  win          window to close
@@ -2144,7 +2153,7 @@ int win_close(win_T *win, int free_buf)
   tabpage_T   *prev_curtab = curtab;
   frame_T *win_frame = win->w_floating ? NULL : win->w_frame->fr_parent;
 
-  if (last_window()) {
+  if (last_window() && !win->w_floating) {
     EMSG(_("E444: Cannot close last window"));
     return FAIL;
   }
@@ -2223,14 +2232,6 @@ int win_close(win_T *win, int free_buf)
       return FAIL;
   }
 
-  if (win->w_floating) {
-    if (true || compositor_active()) {
-      compositor_remove_grid(&win->grid);
-    }
-    ui_call_float_close(win->handle, win->grid.handle);
-  }
-
-
   /* Free independent synblock before the buffer is freed. */
   if (win->w_buffer != NULL)
     reset_synblock(win);
@@ -2272,7 +2273,7 @@ int win_close(win_T *win, int free_buf)
   }
   // Autocommands may have closed the window already, or closed the only
   // other window or moved to another tab page.
-  if (!win_valid(win) || last_window()
+  if (!win_valid(win) || (!win->w_floating && last_window())
       || close_last_window_tabpage(win, free_buf, prev_curtab)) {
     return FAIL;
   }
@@ -2322,7 +2323,12 @@ int win_close(win_T *win, int free_buf)
     check_cursor();
   }
 
-  if (!wp->w_floating) {
+  if (win->w_floating) {
+    if (true || compositor_active()) {
+      compositor_remove_grid(&win->grid);
+    }
+    ui_call_float_close(win->handle, win->grid.handle);
+  } else {
     if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
       // If the frame of the closed window contains the new current window,
       // only resize that frame.  Otherwise resize all windows.
@@ -3138,7 +3144,14 @@ close_others (
   win_T       *nextwp;
   int r;
 
-  if (one_window()) {
+  if (curwin->w_floating) {
+    if (message && !autocmd_busy) {
+      MSG(_("EXXX: floating window cannot be only window"));
+    }
+    return;
+  }
+
+  if (one_window() && !lastwin->w_floating) {
     if (message
         && !autocmd_busy
         )
