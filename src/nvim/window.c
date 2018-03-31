@@ -1616,6 +1616,11 @@ static void win_totop(int size, int flags)
       EMSG(_("EXXX: cannot attach this float"));
       return;
     }
+    // we want to delete current grid, move to default grid fisrt
+    // to make clients bookkeeping easier.
+    ui_set_grid(&default_grid);
+    ui_call_float_close(curwin->handle, curwin->grid.handle);
+    compositor_remove_grid(&curwin->grid);
   } else {
     /* Remove the window and frame from the tree of frames. */
     (void)winframe_remove(curwin, &dir, NULL);
@@ -2324,9 +2329,7 @@ int win_close(win_T *win, int free_buf)
   }
 
   if (win->w_floating) {
-    if (true || compositor_active()) {
-      compositor_remove_grid(&win->grid);
-    }
+    compositor_remove_grid(&win->grid);
     ui_call_float_close(win->handle, win->grid.handle);
   } else {
     if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {

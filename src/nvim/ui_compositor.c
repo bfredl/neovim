@@ -145,6 +145,12 @@ void compositor_put_grid(ScreenGrid *grid, int rowpos, int colpos, bool valid)
 
 void compositor_remove_grid(ScreenGrid *grid)
 {
+  assert(grid != &default_grid);
+  if (grid->comp_index == 0) {
+    // grid wasn't present
+    return;
+  }
+
   assert(curgrid != grid);
   cached_until = -1;
   grid_clear(grid);
