@@ -98,6 +98,7 @@ typedef struct {
   bool busy, is_invisible;
   bool cork, overflow;
   cursorentry_T cursor_shapes[SHAPE_IDX_COUNT];
+  kvec_t(HlAttrs) attrs;
   HlAttrs print_attrs;
   bool default_attr;
   ModeShape showing_mode;
@@ -140,6 +141,7 @@ UI *tui_start(void)
   ui->set_scroll_region = tui_set_scroll_region;
   ui->scroll = tui_scroll;
   ui->highlight_set = tui_highlight_set;
+  ui->hl_attr_set = tui_hl_attr_set;
   ui->put = tui_put;
   ui->bell = tui_bell;
   ui->visual_bell = tui_visual_bell;
@@ -1027,6 +1029,13 @@ static void tui_highlight_set(UI *ui, HlAttrs attrs)
   ((TUIData *)ui->data)->grid.attrs = attrs;
 }
 
+static void tui_hl_attr_set(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
+{
+  TUIData *data = ui->data;
+  kv_a(data->attrs, id);
+  kv_A(data->attrs, id) = attrs;
+}
+
 static void tui_put(UI *ui, String text)
 {
   TUIData *data = ui->data;
@@ -1177,11 +1186,15 @@ static void tui_option_set(UI *ui, String name, Object value)
   }
 }
 
-static void tui_line_chunk(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, UCell *chunk)
+static void tui_line_chunk(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T *chunk, sattr_T *attrs)
 {
   TUIData *data = ui->data;
   UGrid *grid = &data->grid;
-  memcpy(grid->cells[row]+startcol,chunk,(endcol-startcol)*sizeof(UCell));
+  int off = LineOffset[row];
+  for (Integer c = startcol; c < endcol; c++) {
+    memcpy(grid->cells[row][c].data, chunk[c-startcol], sizeof(schar_T));
+    grid->cells[row][c].attrs = attrs[c-startcol] ? kv_A(data->attrs, attrs[c-startcol]) : (HlAttrs)HLATTRS_INIT;
+  }
   ugrid_clear_chunk(grid, row, endcol, clearcol);
   invalidate(ui, row, row, startcol, clearcol-1);
 }

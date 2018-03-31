@@ -56,6 +56,7 @@ UI *ui_bridge_attach(UI *ui, ui_main_fn ui_main, event_scheduler scheduler)
   rv->bridge.set_scroll_region = ui_bridge_set_scroll_region;
   rv->bridge.scroll = ui_bridge_scroll;
   rv->bridge.highlight_set = ui_bridge_highlight_set;
+  rv->bridge.hl_attr_set = ui_bridge_hl_attr_set;
   rv->bridge.put = ui_bridge_put;
   rv->bridge.bell = ui_bridge_bell;
   rv->bridge.visual_bell = ui_bridge_visual_bell;
@@ -148,21 +149,34 @@ static void ui_bridge_highlight_set_event(void **argv)
 }
 
  
+static void ui_bridge_hl_attr_set(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
+{
+  HlAttrs *a = xmalloc(sizeof(HlAttrs));
+  *a = attrs;
+  UI_BRIDGE_CALL(ui, hl_attr_set, 3, ui, INT2PTR(id), a);
+}
+static void ui_bridge_hl_attr_set_event(void **argv)
+{
+  UI *ui = UI(argv[0]);
+  Dictionary info = ARRAY_DICT_INIT;
+  ui->hl_attr_set(ui, PTR2INT(argv[1]), *((HlAttrs *)argv[2]), info);
+  xfree(argv[2]);
+}
+
+ 
 static void ui_bridge_raw_line_event(void **argv)
 {
   UI *ui = UI(argv[0]);
-  ui->line_chunk(ui, PTR2INT(argv[1]), PTR2INT(argv[2]), PTR2INT(argv[3]), PTR2INT(argv[4]), argv[5]);
+  ui->line_chunk(ui, PTR2INT(argv[1]), PTR2INT(argv[2]), PTR2INT(argv[3]), PTR2INT(argv[4]), argv[5], argv[6]);
+  xfree(argv[5]);
+  xfree(argv[6]);
 }
 
 static void ui_bridge_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol)
 {
-  UCell *chunk = xmalloc((endcol-startcol)*sizeof(UCell));
-  int off = LineOffset[row];
-  for (Integer c = startcol; c < endcol; c++) {
-    memcpy(chunk[c-startcol].data, ScreenLines[off+c], sizeof(schar_T));
-    chunk[c-startcol].attrs = HLATTRS_INIT;
-  }
-  UI_BRIDGE_CALL(ui, raw_line, 6, ui, INT2PTR(row), INT2PTR(startcol), INT2PTR(endcol), INT2PTR(clearcol), chunk);
+  schar_T *chunk = xmemdup(ScreenLines+LineOffset[row]+startcol,(endcol-startcol)*sizeof(schar_T));
+  sattr_T *hlchunk = xmemdup(ScreenAttrs+LineOffset[row]+startcol,(endcol-startcol)*sizeof(sattr_T));
+  UI_BRIDGE_CALL(ui, raw_line, 7, ui, INT2PTR(row), INT2PTR(startcol), INT2PTR(endcol), INT2PTR(clearcol), chunk, hlchunk);
 }
 
 
