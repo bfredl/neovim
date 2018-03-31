@@ -1182,7 +1182,7 @@ static void tui_line_chunk(UI *ui, Integer row, Integer startcol, Integer endcol
   TUIData *data = ui->data;
   UGrid *grid = &data->grid;
   memcpy(grid->cells[row]+startcol,chunk,(endcol-startcol)*sizeof(UCell));
-  //ugrid_clear_chunk(grid, row, endcol, clearcol);
+  ugrid_clear_chunk(grid, row, endcol, clearcol);
   invalidate(ui, row, row, startcol, clearcol-1);
 }
 

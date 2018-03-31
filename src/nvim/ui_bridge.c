@@ -159,8 +159,8 @@ static void ui_bridge_raw_line(UI *ui, Integer row, Integer startcol, Integer en
   UCell *chunk = xmalloc((endcol-startcol)*sizeof(UCell));
   int off = LineOffset[row];
   for (Integer c = startcol; c < endcol; c++) {
-    memcpy(chunk[c].data, ScreenLines[off+c], sizeof(schar_T));
-    chunk[c].attrs = HLATTRS_INIT;
+    memcpy(chunk[c-startcol].data, ScreenLines[off+c], sizeof(schar_T));
+    chunk[c-startcol].attrs = HLATTRS_INIT;
   }
   UI_BRIDGE_CALL(ui, raw_line, 6, ui, INT2PTR(row), INT2PTR(startcol), INT2PTR(endcol), INT2PTR(clearcol), chunk);
 }
