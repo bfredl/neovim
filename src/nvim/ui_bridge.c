@@ -65,6 +65,7 @@ UI *ui_bridge_attach(UI *ui, ui_main_fn ui_main, event_scheduler scheduler)
   rv->bridge.set_title = ui_bridge_set_title;
   rv->bridge.set_icon = ui_bridge_set_icon;
   rv->bridge.option_set = ui_bridge_option_set;
+  rv->bridge.raw_line = ui_bridge_raw_line;
   rv->scheduler = scheduler;
 
   for (UIExtension i = 0; (int)i < kUIExtCount; i++) {
@@ -145,6 +146,25 @@ static void ui_bridge_highlight_set_event(void **argv)
   ui->highlight_set(ui, *((HlAttrs *)argv[1]));
   xfree(argv[1]);
 }
+
+ 
+static void ui_bridge_raw_line_event(void **argv)
+{
+  UI *ui = UI(argv[0]);
+  ui->line_chunk(ui, PTR2INT(argv[1]), PTR2INT(argv[2]), PTR2INT(argv[3]), PTR2INT(argv[4]), argv[5]);
+}
+
+static void ui_bridge_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol)
+{
+  UCell *chunk = xmalloc((endcol-startcol)*sizeof(UCell));
+  int off = LineOffset[row];
+  for (Integer c = startcol; c < endcol; c++) {
+    memcpy(chunk[c].data, ScreenLines[off+c], sizeof(schar_T));
+    chunk[c].attrs = HLATTRS_INIT;
+  }
+  UI_BRIDGE_CALL(ui, raw_line, 6, ui, INT2PTR(row), INT2PTR(startcol), INT2PTR(endcol), INT2PTR(clearcol), chunk);
+}
+
 
 static void ui_bridge_suspend(UI *b)
 {

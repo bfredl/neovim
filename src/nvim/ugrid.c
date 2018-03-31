@@ -53,6 +53,11 @@ void ugrid_eol_clear(UGrid *grid)
   clear_region(grid, grid->row, grid->row, grid->col, grid->right);
 }
 
+void ugrid_clear_chunk(UGrid *grid, int row, int col, int endcol)
+{
+  clear_region(grid, row, row, col, endcol-1);
+}
+
 void ugrid_goto(UGrid *grid, int row, int col)
 {
   grid->row = row;

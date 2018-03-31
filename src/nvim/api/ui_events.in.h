@@ -66,6 +66,11 @@ void set_icon(String icon)
 void option_set(String name, Object value)
   FUNC_API_SINCE(4);
 
+void raw_line(Integer row, Integer startcol, Integer endcol, Integer clearcol)
+  FUNC_API_SINCE(4) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
+void line(Integer row, Integer startcol, Integer clearcol, Array data)
+  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY;
+
 void popupmenu_show(Array items, Integer selected, Integer row, Integer col)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void popupmenu_hide(void)

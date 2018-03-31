@@ -7,6 +7,7 @@
 
 #include "api/private/defs.h"
 #include "nvim/buffer_defs.h"
+#include "nvim/ugrid.h"
 
 typedef enum {
   kUICmdline = 0,
@@ -34,6 +35,7 @@ struct ui_t {
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ui_events.generated.h"
 #endif
+  void (*line_chunk)(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, UCell *chunk);
   void (*event)(UI *ui, char *name, Array args, bool *args_consumed);
   void (*stop)(UI *ui);
 };

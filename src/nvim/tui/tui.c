@@ -149,6 +149,7 @@ UI *tui_start(void)
   ui->set_title = tui_set_title;
   ui->set_icon = tui_set_icon;
   ui->option_set= tui_option_set;
+  ui->line_chunk = tui_line_chunk;
 
   memset(ui->ui_ext, 0, sizeof(ui->ui_ext));
 
@@ -1174,6 +1175,15 @@ static void tui_option_set(UI *ui, String name, Object value)
     ui->rgb = value.data.boolean;
     invalidate(ui, 0, data->grid.height-1, 0, data->grid.width-1);
   }
+}
+
+static void tui_line_chunk(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, UCell *chunk)
+{
+  TUIData *data = ui->data;
+  UGrid *grid = &data->grid;
+  memcpy(grid->cells[row]+startcol,chunk,(endcol-startcol)*sizeof(UCell));
+  //ugrid_clear_chunk(grid, row, endcol, clearcol);
+  invalidate(ui, row, row, startcol, clearcol-1);
 }
 
 static void invalidate(UI *ui, int top, int bot, int left, int right)

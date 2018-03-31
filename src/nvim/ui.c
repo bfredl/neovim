@@ -394,19 +394,22 @@ void ui_putc(uint8_t c)
 }
 
 void ui_line(int row, int startcol, int endcol, int clearcol) {
-  static uint8_t c = ' ';
-  ui_clear_highlight();
-  c++;
-  if (c == '~'+1) {
-    c = ' '+1;
-  }
-  ui_cursor_goto(row, startcol);
-  int col = startcol;
-  for (; col < endcol; col++) {
-    ui_putc(c);
-  }
-  for (; col < clearcol; col++) {
-    ui_putc(' ');
+  ui_call_raw_line(row, startcol, endcol, clearcol);
+  if (false) {
+    static uint8_t c = ' ';
+    ui_clear_highlight();
+    c++;
+    if (c == '~'+1) {
+      c = ' '+1;
+    }
+    ui_cursor_goto(row, startcol);
+    int col = startcol;
+    for (; col < endcol; col++) {
+      ui_putc(c);
+    }
+    for (; col < clearcol; col++) {
+      ui_putc(' ');
+    }
   }
 }
 
