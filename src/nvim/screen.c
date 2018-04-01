@@ -2421,10 +2421,6 @@ win_line (
     line_attr = win_hl_attr(wp, HLF_QFL);
   }
 
-  if (wp->w_hl_attr_normal != 0) {
-    line_attr = hl_combine_attr(wp->w_hl_attr_normal, line_attr);
-  }
-
   if (line_attr != 0) {
     area_highlighting = true;
   }
@@ -2882,7 +2878,7 @@ win_line (
         && lnum == wp->w_cursor.lnum && vcol >= (long)wp->w_virtcol
         && filler_todo <= 0
         ) {
-      screen_line(screen_row, wp->w_wincol, col, -wp->w_width, wp->w_p_rl, wp, 0);
+      screen_line(screen_row, wp->w_wincol, col, -wp->w_width, wp->w_p_rl, wp, wp->w_hl_attr_normal);
       // Pretend we have finished updating the window.  Except when
       // 'cursorcolumn' is set.
       if (wp->w_p_cuc) {
@@ -3962,7 +3958,7 @@ win_line (
           col++;
         }
       }
-      screen_line(screen_row, wp->w_wincol, col, wp->w_width, wp->w_p_rl, wp, line_attr);
+      screen_line(screen_row, wp->w_wincol, col, wp->w_width, wp->w_p_rl, wp, wp->w_hl_attr_normal);
       row++;
 
       /*
@@ -4165,7 +4161,7 @@ win_line (
             || (n_extra != 0 && (c_extra != NUL || *p_extra != NUL)))
         ) {
       screen_line(screen_row, wp->w_wincol, col - boguscols,
-                  wp->w_width, wp->w_p_rl, wp, line_attr);
+                  wp->w_width, wp->w_p_rl, wp, wp->w_hl_attr_normal);
       boguscols = 0;
       ++row;
       ++screen_row;
@@ -4307,7 +4303,7 @@ static int sc_silent = 0;
  *    When FALSE and "clear_width" > 0, clear columns "endcol" to "clear_width"
  */
 static void screen_line(int row, int coloff, int endcol,
-                        int clear_width, int rlflag, win_T *wp, int clear_attr)
+                        int clear_width, int rlflag, win_T *wp, int bg_attr)
 {
   unsigned off_from;
   unsigned off_to;
@@ -4343,19 +4339,25 @@ static void screen_line(int row, int coloff, int endcol,
     if (clear_width > 0) {
       while (col <= endcol && ScreenLines[off_to][0] == ' '
              && ScreenLines[off_to][1] == NUL
-             && ScreenAttrs[off_to] == 0
+             && ScreenAttrs[off_to] == bg_attr
              ) {
         ++off_to;
         ++col;
       }
       if (col <= endcol)
         screen_fill(row, row + 1, col + coloff,
-            endcol + coloff + 1, ' ', ' ', 0);
+            endcol + coloff + 1, ' ', ' ', bg_attr);
     }
     col = endcol + 1;
     off_to = LineOffset[row] + col + coloff;
     off_from += col;
     endcol = (clear_width > 0 ? clear_width : -clear_width);
+  }
+
+  if (bg_attr) {
+    for (int c = col; c < endcol; c++) {
+      ScreenAttrs[off_from+c] = hl_combine_attr(bg_attr, ScreenAttrs[off_from+c]);
+    }
   }
 
   redraw_next = char_needs_redraw(off_from, off_to, endcol - col);
@@ -4448,13 +4450,14 @@ static void screen_line(int row, int coloff, int endcol,
         // TODO: this (and the old code) cannot possibly be efficient with
         // winhl=Normal:XXX but might be moot anyway when we 1) switch to
         // grid-based rendering and 2) has separate default color per grid
+        // XXX: comment still valid after this change?
         if (ScreenLines[off_to][0] != ' '
            || ScreenLines[off_to][1] != NUL
-           || ScreenAttrs[off_to] != 0
+           || ScreenAttrs[off_to] != bg_attr
            ) {
             ScreenLines[off_to][0] = ' ';
             ScreenLines[off_to][1] = NUL;
-            ScreenAttrs[off_to] = 0;
+            ScreenAttrs[off_to] = bg_attr;
             clear_end = col+1;
         }
         col++;
@@ -4470,6 +4473,9 @@ static void screen_line(int row, int coloff, int endcol,
     start_dirty = end_dirty;
   }
   if (clear_end > start_dirty) {
+    if (clear_end > end_dirty) {
+      ui_set_highlight(bg_attr);
+    }
     ui_line(row, coloff+start_dirty, coloff+end_dirty, coloff+clear_end);
   }
 
