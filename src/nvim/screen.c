@@ -5759,8 +5759,7 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
   int col;
   int off;
   int end_off;
-  int did_delete;
-  int c;
+  bool do_line = false;
   schar_T sc;
 
 
@@ -5788,63 +5787,53 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
         screen_puts_len((char_u *)" ", 1, row, end_col, 0);
       }
     }
-    /*
-     * Try to use delete-line termcap code, when no attributes or in a
-     * "normal" terminal, where a bold/italic space is just a
-     * space.
-     */
-    did_delete = FALSE;
-    if (c2 == ' '
-        && end_col == Columns
-        && attr == 0) {
-      /*
-       * check if we really need to clear something
-       */
-      col = start_col;
-      if (c1 != ' ')                            /* don't clear first char */
-        ++col;
 
-      off = LineOffset[row] + col;
-      end_off = LineOffset[row] + end_col;
-
-      // skip blanks (used often, keep it fast!)
-      while (off < end_off && ScreenLines[off][0] == ' '
-             && ScreenLines[off][1] == 0 && ScreenAttrs[off] == 0) {
-        off++;
-      }
-      if (off < end_off) {  // something to be cleared
-        col = off - LineOffset[row];
-        ui_clear_highlight();
-        ui_cursor_goto(row, col);        // clear rest of this screen line
-        ui_call_eol_clear();
-        col = end_col - col;
-        while (col--) {  // clear chars in ScreenLines
-          sc_from_ascii(ScreenLines[off], ' ');
-          ScreenAttrs[off] = 0;
-          ++off;
-        }
-      }
-      did_delete = TRUE;                /* the chars are cleared now */
-    }
-
-    off = LineOffset[row] + start_col;
-    c = c1;
-    sc_from_char(sc, c);
-    for (col = start_col; col < end_col; col++) {
+    int dirty_first = INT_MAX;
+    int dirty_last = 0;
+    off = LineOffset[row]+start_col;
+    col = start_col;
+    if (c1 != c2) {
+      sc_from_char(sc, c1);
       if (sc_cmp(ScreenLines[off], sc) || ScreenAttrs[off] != attr) {
         sc_copy(ScreenLines[off], sc);
         ScreenAttrs[off] = attr;
-        if (!did_delete || c != ' ')
-          screen_char(off, row, col);
-      }
-      ++off;
-      if (col == start_col) {
-        if (did_delete)
-          break;
-        c = c2;
-        sc_from_char(sc, c);
+        dirty_first = start_col;
+        dirty_last = start_col+1;
       }
     }
+    if (c2 == ' ') {
+      // skip blanks (used often, keep it fast!)
+      for (; col < end_col; col++) {
+        if (ScreenLines[off][0] != ' ' || ScreenLines[off][1] != 0 || ScreenAttrs[off] != 0) {
+          sc_from_ascii(ScreenLines[off], ' ');
+          ScreenAttrs[off] = 0;
+          if (dirty_first == INT_MAX) {
+            dirty_first = col;
+          }
+          dirty_last = col+1;
+        }
+        off++;
+      }
+    } else {
+      sc_from_char(sc, c2);
+      for (col = start_col; col < end_col; col++) {
+        if (sc_cmp(ScreenLines[off], sc) || ScreenAttrs[off] != attr) {
+          sc_copy(ScreenLines[off], sc);
+          ScreenAttrs[off] = attr;
+          if (dirty_first == INT_MAX) {
+            dirty_first = col;
+          }
+          dirty_last = col+1;
+        }
+        off++;
+      }
+    }
+    if (dirty_last > dirty_first) {
+      //ui_line(row, dirty_first, c2 != ' ' ? dirty_last : dirty_first + (c1 != ' ') , dirty_last);
+      ui_line(row, dirty_first, dirty_last , dirty_last);
+    }
+
+
     if (end_col == Columns)
       LineWraps[row] = FALSE;
     if (row == Rows - 1) {              /* overwritten the command line */
