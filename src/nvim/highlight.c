@@ -100,16 +100,21 @@ int hl_get_syn_attr(int idx, HlAttrs at_en) {
   }
 }
 
-int hl_get_ui_attr(int idx, int final_id)
+int hl_get_ui_attr(int idx, int final_id, bool optional)
 {
   HlAttrs attrs = HLATTRS_INIT;
+  bool available = false;
 
   int syn_attr = syn_id2attr(final_id);
   if (syn_attr != 0) {
     HlAttrs *aep = syn_cterm_attr2entry(syn_attr);
     if (aep) {
       attrs = *aep;
+      available = true;
     }
+  }
+  if (optional && !available) {
+    return 0;
   }
   return get_attr_entry((HlEntry){.attr=attrs, .kind = kHlUI, .id1 = idx, .id2 = final_id});
 
@@ -124,9 +129,9 @@ void update_window_hl(win_T *wp, bool invalid)
 
   // determine window specific background set in 'winhighlight'
   if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] > 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE, wp->w_hl_ids[HLF_INACTIVE]);
+    wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE, wp->w_hl_ids[HLF_INACTIVE], true);
   } else if (wp->w_hl_id_normal > 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(-1,wp->w_hl_id_normal);
+    wp->w_hl_attr_normal = hl_get_ui_attr(-1,wp->w_hl_id_normal, true);
   } else {
     wp->w_hl_attr_normal = 0;
   }
@@ -138,7 +143,7 @@ void update_window_hl(win_T *wp, bool invalid)
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int attr;
     if (wp->w_hl_ids[hlf] > 0) {
-      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf]);
+      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf], false);
     } else {
       attr = hl_attr(hlf);
     }

@@ -7457,7 +7457,7 @@ void highlight_changed(void)
       id_S = final_id;
     }
 
-    highlight_attr[hlf] = hl_get_ui_attr(hlf, final_id);
+    highlight_attr[hlf] = hl_get_ui_attr(hlf, final_id, hlf == (int)HLF_INACTIVE);
   }
 
   /* Setup the user highlights
