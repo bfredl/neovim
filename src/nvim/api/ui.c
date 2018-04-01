@@ -84,7 +84,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->set_scroll_region = remote_ui_set_scroll_region;
   ui->scroll = remote_ui_scroll;
   ui->highlight_set = remote_ui_highlight_set;
-  ui->hl_attr_set = remote_ui_hl_attr_set;
+  ui->hl_attr_define = remote_ui_hl_attr_define;
   ui->put = remote_ui_put;
   ui->bell = remote_ui_bell;
   ui->visual_bell = remote_ui_visual_bell;
@@ -248,7 +248,7 @@ static void remote_ui_highlight_set(UI *ui, HlAttrs attrs)
   push_call(ui, "highlight_set", args);
 }
 
-static void remote_ui_hl_attr_set(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
+static void remote_ui_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
 {
   Array args = ARRAY_DICT_INIT;
   Dictionary hl = hlattrs2dict(&attrs, kNone);
@@ -256,7 +256,7 @@ static void remote_ui_hl_attr_set(UI *ui, Integer id, HlAttrs attrs, Dictionary 
   ADD(args, INTEGER_OBJ(id));
   ADD(args, DICTIONARY_OBJ(hl));
   ADD(args, DICTIONARY_OBJ(copy_dictionary(info)));
-  push_call(ui, "hl_attr_set", args);
+  push_call(ui, "hl_attr_define", args);
 }
 
 static void remote_ui_flush(UI *ui)

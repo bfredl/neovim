@@ -71,7 +71,7 @@ static int get_attr_entry(HlEntry entry)
   map_put(HlEntry, int)(attr_entry_ids, entry, id);
 
   Dictionary inspect = hl_inspect(id);
-  ui_call_hl_attr_set(id, entry.attr, inspect);
+  ui_call_hl_attr_define(id, entry.attr, inspect);
   api_free_dictionary(inspect);
   return id;
 }
@@ -80,7 +80,7 @@ void ui_send_all_hls(void) {
   for (size_t i = 0; i < kv_size(attr_entries); i++) {
     int id = (int)i+ATTR_OFF;
     Dictionary inspect = hl_inspect(id);
-    ui_call_hl_attr_set(id, kv_A(attr_entries,i).attr, inspect);
+    ui_call_hl_attr_define(id, kv_A(attr_entries,i).attr, inspect);
     api_free_dictionary(inspect);
   }
 }

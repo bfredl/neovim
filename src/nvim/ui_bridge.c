@@ -55,7 +55,7 @@ UI *ui_bridge_attach(UI *ui, ui_main_fn ui_main, event_scheduler scheduler)
   rv->bridge.mode_change = ui_bridge_mode_change;
   rv->bridge.set_scroll_region = ui_bridge_set_scroll_region;
   rv->bridge.scroll = ui_bridge_scroll;
-  rv->bridge.highlight_set = ui_bridge_highlight_set;
+  rv->bridge.hl_attr_define = ui_bridge_hl_attr_define;
   rv->bridge.hl_attr_set = ui_bridge_hl_attr_set;
   rv->bridge.put = ui_bridge_put;
   rv->bridge.bell = ui_bridge_bell;
@@ -135,31 +135,17 @@ static void ui_bridge_stop_event(void **argv)
   ui->stop(ui);
 }
 
-static void ui_bridge_highlight_set(UI *b, HlAttrs attrs)
+static void ui_bridge_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
 {
   HlAttrs *a = xmalloc(sizeof(HlAttrs));
   *a = attrs;
-  UI_BRIDGE_CALL(b, highlight_set, 2, b, a);
+  UI_BRIDGE_CALL(ui, hl_attr_define, 3, ui, INT2PTR(id), a);
 }
-static void ui_bridge_highlight_set_event(void **argv)
-{
-  UI *ui = UI(argv[0]);
-  ui->highlight_set(ui, *((HlAttrs *)argv[1]));
-  xfree(argv[1]);
-}
-
- 
-static void ui_bridge_hl_attr_set(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
-{
-  HlAttrs *a = xmalloc(sizeof(HlAttrs));
-  *a = attrs;
-  UI_BRIDGE_CALL(ui, hl_attr_set, 3, ui, INT2PTR(id), a);
-}
-static void ui_bridge_hl_attr_set_event(void **argv)
+static void ui_bridge_hl_attr_define_event(void **argv)
 {
   UI *ui = UI(argv[0]);
   Dictionary info = ARRAY_DICT_INIT;
-  ui->hl_attr_set(ui, PTR2INT(argv[1]), *((HlAttrs *)argv[2]), info);
+  ui->hl_attr_define(ui, PTR2INT(argv[1]), *((HlAttrs *)argv[2]), info);
   xfree(argv[2]);
 }
 

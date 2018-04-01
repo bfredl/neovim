@@ -337,6 +337,10 @@ void ui_set_highlight(int attr_code)
   }
   current_attr_code = attr_code;
 
+  ui_call_hl_attr_set(attr_code);
+  return;
+
+  // FIXME: move me to compat in remote_ui
   HlAttrs attrs = HLATTRS_INIT;
 
   if (attr_code != 0) {

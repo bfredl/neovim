@@ -140,7 +140,7 @@ UI *tui_start(void)
   ui->mode_change = tui_mode_change;
   ui->set_scroll_region = tui_set_scroll_region;
   ui->scroll = tui_scroll;
-  ui->highlight_set = tui_highlight_set;
+  ui->hl_attr_define = tui_hl_attr_define;
   ui->hl_attr_set = tui_hl_attr_set;
   ui->put = tui_put;
   ui->bell = tui_bell;
@@ -348,6 +348,9 @@ static void tui_main(UIBridgeData *bridge, UI *ui)
 #ifdef UNIX
   signal_watcher_start(&data->cont_handle, sigcont_cb, SIGCONT);
 #endif
+
+  // zero hl is empty, send this explicitly?
+  kv_push(data->attrs, (HlAttrs)HLATTRS_INIT);
 
 #if TERMKEY_VERSION_MAJOR > 0 || TERMKEY_VERSION_MINOR > 18
   data->input.tk_ti_hook_fn = tui_tk_ti_getstr;
@@ -1024,16 +1027,17 @@ static void tui_scroll(UI *ui, Integer count)
   }
 }
 
-static void tui_highlight_set(UI *ui, HlAttrs attrs)
-{
-  ((TUIData *)ui->data)->grid.attrs = attrs;
-}
-
-static void tui_hl_attr_set(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
+static void tui_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
 {
   TUIData *data = ui->data;
   kv_a(data->attrs, id);
   kv_A(data->attrs, id) = attrs;
+}
+
+static void tui_hl_attr_set(UI *ui, Integer id)
+{
+  TUIData *data = ui->data;
+  data->grid.attrs = kv_A(data->attrs, id);
 }
 
 static void tui_put(UI *ui, String text)
@@ -1193,7 +1197,7 @@ static void tui_line_chunk(UI *ui, Integer row, Integer startcol, Integer endcol
   int off = LineOffset[row];
   for (Integer c = startcol; c < endcol; c++) {
     memcpy(grid->cells[row][c].data, chunk[c-startcol], sizeof(schar_T));
-    grid->cells[row][c].attrs = attrs[c-startcol] ? kv_A(data->attrs, attrs[c-startcol]) : (HlAttrs)HLATTRS_INIT;
+    grid->cells[row][c].attrs = kv_A(data->attrs, attrs[c-startcol]);
   }
   ugrid_clear_chunk(grid, row, endcol, clearcol);
   invalidate(ui, row, row, startcol, clearcol-1);

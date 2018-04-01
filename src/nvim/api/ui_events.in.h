@@ -38,8 +38,10 @@ void scroll(Integer count)
   FUNC_API_SINCE(3);
 void highlight_set(HlAttrs attrs)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
-void hl_attr_set(Integer id, HlAttrs attrs, Dictionary info)
+void hl_attr_define(Integer id, HlAttrs attrs, Dictionary info)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
+void hl_attr_set(Integer id)
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL;
 void put(String str)
   FUNC_API_SINCE(3);
 void bell(void)
