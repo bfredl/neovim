@@ -153,16 +153,16 @@ static void ui_bridge_hl_attr_define_event(void **argv)
 static void ui_bridge_raw_line_event(void **argv)
 {
   UI *ui = UI(argv[0]);
-  ui->line_chunk(ui, PTR2INT(argv[1]), PTR2INT(argv[2]), PTR2INT(argv[3]), PTR2INT(argv[4]), argv[5], argv[6]);
+  ui->raw_line(ui, PTR2INT(argv[1]), PTR2INT(argv[2]), PTR2INT(argv[3]), PTR2INT(argv[4]), argv[5], argv[6]);
   xfree(argv[5]);
   xfree(argv[6]);
 }
 
-static void ui_bridge_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol)
+static void ui_bridge_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T *chunk, sattr_T *attrs)
 {
-  schar_T *chunk = xmemdup(ScreenLines+LineOffset[row]+startcol,(endcol-startcol)*sizeof(schar_T));
-  sattr_T *hlchunk = xmemdup(ScreenAttrs+LineOffset[row]+startcol,(endcol-startcol)*sizeof(sattr_T));
-  UI_BRIDGE_CALL(ui, raw_line, 7, ui, INT2PTR(row), INT2PTR(startcol), INT2PTR(endcol), INT2PTR(clearcol), chunk, hlchunk);
+  schar_T *c = xmemdup(chunk,(endcol-startcol)*sizeof(schar_T));
+  sattr_T *hl = xmemdup(attrs,(endcol-startcol)*sizeof(sattr_T));
+  UI_BRIDGE_CALL(ui, raw_line, 7, ui, INT2PTR(row), INT2PTR(startcol), INT2PTR(endcol), INT2PTR(clearcol), c, hl);
 }
 
 

@@ -287,22 +287,21 @@ static void remote_ui_hl_attr_set(UI *ui, Integer id)
   push_call(ui, "highlight_set", args);
 }
 
-static void remote_ui_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol)
+static void remote_ui_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T *chunk, sattr_T *attrs)
 {
   UIData *data = ui->data;
-  size_t off = LineOffset[row];
   bool pending = true;
   int save_hl = data->hl_id;
-  for (Integer c = startcol; c < endcol; c++) {
+  for (int i = 0; i < endcol-startcol; i++) {
     if (pending) {
-      remote_ui_cursor_goto(ui, row, c);
+      remote_ui_cursor_goto(ui, row, startcol+i);
       pending = false;
     }
-    if (ScreenLines[off+c][0] == 0) {
+    if (chunk[i][0] == 0) {
       continue;
     }
-    remote_ui_hl_attr_set(ui, ScreenAttrs[off+c]);
-    remote_ui_put(ui, cstr_to_string(ScreenLines[off+c]));
+    remote_ui_hl_attr_set(ui, attrs[i]);
+    remote_ui_put(ui, cstr_to_string(chunk[i]));
   }
   remote_ui_hl_attr_set(ui, save_hl);
   for (Integer c = endcol; c < clearcol; c++) {

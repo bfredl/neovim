@@ -35,7 +35,7 @@ struct ui_t {
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ui_events.generated.h"
 #endif
-  void (*line_chunk)(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T* chunk, sattr_T* attrs);
+  void (*raw_line)(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T* chunk, sattr_T* attrs);
   void (*event)(UI *ui, char *name, Array args, bool *args_consumed);
   void (*stop)(UI *ui);
 };

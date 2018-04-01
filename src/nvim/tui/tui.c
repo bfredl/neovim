@@ -151,7 +151,7 @@ UI *tui_start(void)
   ui->set_title = tui_set_title;
   ui->set_icon = tui_set_icon;
   ui->option_set= tui_option_set;
-  ui->line_chunk = tui_line_chunk;
+  ui->raw_line = tui_raw_line;
 
   memset(ui->ui_ext, 0, sizeof(ui->ui_ext));
 
@@ -1190,7 +1190,7 @@ static void tui_option_set(UI *ui, String name, Object value)
   }
 }
 
-static void tui_line_chunk(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T *chunk, sattr_T *attrs)
+static void tui_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T *chunk, sattr_T *attrs)
 {
   TUIData *data = ui->data;
   UGrid *grid = &data->grid;
@@ -1199,7 +1199,7 @@ static void tui_line_chunk(UI *ui, Integer row, Integer startcol, Integer endcol
     memcpy(grid->cells[row][c].data, chunk[c-startcol], sizeof(schar_T));
     grid->cells[row][c].attrs = kv_A(data->attrs, attrs[c-startcol]);
   }
-  ugrid_clear_chunk(grid, row, endcol, clearcol);
+  ugrid_clear_chunk(grid, row, endcol, clearcol, grid->attrs);
   invalidate(ui, row, row, startcol, clearcol-1);
 }
 

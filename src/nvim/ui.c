@@ -108,8 +108,8 @@ static char uilog_last_event[1024] = { 0 };
     } while (0)
 #endif
 #define CNT(...) SELECT_NTH(__VA_ARGS__, MORE, MORE, MORE, \
-                            MORE, MORE, ZERO, ignore)
-#define SELECT_NTH(a1, a2, a3, a4, a5, a6, a7, ...) a7
+                            MORE, MORE, MORE, ZERO, ignore)
+#define SELECT_NTH(a1, a2, a3, a4, a5, a6, a7, a8, ...) a8
 #define UI_CALL_HELPER(c, ...) UI_CALL_HELPER2(c, __VA_ARGS__)
 // Resolves to UI_CALL_MORE or UI_CALL_ZERO.
 #define UI_CALL_HELPER2(c, ...) UI_CALL_##c(__VA_ARGS__)
@@ -340,17 +340,6 @@ void ui_set_highlight(int attr_code)
   ui_call_hl_attr_set(attr_code);
   return;
 
-  // FIXME: move me to compat in remote_ui
-  HlAttrs attrs = HLATTRS_INIT;
-
-  if (attr_code != 0) {
-    HlAttrs *aep = syn_cterm_attr2entry(attr_code);
-    if (aep) {
-      attrs = *aep;
-    }
-  }
-
-  UI_CALL(highlight_set, attrs);
 }
 
 void ui_clear_highlight(void)
@@ -399,7 +388,8 @@ void ui_putc(uint8_t c)
 }
 
 void ui_line(int row, int startcol, int endcol, int clearcol) {
-  ui_call_raw_line(row, startcol, endcol, clearcol);
+  size_t off = LineOffset[row]+startcol;
+  UI_CALL(raw_line, row, startcol, endcol, clearcol, ScreenLines+off, ScreenAttrs+off);
   if (false) {
     static uint8_t c = ' ';
     ui_clear_highlight();
