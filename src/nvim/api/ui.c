@@ -26,6 +26,7 @@
 typedef struct {
   uint64_t channel_id;
   Array buffer;
+  int hl_id;
 } UIData;
 
 static PMap(uint64_t) *connected_uis = NULL;
@@ -85,6 +86,8 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->scroll = remote_ui_scroll;
   ui->highlight_set = remote_ui_highlight_set;
   ui->hl_attr_define = remote_ui_hl_attr_define;
+  ui->hl_attr_set = remote_ui_hl_attr_set;
+  ui->raw_line = remote_ui_raw_line;
   ui->put = remote_ui_put;
   ui->bell = remote_ui_bell;
   ui->visual_bell = remote_ui_visual_bell;
@@ -112,6 +115,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   UIData *data = xmalloc(sizeof(UIData));
   data->channel_id = channel_id;
   data->buffer = (Array)ARRAY_DICT_INIT;
+  data->hl_id = 0;
   ui->data = data;
 
   pmap_put(uint64_t)(connected_uis, channel_id, ui);
@@ -258,6 +262,59 @@ static void remote_ui_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Dictiona
   ADD(args, DICTIONARY_OBJ(copy_dictionary(info)));
   push_call(ui, "hl_attr_define", args);
 }
+
+static void remote_ui_hl_attr_set(UI *ui, Integer id)
+{
+  UIData *data = ui->data;
+  Array args = ARRAY_DICT_INIT;
+  HlAttrs attrs = HLATTRS_INIT;
+
+  if (data->hl_id == id) {
+    return;
+  }
+  data->hl_id = id;
+
+  if (id != 0) {
+    HlAttrs *aep = syn_cterm_attr2entry(id);
+    if (aep) {
+      attrs = *aep;
+    }
+  }
+
+  Dictionary hl = hlattrs2dict(&attrs, ui->rgb);
+
+  ADD(args, DICTIONARY_OBJ(hl));
+  push_call(ui, "highlight_set", args);
+}
+
+static void remote_ui_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol)
+{
+  UIData *data = ui->data;
+  size_t off = LineOffset[row];
+  bool pending = true;
+  int save_hl = data->hl_id;
+  for (Integer c = startcol; c < endcol; c++) {
+    if (pending) {
+      remote_ui_cursor_goto(ui, row, c);
+      pending = false;
+    }
+    if (ScreenLines[off+c][0] == 0) {
+      continue;
+    }
+    remote_ui_hl_attr_set(ui, ScreenAttrs[off+c]);
+    remote_ui_put(ui, cstr_to_string(ScreenLines[off+c]));
+  }
+  remote_ui_hl_attr_set(ui, save_hl);
+  for (Integer c = endcol; c < clearcol; c++) {
+    if (pending) {
+      remote_ui_cursor_goto(ui, row, c);
+      pending = false;
+    }
+    remote_ui_put(ui, cstr_to_string(" "));
+  }
+}
+
+
 
 static void remote_ui_flush(UI *ui)
 {
