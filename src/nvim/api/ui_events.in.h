@@ -37,7 +37,7 @@ void set_scroll_region(Integer top, Integer bot, Integer left, Integer right)
 void scroll(Integer count)
   FUNC_API_SINCE(3);
 void highlight_set(HlAttrs attrs)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
+  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY FUNC_API_REMOTE_IMPL;
 void hl_attr_define(Integer id, HlAttrs attrs, Dictionary info)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_IMPL FUNC_API_BRIDGE_IMPL;
 void hl_attr_set(Integer id)

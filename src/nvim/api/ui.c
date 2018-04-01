@@ -84,7 +84,6 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->mode_change = remote_ui_mode_change;
   ui->set_scroll_region = remote_ui_set_scroll_region;
   ui->scroll = remote_ui_scroll;
-  ui->highlight_set = remote_ui_highlight_set;
   ui->hl_attr_define = remote_ui_hl_attr_define;
   ui->hl_attr_set = remote_ui_hl_attr_set;
   ui->raw_line = remote_ui_raw_line;
@@ -243,30 +242,37 @@ static void push_call(UI *ui, char *name, Array args)
 }
 
 
-static void remote_ui_highlight_set(UI *ui, HlAttrs attrs)
-{
-  Array args = ARRAY_DICT_INIT;
-  Dictionary hl = hlattrs2dict(&attrs, ui->rgb);
-
-  ADD(args, DICTIONARY_OBJ(hl));
-  push_call(ui, "highlight_set", args);
-}
-
 static void remote_ui_hl_attr_define(UI *ui, Integer id, HlAttrs attrs, Dictionary info)
 {
+  if (!ui->ui_ext[kUIMultigrid]) {
+    return;
+  }
   Array args = ARRAY_DICT_INIT;
   Dictionary hl = hlattrs2dict(&attrs, kNone);
 
   ADD(args, INTEGER_OBJ(id));
   ADD(args, DICTIONARY_OBJ(hl));
-  ADD(args, DICTIONARY_OBJ(copy_dictionary(info)));
+  if (ui->ui_ext[kUIHlState]) {
+    ADD(args, DICTIONARY_OBJ(copy_dictionary(info)));
+  } else {
+    // TODO: actually map the same hls to the same id also
+    ADD(args, DICTIONARY_OBJ((Dictionary)ARRAY_DICT_INIT));
+  }
+
   push_call(ui, "hl_attr_define", args);
 }
 
 static void remote_ui_hl_attr_set(UI *ui, Integer id)
 {
-  UIData *data = ui->data;
   Array args = ARRAY_DICT_INIT;
+  if (ui->ui_ext[kUIMultigrid]) {
+    ADD(args, INTEGER_OBJ(id));
+    push_call(ui, "hl_attr_set", args);
+    return;
+  }
+
+  UIData *data = ui->data;
+
   HlAttrs attrs = HLATTRS_INIT;
 
   if (data->hl_id == id) {
@@ -290,30 +296,49 @@ static void remote_ui_hl_attr_set(UI *ui, Integer id)
 static void remote_ui_raw_line(UI *ui, Integer row, Integer startcol, Integer endcol, Integer clearcol, schar_T *chunk, sattr_T *attrs)
 {
   UIData *data = ui->data;
-  bool pending = true;
-  int save_hl = data->hl_id;
-  for (int i = 0; i < endcol-startcol; i++) {
-    if (pending) {
-      remote_ui_cursor_goto(ui, row, startcol+i);
-      pending = false;
+  if (ui->ui_ext[kUIMultigrid]) {
+    Array args = ARRAY_DICT_INIT;
+    ADD(args, INTEGER_OBJ(row));
+    ADD(args, INTEGER_OBJ(startcol));
+    ADD(args, INTEGER_OBJ(clearcol));
+    Array cells = ARRAY_DICT_INIT;
+    int last_hl = -1;
+    for (int i = 0; i < endcol-startcol; i++) {
+      Array cell = ARRAY_DICT_INIT;
+      ADD(cell, STRING_OBJ(cstr_to_string(chunk[i])));
+      if (attrs[i] != last_hl) {
+        ADD(cell, INTEGER_OBJ(attrs[i]));
+        last_hl = attrs[i];
+      }
+      ADD(cells, ARRAY_OBJ(cell));
     }
-    if (chunk[i][0] == 0) {
-      continue;
+    ADD(args, ARRAY_OBJ(cells));
+
+    push_call(ui, "line", args);
+  } else {
+    bool pending = true;
+    int save_hl = data->hl_id;
+    for (int i = 0; i < endcol-startcol; i++) {
+      if (pending) {
+        remote_ui_cursor_goto(ui, row, startcol+i);
+        pending = false;
+      }
+      if (chunk[i][0] == 0) {
+        continue;
+      }
+      remote_ui_hl_attr_set(ui, attrs[i]);
+      remote_ui_put(ui, cstr_as_string(chunk[i]));
     }
-    remote_ui_hl_attr_set(ui, attrs[i]);
-    remote_ui_put(ui, cstr_to_string(chunk[i]));
-  }
-  remote_ui_hl_attr_set(ui, save_hl);
-  for (Integer c = endcol; c < clearcol; c++) {
-    if (pending) {
-      remote_ui_cursor_goto(ui, row, c);
-      pending = false;
+    remote_ui_hl_attr_set(ui, save_hl);
+    for (Integer c = endcol; c < clearcol; c++) {
+      if (pending) {
+        remote_ui_cursor_goto(ui, row, c);
+        pending = false;
+      }
+      remote_ui_put(ui, cstr_as_string(" "));
     }
-    remote_ui_put(ui, cstr_to_string(" "));
   }
 }
-
-
 
 static void remote_ui_flush(UI *ui)
 {
