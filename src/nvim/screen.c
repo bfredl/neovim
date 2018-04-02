@@ -5758,11 +5758,7 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
   int row;
   int col;
   int off;
-  int end_off;
-  bool do_line = false;
   schar_T sc;
-
-
 
   if (end_row > screen_Rows)            /* safety check */
     end_row = screen_Rows;
@@ -5800,13 +5796,15 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
         dirty_first = start_col;
         dirty_last = start_col+1;
       }
+      col++;
+      off++;
     }
     if (c2 == ' ') {
       // skip blanks (used often, keep it fast!)
       for (; col < end_col; col++) {
-        if (ScreenLines[off][0] != ' ' || ScreenLines[off][1] != 0 || ScreenAttrs[off] != 0) {
+        if (ScreenLines[off][0] != ' ' || ScreenLines[off][1] != 0 || ScreenAttrs[off] != attr) {
           sc_from_ascii(ScreenLines[off], ' ');
-          ScreenAttrs[off] = 0;
+          ScreenAttrs[off] = attr;
           if (dirty_first == INT_MAX) {
             dirty_first = col;
           }
@@ -5829,8 +5827,7 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
       }
     }
     if (dirty_last > dirty_first) {
-      //ui_line(row, dirty_first, c2 != ' ' ? dirty_last : dirty_first + (c1 != ' ') , dirty_last);
-      ui_line(row, dirty_first, dirty_last , dirty_last);
+      ui_line(row, dirty_first, c2 != ' ' ? dirty_last : dirty_first + (c1 != ' ') , dirty_last);
     }
 
 
