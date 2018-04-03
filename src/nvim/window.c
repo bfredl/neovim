@@ -2488,8 +2488,11 @@ void win_free_all(void)
   while (first_tabpage->tp_next != NULL)
     tabpage_close(TRUE);
 
-  while (lastwin != NULL && lastwin->w_floating)
-    (void)win_free_mem(lastwin, &dummy, NULL);
+  while (lastwin != NULL && lastwin->w_floating) {
+    win_T *wp = lastwin;
+    win_remove(lastwin, NULL);
+    (void)win_free_mem(wp, &dummy, NULL);
+  }
 
   if (aucmd_win != NULL) {
     (void)win_free_mem(aucmd_win, &dummy, NULL);
