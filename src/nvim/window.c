@@ -2241,6 +2241,10 @@ int win_close(win_T *win, int free_buf)
   if (win->w_buffer != NULL)
     reset_synblock(win);
 
+  if (win->w_floating) {
+    compositor_remove_grid(&win->grid);
+    ui_call_float_close(win->handle, win->grid.handle);
+  }
   /*
    * Close the link to the buffer.
    */
@@ -2328,10 +2332,7 @@ int win_close(win_T *win, int free_buf)
     check_cursor();
   }
 
-  if (win->w_floating) {
-    compositor_remove_grid(&win->grid);
-    ui_call_float_close(win->handle, win->grid.handle);
-  } else {
+  if (!win->w_floating) {
     if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
       // If the frame of the closed window contains the new current window,
       // only resize that frame.  Otherwise resize all windows.
