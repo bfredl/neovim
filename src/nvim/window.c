@@ -2241,7 +2241,13 @@ int win_close(win_T *win, int free_buf)
   if (win->w_buffer != NULL)
     reset_synblock(win);
 
+  bool was_floating = win->w_floating;
   if (win->w_floating) {
+    if (win == curwin) {
+      // we want to delete current grid, move to default grid fisrt
+      // to make clients bookkeeping easier.
+      ui_set_grid(&default_grid);
+    }
     compositor_remove_grid(&win->grid);
     ui_call_float_close(win->handle, win->grid.handle);
   }
@@ -2266,7 +2272,8 @@ int win_close(win_T *win, int free_buf)
 
   if (only_one_window() && win_valid(win) && win->w_buffer == NULL
       && (last_window() || curtab != prev_curtab
-          || close_last_window_tabpage(win, free_buf, prev_curtab))) {
+          || close_last_window_tabpage(win, free_buf, prev_curtab))
+      && !win->w_floating) {
     /* Autocommands have close all windows, quit now.  Restore
     * curwin->w_buffer, otherwise writing ShaDa file may fail. */
     if (curwin->w_buffer == NULL)
@@ -2332,7 +2339,7 @@ int win_close(win_T *win, int free_buf)
     check_cursor();
   }
 
-  if (!win->w_floating) {
+  if (!was_floating) {
     if (p_ea && (*p_ead == 'b' || *p_ead == dir)) {
       // If the frame of the closed window contains the new current window,
       // only resize that frame.  Otherwise resize all windows.
