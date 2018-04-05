@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include <uv.h>
 #include <msgpack.h>
@@ -40,6 +42,10 @@
 static PMap(cstr_t) *event_strings = NULL;
 static msgpack_sbuffer out_buffer;
 
+static FILE *thetrace = NULL;
+static size_t traced = 0;
+#define MAXTRACE 8*1024
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "msgpack_rpc/channel.c.generated.h"
 #endif
@@ -62,6 +68,16 @@ void rpc_start(Channel *channel)
   rpc->subscribed_events = pmap_new(cstr_t)();
   rpc->next_request_id = 1;
   kv_init(rpc->call_stack);
+
+  if (channel->id == 1) {
+    int pid = getpid();
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    int tim = tv.tv_usec / 1000 + 1000 * (tv.tv_sec % 1000);
+    char path[2048];
+    snprintf(path, ARRAY_SIZE(path), "traces/%d_%d.mpack", tim, pid);
+    thetrace = fopen(path, "wb");
+  }
 
   if (channel->streamtype != kChannelStreamInternal) {
     Stream *out = channel_outstream(channel);
@@ -227,6 +243,15 @@ static void receive_msgpack(Stream *stream, RBuffer *rbuf, size_t c,
   // Feed the unpacker with data
   msgpack_unpacker_reserve_buffer(channel->rpc.unpacker, count);
   rbuffer_read(rbuf, msgpack_unpacker_buffer(channel->rpc.unpacker), count);
+  if (thetrace != NULL && channel->id == 1) {
+    fwrite(msgpack_unpacker_buffer(channel->rpc.unpacker), count, 1, thetrace);
+    fflush(thetrace);
+    traced += count;
+    if (traced > MAXTRACE) {
+      fclose(thetrace);
+      thetrace = NULL;
+    }
+  }
   msgpack_unpacker_buffer_consumed(channel->rpc.unpacker, count);
 
   parse_msgpack(channel);

@@ -16,7 +16,7 @@ local write_file = helpers.write_file
 
 do
   clear()
-  if missing_provider('ruby') then
+  if true then
     pending("Missing neovim RubyGem.", function() end)
     return
   end
