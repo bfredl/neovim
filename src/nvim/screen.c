@@ -134,6 +134,7 @@
 #include "nvim/window.h"
 #include "nvim/os/time.h"
 #include "nvim/api/private/helpers.h"
+#include "nvim/api/vim.h"
 
 #define MB_FILLER_CHAR '<'  /* character used when a double-width character
                              * doesn't fit. */
@@ -2243,7 +2244,7 @@ win_line (
   bool search_attr_from_match = false;  // if search_attr is from :match
   bool has_bufhl = false;               // this buffer has highlight matches
   int bufhl_attr = 0;                   // attributes desired by bufhl
-  BufhlLineInfo bufhl_info;             // bufhl data for this line
+  BufhlLineInfo bufhl_info = {0};       // bufhl data for this line
 
   bool do_eoltext = false;
   bool do_cur_extra = false; // set to true for silly demo
@@ -2308,13 +2309,31 @@ win_line (
     }
   }
 
+  char *eol_text = NULL;
+
+  Error err = ERROR_INIT;
+  Array args = ARRAY_DICT_INIT;
+  ADD(args, WINDOW_OBJ(wp->handle));
+  ADD(args, INTEGER_OBJ(lnum));
+  String s = cstr_to_string("return vim.on_winline(...)");
+  Object o = nvim_execute_lua(s, args, &err);
+  if (o.type == kObjectTypeString) {
+    eol_text = o.data.string.data;
+    do_eoltext = true;
+  } else if (ERROR_SET(&err)) {
+    eol_text = err.msg;
+    do_eoltext = true;
+  }
+
   if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
     has_bufhl = true;
     extra_check = true;
-    if (bufhl_info.eol_text) {
+    if (bufhl_info.eol_text && !eol_text) {
       do_eoltext = true;
+      eol_text = bufhl_info.eol_text;
     }
   }
+
 
   /* Check for columns to display for 'colorcolumn'. */
   color_cols = wp->w_buffer->terminal ? NULL : wp->w_p_cc_cols;
@@ -3111,7 +3130,7 @@ win_line (
       n_attr = n_extra;
       do_cur_extra = false;
     } else if (*ptr == NUL && n_extra == 0 && do_eoltext) {
-      p_extra = bufhl_info.eol_text;
+      p_extra = eol_text;
       p_extra_free = NULL;
       n_extra = STRLEN(p_extra);
       c_extra = 0;
