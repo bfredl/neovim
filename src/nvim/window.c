@@ -1616,11 +1616,9 @@ static void win_totop(int size, int flags)
       EMSG(_("EXXX: cannot attach this float"));
       return;
     }
-    // we want to delete current grid, move to default grid fisrt
-    // to make clients bookkeeping easier.
-    ui_set_grid(&default_grid);
-    ui_call_float_close(curwin->handle, curwin->grid.handle);
-    compositor_remove_grid(&curwin->grid);
+
+    // No longer a float, so external UIs won't manage the window
+    ui_ext_float_close(curwin, true);
   } else {
     /* Remove the window and frame from the tree of frames. */
     (void)winframe_remove(curwin, &dir, NULL);
@@ -2242,14 +2240,22 @@ int win_close(win_T *win, int free_buf)
     reset_synblock(win);
 
   bool was_floating = win->w_floating;
+
+  bool was_standalone = win->w_floating && win->w_float_config.standalone;
   if (win->w_floating) {
-    if (win == curwin) {
-      // we want to delete current grid, move to default grid fisrt
-      // to make clients bookkeeping easier.
-      ui_set_grid(&default_grid);
+    ui_ext_float_close(win, win == curwin);
+    if (win->w_float_config.standalone) {
+      for (tabpage_T * tp= first_tabpage; tp != NULL; tp = tp->tp_next) {
+        if (tp == curtab) {
+          continue;
+        }
+        if (tp->tp_curwin == win) {
+          // NB: an autocmd can still abort the closing of this window,
+          // bur carring out this change anyway shouldn't be a catastrophe.
+          tp->tp_curwin = tp->tp_firstwin;
+        }
+      }
     }
-    compositor_remove_grid(&win->grid);
-    ui_call_float_close(win->handle, win->grid.handle);
   }
   /*
    * Close the link to the buffer.
@@ -2370,6 +2376,19 @@ int win_close(win_T *win, int free_buf)
 
   redraw_all_later(NOT_VALID);
   return OK;
+}
+
+/// XXX: maybe "float_hide" is better? Or maybe UIs should keep track
+/// of existing but nonvisible floats
+static void ui_ext_float_close(win_T *win, bool is_current)
+{
+  if (is_current) {
+    // we want to delete current grid, move to default grid fisrt
+    // to make clients bookkeeping easier.
+    ui_set_grid(&default_grid);
+  }
+  compositor_remove_grid(&win->grid);
+  ui_call_float_close(win->handle, win->grid.handle);
 }
 
 /*
@@ -3414,6 +3433,8 @@ int win_new_tabpage(int after, char_u *filename)
 
     redraw_all_later(CLEAR);
 
+    tabpage_check_floats(tp);
+
     apply_autocmds(EVENT_WINNEW, NULL, NULL, false, curbuf);
     apply_autocmds(EVENT_WINENTER, NULL, NULL, false, curbuf);
     apply_autocmds(EVENT_TABNEW, filename, filename, false, curbuf);
@@ -3605,10 +3626,17 @@ static void enter_tabpage(tabpage_T *tp, buf_T *old_curbuf, int trigger_enter_au
   int old_off = tp->tp_firstwin->w_winrow;
   win_T       *next_prevwin = tp->tp_prevwin;
 
+
+  tabpage_T *old_curtab = curtab;
+
   curtab = tp;
   firstwin = tp->tp_firstwin;
   lastwin = tp->tp_lastwin;
   topframe = tp->tp_topframe;
+
+  if (old_curtab != curtab) {
+    tabpage_check_floats(old_curtab);
+  }
 
   /* We would like doing the TabEnter event first, but we don't have a
    * valid current window yet, which may break some commands.
@@ -3643,6 +3671,37 @@ static void enter_tabpage(tabpage_T *tp, buf_T *old_curbuf, int trigger_enter_au
   }
 
   redraw_all_later(CLEAR);
+}
+
+/// called when changing current tabpage from old_curtab to curtab
+///
+/// tells external UI that inline floats in old_curtab are invisible
+/// and that floats in curtab is now visible.
+///
+/// Standalone floats are considered independent of tabpages. This is
+/// implemented by always moving them to curtab.
+static void tabpage_check_floats(tabpage_T *old_curtab)
+{
+  win_T *prev_wp;
+  for (win_T *wp = old_curtab->tp_lastwin; wp && wp->w_floating; wp = prev_wp) {
+    prev_wp = wp->w_prev;
+
+    if (wp->w_float_config.standalone) {
+      win_remove(wp, old_curtab);
+      win_append(lastwin_nofloating(), wp);
+    } else {
+      // XXX: separate "hide" event?
+      // XXX: does curwin always work here?
+      ui_ext_float_close(wp, wp == curwin);
+    }
+  }
+  for (win_T *wp = lastwin; wp && wp->w_floating; wp = wp->w_prev) {
+    prev_wp = wp->w_prev;
+    if (!wp->w_float_config.standalone) {
+      win_config_float(wp, wp->w_width, wp->w_height, wp->w_float_config,
+                       true);
+    }
+  }
 }
 
 /*
