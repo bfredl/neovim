@@ -152,4 +152,18 @@ EXTERN RgbValue normal_fg INIT(= -1);
 EXTERN RgbValue normal_bg INIT(= -1);
 EXTERN RgbValue normal_sp INIT(= -1);
 
+typedef enum {
+  kHlUI,
+  kHlSyntax,
+  kHlTerminal,
+  kHlComibne,
+} HlKind;
+
+typedef struct {
+  HlAttrs attr;
+  HlKind kind;
+  int id1;
+  int id2;
+} HlEntry;
+
 #endif  // NVIM_HIGHLIGHT_DEFS_H

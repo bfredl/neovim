@@ -32,13 +32,13 @@
 #include "nvim/os/input.h"
 #include "nvim/os/os.h"
 #include "nvim/strings.h"
+#include "nvim/syntax.h"
 #include "nvim/ui_bridge.h"
 #include "nvim/ugrid.h"
 #include "nvim/tui/input.h"
 #include "nvim/tui/tui.h"
 #include "nvim/tui/terminfo.h"
 #include "nvim/cursor_shape.h"
-#include "nvim/syntax.h"
 #include "nvim/macros.h"
 
 // Space reserved in two output buffers to make the cursor normal or invisible
