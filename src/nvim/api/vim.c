@@ -1850,3 +1850,17 @@ Object nvim_get_proc(Integer pid, Error *err)
 #endif
   return rvobj;
 }
+
+Array nvim__inspect(Integer row, Integer col)
+{
+  // will not work first time
+  highlight_use_hlstate();
+  int attr;
+  if (row < 0 || row >= screen_Rows
+      || col < 0 || col >= screen_Columns) {
+    attr = 0;
+  } else {
+    attr = ScreenAttrs[LineOffset[row] + col];
+  }
+  return hl_inspect(attr);
+}

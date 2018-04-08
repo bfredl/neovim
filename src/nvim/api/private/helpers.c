@@ -1078,6 +1078,7 @@ Dictionary copy_dictionary(Dictionary dict)
   return rv;
 }
 
+
 /// Creates a deep clone of an object
 Object copy_object(Object obj)
 {
