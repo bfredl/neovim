@@ -5372,41 +5372,6 @@ static void end_search_hl(void)
   }
 }
 
-static void update_window_hl(win_T *wp, bool invalid)
-{
-  if (!wp->w_hl_needs_update && !invalid) {
-    return;
-  }
-  wp->w_hl_needs_update = false;
-
-  // determine window specific background set in 'winhighlight'
-  if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] > 0) {
-    wp->w_hl_attr_normal = syn_id2attr(wp->w_hl_ids[HLF_INACTIVE]);
-  } else if (wp->w_hl_id_normal > 0) {
-    wp->w_hl_attr_normal = syn_id2attr(wp->w_hl_id_normal);
-  } else {
-    wp->w_hl_attr_normal = 0;
-  }
-  if (wp != curwin) {
-    wp->w_hl_attr_normal = hl_combine_attr(HL_ATTR(HLF_INACTIVE),
-                                           wp->w_hl_attr_normal);
-  }
-
-  for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
-    int attr;
-    if (wp->w_hl_ids[hlf] > 0) {
-      attr = syn_id2attr(wp->w_hl_ids[hlf]);
-    } else {
-      attr = HL_ATTR(hlf);
-    }
-    if (wp->w_hl_attr_normal != 0) {
-      attr = hl_combine_attr(wp->w_hl_attr_normal, attr);
-    }
-    wp->w_hl_attrs[hlf] = attr;
-  }
-}
-
-
 
 /*
  * Init for calling prepare_search_hl().
