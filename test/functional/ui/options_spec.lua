@@ -30,6 +30,10 @@ describe('ui receives option updates', function()
     ext_popupmenu=false,
     ext_tabline=false,
     ext_wildmenu=false,
+    -- TODO: these values are in general incorrect,
+    -- as these options are per-ui and not global.
+    ext_multigrid=false,
+    ext_hlstate=false,
   }
 
   it("for defaults", function()
