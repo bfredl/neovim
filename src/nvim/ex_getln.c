@@ -215,6 +215,8 @@ static int hislen = 0;                  /* actual length of history tables */
 /// user interrupting highlight function to not interrupt command-line.
 static bool getln_interrupted_highlight = false;
 
+static bool need_cursor_update = false;
+
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ex_getln.c.generated.h"
@@ -3016,6 +3018,21 @@ void cmdline_screen_cleared(void)
     }
     prev_ccline = prev_ccline->prev_ccline;
   }
+
+  need_cursor_update = true;
+}
+
+/// Extra cursor update needed when screen is redrawn
+/// when ext_cmdline is active
+/// TODO: not used yet, if we remove enough spurious
+/// cursor movements (statusline comes to mind)
+/// this might never be needed.
+void cmdline_screen_updated(void)
+{
+  if (!ui_is_external(kUICmdline)) {
+    return;
+  }
+  need_cursor_update = true;
 }
 
 /// called by ui_flush, do what redraws neccessary to keep cmdline updated.
@@ -3483,6 +3500,10 @@ static void cursorcmd(void)
   if (ui_is_external(kUICmdline)) {
     if (ccline.redraw_state < kCmdRedrawPos) {
       ccline.redraw_state = kCmdRedrawPos;
+    }
+    if (need_cursor_update) {
+      need_cursor_update = false;
+      setcursor();
     }
     return;
   }
