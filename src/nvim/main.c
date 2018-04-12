@@ -454,7 +454,6 @@ int main(int argc, char **argv)
   }
 
   setmouse();  // may start using the mouse
-  ui_reset_scroll_region();  // In case Rows changed
 
   // Don't clear the screen when starting in Ex mode, unless using the GUI.
   if (exmode_active)

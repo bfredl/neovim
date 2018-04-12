@@ -138,8 +138,7 @@ UI *tui_start(void)
   ui->mouse_on = tui_mouse_on;
   ui->mouse_off = tui_mouse_off;
   ui->mode_change = tui_mode_change;
-  ui->set_scroll_region = tui_set_scroll_region;
-  ui->scroll = tui_scroll;
+  ui->grid_scroll = tui_grid_scroll;
   ui->hl_attr_define = tui_hl_attr_define;
   ui->bell = tui_bell;
   ui->visual_bell = tui_visual_bell;
@@ -954,23 +953,20 @@ static void tui_mode_change(UI *ui, String mode, Integer mode_idx)
   data->showing_mode = (ModeShape)mode_idx;
 }
 
-static void tui_set_scroll_region(UI *ui, Integer top, Integer bot,
-                                  Integer left, Integer right)
-{
-  TUIData *data = ui->data;
-  ugrid_set_scroll_region(&data->grid, (int)top, (int)bot,
-                          (int)left, (int)right);
-  data->scroll_region_is_full_screen =
-    left == 0 && right == ui->width - 1
-    && top == 0 && bot == ui->height - 1;
-}
-
-static void tui_scroll(UI *ui, Integer count)
+static void tui_grid_scroll(UI *ui, Integer g, Integer top, Integer bot,
+                            Integer left, Integer right, Integer rows, Integer cols)
 {
   TUIData *data = ui->data;
   UGrid *grid = &data->grid;
+  ugrid_set_scroll_region(&data->grid, (int)top, (int)bot-1,
+                          (int)left, (int)right-1);
+
+  data->scroll_region_is_full_screen =
+    left == 0 && right == ui->width
+    && top == 0 && bot == ui->height;
+
   int clear_top, clear_bot;
-  ugrid_scroll(grid, (int)count, &clear_top, &clear_bot);
+  ugrid_scroll(grid, (int)rows, &clear_top, &clear_bot);
 
   if (can_use_scroll(ui)) {
     bool scroll_clears_to_current_colour =
@@ -986,18 +982,18 @@ static void tui_scroll(UI *ui, Integer count)
       update_attrs(ui, grid->clear_attrs);
     }
 
-    if (count > 0) {
-      if (count == 1) {
+    if (rows > 0) {
+      if (rows == 1) {
         unibi_out(ui, unibi_delete_line);
       } else {
-        UNIBI_SET_NUM_VAR(data->params[0], (int)count);
+        UNIBI_SET_NUM_VAR(data->params[0], (int)rows);
         unibi_out(ui, unibi_parm_delete_line);
       }
     } else {
-      if (count == -1) {
+      if (rows == -1) {
         unibi_out(ui, unibi_insert_line);
       } else {
-        UNIBI_SET_NUM_VAR(data->params[0], -(int)count);
+        UNIBI_SET_NUM_VAR(data->params[0], -(int)rows);
         unibi_out(ui, unibi_parm_insert_line);
       }
     }

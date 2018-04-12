@@ -310,7 +310,7 @@ void update_screen(int type)
       type = CLEAR;
     } else if (type != CLEAR) {
       check_for_delay(false);
-      if (screen_ins_lines(0, 0, msg_scrolled, (int)Rows, NULL) == FAIL) {
+      if (screen_ins_lines(0, 0, msg_scrolled, (int)Rows, 0, (int)Columns) == FAIL) {
         type = CLEAR;
       }
       FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
@@ -4776,7 +4776,7 @@ win_redr_status_matches (
         /* Put the wildmenu just above the command line.  If there is
          * no room, scroll the screen one line up. */
         if (cmdline_row == Rows - 1) {
-          screen_del_lines(0, 0, 1, (int)Rows, NULL);
+          screen_del_lines(0, 0, 1, (int)Rows, 0, (int)Columns);
           ++msg_scrolled;
         } else {
           ++cmdline_row;
@@ -6136,18 +6136,16 @@ static void lineclear(unsigned off, int width)
   (void)memset(ScreenAttrs + off, 0, (size_t)width * sizeof(sattr_T));
 }
 
-/*
- * Copy part of a Screenline for vertically split window "wp".
- */
-static void linecopy(int to, int from, win_T *wp)
+/// Copy part of a Screenline for vertically split window.
+static void linecopy(int to, int from, int col, int width)
 {
-  unsigned off_to = LineOffset[to] + wp->w_wincol;
-  unsigned off_from = LineOffset[from] + wp->w_wincol;
+  unsigned off_to = LineOffset[to] + col;
+  unsigned off_from = LineOffset[from] + col;
 
   memmove(ScreenLines + off_to, ScreenLines + off_from,
-          wp->w_width * sizeof(schar_T));
+          width * sizeof(schar_T));
   memmove(ScreenAttrs + off_to, ScreenAttrs + off_from,
-      wp->w_width * sizeof(sattr_T));
+          width * sizeof(sattr_T));
 }
 
 /*
@@ -6225,15 +6223,14 @@ static int win_do_lines(win_T *wp, int row, int line_count,
   // otherwise it will stay there forever.
   clear_cmdline = TRUE;
   int retval;
-  ui_set_scroll_region(wp, row);
+
   if (del) {
     retval = screen_del_lines(wp->w_winrow + row, 0, line_count,
-        wp->w_height - row, wp);
+        wp->w_height - row, wp->w_wincol, wp->w_width);
   } else {
     retval = screen_ins_lines(wp->w_winrow + row, 0, line_count,
-        wp->w_height - row, wp);
+        wp->w_height - row, wp->w_wincol, wp->w_width);
   }
-  ui_reset_scroll_region();
   return retval;
 }
 
@@ -6272,7 +6269,8 @@ int screen_ins_lines (
     int row,
     int line_count,
     int end,
-    win_T *wp            /* NULL or window to use width from */
+    int col,
+    int width
 )
 {
   int i;
@@ -6288,14 +6286,14 @@ int screen_ins_lines (
   row += off;
   end += off;
   for (i = 0; i < line_count; ++i) {
-    if (wp != NULL && wp->w_width != Columns) {
+    if (width != Columns) {
       // need to copy part of a line
       j = end - 1 - i;
       while ((j -= line_count) >= row) {
-        linecopy(j + line_count, j, wp);
+        linecopy(j + line_count, j, col, width);
       }
       j += line_count;
-      lineclear(LineOffset[j] + wp->w_wincol, wp->w_width);
+      lineclear(LineOffset[j] + col, width);
       LineWraps[j] = FALSE;
     } else {
       j = end - 1 - i;
@@ -6310,7 +6308,7 @@ int screen_ins_lines (
     }
   }
 
-  ui_call_scroll(-line_count);
+  ui_call_grid_scroll(1, off, off+end, col, col+width, -line_count, 0);
 
   return OK;
 }
@@ -6326,7 +6324,8 @@ int screen_del_lines (
     int row,
     int line_count,
     int end,
-    win_T *wp         /* NULL or window to use width from */
+    int col,
+    int width
 )
 {
   int j;
@@ -6342,14 +6341,14 @@ int screen_del_lines (
   row += off;
   end += off;
   for (i = 0; i < line_count; ++i) {
-    if (wp != NULL && wp->w_width != Columns) {
+    if (width != Columns) {
       // need to copy part of a line
       j = row + i;
       while ((j += line_count) <= end - 1) {
-        linecopy(j - line_count, j, wp);
+        linecopy(j - line_count, j, col, width);
       }
       j -= line_count;
-      lineclear(LineOffset[j] + wp->w_wincol, wp->w_width);
+      lineclear(LineOffset[j] + col, width);
       LineWraps[j] = FALSE;
     } else {
       // whole width, moving the line pointers is faster
@@ -6365,10 +6364,11 @@ int screen_del_lines (
     }
   }
 
-  ui_call_scroll(line_count);
+  ui_call_grid_scroll(1, off, off+end, col, col+width, line_count, 0);
 
   return OK;
 }
+
 
 /*
  * show the current mode and ruler

@@ -52,8 +52,7 @@ UI *ui_bridge_attach(UI *ui, ui_main_fn ui_main, event_scheduler scheduler)
   rv->bridge.mouse_on = ui_bridge_mouse_on;
   rv->bridge.mouse_off = ui_bridge_mouse_off;
   rv->bridge.mode_change = ui_bridge_mode_change;
-  rv->bridge.set_scroll_region = ui_bridge_set_scroll_region;
-  rv->bridge.scroll = ui_bridge_scroll;
+  rv->bridge.grid_scroll = ui_bridge_grid_scroll;
   rv->bridge.hl_attr_define = ui_bridge_hl_attr_define;
   rv->bridge.bell = ui_bridge_bell;
   rv->bridge.visual_bell = ui_bridge_visual_bell;

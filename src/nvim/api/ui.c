@@ -84,8 +84,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
   ui->mouse_on = remote_ui_mouse_on;
   ui->mouse_off = remote_ui_mouse_off;
   ui->mode_change = remote_ui_mode_change;
-  ui->set_scroll_region = remote_ui_set_scroll_region;
-  ui->scroll = remote_ui_scroll;
+  ui->grid_scroll = remote_ui_grid_scroll;
   ui->hl_attr_define = remote_ui_hl_attr_define;
   ui->raw_line = remote_ui_raw_line;
   ui->bell = remote_ui_bell;
@@ -239,6 +238,23 @@ static void push_call(UI *ui, char *name, Array args)
 
   ADD(call, ARRAY_OBJ(args));
   kv_A(data->buffer, kv_size(data->buffer) - 1).data.array = call;
+}
+
+static void remote_ui_grid_scroll(UI *ui, Integer g, Integer top, Integer bot,
+                            Integer left, Integer right, Integer rows, Integer cols)
+{
+
+  Array args = ARRAY_DICT_INIT;
+  ADD(args, INTEGER_OBJ(top));
+  ADD(args, INTEGER_OBJ(bot-1));
+  ADD(args, INTEGER_OBJ(left));
+  ADD(args, INTEGER_OBJ(right-1));
+  push_call(ui, "set_scroll_region", args);
+
+  args = (Array)ARRAY_DICT_INIT;
+  ADD(args, INTEGER_OBJ(rows));
+  push_call(ui, "scroll", args);
+
 }
 
 static void remote_ui_default_colors_set(UI *ui, Integer rgb_fg, Integer rgb_bg, Integer rgb_sp, Integer cterm_fg, Integer cterm_bg)

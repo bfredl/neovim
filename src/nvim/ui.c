@@ -52,9 +52,6 @@ static UI *uis[MAX_UI_COUNT];
 static bool ui_ext[kUIExtCount] = { 0 };
 static size_t ui_count = 0;
 static int row = 0, col = 0;
-static struct {
-  int top, bot, left, right;
-} sr;
 static int current_attr_code = -1;
 static bool pending_cursor_update = false;
 static int busy = 0;
@@ -230,10 +227,6 @@ void ui_resize(int new_width, int new_height)
   height = new_height;
 
 
-  sr.top = 0;
-  sr.bot = height - 1;
-  sr.left = 0;
-  sr.right = width - 1;
   ui_call_resize(width, height);
 }
 
@@ -297,33 +290,6 @@ void ui_detach_impl(UI *ui)
       && !exiting) {
     ui_schedule_refresh();
   }
-}
-
-// Set scrolling region for window 'wp'.
-// The region starts 'off' lines from the start of the window.
-// Also set the vertical scroll region for a vertically split window.  Always
-// the full width of the window, excluding the vertical separator.
-void ui_set_scroll_region(win_T *wp, int off)
-{
-  sr.top = wp->w_winrow + off;
-  sr.bot = wp->w_winrow + wp->w_height - 1;
-
-  if (wp->w_width != Columns) {
-    sr.left = wp->w_wincol;
-    sr.right = wp->w_wincol + wp->w_width - 1;
-  }
-
-  ui_call_set_scroll_region(sr.top, sr.bot, sr.left, sr.right);
-}
-
-// Reset scrolling region to the whole screen.
-void ui_reset_scroll_region(void)
-{
-  sr.top = 0;
-  sr.bot = (int)Rows - 1;
-  sr.left = 0;
-  sr.right = (int)Columns - 1;
-  ui_call_set_scroll_region(sr.top, sr.bot, sr.left, sr.right);
 }
 
 void ui_line(int row, int startcol, int endcol, int clearcol, int clearattr) {
@@ -401,14 +367,15 @@ void ui_flush(void)
 }
 
 
+// TODO: probably obsolete
 void ui_linefeed(void)
 {
   int new_col = 0;
   int new_row = row;
-  if (new_row < sr.bot) {
+  if (new_row < Rows) {
     new_row++;
   } else {
-    ui_call_scroll(1);
+    ui_call_grid_scroll(1, 0, Rows, 0, Columns, 1, 0);
   }
   ui_cursor_goto(new_row, new_col);
 }
