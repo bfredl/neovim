@@ -188,9 +188,15 @@ void clear_hl_tables(bool reinit)
     kv_init(attr_entries);
     map_clear(HlEntry, int)(attr_entry_ids);
     map_clear(int, int)(combine_attr_entries);
-    must_redraw = CLEAR;
     highlight_attr_set_all();
     highlight_changed();
+    redraw_all_later(NOT_VALID);
+    if (ScreenAttrs) {
+      // the meaning of 0 doesn't change anyway
+      // but the rest must be retransmitted
+      memset(ScreenAttrs, 0,
+             sizeof(*ScreenAttrs) * (size_t)(screen_Rows * screen_Columns));
+    }
   } else {
     map_free(HlEntry, int)(attr_entry_ids);
     map_free(int, int)(combine_attr_entries);
