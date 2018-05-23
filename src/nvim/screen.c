@@ -493,7 +493,7 @@ void update_single_line(win_T *wp, linenr_T lnum)
   int j;
 
   // Don't do anything if the screen structures are (not yet) valid.
-  if (!grid_valid(&wp->w_grid, true) || updating_screen) {
+  if (wp->w_grid.ScreenLines == NULL || updating_screen) {
     return;
   }
   updating_screen = true;
@@ -675,6 +675,8 @@ static void win_update(win_T *wp)
     wp->w_redr_type = 0;
     return;
   }
+
+  window_grid_alloc(wp, false);
 
   init_search_hl(wp);
 
@@ -5267,7 +5269,7 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
   }
 
   // safety check
-  if (grid->ScreenLines == NULL || row >= screen_Rows) {
+  if (grid->ScreenLines == NULL || row >= grid->Rows) {
     return;
   }
 
@@ -5714,10 +5716,10 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
     grid = &default_grid;
   }
 
-  if (end_row > screen_Rows)            /* safety check */
-    end_row = screen_Rows;
-  if (end_col > screen_Columns)         /* safety check */
-    end_col = screen_Columns;
+  if (end_row > grid->Rows)            // safety check
+    end_row = grid->Rows;
+  if (end_col > grid->Columns)         // safety check
+    end_col = grid->Columns;
   if (grid->ScreenLines == NULL
       || start_row >= end_row
       || start_col >= end_col)          /* nothing to do */
@@ -5732,7 +5734,7 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
       if (start_col > 0 && mb_fix_col(start_col, row) != start_col) {
         grid_puts_len(grid, (char_u *)" ", 1, row, start_col - 1, 0);
       }
-      if (end_col < screen_Columns && mb_fix_col(end_col, row) != end_col) {
+      if (end_col < grid->Columns && mb_fix_col(end_col, row) != end_col) {
         grid_puts_len(grid, (char_u *)" ", 1, row, end_col, 0);
       }
     }
@@ -5816,13 +5818,18 @@ int screen_valid(int doclear)
   return default_grid.ScreenLines != NULL;
 }
 
-int grid_valid(ScreenGrid *grid, int doclear)
+/// (re)allocate a window grid if size changed
+/// If "doclear" is true, clear the screen if resized.
+// TODO(utkarshme): Think of a better name, place
+void window_grid_alloc(win_T *wp, int doclear)
 {
-  if (grid == NULL) {
-    return false;
+  if (wp->w_grid.ScreenLines != NULL
+      && wp->w_grid.Rows == wp->w_height
+      && wp->w_grid.Columns == wp->w_width) {
+    return;
   }
-  grid_alloc(grid, doclear);
-  return grid->ScreenLines != NULL;
+
+  grid_alloc(&wp->w_grid, wp->w_height, wp->w_width, doclear);
 }
 
 /*
@@ -5845,11 +5852,11 @@ retry:
   // when Rows and Columns have been set and we have started doing full
   // screen stuff.
   if ((default_grid.ScreenLines != NULL
-       && default_grid.Rows == screen_Rows
-       && default_grid.Columns == screen_Columns
+       && Rows == default_grid.Rows
+       && Columns == default_grid.Columns
        )
-      || default_grid.Rows == 0
-      || default_grid.Columns == 0
+      || Rows == 0
+      || Columns == 0
       || (!full_screen && default_grid.ScreenLines == NULL)) {
     return;
   }
@@ -5890,9 +5897,9 @@ retry:
   if (aucmd_win != NULL)
     win_free_lsize(aucmd_win);
 
-  grid_alloc(&default_grid, !doclear);
+  grid_alloc(&default_grid, Rows, Columns, !doclear);
   StlClickDefinition *new_tab_page_click_defs = xcalloc(
-      (size_t)default_grid.Columns, sizeof(*new_tab_page_click_defs));
+      (size_t)Columns, sizeof(*new_tab_page_click_defs));
 
   FOR_ALL_TAB_WINDOWS(tp, wp) {
     win_alloc_lines(wp);
@@ -5934,19 +5941,19 @@ retry:
   }
 }
 
-void grid_alloc(ScreenGrid *grid, bool copy)
+void grid_alloc(ScreenGrid *grid, int rows, int columns, bool copy)
 {
   int new_row, old_row;
   ScreenGrid new = { 0 };
 
-  size_t ncells = (size_t)((grid->Rows+1) * grid->Columns);
+  size_t ncells = (size_t)((rows+1) * columns);
   new.ScreenLines = xmalloc(ncells * sizeof(schar_T));
   new.ScreenAttrs = xmalloc(ncells * sizeof(sattr_T));
-  new.LineOffset = xmalloc((size_t)(grid->Rows * sizeof(unsigned)));
-  new.LineWraps = xmalloc((size_t)(grid->Rows * sizeof(char_u)));
+  new.LineOffset = xmalloc((size_t)(rows * sizeof(unsigned)));
+  new.LineWraps = xmalloc((size_t)(rows * sizeof(char_u)));
 
-  new.Rows = grid->Rows;
-  new.Columns = grid->Columns;
+  new.Rows = rows;
+  new.Columns = columns;
 
   for (new_row = 0; new_row < new.Rows; new_row++) {
     new.LineOffset[new_row] = new_row * new.Columns;
@@ -5960,9 +5967,9 @@ void grid_alloc(ScreenGrid *grid, bool copy)
              ' ', (size_t)new.Columns * sizeof(schar_T));
       memset(new.ScreenAttrs + new_row * new.Columns,
              0, (size_t)new.Columns * sizeof(sattr_T));
-      old_row = new_row + (screen_Rows - new.Rows);
+      old_row = new_row + (grid->Rows - new.Rows);
       if (old_row >= 0 && grid->ScreenLines != NULL) {
-        int len = MIN(screen_Columns, new.Columns);
+        int len = MIN(grid->Columns, new.Columns);
         memmove(new.ScreenLines + new.LineOffset[new_row],
                 grid->ScreenLines + grid->LineOffset[old_row],
                 (size_t)len * sizeof(schar_T));
@@ -7014,11 +7021,11 @@ void screen_resize(int width, int height)
 
   ++busy;
 
-  default_grid.Rows = height;
-  default_grid.Columns = width;
+  Rows = height;
+  Columns = width;
   check_shellsize();
-  height = default_grid.Rows;
-  width = default_grid.Columns;
+  height = Rows;
+  width = Columns;
   ui_resize(width, height);
 
   Rows = default_grid.Rows;
@@ -7080,9 +7087,9 @@ void screen_resize(int width, int height)
 /// Correct it if it's too small or way too big.
 void check_shellsize(void)
 {
-  if (default_grid.Rows < min_rows()) {
+  if (Rows < min_rows()) {
     // need room for one window and command line
-    default_grid.Rows = min_rows();
+    Rows = min_rows();
   }
   limit_screen_size();
 }
@@ -7090,14 +7097,14 @@ void check_shellsize(void)
 // Limit Rows and Columns to avoid an overflow in Rows * Columns.
 void limit_screen_size(void)
 {
-  if (default_grid.Columns < MIN_COLUMNS) {
-    default_grid.Columns = MIN_COLUMNS;
-  } else if (default_grid.Columns > 10000) {
-    default_grid.Columns = 10000;
+  if (Columns < MIN_COLUMNS) {
+    Columns = MIN_COLUMNS;
+  } else if (Columns > 10000) {
+    Columns = 10000;
   }
 
-  if (default_grid.Rows > 1000) {
-    default_grid.Rows = 1000;
+  if (Rows > 1000) {
+    Rows = 1000;
   }
 }
 
@@ -7117,13 +7124,5 @@ void win_new_shellsize(void)
   if (old_Columns != default_grid.Columns) {
     old_Columns = default_grid.Columns;
     shell_new_columns();  // update window sizes
-  }
-}
-
-void grid_setwidth(ScreenGrid *grid, int width)
-{
-  if (grid->Rows != width) {
-    grid->Rows = width;
-    grid_alloc(grid, false);
   }
 }
