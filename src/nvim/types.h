@@ -23,7 +23,7 @@ typedef char_u schar_T[(MAX_MCO+1) * 4 + 1];
 typedef int16_t sattr_T;
 
 // TODO(bfredl): find me a good home
-typedef unsigned int GridHandle;
+typedef int GridHandle;
 typedef struct {
   GridHandle handle;
 
