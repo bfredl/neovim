@@ -124,11 +124,6 @@ static match_T search_hl;       /* used for 'hlsearch' highlight matching */
 
 static foldinfo_T win_foldinfo; /* info for 'foldcolumn' */
 
-/*
- * Buffer for one screen line (characters and attributes).
- */
-static schar_T  *current_ScreenLine;
-
 StlClickDefinition *tab_page_click_defs = NULL;
 
 long tab_page_click_defs_size = 0;
@@ -1802,7 +1797,7 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
   int fdc;
   int col;
   int txtcol;
-  int off = (int)(current_ScreenLine - ScreenLines);
+  int off;
   int ri;
   ScreenGrid *grid = &wp->w_grid;
 
@@ -1815,6 +1810,7 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
    * 6. set highlighting for the Visual area an other text
    */
   col = 0;
+  off = (int)(grid->Rows * grid->Columns);
 
   /*
    * 1. Add the cmdwin_type for the command-line window
@@ -1917,11 +1913,9 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
 
   txtcol = col;         /* remember where text starts */
 
-  /*
-   * 5. move the text to current_ScreenLine.  Fill up with "fill_fold".
-   *    Right-left text is put in columns 0 - number-col, normal text is put
-   *    in columns number-col - window-width.
-   */
+  // 5. move the text to grid->ScreenLines[off].  Fill up with "fill_fold".
+  //    Right-left text is put in columns 0 - number-col, normal text is put
+  //    in columns number-col - window-width.
   int idx;
 
   if (wp->w_p_rl) {
@@ -2150,6 +2144,7 @@ win_line (
   char_u      *ptr;                     // current position in "line"
   int row;                              // row in the window, excl w_winrow
   int screen_row;                       // row on the screen, incl w_winrow
+  ScreenGrid *grid = &wp->w_grid;       // grid specfic to the window
 
   char_u extra[18];                     /* line number and 'fdc' must fit in here */
   int n_extra = 0;                      /* number of extra chars */
@@ -2281,6 +2276,9 @@ win_line (
 
   row = startrow;
   screen_row = row + wp->w_winrow;
+
+  // allocate window grid if not already
+  window_grid_alloc(wp, true);
 
   if (!number_only) {
     // To speed up the loop below, set extra_check when there is linebreak,
@@ -2717,11 +2715,11 @@ win_line (
       cur = cur->next;
   }
 
-  off = (unsigned)(current_ScreenLine - ScreenLines);
+  off = (unsigned)(grid->Rows * grid->Columns);
   int col = 0;  // Visual column on screen.
   if (wp->w_p_rl) {
     // Rightleft window: process the text in the normal direction, but put
-    // it in current_ScreenLine[] from right to left.  Start at the
+    // it in grid->ScreenLines[off] from right to left.  Start at the
     // rightmost column of the window.
     col = wp->w_width - 1;
     off += col;
@@ -2937,14 +2935,14 @@ win_line (
          && lnum == wp->w_cursor.lnum && vcol >= (long)wp->w_virtcol
          && filler_todo <= 0)
         || (number_only && draw_state > WL_NR)) {
-      grid_move_line(&default_grid, screen_row, wp->w_wincol, col, -wp->w_width,
+      grid_move_line(grid, screen_row, wp->w_wincol, col, -wp->w_width,
                      wp->w_p_rl, wp, wp->w_hl_attr_normal, false);
       // Pretend we have finished updating the window.  Except when
       // 'cursorcolumn' is set.
       if (wp->w_p_cuc) {
         row = wp->w_cline_row + wp->w_cline_height;
       } else {
-        row = wp->w_height;
+        row = wp->w_grid.Rows;
       }
       break;
     }
@@ -3907,7 +3905,7 @@ win_line (
           col += n;
         } else {
           // Add a blank character to highlight.
-          schar_from_ascii(ScreenLines[off], ' ');
+          schar_from_ascii(grid->ScreenLines[off], ' ');
         }
         if (area_attr == 0) {
           /* Use attributes from match with highest priority among
@@ -3937,7 +3935,7 @@ win_line (
         if (wp->w_hl_attr_normal != 0) {
           char_attr = hl_combine_attr(wp->w_hl_attr_normal, char_attr);
         }
-        ScreenAttrs[off] = char_attr;
+        grid->ScreenAttrs[off] = char_attr;
         if (wp->w_p_rl) {
           --col;
           --off;
@@ -4022,14 +4020,14 @@ win_line (
               }
             }
             if (*s.p != NUL) {
-              cells = line_putchar(&s, &ScreenLines[off], wp->w_width - col,
+              cells = line_putchar(&s, &grid->ScreenLines[off], wp->w_width - col,
                                    false);
             }
           }
           delay_virttext = false;
 
           if (cells == -1) {
-            schar_from_ascii(ScreenLines[off], ' ');
+            schar_from_ascii(grid->ScreenLines[off], ' ');
             cells = 1;
           }
           col += cells;
@@ -4068,12 +4066,12 @@ win_line (
         // terminal buffers may need to highlight beyond the end of the
         // logical line
         while (col < wp->w_width) {
-          schar_from_ascii(ScreenLines[off], ' ');
-          ScreenAttrs[off++] = term_attrs[vcol++];
+          schar_from_ascii(grid->ScreenLines[off], ' ');
+          grid->ScreenAttrs[off++] = term_attrs[vcol++];
           col++;
         }
       }
-      grid_move_line(&default_grid, screen_row, wp->w_wincol, col, wp->w_width,
+      grid_move_line(grid, screen_row, wp->w_wincol, col, wp->w_width,
                      wp->w_p_rl, wp, wp->w_hl_attr_normal, false);
       row++;
 
@@ -4153,22 +4151,22 @@ win_line (
         --col;
       }
       if (mb_utf8) {
-        schar_from_cc(ScreenLines[off], mb_c, u8cc);
+        schar_from_cc(grid->ScreenLines[off], mb_c, u8cc);
       } else {
-        schar_from_ascii(ScreenLines[off], c);
+        schar_from_ascii(grid->ScreenLines[off], c);
       }
       if (multi_attr) {
-        ScreenAttrs[off] = multi_attr;
+        grid->ScreenAttrs[off] = multi_attr;
         multi_attr = 0;
       } else
-        ScreenAttrs[off] = char_attr;
+        grid->ScreenAttrs[off] = char_attr;
 
       if (has_mbyte && (*mb_char2cells)(mb_c) > 1) {
         // Need to fill two screen columns.
         off++;
         col++;
         // UTF-8: Put a 0 in the second screen char.
-        ScreenLines[off][0] = 0;
+        grid->ScreenLines[off][0] = 0;
         if (draw_state > WL_NR && filler_todo <= 0) {
           vcol++;
         }
@@ -4282,20 +4280,20 @@ win_line (
             || (wp->w_p_list && lcs_eol != NUL && p_extra != at_end_str)
             || (n_extra != 0 && (c_extra != NUL || *p_extra != NUL)))
         ) {
-      bool wrap = wp->w_p_wrap     // Wrapping enabled.
-        && filler_todo <= 0        // Not drawing diff filler lines.
-        && lcs_eol_one != -1       // Haven't printed the lcs_eol character.
-        && row != endrow - 1       // Not the last line being displayed.
-        && wp->w_width == Columns  // Window spans the width of the screen.
-        && !wp->w_p_rl;            // Not right-to-left.
-      grid_move_line(&default_grid, screen_row, wp->w_wincol, col - boguscols,
+      bool wrap = wp->w_p_wrap       // Wrapping enabled.
+        && filler_todo <= 0          // Not drawing diff filler lines.
+        && lcs_eol_one != -1         // Haven't printed the lcs_eol character.
+        && row != endrow - 1         // Not the last line being displayed.
+        && grid->Columns == Columns  // Window spans the width of the screen.
+        && !wp->w_p_rl;              // Not right-to-left.
+      grid_move_line(grid, screen_row, wp->w_wincol, col - boguscols,
                      wp->w_width, wp->w_p_rl, wp, wp->w_hl_attr_normal, wrap);
       if (wrap) {
         // Force a redraw of the first column of the next line.
-        default_grid.ScreenAttrs[default_grid.LineOffset[screen_row + 1]] = -1;
+        grid->ScreenAttrs[grid->LineOffset[screen_row + 1]] = -1;
 
         // Remember that the line wraps, used for modeless copy.
-        default_grid.LineWraps[screen_row] = true;
+        grid->LineWraps[screen_row] = true;
       }
 
       boguscols = 0;
@@ -4325,7 +4323,7 @@ win_line (
       }
 
       col = 0;
-      off = (unsigned)(current_ScreenLine - ScreenLines);
+      off = (unsigned)(grid->Rows * grid->Columns);
       if (wp->w_p_rl) {
         col = wp->w_width - 1;          /* col is not used if breaking! */
         off += col;
@@ -4418,10 +4416,10 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
   if (endcol > grid->Columns)
     endcol = grid->Columns;
 
-  off_from = (unsigned)(current_ScreenLine - grid->ScreenLines);
+  off_from = (unsigned)(grid->Rows * grid->Columns);
   off_to = grid->LineOffset[row] + coloff;
-  max_off_from = off_from + screen_Columns;
-  max_off_to = grid->LineOffset[row] + screen_Columns;
+  max_off_from = off_from + grid->Columns;
+  max_off_to = grid->LineOffset[row] + grid->Columns;
 
   if (rlflag) {
     /* Clear rest first, because it's left of the text. */
@@ -5327,7 +5325,7 @@ void grid_getbytes(ScreenGrid *grid, int row, int col, char_u *bytes,
   }
 
   // safety check
-  if (grid->ScreenLines != NULL && row < screen_Rows && col < screen_Columns) {
+  if (grid->ScreenLines != NULL && row < grid->Rows && col < grid->Columns) {
     off = grid->LineOffset[row] + col;
     *attrp = grid->ScreenAttrs[off];
     schar_copy(bytes, grid->ScreenLines[off]);
@@ -5402,7 +5400,7 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
 
   /* When drawing over the right halve of a double-wide char clear out the
    * left halve.  Only needed in a terminal. */
-  if (col > 0 && col < screen_Columns && mb_fix_col(col, row) != col) {
+  if (col > 0 && col < grid->Columns && mb_fix_col(col, row) != col) {
     schar_from_ascii(grid->ScreenLines[off - 1], ' ');
     grid->ScreenAttrs[off - 1] = 0;
     // redraw the previous cell, make it empty
@@ -5414,8 +5412,8 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
     force_redraw_next = true;
   }
 
-  max_off = grid->LineOffset[row] + screen_Columns;
-  while (col < screen_Columns
+  max_off = grid->LineOffset[row] + grid->Columns;
+  while (col < grid->Columns
          && (len < 0 || (int)(ptr - text) < len)
          && *ptr != NUL) {
     c = *ptr;
@@ -5448,7 +5446,7 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
     } else {
       prev_c = u8c;
     }
-    if (col + mbyte_cells > screen_Columns) {
+    if (col + mbyte_cells > grid->Columns) {
       // Only 1 cell left, but character requires 2 cells:
       // display a '>' in the last column to avoid wrapping. */
       c = '>';
@@ -6119,7 +6117,6 @@ void set_screengrid(ScreenGrid *grid)
   ScreenAttrs = grid->ScreenAttrs;
   LineOffset = grid->LineOffset;
   LineWraps = grid->LineWraps;
-  current_ScreenLine = grid->ScreenLines + (grid->Rows) * (grid->Columns);
 }
 
 /// Clear tab_page_click_defs table
