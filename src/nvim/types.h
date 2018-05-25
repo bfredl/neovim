@@ -32,8 +32,13 @@ typedef struct {
   unsigned *LineOffset;
   char_u   *LineWraps;
 
+  // the size of the allocated grid
   int Rows;
   int Columns;
+
+  // offsets for the grid relative to the screen
+  int OffsetRow;
+  int OffsetColumn;
 } ScreenGrid;
 
 #endif  // NVIM_TYPES_H
