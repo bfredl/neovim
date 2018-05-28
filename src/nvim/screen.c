@@ -4525,17 +4525,17 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
       schar_T sc;
       schar_from_char(sc, c);
 
-      if (schar_cmp(grid->ScreenLines[off_to], sc)
-          || grid->ScreenAttrs[off_to] != hl) {
-        schar_copy(grid->ScreenLines[off_to], sc);
-        grid->ScreenAttrs[off_to] = hl;
+      if (schar_cmp(default_grid.ScreenLines[off_to], sc)
+          || default_grid.ScreenAttrs[off_to] != hl) {
+        schar_copy(default_grid.ScreenLines[off_to], sc);
+        default_grid.ScreenAttrs[off_to] = hl;
         if (start_dirty == -1) {
           start_dirty = col;
         }
         end_dirty = col+1;
       }
     } else
-      grid->LineWraps[row] = FALSE;
+      default_grid.LineWraps[row] = false;
   }
 
   if (clear_end < end_dirty) {
@@ -4545,7 +4545,7 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
     start_dirty = end_dirty;
   }
   if (clear_end > start_dirty) {
-    ui_line(row, coloff+start_dirty, coloff+end_dirty, coloff+clear_end,
+    ui_line(grid, row, coloff+start_dirty, coloff+end_dirty, coloff+clear_end,
             bg_attr, wrap);
   }
 }
@@ -5511,8 +5511,8 @@ void screen_puts_line_flush(bool set_cursor)
     if (set_cursor) {
       ui_cursor_goto(put_dirty_row, put_dirty_last);
     }
-    ui_line(put_dirty_row, put_dirty_first, put_dirty_last, put_dirty_last, 0,
-            false);
+    ui_line(&default_grid, put_dirty_row, put_dirty_first, put_dirty_last,
+        put_dirty_last, 0, false);
     put_dirty_first = -1;
     put_dirty_last = 0;
   }
@@ -5875,16 +5875,16 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
         put_dirty_last = MAX(put_dirty_last, dirty_last);
       } else {
         int last = c2 != ' ' ? dirty_last : dirty_first + (c1 != ' ');
-        ui_line(row, dirty_first, last, dirty_last, attr, false);
+        ui_line(grid, row, dirty_first, last, dirty_last, attr, false);
       }
     }
 
-    if (end_col == grid->Columns) {
+    if (end_col == Columns) {
       grid->LineWraps[row] = false;
     }
 
     // TODO(bfredl): The relevant caller should do this
-    if (row == Rows - 1) {  // overwritten the command line
+    if (row == default_grid.Rows - 1) {  // overwritten the command line
       redraw_cmdline = true;
       if (start_col == 0 && end_col == Columns
           && c1 == ' ' && c2 == ' ' && attr == 0) {
@@ -7141,8 +7141,8 @@ void screen_resize(int width, int height)
   width = Columns;
   ui_resize(width, height);
 
-  Rows = default_grid.Rows;
-  Columns = default_grid.Columns;
+  default_grid.Rows = screen_Rows;
+  default_grid.Columns = screen_Columns;
 
   /* The window layout used to be adjusted here, but it now happens in
    * screenalloc() (also invoked from screenclear()).  That is because the
