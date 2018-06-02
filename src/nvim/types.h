@@ -39,6 +39,8 @@ typedef struct {
   // offsets for the grid relative to the screen
   int OffsetRow;
   int OffsetColumn;
+
+  int was_resized;
 } ScreenGrid;
 
 #endif  // NVIM_TYPES_H

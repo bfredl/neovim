@@ -268,12 +268,12 @@ static void remote_ui_grid_resize(UI *ui, Integer grid,
                                   Integer width, Integer height)
 {
   Array args = ARRAY_DICT_INIT;
-  if (ui->ui_ext[kUINewgrid]) {
+  if (ui->ui_ext[kUIMultigrid]) {
     ADD(args, INTEGER_OBJ(grid));
   }
   ADD(args, INTEGER_OBJ(width));
   ADD(args, INTEGER_OBJ(height));
-  const char *name = ui->ui_ext[kUINewgrid] ? "grid_resize" : "resize";
+  const char *name = ui->ui_ext[kUIMultigrid] ? "grid_resize" : "resize";
   push_call(ui, name, args);
 }
 
