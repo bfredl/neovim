@@ -267,6 +267,10 @@ static void remote_ui_grid_resize(UI *ui, Integer grid,
   Array args = ARRAY_DICT_INIT;
   if (ui->ui_ext[kUINewgrid]) {
     ADD(args, INTEGER_OBJ(grid));
+  } else if (grid != 1) {
+    // calling grid_resize with a grid other than the global when
+    // the remote ui is not managing grids should not send the event
+    return;
   }
   ADD(args, INTEGER_OBJ(width));
   ADD(args, INTEGER_OBJ(height));
