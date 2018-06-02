@@ -128,6 +128,14 @@ StlClickDefinition *tab_page_click_defs = NULL;
 
 long tab_page_click_defs_size = 0;
 
+/// The last handle that was assigned to a ScreenGrid. 1 is reserved for
+/// the default_grid.
+/// TODO(utkarshme): Numbers can be recycled after grid destruction.
+static int last_handle = 1;
+
+/// Whether to call "ui_call_grid_resize" in win_grid_alloc
+static int send_grid_resize;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "screen.c.generated.h"
 #endif
@@ -422,6 +430,7 @@ void update_screen(int type)
       win_redr_status(wp);
     }
   }
+  send_grid_resize = false;
   end_search_hl();
   // May need to redraw the popup menu.
   if (pum_drawn()) {
@@ -661,7 +670,7 @@ static void win_update(win_T *wp)
 
   type = wp->w_redr_type;
 
-  window_grid_alloc(wp, false);
+  win_grid_alloc(wp, false);
 
   if (type == NOT_VALID) {
     wp->w_redr_status = TRUE;
@@ -2228,7 +2237,7 @@ win_line (
   row = startrow;
 
   // allocate window grid if not already
-  window_grid_alloc(wp, true);
+  win_grid_alloc(wp, true);
 
   /*
    * To speed up the loop below, set extra_check when there is linebreak,
@@ -5838,18 +5847,28 @@ int screen_valid(int doclear)
 /// (re)allocate a window grid if size changed
 /// If "doclear" is true, clear the screen if resized.
 // TODO(utkarshme): Think of a better name, place
-void window_grid_alloc(win_T *wp, int doclear)
+void win_grid_alloc(win_T *wp, int doclear)
 {
-  if (wp->w_grid.ScreenLines != NULL
-      && wp->w_grid.Rows == wp->w_height
-      && wp->w_grid.Columns == wp->w_width) {
-    return;
+  if (wp->w_grid.ScreenLines == NULL
+      || wp->w_grid.Rows != wp->w_height
+      || wp->w_grid.Columns != wp->w_width) {
+    grid_alloc(&wp->w_grid, wp->w_height, wp->w_width, doclear);
+
+    // only assign a grid handle if not already
+    if (wp->w_grid.handle == 0) {
+      wp->w_grid.handle = ++last_handle;
+    }
+
+    wp->w_grid.OffsetRow = wp->w_winrow;
+    wp->w_grid.OffsetColumn = wp->w_wincol;
+
+    wp->w_grid.was_resized = true;
   }
 
-  grid_alloc(&wp->w_grid, wp->w_height, wp->w_width, doclear);
-
-  wp->w_grid.OffsetRow = wp->w_winrow;
-  wp->w_grid.OffsetColumn = wp->w_wincol;
+  if (send_grid_resize || wp->w_grid.was_resized) {
+    ui_call_grid_resize(wp->w_grid.handle, wp->w_grid.Columns, wp->w_grid.Rows);
+    wp->w_grid.was_resized = false;
+  }
 }
 
 /*
@@ -5943,6 +5962,7 @@ retry:
 
   default_grid.OffsetRow = 0;
   default_grid.OffsetColumn = 0;
+  default_grid.handle = 1;
 
   must_redraw = CLEAR;          /* need to clear the screen later */
   if (doclear)
@@ -5967,7 +5987,7 @@ retry:
 void grid_alloc(ScreenGrid *grid, int rows, int columns, bool copy)
 {
   int new_row, old_row;
-  ScreenGrid new = { 0 };
+  ScreenGrid new = *grid;
 
   size_t ncells = (size_t)((rows+1) * columns);
   new.ScreenLines = xmalloc(ncells * sizeof(schar_T));
@@ -6254,7 +6274,7 @@ int grid_ins_lines(ScreenGrid *grid, int row, int line_count, int end,
     }
   }
 
-  ui_call_grid_scroll(1, row, end, col, col+width, -line_count, 0);
+  ui_call_grid_scroll(grid->handle, row, end, col, col+width, -line_count, 0);
 
   return OK;
 }
@@ -6306,7 +6326,7 @@ int grid_del_lines(ScreenGrid *grid, int row, int line_count, int end,
     }
   }
 
-  ui_call_grid_scroll(1, row, end, col, col+width, line_count, 0);
+  ui_call_grid_scroll(grid->handle, row, end, col, col+width, line_count, 0);
 
   return OK;
 }
@@ -7058,6 +7078,8 @@ void screen_resize(int width, int height)
 
   default_grid.Rows = screen_Rows;
   default_grid.Columns = screen_Columns;
+
+  send_grid_resize = true;
 
   /* The window layout used to be adjusted here, but it now happens in
    * screenalloc() (also invoked from screenclear()).  That is because the
