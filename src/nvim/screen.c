@@ -118,7 +118,7 @@
 
 #define MB_FILLER_CHAR '<'  /* character used when a double-width character
                              * doesn't fit. */
-#define W_ENDCOL(wp)   (wp->w_grid.Columns + wp->w_grid.OffsetColumn)
+#define W_ENDCOL(wp)   (wp->w_width + wp->w_wincol)
 
 static match_T search_hl;       /* used for 'hlsearch' highlight matching */
 
@@ -4459,10 +4459,8 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
           || default_grid.ScreenAttrs[off_to] != hl) {
         schar_copy(default_grid.ScreenLines[off_to], sc);
         default_grid.ScreenAttrs[off_to] = hl;
-        if (start_dirty == -1) {
-          start_dirty = col;
-        }
-        end_dirty = col+1;
+        ui_line(&default_grid, row + wp->w_winrow, W_ENDCOL(wp),
+                W_ENDCOL(wp) + 1, W_ENDCOL(wp) + 1, bg_attr);
       }
     } else
       default_grid.LineWraps[row] = false;
