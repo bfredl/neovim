@@ -40,6 +40,10 @@ typedef struct {
   int OffsetRow;
   int OffsetColumn;
 
+  // the size expected to be allocated to the internal grid
+  int internal_rows;
+  int internal_columns;
+
   int was_resized;
 } ScreenGrid;
 
