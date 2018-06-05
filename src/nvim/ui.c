@@ -447,3 +447,18 @@ Array ui_array(void)
   }
   return all_uis;
 }
+
+void ui_grid_resize(GridHandle grid_handle, int width, int height)
+{
+  win_T *wp = get_win_by_grid_handle(grid_handle);
+
+  if (wp == NULL) {
+    //TODO(utkarshme): error out
+    abort();
+    return;
+  }
+
+  wp->w_grid.internal_rows = (int)height;
+  wp->w_grid.internal_columns = (int)width;
+  redraw_win_later(wp, SOME_VALID);
+}
