@@ -56,6 +56,7 @@ static bool pending_cursor_update = false;
 static int busy = 0;
 static int mode_idx = SHAPE_IDX_N;
 static bool pending_mode_update = false;
+static GridHandle cursor_grid_handle = 1;
 
 #if MIN_LOG_LEVEL > DEBUG_LOG_LEVEL
 # define UI_LOG(funname, ...)
@@ -338,11 +339,20 @@ void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol, 
 
 void ui_cursor_goto(int new_row, int new_col)
 {
-  if (new_row == row && new_col == col) {
+  ui_grid_cursor_goto(&default_grid, new_row, new_col);
+}
+
+void ui_grid_cursor_goto(ScreenGrid *grid, int new_row, int new_col)
+{
+  int off_row = (ui_is_external(kUIMultigrid) ? 0 : grid->OffsetRow);
+  int off_col = (ui_is_external(kUIMultigrid) ? 0 : grid->OffsetColumn);
+
+  if (new_row + off_row == row && new_col + off_col == col) {
     return;
   }
-  row = new_row;
-  col = new_col;
+  row = new_row + off_row;
+  col = new_col + off_col;
+  cursor_grid_handle = grid->handle;
   pending_cursor_update = true;
 }
 
@@ -394,7 +404,7 @@ void ui_flush(void)
 {
   cmdline_ui_flush();
   if (pending_cursor_update) {
-    ui_call_grid_cursor_goto(1, row, col);
+    ui_call_grid_cursor_goto(cursor_grid_handle, row, col);
     pending_cursor_update = false;
   }
   if (pending_mode_update) {
