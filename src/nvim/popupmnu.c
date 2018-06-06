@@ -496,7 +496,7 @@ void pum_redraw(void)
                        ? attr_thumb : attr_scroll);
       }
     }
-    screen_puts_line_flush(false);
+    grid_puts_line_flush(&default_grid, false);
     row++;
   }
 }

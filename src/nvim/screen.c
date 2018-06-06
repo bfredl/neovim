@@ -5227,7 +5227,7 @@ win_redr_custom (
   // Make sure to use an empty string instead of p, if p is beyond buf + len.
   grid_puts(&default_grid, p >= buf + len ? (char_u *)"" : p, row, col, curattr);
 
-  screen_puts_line_flush(false);
+  grid_puts_line_flush(&default_grid, false);
 
   if (wp == NULL) {
     // Fill the tab_page_click_defs array for clicking in the tab pages line.
@@ -5500,24 +5500,25 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
   }
 
   if (do_flush) {
-    screen_puts_line_flush(true);
+    grid_puts_line_flush(grid, true);
   }
 }
 
 /// End a group of screen_puts_len calls and send the screen buffer to the UI
 /// layer.
 ///
+/// @param grid       The grid which contains the buffer.
 /// @param set_cursor Move the visible cursor to the end of the changed region.
 ///                   This is a workaround for not yet refactored code paths
 ///                   and shouldn't be used in new code.
-void screen_puts_line_flush(bool set_cursor)
+void grid_puts_line_flush(ScreenGrid *grid, bool set_cursor)
 {
   assert(put_dirty_row != -1);
   if (put_dirty_first != -1) {
     if (set_cursor) {
-      ui_cursor_goto(put_dirty_row, put_dirty_last);
+      ui_grid_cursor_goto(grid, put_dirty_row, put_dirty_last);
     }
-    ui_line(&default_grid, put_dirty_row, put_dirty_first, put_dirty_last,
+    ui_line(grid, put_dirty_row, put_dirty_first, put_dirty_last,
         put_dirty_last, 0, false);
     put_dirty_first = -1;
     put_dirty_last = 0;
@@ -6238,8 +6239,7 @@ void setcursor(void)
                     - ((utf_ptr2cells(get_cursor_pos_ptr()) == 2
                         && vim_isprintc(gchar_cursor())) ? 2 : 1);
     }
-    ui_cursor_goto(curwin->w_winrow + curwin->w_wrow,
-                   curwin->w_wincol + left_offset);
+    ui_grid_cursor_goto(&curwin->w_grid, curwin->w_wrow, left_offset);
   }
 }
 
