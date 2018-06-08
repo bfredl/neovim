@@ -7102,9 +7102,6 @@ void screen_resize(int width, int height)
   width = Columns;
   ui_resize(width, height);
 
-  default_grid.Rows = screen_Rows;
-  default_grid.Columns = screen_Columns;
-
   send_grid_resize = true;
 
   /* The window layout used to be adjusted here, but it now happens in
@@ -7186,16 +7183,16 @@ void win_new_shellsize(void)
   static long old_Rows = 0;
   static long old_Columns = 0;
 
-  if (old_Rows != default_grid.Rows) {
+  if (old_Rows != Rows) {
     // if 'window' uses the whole screen, keep it using that */
     if (p_window == old_Rows - 1 || old_Rows == 0) {
-      p_window = default_grid.Rows - 1;
+      p_window = Rows - 1;
     }
-    old_Rows = default_grid.Rows;
+    old_Rows = Rows;
     shell_new_rows();  // update window sizes
   }
-  if (old_Columns != default_grid.Columns) {
-    old_Columns = default_grid.Columns;
+  if (old_Columns != Columns) {
+    old_Columns = Columns;
     shell_new_columns();  // update window sizes
   }
 }
