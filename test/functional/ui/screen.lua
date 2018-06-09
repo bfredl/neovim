@@ -164,7 +164,7 @@ function Screen:attach(options)
   if options == nil then
     options = {rgb=true}
   end
-  options.ext_multigrid = true
+  options.ext_newgrid = true
   self._options = options
   uimeths.attach(self._width, self._height, options)
 end
@@ -471,7 +471,7 @@ function Screen:_handle_hl_attr_define(id,attrs,inspect)
 end
 
 function Screen:get_hl(val)
-  if self._options.ext_multigrid then
+  if self._options.ext_newgrid then
     return self._attr_table[val]
   else
     return val

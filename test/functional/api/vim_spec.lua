@@ -1242,7 +1242,7 @@ describe('API', function()
           ext_popupmenu = false,
           ext_tabline = false,
           ext_wildmenu = false,
-          ext_multigrid=false,
+          ext_newgrid = false,
           ext_hlstate=false,
           height = 4,
           rgb = true,

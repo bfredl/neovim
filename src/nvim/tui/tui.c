@@ -151,7 +151,7 @@ UI *tui_start(void)
   ui->raw_line = tui_raw_line;
 
   memset(ui->ui_ext, 0, sizeof(ui->ui_ext));
-  ui->ui_ext[kUIMultigrid] = true;
+  ui->ui_ext[kUINewgrid] = true;
 
   return ui_bridge_attach(ui, tui_main, tui_scheduler);
 }

@@ -32,14 +32,14 @@ describe('ui receives option updates', function()
     ext_wildmenu=false,
     -- TODO: these values are in general incorrect,
     -- as these options are per-ui and not global.
-    ext_multigrid=false,
+    ext_newgrid=false,
     ext_hlstate=false,
   }
 
   it("for defaults", function()
     screen:attach()
     -- TODO: better than this
-    defaults.ext_multigrid = screen._options.ext_multigrid
+    defaults.ext_newgrid = screen._options.ext_newgrid
     screen:expect(function()
       eq(defaults, screen.options)
     end)
@@ -48,7 +48,7 @@ describe('ui receives option updates', function()
   it("when setting options", function()
     screen:attach()
     -- TODO: better than this
-    defaults.ext_multigrid = screen._options.ext_multigrid
+    defaults.ext_newgrid = screen._options.ext_newgrid
     local changed = {}
     for k,v in pairs(defaults) do
       changed[k] = v
@@ -98,7 +98,7 @@ describe('ui receives option updates', function()
 
     screen:attach({ext_cmdline=true, ext_wildmenu=true})
     -- TODO: better than this
-    defaults.ext_multigrid = screen._options.ext_multigrid
+    defaults.ext_newgrid = screen._options.ext_newgrid
     changed.ext_cmdline = true
     changed.ext_wildmenu = true
     screen:expect(function()
