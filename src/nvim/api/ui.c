@@ -108,6 +108,10 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height,
     }
   }
 
+  if (ui->ui_ext[kUIHlState] || ui->ui_ext[kUIMultigrid]) {
+    ui->ui_ext[kUINewgrid] = true;
+  }
+
   UIData *data = xmalloc(sizeof(UIData));
   data->channel_id = channel_id;
   data->buffer = (Array)ARRAY_DICT_INIT;
