@@ -118,7 +118,9 @@
 
 #define MB_FILLER_CHAR '<'  /* character used when a double-width character
                              * doesn't fit. */
+
 #define W_ENDCOL(wp)   (wp->w_width + wp->w_wincol)
+#define W_ENDROW(wp)   (wp->w_height + wp->w_winrow)
 
 static match_T search_hl;       /* used for 'hlsearch' highlight matching */
 
@@ -301,11 +303,11 @@ void update_screen(int type)
         redraw_tabline = true;
       }
       FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-        if (wp->w_winrow + wp->w_height > valid) {
+        if (W_ENDROW(wp) > valid) {
           wp->w_redr_type = NOT_VALID;
           wp->w_lines_valid = 0;
         }
-        if (wp->w_winrow + wp->w_height + wp->w_status_height > valid) {
+        if (W_ENDROW(wp) + wp->w_status_height > valid) {
           wp->w_redr_status = true;
         }
       }
@@ -319,7 +321,7 @@ void update_screen(int type)
       }
       FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
         if (wp->w_winrow < msg_scrolled) {
-          if (wp->w_winrow + wp->w_height > msg_scrolled
+          if (W_ENDROW(wp) > msg_scrolled
               && wp->w_redr_type < REDRAW_TOP
               && wp->w_lines_valid > 0
               && wp->w_topline == wp->w_lines[0].wl_lnum) {
@@ -327,7 +329,7 @@ void update_screen(int type)
             wp->w_redr_type = REDRAW_TOP;
           } else {
             wp->w_redr_type = NOT_VALID;
-            if (wp->w_winrow + wp->w_height + wp->w_status_height
+            if (W_ENDROW(wp) + wp->w_status_height
                 <= msg_scrolled) {
               wp->w_redr_status = TRUE;
             }
@@ -4642,7 +4644,7 @@ static void draw_vsep_win(win_T *wp, int row)
   if (wp->w_vsep_width) {
     // draw the vertical separator right of this window
     c = fillchar_vsep(wp, &hl);
-    grid_fill(&default_grid, wp->w_winrow + row, wp->w_winrow + wp->w_height,
+    grid_fill(&default_grid, wp->w_winrow + row, W_ENDROW(wp),
               W_ENDCOL(wp), W_ENDCOL(wp) + 1, c, ' ', hl);
   }
 }
@@ -4961,7 +4963,7 @@ static void win_redr_status(win_T *wp, int ignore_pum)
       }
     }
 
-    row = wp->w_winrow + wp->w_height;
+    row = W_ENDROW(wp);
     grid_puts(&default_grid, p, row, wp->w_wincol, attr);
     grid_fill(&default_grid, row, row + 1, len + wp->w_wincol,
               this_ru_col + wp->w_wincol, fillchar, fillchar, attr);
@@ -4983,8 +4985,7 @@ static void win_redr_status(win_T *wp, int ignore_pum)
     } else {
       fillchar = fillchar_vsep(wp, &attr);
     }
-    grid_putchar(&default_grid, fillchar, wp->w_winrow + wp->w_height,
-                 W_ENDCOL(wp), attr);
+    grid_putchar(&default_grid, fillchar, W_ENDROW(wp), W_ENDCOL(wp), attr);
   }
   busy = FALSE;
 }
@@ -5131,7 +5132,7 @@ win_redr_custom (
     maxwidth = default_grid.Columns;
     use_sandbox = was_set_insecurely((char_u *)"tabline", 0);
   } else {
-    row = wp->w_winrow + wp->w_height;
+    row = W_ENDROW(wp);
     fillchar = fillchar_status(&attr, wp);
     maxwidth = wp->w_width;
 
@@ -7017,7 +7018,7 @@ static void win_redr_ruler(win_T *wp, int always)
     int off;
 
     if (wp->w_status_height) {
-      row = wp->w_winrow + wp->w_height;
+      row = W_ENDROW(wp);
       fillchar = fillchar_status(&attr, wp);
       off = wp->w_wincol;
       width = wp->w_width;
