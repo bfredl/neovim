@@ -997,6 +997,10 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
     p_wh = i;
   }
 
+  // Send the window positions to the UI
+  ui_win_position(oldwin);
+  ui_win_position(wp);
+
   return OK;
 }
 
@@ -1340,6 +1344,9 @@ static void win_rotate(int upwards, int count)
     (void)win_comp_pos();
   }
 
+  ui_win_position(wp1);
+  ui_win_position(wp2);
+
   redraw_later(CLEAR);
 }
 
@@ -1422,6 +1429,9 @@ void win_move_after(win_T *win1, win_T *win2)
     redraw_later(NOT_VALID);
   }
   win_enter(win1, false);
+
+  ui_win_position(win1);
+  ui_win_position(win2);
 }
 
 /*
@@ -2058,6 +2068,7 @@ int win_close(win_T *win, bool free_buf)
   if (help_window)
     restore_snapshot(SNAP_HELP_IDX, close_curwin);
 
+  ui_win_position(curwin);
   redraw_all_later(NOT_VALID);
   return OK;
 }
@@ -4218,6 +4229,7 @@ static void frame_comp_pos(frame_T *topfrp, int *row, int *col)
       wp->w_wincol = *col;
       redraw_win_later(wp, NOT_VALID);
       wp->w_redr_status = TRUE;
+      ui_win_position(wp);
     }
     *row += wp->w_height + wp->w_status_height;
     *col += wp->w_width + wp->w_vsep_width;
@@ -4883,6 +4895,8 @@ void win_new_height(win_T *wp, int height)
   if (!exiting) {
     scroll_to_fraction(wp, prev_height);
   }
+
+  ui_win_position(wp);
 }
 
 void scroll_to_fraction(win_T *wp, int prev_height)
@@ -5013,6 +5027,7 @@ void win_new_width(win_T *wp, int width)
                       0);
     }
   }
+  ui_win_position(wp);
 }
 
 void win_comp_scroll(win_T *wp)

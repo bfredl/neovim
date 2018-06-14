@@ -452,3 +452,9 @@ void ui_grid_resize(GridHandle grid_handle, int width, int height)
   wp->w_grid.internal_columns = (int)width;
   redraw_win_later(wp, SOME_VALID);
 }
+
+void ui_win_position(win_T *wp)
+{
+  ui_call_win_position(wp->handle, wp->w_grid.handle, wp->w_winrow,
+                       wp->w_wincol, wp->w_width, wp->w_height);
+}
