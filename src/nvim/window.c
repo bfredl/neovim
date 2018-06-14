@@ -946,6 +946,10 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
   redraw_win_later(oldwin, NOT_VALID);
   oldwin->w_redr_status = TRUE;
 
+  // Send the window positions to the UI
+  ui_win_position(oldwin);
+  ui_win_position(wp);
+
   if (need_status) {
     msg_row = Rows - 1;
     msg_col = sc_col;
@@ -1333,6 +1337,9 @@ static void win_rotate(int upwards, int count)
     (void)win_comp_pos();
   }
 
+  ui_win_position(wp1);
+  ui_win_position(wp2);
+
   redraw_later(CLEAR);
 }
 
@@ -1413,6 +1420,9 @@ void win_move_after(win_T *win1, win_T *win2)
 
     (void)win_comp_pos();       /* recompute w_winrow for all windows */
     redraw_later(NOT_VALID);
+
+    ui_win_position(win1);
+    ui_win_position(win2);
   }
   win_enter(win1, false);
 }
@@ -4222,7 +4232,6 @@ void win_setheight_win(int height, win_T *win)
   }
 
   frame_setheight(win->w_frame, height + win->w_status_height);
-  win_grid_alloc(win, false);
 
   /* recompute the window positions */
   row = win_comp_pos();
@@ -4419,7 +4428,6 @@ void win_setwidth_win(int width, win_T *wp)
   }
 
   frame_setwidth(wp->w_frame, width + wp->w_vsep_width);
-  win_grid_alloc(wp, false);
 
   /* recompute the window positions */
   (void)win_comp_pos();
@@ -4834,6 +4842,7 @@ void win_new_height(win_T *wp, int height)
 
   wp->w_height = height;
   wp->w_skipcol = 0;
+  ui_win_position(wp);
 
   // There is no point in adjusting the scroll position when exiting.  Some
   // values might be invalid.
@@ -4961,6 +4970,7 @@ void win_new_width(win_T *wp, int width)
   }
   redraw_win_later(wp, NOT_VALID);
   wp->w_redr_status = TRUE;
+  ui_win_position(wp);
 
   if (wp->w_buffer->terminal) {
     if (wp->w_height != 0) {
