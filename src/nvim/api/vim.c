@@ -18,6 +18,7 @@
 #include "nvim/msgpack_rpc/channel.h"
 #include "nvim/msgpack_rpc/helpers.h"
 #include "nvim/lua/executor.h"
+#include "nvim/msgpack_rpc/status_event.h"
 #include "nvim/vim.h"
 #include "nvim/buffer.h"
 #include "nvim/file_search.h"
@@ -912,6 +913,18 @@ void nvim_unsubscribe(uint64_t channel_id, String event)
   e[length] = NUL;
   rpc_unsubscribe(channel_id, e);
 }
+
+
+void nvim_status_subscribe(uint64_t channel_id, Boolean active)
+    FUNC_API_SINCE(2) FUNC_API_REMOTE_ONLY
+{
+  if (active) {
+    status_event_subscribe(channel_id);
+  } else {
+    status_event_unsubscribe(channel_id);
+  }
+}
+
 
 Integer nvim_get_color_by_name(String name)
   FUNC_API_SINCE(1)

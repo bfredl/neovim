@@ -13,6 +13,7 @@
 #include "nvim/api/ui.h"
 #include "nvim/channel.h"
 #include "nvim/msgpack_rpc/channel.h"
+#include "nvim/msgpack_rpc/status_event.h"
 #include "nvim/event/loop.h"
 #include "nvim/event/libuv_process.h"
 #include "nvim/event/rstream.h"
@@ -49,6 +50,7 @@ void rpc_init(void)
   ch_before_blocking_events = multiqueue_new_child(main_loop.events);
   event_strings = pmap_new(cstr_t)();
   msgpack_sbuffer_init(&out_buffer);
+  status_event_init();
 }
 
 
@@ -130,6 +132,7 @@ Object rpc_send_call(uint64_t id,
   }
 
   channel_incref(channel);
+  status_event_update(id);
   RpcState *rpc = &channel->rpc;
   uint64_t request_id = rpc->next_request_id++;
   // Send the msgpack-rpc request
@@ -366,6 +369,7 @@ static void on_request_event(void **argv)
   uint64_t request_id = e->request_id;
   Error error = ERROR_INIT;
   Object result = handler.fn(channel->id, args, &error);
+  status_event_update(channel->id);
   if (request_id != NO_RESPONSE) {
     // send the response
     msgpack_packer response;
