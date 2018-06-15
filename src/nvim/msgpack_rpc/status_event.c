@@ -1,20 +1,3 @@
-#include <stdbool.h>
-#include <inttypes.h>
-
-#include "nvim/api/private/helpers.h"
-#include "nvim/map.h"
-#include "nvim/msgpack_rpc/channel.h"
-#include "nvim/msgpack_rpc/status_event.h"
-#include "nvim/memory.h"
-
-static PMap(uint64_t) *xchannels = NULL;
-
-/// Initializes the module
-void status_event_init(void)
-{
-  xchannels = pmap_new(uint64_t)();
-}
-
 void status_event_subscribe(uint64_t channel_id) {
   StatusInfo **ref = (StatusInfo **)pmap_ref(uint64_t)(xchannels, channel_id, true);
   if (!*ref) {

@@ -26,13 +26,20 @@ typedef struct {
 } RequestEvent;
 
 typedef struct {
+  bool attached;
+  handle_T last_curbuf;
+  handle_T last_curwin;
+  handle_T last_curtab;
+} StatusInfo;
+
+typedef struct {
   PMap(cstr_t) *subscribed_events;
   bool closed;
   msgpack_unpacker *unpacker;
   uint64_t next_request_id;
   kvec_t(ChannelCallFrame *) call_stack;
   Dictionary info;
-  bool status_event;
+  StatusInfo status_info;
 } RpcState;
 
 #endif  // NVIM_MSGPACK_RPC_CHANNEL_DEFS_H
