@@ -213,6 +213,12 @@ function Screen:try_resize(columns, rows)
   self:sleep(0.1)
 end
 
+function Screen:try_resize_grid(grid, columns, rows)
+  self._grid = self._grids[1]
+  self.uimeths.try_resize_grid(grid, columns, rows)
+  self:sleep(0.1)
+end
+
 function Screen:set_option(option, value)
   self.uimeths.set_option(option, value)
   self._options[option] = value
@@ -705,7 +711,7 @@ function Screen:find_attrs(attrs, id_to_index)
 end
 
 function Screen:render(headers,attrs,ignore,preview)
-  headers = headers
+  headers = headers and self._multigrid
   local rv = {}
   for igrid,grid in ipairs(self._grids) do
     if headers then
