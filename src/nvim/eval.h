@@ -81,6 +81,8 @@ typedef enum {
     VV_MOUSE_WINID,
     VV_MOUSE_LNUM,
     VV_MOUSE_COL,
+    VV_MOUSE_X,
+    VV_MOUSE_Y,
     VV_OP,
     VV_SEARCHFORWARD,
     VV_HLSEARCH,

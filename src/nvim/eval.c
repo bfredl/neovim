@@ -396,6 +396,8 @@ static struct vimvar {
   VV(VV_MOUSE_WINID,    "mouse_winid",      VAR_NUMBER, 0),
   VV(VV_MOUSE_LNUM,     "mouse_lnum",       VAR_NUMBER, 0),
   VV(VV_MOUSE_COL,      "mouse_col",        VAR_NUMBER, 0),
+  VV(VV_MOUSE_X,        "mouse_x",          VAR_NUMBER, 0),
+  VV(VV_MOUSE_Y,        "mouse_y",          VAR_NUMBER, 0),
   VV(VV_OP,             "operator",         VAR_STRING, VV_RO),
   VV(VV_SEARCHFORWARD,  "searchforward",    VAR_NUMBER, 0),
   VV(VV_HLSEARCH,       "hlsearch",         VAR_NUMBER, 0),
@@ -9446,6 +9448,8 @@ static void f_getchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
   vimvars[VV_MOUSE_WINID].vv_nr = 0;
   vimvars[VV_MOUSE_LNUM].vv_nr = 0;
   vimvars[VV_MOUSE_COL].vv_nr = 0;
+  vimvars[VV_MOUSE_X].vv_nr = 0;
+  vimvars[VV_MOUSE_Y].vv_nr = 0;
 
   rettv->vval.v_number = n;
   if (IS_SPECIAL(n) || mod_mask != 0) {
@@ -9479,6 +9483,8 @@ static void f_getchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
       int winnr = 1;
 
       if (row >= 0 && col >= 0) {
+        vimvars[VV_MOUSE_X].vv_nr = col;
+        vimvars[VV_MOUSE_Y].vv_nr = row;
         /* Find the window at the mouse coordinates and compute the
          * text position. */
         win = mouse_find_win(&row, &col);
