@@ -194,8 +194,21 @@ function Screen:attach(options, session)
   end
   self._options = options
   self._clear_attrs = (options.ext_newgrid and {{},{}}) or {}
-  self.uimeths.attach(self._grid.width, self._grid.height, options)
+  if session == nil then
+    session = get_session()
+  end
+  if options.ext_float then
+    options.ext_multigrid = true
+    self._float = true
+  end
+
+  if options.ext_float or options.ext_multigrid then
+    options.ext_newgrid = true
+    self._multigrid = true
+  end
+
   self._session = session
+  self.uimeths.attach(self._grid.width, self._grid.height, options)
 end
 
 function Screen:detach()
@@ -207,6 +220,12 @@ function Screen:try_resize(columns, rows)
   self.uimeths.try_resize(columns, rows)
   -- Give ourselves a chance to _handle_resize, which requires using
   -- self.sleep() (for the resize notification) rather than run()
+  self:sleep(0.1)
+end
+
+function Screen:try_resize_grid(grid, columns, rows)
+  self._grid = self._grids[1]
+  self.uimeths.try_resize_grid(grid, columns, rows)
   self:sleep(0.1)
 end
 
@@ -717,7 +736,7 @@ function Screen:find_attrs(attrs)
 end
 
 function Screen:render(headers,attrs,ignore,preview)
-  headers = headers and self._float
+  headers = headers and self._multigrid
   local rv = {}
   for igrid,grid in ipairs(self._grids) do
     if headers then
