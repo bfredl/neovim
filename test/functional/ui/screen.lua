@@ -466,6 +466,10 @@ function Screen:_handle_grid_cursor_goto(grid, row, col)
   self._cursor.col = col + 1
 end
 
+function Screen:_handle_win_position(win, grid, row, col, width, height)
+  --TODO(utkarshme)
+end
+
 function Screen:_handle_float_info(win, grid, width, height, options)
   --assert(self._multigrid)
   self.float_info[grid] = {win, width, height, options}
