@@ -463,6 +463,10 @@ function Screen:_handle_grid_cursor_goto(grid, row, col)
   self._cursor.col = col + 1
 end
 
+function Screen:_handle_win_position(win, grid, row, col, width, height)
+  --TODO(utkarshme)
+end
+
 function Screen:_handle_busy_start()
   self._busy = true
 end
