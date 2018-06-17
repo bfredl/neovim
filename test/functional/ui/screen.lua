@@ -142,6 +142,7 @@ function Screen.new(width, height)
     _default_attr_ignore = nil,
     _mouse_enabled = true,
     _attrs = {},
+    _hl_info = {},
     _attr_table = {[0]={}},
     _cursor = {
       row = 1, col = 1
@@ -344,7 +345,7 @@ function Screen:_handle_resize(width, height)
   for _ = 1, height do
     local cols = {}
     for _ = 1, width do
-      table.insert(cols, {text = ' ', attrs = {}})
+      table.insert(cols, {text = ' ', attrs = {}, hl_id = 0})
     end
     table.insert(rows, cols)
   end
@@ -443,6 +444,7 @@ function Screen:_handle_scroll(count)
     for j = left, right do
       target[j].text = source[j].text
       target[j].attrs = source[j].attrs
+      target[j].hl_id = source[j].hl_id
     end
   end
 
@@ -458,16 +460,23 @@ function Screen:_handle_grid_scroll(grid, top, bot, left, right, rows, cols)
     self:_handle_scroll(rows)
 end
 
-function Screen:_handle_hl_attr_define(id,attrs,inspect)
-  -- a bit ugly, but to avoid test churn
-  if self._options.rgb == false then
-    attrs.foreground = attrs.cterm_fg
-    attrs.background = attrs.cterm_bg
-    attrs.special = nil
+function Screen:_handle_hl_attr_define(id, attrs, info)
+  if self._options.ext_hlstate then
+    print(require('inspect')(id), require('inspect')(info))
+    self._attr_table[id] = attrs
+    self._hl_info[id] = info
+  else
+    -- a bit ugly, but to avoid test churn
+    self._attr_table[id] = attrs
+    if self._options.rgb == false then
+      attrs.foreground = attrs.cterm_fg
+      attrs.background = attrs.cterm_bg
+      attrs.special = nil
+    end
+    attrs.cterm_fg = nil
+    attrs.cterm_bg = nil
+    self._attr_table[id] = attrs
   end
-  attrs.cterm_fg = nil
-  attrs.cterm_bg = nil
-  self._attr_table[id] = attrs
 end
 
 function Screen:get_hl(val)
@@ -486,6 +495,7 @@ function Screen:_handle_put(str)
   local cell = self._rows[self._cursor.row][self._cursor.col]
   cell.text = str
   cell.attrs = self._attrs
+  cell.hl_id = -1
   self._cursor.col = self._cursor.col + 1
 end
 
@@ -493,14 +503,17 @@ function Screen:_handle_grid_line(grid, row, col, cells)
   local line = self._rows[row+1]
   local colpos = col+1
   local hl = {}
+  local hl_id = 0
   for _,cell in ipairs(cells) do
-    local text, hlid, count = unpack(cell)
-    if hlid ~= nil then
-      hl = self._attr_table[hlid]
+    local text, hl_id_cell, count = unpack(cell)
+    if hl_id_cell ~= nil then
+      hl_id = hl_id_cell
+      hl = self._attr_table[hl_id]
     end
     for i = 1, (count or 1) do
       local cell = line[colpos]
       cell.text = text
+      cell.hl_id = hl_id
       cell.attrs = hl
       colpos = colpos+1
     end
@@ -568,7 +581,7 @@ function Screen:_row_repr(row, attr_ids, attr_ignore)
   local rv = {}
   local current_attr_id
   for i = 1, self._width do
-    local attr_id = self:_get_attr_id(attr_ids, attr_ignore, row[i].attrs)
+    local attr_id = self:_get_attr_id(attr_ids, attr_ignore, row[i].attrs, row[i].hl_id)
     if current_attr_id and attr_id ~= current_attr_id then
       -- close current attribute bracket, add it before any whitespace
       -- up to the current cell
@@ -637,9 +650,11 @@ function Screen:print_snapshot(attrs, ignore)
   end
   if attrs == nil then
     attrs = {}
+    local id_to_index = {}
     if self._default_attr_ids ~= nil then
       for i, a in pairs(self._default_attr_ids) do
         attrs[i] = a
+        -- TODO: ext_hlstate
       end
     end
 
@@ -647,10 +662,17 @@ function Screen:print_snapshot(attrs, ignore)
       for i = 1, self._height do
         local row = self._rows[i]
         for j = 1, self._width do
-          local attr = row[j].attrs
-          if self:_attr_index(attrs, attr) == nil and self:_attr_index(ignore, attr) == nil then
-            if not self:_equal_attrs(attr, {}) then
-              table.insert(attrs, attr)
+          if self._options.ext_hlstate then
+            local hl_id = row[j].hl_id
+            if hl_id ~= 0 then
+              self:_insert_hl_id(attrs, id_to_index, hl_id)
+            end
+          else
+            local attr = row[j].attrs
+            if self:_attr_index(attrs, attr) == nil and self:_attr_index(ignore, attr) == nil then
+              if not self:_equal_attrs(attr, {}) then
+                table.insert(attrs, attr)
+              end
             end
           end
         end
@@ -668,7 +690,12 @@ function Screen:print_snapshot(attrs, ignore)
     if self._default_attr_ids == nil or self._default_attr_ids[i] ~= a then
       alldefault = false
     end
-    local dict = "{"..self:_pprint_attrs(a).."}"
+    local dict
+    if self._options.ext_hlstate then
+      dict = self:_pprint_hlstate(a)
+    else
+      dict = "{"..self:_pprint_attrs(a).."}"
+    end
     table.insert(attrstrs, "["..tostring(i).."] = "..dict)
   end
   local attrstr = "{"..table.concat(attrstrs, ", ").."}"
@@ -682,9 +709,58 @@ function Screen:print_snapshot(attrs, ignore)
   io.stdout:flush()
 end
 
+function Screen:_insert_hl_id(attrs, id_to_index, hl_id)
+  if id_to_index[hl_id] ~= nil then
+    return
+  end
+  local info = self._hl_info[hl_id]
+    print("X", require('inspect')(info))
+  -- TODO: fix id
+  table.insert(attrs, {self._attr_table[hl_id], info})
+  id_to_index[hl_id] = #attrs
+end
+
+
+
+function Screen:_pprint_hlstate(item)
+    print(require('inspect')(item))
+    local attrdict = "{"..self:_pprint_attrs(item[1]).."}"
+    local descdict = "{"..self:_pprint_hlinfo(item[2]).."}"
+    return "{"..attrdict..", "..descdict.."}"
+end
+
+function Screen:_pprint_hlinfo(states)
+  if #states == 1 then
+    local items = {}
+    for f, v in pairs(states[1]) do
+      if f == "id" then
+        goto continue
+      end
+      local desc = tostring(v)
+      if type(v) == type("") then
+        desc = '"'..desc..'"'
+      end
+      table.insert(items, f.." = "..desc)
+      ::continue::
+    end
+    return "{"..table.concat(items, ", ").."}"
+  else
+    local ids = {}
+    for i, s in ipairs(states) do
+      -- TODO: translate id
+      table.insert(ids, tostring(s.id))
+    end
+    return table.concat(ids, ", ")
+  end
+end
+
+
 function Screen:_pprint_attrs(attrs)
     local items = {}
     for f, v in pairs(attrs) do
+      if f == "id" then
+        goto continue
+      end
       local desc = tostring(v)
       if f == "foreground" or f == "background" or f == "special" then
         if Screen.colornames[v] ~= nil then
@@ -692,6 +768,7 @@ function Screen:_pprint_attrs(attrs)
         end
       end
       table.insert(items, f.." = "..desc)
+      ::continue::
     end
     return table.concat(items, ", ")
 end
@@ -709,17 +786,27 @@ function Screen:_get_attr_id(attr_ids, ignore, attrs)
   if not attr_ids then
     return
   end
-  for id, a in pairs(attr_ids) do
-    if self:_equal_attrs(a, attrs) then
-       return id
-     end
+  if self._options.ext_hlstate then
+    for id, hl_id in pairs(attr_ids) do
+      if attrs == hl_id then
+         return id
+       end
+    end
+    --return "UNEXPECTED "..self:_pprint_whatever(attrs)
+    return "UNEXPECTED XX"
+  else
+    for id, a in pairs(attr_ids) do
+      if self:_equal_attrs(a, attrs) then
+         return id
+       end
+    end
+    if self:_equal_attrs(attrs, {}) or
+        ignore == true or self:_attr_index(ignore, attrs) ~= nil then
+      -- ignore this attrs
+      return nil
+    end
+    return "UNEXPECTED "..self:_pprint_attrs(attrs)
   end
-  if self:_equal_attrs(attrs, {}) or
-      ignore == true or self:_attr_index(ignore, attrs) ~= nil then
-    -- ignore this attrs
-    return nil
-  end
-  return "UNEXPECTED "..self:_pprint_attrs(attrs)
 end
 
 function Screen:_equal_attrs(a, b)
