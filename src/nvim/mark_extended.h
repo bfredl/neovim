@@ -578,25 +578,24 @@ typedef struct {
   lpos_T startpos;
   lpos_T endpos;
   linenr_T lnum;
-  long before_newline_in_pat;
-  long after_newline_in_pat;
-  long after_newline_in_sub;
+  int sublen;
+} ExtmarkSubSingle;
+
+// For doing move of extmarks in substitutions
+typedef struct {
+  lpos_T startpos;
+  lpos_T endpos;
+  linenr_T lnum;
   long newline_in_pat;
   long newline_in_sub;
-  int sublen;
-  // linenr_T l_lnum;
-  // colnr_T l_col;
-  // linenr_T u_lnum;
-  // colnr_T u_col;
-  // linenr_T p_lnum;
-  // colnr_T p_col;
   long lnum_added;
   lpos_T cm_start;  // start of the match
   lpos_T cm_end;    // end of the match
   int eol;    // end of the match
-} ExtmarkSubObject;
+} ExtmarkSubMulti;
 
-typedef kvec_t(ExtmarkSubObject) extmark_sub_vec_t;
+typedef kvec_t(ExtmarkSubSingle) extmark_sub_single_vec_t;
+typedef kvec_t(ExtmarkSubMulti) extmark_sub_multi_vec_t;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.h.generated.h"
