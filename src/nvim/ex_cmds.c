@@ -3263,9 +3263,6 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
   colnr_T col_amount;
   linenr_T u_lnum;
   bool doit=false;
-//  if (i == 1) {
-//    doit=true;
-//  }
 
   linenr_T n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
   linenr_T n_newline_in_pat = n_u_lnum - s.lnum;
@@ -3353,30 +3350,21 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
    // where L = lnum value, N= lnum_added and i = iteration
    linenr_T a_l_lnum = s.cm_start.lnum - ((i -1) * s.lnum_added);
    linenr_T a_u_lnum = a_l_lnum + s.endpos.lnum;
-//    linenr_T n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
+   // linenr_T n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
     assert(s.startpos.lnum == 0);
 
    mincol = s.startpos.col + 1;
    u_lnum = n_u_lnum;
 
    if (!s.newline_in_pat && s.newline_in_sub) {
-   // -- Delete Pattern --
-   // 1. Move marks in the pattern
+     // -- Delete Pattern --
+     // 1. Move marks in the pattern
      extmark_col_adjust_delete(curbuf,
-                              a_l_lnum,
-                              mincol + 1,
-                              s.endpos.col + 1,
-                              kExtmarkUndo,
-                              s.eol);
-
-     // 2. Move marks on last newline
-//     mincol = mincol - (colnr_T) n_before_newline_in_pat;
-//     extmark_col_adjust(curbuf,
-//                        a_u_lnum,
-//                        (colnr_T) (n_after_newline_in_pat + 1),
-//                        -s.newline_in_pat,
-//                        mincol - n_after_newline_in_pat,
-//                        kExtmarkUndo);
+                               a_l_lnum,
+                               mincol + 1,
+                               s.endpos.col + 1,
+                               kExtmarkUndo,
+                               s.eol);
 
      extmark_adjust(curbuf,
                     a_u_lnum + 1,
@@ -3385,24 +3373,20 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
                     0,
                     kExtmarkUndo,
                     false);
-     //
-  // TODO ater_newline_in_sub and s.newline_in_sub newed to be correct... fml
-    // TODO sublen is also not correct here fml
 
-    // n afte nwiline in sub is wrong! fjdslfjdalsfjsa
-
-  // 3. Insert
-  extmark_col_adjust(curbuf,
-                     a_l_lnum,
-                     mincol,
-                     s.newline_in_sub,
-                     (long)-mincol + 1 + n_after_newline_in_sub,
-                     kExtmarkUndo);
-    nsmark_check(1, 2, 1, doit);
-    nsmark_check(1, 2, 1, doit);
-    nsmark_check(3, 2, 1, doit);
-    nsmark_check(4, 2, 6, doit);
-    nsmark_check(5, 3, 1, doit);
+     // TODO ater_newline_in_sub and s.newline_in_sub newed to be correct... fml
+     // 3. Insert
+     extmark_col_adjust(curbuf,
+                        a_l_lnum,
+                        mincol,
+                        s.newline_in_sub,
+                        (long)-mincol + 1 + n_after_newline_in_sub,
+                        kExtmarkUndo);
+     nsmark_check(1, 2, 1, doit);
+     nsmark_check(1, 2, 1, doit);
+     nsmark_check(3, 2, 1, doit);
+     nsmark_check(4, 2, 6, doit);
+     nsmark_check(5, 3, 1, doit);
 
    } else if (s.newline_in_pat && s.newline_in_sub) {
 
@@ -3413,9 +3397,9 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
                               a_u_lnum, n_after_newline_in_pat == 0 ? 1 : n_after_newline_in_pat,
                               a_l_lnum, mincol,
                               kExtmarkUndo);
-       nsmark_check(1, 1, 5, doit);
        nsmark_check(2, 1, 5, doit);
        nsmark_check(3, 1, 5, doit);
+       nsmark_check(4, 1, 5, doit);
 
        // 2. Move marks on last newline
        mincol = mincol - (colnr_T) n_before_newline_in_pat;
@@ -3425,13 +3409,12 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
                           -s.newline_in_pat,
                           mincol - n_after_newline_in_pat,
                           kExtmarkUndo);
-       nsmark_check(1, 1, 5, doit);
        nsmark_check(2, 1, 5, doit);
        nsmark_check(3, 1, 5, doit);
-       nsmark_check(4, 1, 10, doit);
-       nsmark_check(5, 3, 1, doit);
+       nsmark_check(4, 1, 5, doit);
+       nsmark_check(5, 1, 10, doit);
+       nsmark_check(6, 3, 1, doit);
 
-       // Move the lines after down ( into final position )
        // TODO nothing to do here if lnum_added = 0
        extmark_adjust(curbuf,
                       a_u_lnum + 1,
@@ -3440,12 +3423,11 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
                       0,
                       kExtmarkUndo,
                       false);
-//
-       nsmark_check(1, 1, 5, doit);
-       nsmark_check(1, 1, 5, doit);
+
+       nsmark_check(2, 1, 5, doit);
        nsmark_check(3, 1, 5, doit);
-       nsmark_check(4, 1, 10, doit);
-//       nsmark_check(5, 2, 1, doit);
+       nsmark_check(4, 1, 5, doit);
+       nsmark_check(5, 1, 10, doit);
 
        extmark_col_adjust(curbuf,
                           a_l_lnum,
@@ -3453,35 +3435,77 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
                           s.newline_in_sub,
                           (long)-mincol + n_after_newline_in_sub,
                           kExtmarkUndo);
-       nsmark_check(1, 2, 1, doit);
-       nsmark_check(1, 2, 1, doit);
+       nsmark_check(2, 3, 1, doit);
+       nsmark_check(3, 3, 1, doit);
+       nsmark_check(4, 3, 1, doit);
+       nsmark_check(5, 3, 6, doit);
+       nsmark_check(6, 4, 1, doit);
+     } else {
+       mincol = s.startpos.col + 1;
+       a_l_lnum = s.startpos.lnum + 1;
+       a_u_lnum = s.endpos.lnum + 1;
+       extmark_copy_and_place(curbuf,
+                              a_l_lnum, mincol,
+                              a_u_lnum, n_after_newline_in_pat,
+                              a_l_lnum, mincol,
+                              kExtmarkUndo);
+       nsmark_check(1, 1, 4, doit);
+       nsmark_check(2, 1, 5, doit);
+       nsmark_check(3, 1, 5, doit);
+       nsmark_check(4, 1, 5, doit);
+       nsmark_check(5, 1, 5, doit);
+       nsmark_check(6, 3, 2, doit);
+       nsmark_check(7, 4, 1, doit);
+
+       // 2. Move marks on last newline
+       mincol = mincol - (colnr_T) n_before_newline_in_pat;
+       extmark_col_adjust(curbuf,
+                          a_u_lnum,
+                          (colnr_T) (n_after_newline_in_pat + 1),
+                          -s.newline_in_pat,
+                          mincol - n_after_newline_in_pat,
+                          kExtmarkUndo);
+       nsmark_check(1, 1, 4, doit);
+       nsmark_check(2, 1, 5, doit);
+       nsmark_check(3, 1, 5, doit);
+       nsmark_check(4, 1, 5, doit);
+       nsmark_check(5, 1, 5, doit);
+       nsmark_check(6, 1, 6, doit);
+       nsmark_check(7, 4, 1, doit);
+
+       extmark_adjust(curbuf,
+                      a_u_lnum,
+                      a_u_lnum,
+                      MAXLNUM,
+                      s.lnum_added,
+                      kExtmarkUndo,
+                      false);
+
+       nsmark_check(1, 1, 4, doit);
+       nsmark_check(2, 1, 5, doit);
+       nsmark_check(3, 1, 5, doit);
+       nsmark_check(4, 1, 5, doit);
+       nsmark_check(5, 1, 5, doit);
+       nsmark_check(6, 1, 6, doit);
+       nsmark_check(7, 3, 1, doit);
+
+     // TODO ater_newline_in_sub and s.newline_in_sub newed to be correct... fml
+     // 3. Insert
+     extmark_col_adjust(curbuf,
+                        a_l_lnum,
+                        mincol + 1,
+                        s.newline_in_sub,
+                        (long)-mincol + n_after_newline_in_sub,
+                        kExtmarkUndo);
+       nsmark_check(1, 1, 4, doit);
+       nsmark_check(2, 2, 1, doit);
        nsmark_check(3, 2, 1, doit);
-       nsmark_check(4, 2, 6, doit);
-       nsmark_check(5, 3, 1, doit);
+       nsmark_check(4, 2, 1, doit);
+       nsmark_check(5, 2, 1, doit);
+       nsmark_check(6, 2, 2, doit);
+       nsmark_check(7, 3, 1, doit);
      }
-
-  // again if newline in pat have to take that into account...
-    // might have to check if newlin is in the sub...
-   // if (n_newline_in_pat == 0) {
-     // extmark_col_adjust(curbuf,
-                        // a_u_lnum,
-                        // mincol + 1,
-                        // s.newline_in_sub,
-                        // n_after_newline_in_sub,
-                        // kExtmarkUndo);
    }
-   // }
-
-    // 2. Move marks in the pattern up
-    // extmark_copy_and_place(curbuf, l_lnum, l_col, u_lnum, u_col, p_lnum, p_col,
-                           // kExtmarkUndo);
-
-    // extmark_copy_and_place(curbuf,
-                           // s.lnum, mincol,
-                           // u_lnum, n_after_newline_in_pat,
-                           // s.lnum, mincol,
-                           // kExtmarkUndo);
-
   }
 }
 
