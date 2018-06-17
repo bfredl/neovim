@@ -3250,6 +3250,14 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
   // assert(s.after_newline_in_sub == s.cm_end.col);
   // TODO: This should mostly work, what about for backrefs?
    long n_after_newline_in_sub = s.after_newline_in_sub;
+  n_after_newline_in_sub = s.cm_end.col - s.cm_start.col;
+   if (!s.newline_in_sub) {
+     n_after_newline_in_sub = s.cm_end.col - s.cm_start.col;
+   } else {
+     n_after_newline_in_sub = s.cm_end.col;
+   }
+//   assert(n_after_newline_in_sub == s.cm_end.col);
+//  assert(n_after_newline_in_sub == s.cm_end.col);
 //   assert(s.after_newline_in_sub == n_after_newline_in_sub);
 
   if (s.newline_in_pat && !s.newline_in_sub) {
@@ -3297,7 +3305,7 @@ static void extmark_move_regmatch_multi(ExtmarkSubObject s, int i)
                        s.lnum,
                        mincol + 1,
                        s.newline_in_sub,
-                       s.after_newline_in_sub,
+                       n_after_newline_in_sub,
                        kExtmarkUndo);
 
     nsmark_check(1, 1, 5, doit);
