@@ -196,13 +196,6 @@ void ui_refresh(void)
   row = col = 0;
   pending_cursor_update = true;
 
-  ui_default_colors_set();
-
-  int save_p_lz = p_lz;
-  p_lz = false;  // convince redrawing() to return true ...
-  screen_resize(width, height);
-  p_lz = save_p_lz;
-
   for (UIExtension i = 0; (int)i < kUIExtCount; i++) {
     ui_ext[i] = ext_widgets[i];
     if (i < kUIGlobalCount) {
@@ -210,6 +203,14 @@ void ui_refresh(void)
                          BOOLEAN_OBJ(ext_widgets[i]));
     }
   }
+
+  ui_default_colors_set();
+
+  int save_p_lz = p_lz;
+  p_lz = false;  // convince redrawing() to return true ...
+  screen_resize(width, height);
+  p_lz = save_p_lz;
+
   ui_mode_info_set();
   pending_mode_update = true;
   ui_cursor_shape();
