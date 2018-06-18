@@ -5845,28 +5845,29 @@ int screen_valid(int doclear)
 void win_grid_alloc(win_T *wp, int doclear)
 {
   ScreenGrid *grid = &wp->w_grid;
+  int rows = grid->internal_rows;
+  int columns = grid->internal_columns;
 
-  if (grid->internal_rows == 0) {
-    grid->internal_rows = wp->w_height;
+  if (rows == 0) {
+    rows = wp->w_height;
   }
-  if (grid->internal_columns == 0) {
-    grid->internal_columns = wp->w_width;
+  if (columns == 0) {
+    columns = wp->w_width;
   }
 
   if (grid->ScreenLines == NULL
-      || grid->Rows != grid->internal_rows
-      || grid->Columns != grid->internal_columns) {
-    grid_alloc(grid, grid->internal_rows, grid->internal_columns, doclear);
-
-    // only assign a grid handle if not already
-    if (grid->handle == 0) {
-      grid->handle = ++last_handle;
-    }
-
-    grid->OffsetRow = wp->w_winrow;
-    grid->OffsetColumn = wp->w_wincol;
-
+      || grid->Rows != rows
+      || grid->Columns != columns) {
+    grid_alloc(grid, rows, columns, doclear);
     grid->was_resized = true;
+  }
+
+  grid->OffsetRow = wp->w_winrow;
+  grid->OffsetColumn = wp->w_wincol;
+
+  // only assign a grid handle if not already
+  if (grid->handle == 0) {
+    grid->handle = ++last_handle;
   }
 
   // send grid resize event if:
