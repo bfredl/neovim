@@ -1547,6 +1547,8 @@ static void win_update(win_T *wp)
     // write the 'fill_eob' character to rows that aren't part of the file.
     win_draw_end(wp, fill_eob, ' ', row, wp->w_height, HLF_EOB);
   }
+  // TODO(utkarshme): figure out why this is needed and remove it
+  draw_vsep_win(wp, 0);
 
   /* Reset the type of redrawing required, the window has been updated. */
   wp->w_redr_type = 0;
