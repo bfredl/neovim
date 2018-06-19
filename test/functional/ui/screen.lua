@@ -713,13 +713,17 @@ end
 
 function Screen:_insert_hl_id(attrs, id_to_index, hl_id)
   if id_to_index[hl_id] ~= nil then
-    return
+    return id_to_index[hl_id]
   end
   local info = self._hl_info[hl_id]
-    print("X", require('inspect')(info))
+  print("X", require('inspect')(info))
+  
+
+
   -- TODO: fix id
   table.insert(attrs, {self._attr_table[hl_id], info})
   id_to_index[hl_id] = #attrs
+  return #attrs
 end
 
 
