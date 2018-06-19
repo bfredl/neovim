@@ -4295,6 +4295,13 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
     grid = &default_grid;
   }
 
+  // If UI is not externalized, keep working on the default grid
+  if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
+    row += grid->OffsetRow;
+    coloff += grid->OffsetColumn;
+    grid = &default_grid;
+  }
+
   /* Check for illegal row and col, just in case. */
   if (row >= grid->Rows)
     row = grid->Rows - 1;
@@ -4396,21 +4403,22 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
     // blank out the rest of the line
     // TODO(bfredl): we could cache winline widths
     while (col < clear_width) {
-        if (grid->ScreenLines[off_to][0] != ' ' || grid->ScreenLines[off_to][1] != NUL
-            || grid->ScreenAttrs[off_to] != bg_attr) {
-            grid->ScreenLines[off_to][0] = ' ';
-            grid->ScreenLines[off_to][1] = NUL;
-            grid->ScreenAttrs[off_to] = bg_attr;
-            if (start_dirty == -1) {
-              start_dirty = col;
-              end_dirty = col;
-            } else if (clear_end == -1) {
-              end_dirty = endcol;
-            }
-            clear_end = col+1;
+      if (grid->ScreenLines[off_to][0] != ' '
+          || grid->ScreenLines[off_to][1] != NUL
+          || grid->ScreenAttrs[off_to] != bg_attr) {
+        grid->ScreenLines[off_to][0] = ' ';
+        grid->ScreenLines[off_to][1] = NUL;
+        grid->ScreenAttrs[off_to] = bg_attr;
+        if (start_dirty == -1) {
+          start_dirty = col;
+          end_dirty = col;
+        } else if (clear_end == -1) {
+          end_dirty = endcol;
         }
-        col++;
-        off_to++;
+        clear_end = col+1;
+      }
+      col++;
+      off_to++;
     }
   }
 
@@ -4421,12 +4429,18 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
       schar_T sc;
       schar_from_char(sc, c);
 
+      // the separator is always drawn on the default_grid
       if (schar_cmp(default_grid.ScreenLines[off_to], sc)
           || default_grid.ScreenAttrs[off_to] != hl) {
         schar_copy(default_grid.ScreenLines[off_to], sc);
         default_grid.ScreenAttrs[off_to] = hl;
-        ui_line(&default_grid, row + wp->w_winrow, W_ENDCOL(wp),
-                W_ENDCOL(wp) + 1, W_ENDCOL(wp) + 1, bg_attr);
+        if (grid == &default_grid) {
+          ui_line(grid, row, wp->w_width, wp->w_width + 1, wp->w_width + 1,
+                  bg_attr);
+        } else {
+          ui_line(&default_grid, row + wp->w_winrow, W_ENDCOL(wp),
+                  W_ENDCOL(wp) + 1, W_ENDCOL(wp) + 1, bg_attr);
+        }
       }
     } else
       default_grid.LineWraps[row] = false;
@@ -5259,6 +5273,13 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
     grid = &default_grid;
   }
 
+  // If UI is not externalized, keep working on the default grid
+  if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
+    row += grid->OffsetRow;
+    col += grid->OffsetColumn;
+    grid = &default_grid;
+  }
+
   // safety check
   if (grid->ScreenLines == NULL || row >= grid->Rows || col >= grid->Columns) {
     return;
@@ -5707,6 +5728,15 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
     grid = &default_grid;
   }
 
+  // if grids are not externalized, keep working on the default_grid
+  if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
+    start_row += grid->OffsetRow;
+    end_row += grid->OffsetRow;
+    start_col += grid->OffsetColumn;
+    end_col += grid->OffsetColumn;
+    grid = &default_grid;
+  }
+
   if (end_row > grid->Rows)            // safety check
     end_row = grid->Rows;
   if (end_col > grid->Columns)         // safety check
@@ -6091,6 +6121,11 @@ static void screenclear2(void)
 /// are cleared.
 static void grid_clear_line(ScreenGrid *grid, unsigned off, int width)
 {
+  if (!ui_is_external(kUIMultigrid)) {
+    off += grid->OffsetColumn;
+    grid = &default_grid;
+  }
+
   for (int col = 0; col < width; col++) {
     schar_from_ascii(grid->ScreenLines[off + col], ' ');
   }
@@ -6100,6 +6135,10 @@ static void grid_clear_line(ScreenGrid *grid, unsigned off, int width)
 /// Copy part of a Screenline for vertically split window.
 static void linecopy(ScreenGrid *grid, int to, int from, int col, int width)
 {
+  if (!ui_is_external(kUIMultigrid)) {
+    grid = &default_grid;
+  }
+
   unsigned off_to = grid->LineOffset[to] + col;
   unsigned off_from = grid->LineOffset[from] + col;
 
@@ -6235,6 +6274,13 @@ int grid_ins_lines(ScreenGrid *grid, int row, int line_count, int end,
     grid = &default_grid;
   }
 
+  // If UI is not externalized, keep working on default grid
+  if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
+    row += grid->OffsetRow;
+    col += grid->OffsetColumn;
+    grid = &default_grid;
+  }
+
   if (!screen_valid(TRUE) || line_count <= 0) {
     return FAIL;
   }
@@ -6283,6 +6329,13 @@ int grid_del_lines(ScreenGrid *grid, int row, int line_count, int end,
   unsigned temp;
 
   if (grid == NULL) {
+    grid = &default_grid;
+  }
+
+  // If UI is not externalized, keep working on default grid
+  if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
+    row += grid->OffsetRow;
+    col += grid->OffsetColumn;
     grid = &default_grid;
   }
 
