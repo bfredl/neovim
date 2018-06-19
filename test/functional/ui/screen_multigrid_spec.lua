@@ -414,4 +414,45 @@ describe('multigrid screen', function()
     end)
   end)
 
+  describe('on resize', function ()
+    it('rebuilds all grids', function ()
+      screen:try_resize(25, 6)
+      screen:expect([[
+      ## grid 1
+                                 |
+                                 |
+                                 |
+                                 |
+        {11:[No Name]                }|
+                                 |
+      ## grid 2
+        ^                         |
+        {1:~                        }|
+        {1:~                        }|
+        {1:~                        }|
+      ]])
+    end)
+
+    it('has minimum width/height values', function()
+      screen:try_resize(1, 1)
+      screen:expect([[
+      ## grid 1
+                    |
+        {11:[No Name]   }|
+                    |
+      ## grid 2
+        ^            |
+      ]])
+
+      feed('<esc>:ls')
+      screen:expect([[
+      ## grid 1
+                    |
+        {11:[No Name]   }|
+        :ls^         |
+      ## grid 2
+                    |
+      ]])
+    end)
+  end)
 end)
