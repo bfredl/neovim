@@ -1342,13 +1342,6 @@ nvim_ui_detach()                                            *nvim_ui_detach()*
 nvim_ui_try_resize({width}, {height})                   *nvim_ui_try_resize()*
                 TODO: Documentation
 
-nvim_ui_try_resize_grid({grid}, {width}, {height}) *nvim_ui_try_resize_grid()*
-	Tell nvim to resize a grid. Nvim sends `grid_resize` event with the
-	requested grid size is within size limits and with maximum allowed
-	size otherwise.
-
-	On invalid grid handle, fails with error.
-
 nvim_ui_set_option({name}, {value})                     *nvim_ui_set_option()*
                 TODO: Documentation
 
