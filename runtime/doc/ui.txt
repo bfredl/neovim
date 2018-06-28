@@ -29,7 +29,7 @@ a dictionary with these (optional) keys:
 	`ext_tabline`		Externalize the tabline. |ui-tabline|
 	`ext_cmdline`		Externalize the cmdline. |ui-cmdline|
 	`ext_wildmenu`		Externalize the wildmenu. |ui-ext-wildmenu|
-	`ext_multigrid`		Use new revision of the grid events. |ui-multigrid|
+	`ext_newgrid`		Use new revision of the grid events. |ui-newgrid|
 	`ext_hlstate`		Use detailed highlight state.  |ui-hlstate|
 
 Specifying a non-existent option is an error. To facilitate an ui that
@@ -55,12 +55,12 @@ intermediate state after processing only part of the array).
 
 By default, Nvim sends |ui-global| and |ui-grid| events; these suffice to
 implement a terminal-like interface. However there are two revisions of the
-grid part of the protocol. The newer revision |ui-multigrid|, enabled by
-`ext_multigrid` option, has some improvements, such as a more efficient
+grid part of the protocol. The newer revision |ui-newgrid|, enabled by
+`ext_newgrid` option, has some improvements, such as a more efficient
 representation of highlighted text, simplified events and room for futher
 enhancements that will use multiple grids. The older revision is available and
 used by default only for backwards compatibility reasons. New UIs are
-recommended to use |ui-multigrid|, as further protocol extensions will require it.
+recommended to use |ui-newgrid|, as further protocol extensions will require it.
 
 Nvim optionally sends screen elements "semantically" as structured events
 instead of raw grid-lines. Then the UI must decide how to present those
@@ -160,7 +160,7 @@ Global Events							    *ui-global*
 ==============================================================================
 Grid Events (first revision)					      *ui-grid*
 
-This representation of the screen grid is used by default (if `ext_multigrid`
+This representation of the screen grid is used by default (if `ext_newgrid`
 option is not set).
 
 ["resize", width, height]
@@ -246,13 +246,13 @@ option is not set).
 		+-------------------------+
 <
 ==============================================================================
-Grid Events (second revision)					  *ui-multigrid*
+Grid Events (second revision)					  *ui-newgrid*
 
-These events are used if `ext_multigrid` option is set.
+These events are used if `ext_newgrid` option is set.
 
 Most of these events take a `grid` index as first parameter.  Grid 1 is the
 global grid used by default for the entire editor screen state. Grids other
-than that are defined by further extensions. Just activating the `ext_multigrid`
+than that are defined by further extensions. Just activating the `ext_newgrid`
 option will not cause any grids to be transmitted beyond the first one.
 
 Highlight attributes are predefined. UIs should maintain a table to map
