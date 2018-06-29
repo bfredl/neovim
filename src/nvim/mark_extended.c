@@ -53,6 +53,7 @@
 #include <assert.h>
 #include "nvim/vim.h"
 #include "charset.h"           // skipwhite
+#include "nvim/buffer.h"       // bufhl_mark_col_adjust
 #include "nvim/mark_extended.h"
 #include "nvim/memline.h"      // ml_get_buf
 #include "nvim/pos.h"          // MAXLNUM
@@ -1171,6 +1172,12 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum,
   if (undo == kExtmarkUndo && marks_moved) {
     u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
   }
+
+  // TODO: this is ugly
+  if (undo == kExtmarkUndo) {
+    bufhl_mark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
+  }
+
   extmark_check(1);
 }
 
@@ -1195,6 +1202,9 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
     // Copy marks that would be effected by delete
     // -1 because we need to restore if a mark existed at the start pos
     u_extmark_copy(buf, lnum, start_effected_range, lnum, endcol);
+
+
+    bufhl_mark_col_adjust(buf, lnum, endcol, 0, mincol-(endcol+1));
   }
 
   marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
