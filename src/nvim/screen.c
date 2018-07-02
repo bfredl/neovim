@@ -4307,6 +4307,9 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
     row = grid->Rows - 1;
   if (endcol > grid->Columns)
     endcol = grid->Columns;
+  if (coloff > endcol) {
+    return;
+  }
 
   off_from = (unsigned)(grid->Rows * grid->Columns);
   off_to = grid->LineOffset[row] + coloff;
