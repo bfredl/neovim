@@ -4456,7 +4456,10 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
     start_dirty = end_dirty;
   }
   if (clear_end > start_dirty) {
-    ui_line(grid, row, coloff+start_dirty, coloff+end_dirty, coloff+clear_end,
+    ui_line(grid, row,
+            coloff+start_dirty > grid->Columns ? grid->Columns : coloff + start_dirty,
+            coloff+end_dirty   > grid->Columns ? grid->Columns : coloff + end_dirty,
+            coloff+clear_end   > grid->Columns ? grid->Columns : coloff + clear_end,
             bg_attr);
   }
 }
