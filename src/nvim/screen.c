@@ -122,6 +122,8 @@
 #define W_ENDCOL(wp)   (wp->w_width + wp->w_wincol)
 #define W_ENDROW(wp)   (wp->w_height + wp->w_winrow)
 
+#define DEFAULT_GRID_HANDLE 1
+
 static match_T search_hl;       /* used for 'hlsearch' highlight matching */
 
 static foldinfo_T win_foldinfo; /* info for 'foldcolumn' */
@@ -129,11 +131,6 @@ static foldinfo_T win_foldinfo; /* info for 'foldcolumn' */
 StlClickDefinition *tab_page_click_defs = NULL;
 
 long tab_page_click_defs_size = 0;
-
-/// The last handle that was assigned to a ScreenGrid. 1 is reserved for
-/// the default_grid.
-/// TODO(utkarshme): Numbers can be recycled after grid destruction.
-static int last_handle = 1;
 
 /// Whether to call "ui_call_grid_resize" in win_grid_alloc
 static int send_grid_resize;
@@ -5865,10 +5862,7 @@ void win_grid_alloc(win_T *wp, int doclear)
   grid->OffsetRow = wp->w_winrow;
   grid->OffsetColumn = wp->w_wincol;
 
-  // only assign a grid handle if not already
-  if (grid->handle == 0) {
-    grid->handle = ++last_handle;
-  }
+  grid_assign_handle(grid);
 
   // send grid resize event if:
   // - a grid was just resized
@@ -5878,6 +5872,17 @@ void win_grid_alloc(win_T *wp, int doclear)
       && ui_is_external(kUIMultigrid)) {
     ui_call_grid_resize(grid->handle, grid->Columns, grid->Rows);
     grid->was_resized = false;
+  }
+}
+
+/// assign a handle to the grid. The grid need not be allocated.
+void grid_assign_handle(ScreenGrid *grid)
+{
+  static int last_grid_handle = DEFAULT_GRID_HANDLE;
+
+  // only assign a grid handle if not already
+  if (grid->handle == 0) {
+    grid->handle = ++last_grid_handle;
   }
 }
 
@@ -5972,7 +5977,7 @@ retry:
 
   default_grid.OffsetRow = 0;
   default_grid.OffsetColumn = 0;
-  default_grid.handle = 1;
+  default_grid.handle = DEFAULT_GRID_HANDLE;
 
   must_redraw = CLEAR;          /* need to clear the screen later */
   if (doclear)
