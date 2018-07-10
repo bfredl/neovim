@@ -257,12 +257,39 @@ static void push_call(UI *ui, const char *name, Array args)
 {
   Array call = ARRAY_DICT_INIT;
   UIData *data = ui->data;
+  size_t count = kv_size(data->buffer);
+  Array temp_call;
 
   // To optimize data transfer(especially for "put"), we bundle adjacent
   // calls to same method together, so only add a new call entry if the last
   // method call is different from "name"
   if (kv_size(data->buffer)) {
     call = kv_A(data->buffer, kv_size(data->buffer) - 1).data.array;
+  }
+
+  // combine the "win_position" calls because only the latest call for the
+  // same grid id is relevant
+  while (count--) {
+    temp_call = kv_A(data->buffer, count).data.array;
+    if (strcmp(name, "win_position") == 0
+        && strcmp(kv_A(temp_call, 0).data.string.data, "win_position") == 0) {
+      Array call_data;
+      int index;
+      if (kv_A(temp_call, 1).type == kObjectTypeArray) {
+        call_data = kv_A(temp_call, 1).data.array;
+        index = 1;
+      } else {
+        call_data = temp_call;
+        index = 2;
+      }
+      if (kv_A(call_data, index++).data.integer == kv_A(args, 1).data.integer) {
+        kv_A(call_data, index++).data.integer = kv_A(args, 2).data.integer;
+        kv_A(call_data, index++).data.integer = kv_A(args, 3).data.integer;
+        kv_A(call_data, index++).data.integer = kv_A(args, 4).data.integer;
+        kv_A(call_data, index++).data.integer = kv_A(args, 5).data.integer;
+        return;
+      }
+    }
   }
 
   if (!kv_size(call) || strcmp(kv_A(call, 0).data.string.data, name)) {
