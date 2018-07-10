@@ -946,10 +946,6 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
   redraw_win_later(oldwin, NOT_VALID);
   oldwin->w_redr_status = TRUE;
 
-  // Send the window positions to the UI
-  ui_win_position(oldwin);
-  ui_win_position(wp);
-
   if (need_status) {
     msg_row = Rows - 1;
     msg_col = sc_col;
@@ -993,6 +989,10 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
   } else {
     p_wh = i;
   }
+
+  // Send the window positions to the UI
+  ui_win_position(oldwin);
+  ui_win_position(wp);
 
   return OK;
 }
@@ -1420,11 +1420,11 @@ void win_move_after(win_T *win1, win_T *win2)
 
     (void)win_comp_pos();       /* recompute w_winrow for all windows */
     redraw_later(NOT_VALID);
-
-    ui_win_position(win1);
-    ui_win_position(win2);
   }
   win_enter(win1, false);
+
+  ui_win_position(win1);
+  ui_win_position(win2);
 }
 
 /*
@@ -2061,6 +2061,7 @@ int win_close(win_T *win, int free_buf)
   if (help_window)
     restore_snapshot(SNAP_HELP_IDX, close_curwin);
 
+  ui_win_position(curwin);
   redraw_all_later(NOT_VALID);
   return OK;
 }
@@ -4844,13 +4845,14 @@ void win_new_height(win_T *wp, int height)
 
   wp->w_height = height;
   wp->w_skipcol = 0;
-  ui_win_position(wp);
 
   // There is no point in adjusting the scroll position when exiting.  Some
   // values might be invalid.
   if (!exiting) {
     scroll_to_fraction(wp, prev_height);
   }
+
+  ui_win_position(wp);
 }
 
 void scroll_to_fraction(win_T *wp, int prev_height)
@@ -4972,7 +4974,6 @@ void win_new_width(win_T *wp, int width)
   }
   redraw_win_later(wp, NOT_VALID);
   wp->w_redr_status = TRUE;
-  ui_win_position(wp);
 
   if (wp->w_buffer->terminal) {
     if (wp->w_height != 0) {
@@ -4981,6 +4982,7 @@ void win_new_width(win_T *wp, int width)
                       0);
     }
   }
+  ui_win_position(wp);
 }
 
 void win_comp_scroll(win_T *wp)
