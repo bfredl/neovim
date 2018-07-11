@@ -275,18 +275,27 @@ static void push_call(UI *ui, const char *name, Array args)
         && strcmp(kv_A(temp_call, 0).data.string.data, "win_position") == 0) {
       Array call_data;
       int index;
-      if (kv_A(temp_call, 1).type == kObjectTypeArray) {
-        call_data = kv_A(temp_call, 1).data.array;
-        index = 1;
-      } else {
-        call_data = temp_call;
-        index = 2;
+      int did = 0;
+      // the adjacent calls are bundled together into one call so we must
+      // go through all the calls to find and update the relevant calls.
+      for (int i = 1; i < kv_size(temp_call); i++) {
+        if (kv_A(temp_call, i).type == kObjectTypeArray) {
+          call_data = kv_A(temp_call, i).data.array;
+          index = 1;
+        } else {
+          call_data = temp_call;
+          index = 2;
+        }
+        if (kv_A(call_data, index++).data.integer == kv_A(args, 1).data.integer) {
+          kv_A(call_data, index++).data.integer = kv_A(args, 2).data.integer;
+          kv_A(call_data, index++).data.integer = kv_A(args, 3).data.integer;
+          kv_A(call_data, index++).data.integer = kv_A(args, 4).data.integer;
+          kv_A(call_data, index++).data.integer = kv_A(args, 5).data.integer;
+          did = 1;
+        }
       }
-      if (kv_A(call_data, index++).data.integer == kv_A(args, 1).data.integer) {
-        kv_A(call_data, index++).data.integer = kv_A(args, 2).data.integer;
-        kv_A(call_data, index++).data.integer = kv_A(args, 3).data.integer;
-        kv_A(call_data, index++).data.integer = kv_A(args, 4).data.integer;
-        kv_A(call_data, index++).data.integer = kv_A(args, 5).data.integer;
+      // do nothing more if already updated the call
+      if (did) {
         return;
       }
     }
