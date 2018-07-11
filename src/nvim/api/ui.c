@@ -278,7 +278,7 @@ static void push_call(UI *ui, const char *name, Array args)
       int did = 0;
       // the adjacent calls are bundled together into one call so we must
       // go through all the calls to find and update the relevant calls.
-      for (int i = 1; i < kv_size(temp_call); i++) {
+      for (size_t i = 1; i < kv_size(temp_call); i++) {
         if (kv_A(temp_call, i).type == kObjectTypeArray) {
           call_data = kv_A(temp_call, i).data.array;
           index = 1;
