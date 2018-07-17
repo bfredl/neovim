@@ -1941,6 +1941,7 @@ static void usage(void)
   mch_msg("\n");
   mch_msg(_("  --api-info            Write msgpack-encoded API metadata to stdout\n"));
   mch_msg(_("  --embed               Use stdin/stdout as a msgpack-rpc channel\n"));
+  mch_msg(_("  --embed-ui            Like --embed, but wait for UI before loading files\n"));
   mch_msg(_("  --headless            Don't start a user interface\n"));
   mch_msg(_("  --listen <address>    Serve RPC API from this address\n"));
   mch_msg(_("  --noplugin            Don't load plugins\n"));

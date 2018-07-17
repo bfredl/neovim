@@ -1,3 +1,4 @@
+local global_helpers = require('test.helpers')
 local helpers = require('test.functional.helpers')(after_each)
 local Screen = require('test.functional.ui.screen')
 local spawn, set_session, clear = helpers.spawn, helpers.set_session, helpers.clear
@@ -6,12 +7,15 @@ local insert = helpers.insert
 local eq = helpers.eq
 local eval = helpers.eval
 local iswin = helpers.iswin
+local deepcopy = global_helpers.deepcopy
+
+local nvim_argv_base = {helpers.nvim_prog, '-u', 'NONE', '-i', 'NONE', '-N',
+                 '--cmd', 'set shortmess+=I background=light noswapfile belloff= noshowcmd noruler'}
 
 describe('screen', function()
   local screen
-  local nvim_argv = {helpers.nvim_prog, '-u', 'NONE', '-i', 'NONE', '-N',
-                     '--cmd', 'set shortmess+=I background=light noswapfile belloff= noshowcmd noruler',
-                     '--embed'}
+  local nvim_argv = deepcopy(nvim_argv_base)
+  nvim_argv[#nvim_argv+1]= '--embed'
 
   before_each(function()
     local screen_nvim = spawn(nvim_argv)
@@ -45,6 +49,71 @@ describe('screen', function()
       {1:[No Name]                                            }|
                                                            |
     ]])
+  end)
+end)
+
+describe('Screen with --embed-ui', function()
+  local screen
+
+  local function startup(...)
+    local nvim_argv = deepcopy(nvim_argv_base)
+    nvim_argv[#nvim_argv+1]= '--embed-ui'
+    for _,arg in ipairs({...}) do
+      nvim_argv[#nvim_argv+1] = arg
+    end
+    local screen_nvim = spawn(nvim_argv)
+    set_session(screen_nvim)
+    screen = Screen.new()
+    screen:attach()
+    screen:set_default_attr_ids( {
+      [0] = {bold=true, foreground=255},
+      [1] = {bold=true, reverse=true},
+    } )
+  end
+
+  after_each(function()
+    screen:detach()
+  end)
+
+  it('default initial screen', function()
+    startup()
+    screen:expect([[
+      ^                                                     |
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {1:[No Name]                                            }|
+                                                           |
+  ]])
+  end)
+
+  it('handles error in --cmd', function()
+    startup('--cmd', "bork")
+    screen:redraw_debug()
+    screen:expect([[
+      ^                                                     |
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {0:~                                                    }|
+      {1:[No Name]                                            }|
+                                                           |
+  ]])
   end)
 end)
 
