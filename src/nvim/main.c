@@ -9,6 +9,7 @@
 
 #include <msgpack.h>
 
+#include "nvim/api/ui.h"
 #include "nvim/ascii.h"
 #include "nvim/vim.h"
 #include "nvim/main.h"
@@ -133,6 +134,8 @@ static const char *err_too_many_args = N_("Too many edit arguments");
 static const char *err_extra_cmd =
   N_("Too many \"+command\", \"-c command\" or \"--cmd command\" arguments");
 
+
+static bool wait_for_ui = false;
 
 void event_init(void)
 {
@@ -339,6 +342,13 @@ int main(int argc, char **argv)
   // Allows for setting 'loadplugins' there.
   if (params.use_vimrc != NULL && strequal(params.use_vimrc, "NONE")) {
     p_lpl = false;
+  }
+
+  // give external UI a chance to connect, to show messages and prompts from
+  // --cmd and buffer loading (e.g. swap files)
+  if (wait_for_ui) {
+    remote_ui_wait_for_attach();
+    no_wait_return = false;
   }
 
   // Execute --cmd arguments.
@@ -819,6 +829,14 @@ static void command_line_scan(mparm_T *parmp)
             mch_exit(0);
           } else if (STRICMP(argv[0] + argv_idx, "headless") == 0) {
             headless_mode = true;
+          } else if (STRICMP(argv[0] + argv_idx, "embed-ui") == 0) {
+            wait_for_ui = true;
+            embedded_mode = true;
+            headless_mode = true;
+            const char *err;
+            if (!channel_from_stdio(true, CALLBACK_READER_INIT, &err)) {
+              abort();
+            }
           } else if (STRICMP(argv[0] + argv_idx, "embed") == 0) {
             embedded_mode = true;
             headless_mode = true;
