@@ -4843,7 +4843,7 @@ static void win_redr_status(win_T *wp)
       len += (int)STRLEN(p + len);
     }
 
-    this_ru_col = ru_col - (wp->w_grid.Columns - wp->w_width);
+    this_ru_col = ru_col - (Columns - wp->w_width);
     if (this_ru_col < (wp->w_width + 1) / 2) {
       this_ru_col = (wp->w_width + 1) / 2;
     }
