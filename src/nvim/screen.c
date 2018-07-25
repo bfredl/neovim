@@ -5796,7 +5796,7 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
     }
 
     // TODO(bfredl): The relevant caller should do this
-    if (row == grid->Rows - 1) {  // overwritten the command line
+    if (row == Rows - 1) {  // overwritten the command line
       redraw_cmdline = true;
       if (c1 == ' ' && c2 == ' ') {
         clear_cmdline = false;  // command line has been cleared
