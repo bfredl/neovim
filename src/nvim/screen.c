@@ -1522,7 +1522,8 @@ static void win_update(win_T *wp)
       wp->w_botline = lnum;
     }
   } else {
-    draw_vsep_win(wp, row);
+    // TODO(utkarshme): The problem is somewhere else. This is just a hack.
+    draw_vsep_win(wp, row == 1 ? 0 : row);
     if (eof) {                  /* we hit the end of the file */
       wp->w_botline = buf->b_ml.ml_line_count + 1;
       j = diff_check_fill(wp, wp->w_botline);
