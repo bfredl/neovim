@@ -189,22 +189,16 @@ function Screen:attach(options, session)
   if options == nil then
     options = {rgb=true}
   end
-  if options.ext_newgrid == nil then
-    options.ext_newgrid = true
-  end
   self._options = options
   self._clear_attrs = (options.ext_newgrid and {{},{}}) or {}
   if session == nil then
     session = get_session()
   end
-  if options.ext_float then
-    options.ext_multigrid = true
-    self._float = true
-  end
 
   if options.ext_float or options.ext_multigrid then
     options.ext_newgrid = true
-    self._multigrid = true
+    self._multigrid = options.ext_multigrid
+    self._float = options.ext_float
   end
 
   self._session = session
@@ -419,10 +413,6 @@ function Screen:_handle_grid_resize(grid, width, height)
     height=height,
   }
 end
-
---function Screen:_handle_grid_resize(grid, width, height)
-    --self:_handle_resize(width, height)
---end
 
 function Screen:_handle_mode_info_set(cursor_style_enabled, mode_info)
   self._cursor_style_enabled = cursor_style_enabled
