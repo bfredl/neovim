@@ -555,10 +555,6 @@ function Screen:_handle_grid_cursor_goto(grid, row, col)
   self._cursor.col = col + 1
 end
 
-function Screen:_handle_win_position(win, grid, row, col, width, height)
-  --TODO(utkarshme)
-end
-
 function Screen:_handle_busy_start()
   self._busy = true
 end
@@ -633,6 +629,28 @@ function Screen:_handle_hl_attr_define(id, rgb_attrs, cterm_attrs, info)
   self._attr_table[id] = {rgb_attrs, cterm_attrs}
   self._hl_info[id] = info
   self._new_attrs = true
+end
+
+function Screen:_handle_win_position(win, grid, startrow, startcol, width, height)
+    if self.win_position == nil then
+        self.win_position = {}
+    end
+    self.win_position[grid] = {
+        win = win,
+        startrow = startrow,
+        startcol = startcol,
+        width = width,
+        height = height
+    }
+    -- TODO(utkarshme): Take apt action
+end
+
+function Screen:get_hl(val)
+  if self._options.ext_newgrid then
+    return self._attr_table[val][1]
+  else
+    return val
+  end
 end
 
 function Screen:_handle_highlight_set(attrs)
@@ -1186,6 +1204,5 @@ function Screen:_attr_index(attrs, attr)
   end
   return nil
 end
-function Screen:_handle_win_position(args) end
 
 return Screen

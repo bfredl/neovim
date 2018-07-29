@@ -3,6 +3,7 @@ local Screen = require('test.functional.ui.screen')
 local spawn, set_session, clear = helpers.spawn, helpers.set_session, helpers.clear
 local feed, command = helpers.feed, helpers.command
 local insert = helpers.insert
+local eq, iswin = helpers.eq, helpers.iswin
 
 -- Note 1:
 -- Global grid i.e. "grid 1" shows some unwanted elements because they are
@@ -33,6 +34,7 @@ describe('multigrid screen', function()
       [11] = {bold = true, reverse = true},
       [12] = {reverse = true}
     })
+    screen.win_position = {}
   end)
 
   after_each(function()
@@ -70,6 +72,166 @@ describe('multigrid screen', function()
       {1:~                                                    }|
       {1:~                                                    }|
     ]])
+  end)
+
+  it('positions windows correctly', function()
+    command('vsplit')
+    screen:expect([[
+    ## grid 1
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+      {11:[No Name]                  }{12:[No Name]                 }|
+                                                           |
+    ## grid 2
+                                |
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+    ## grid 3
+      ^                          |
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+    ]], nil, nil, function()
+      iswin(screen.win_position[2].win)
+      eq(0, screen.win_position[2].startrow)
+      eq(27, screen.win_position[2].startcol)
+      eq(26, screen.win_position[2].width)
+      eq(12, screen.win_position[2].height)
+      iswin(screen.win_position[3].win)
+      eq(0, screen.win_position[3].startrow)
+      eq(0, screen.win_position[3].startcol)
+      eq(26, screen.win_position[3].width)
+      eq(12, screen.win_position[3].height)
+    end)
+    command('wincmd l')
+    command('split')
+    screen:expect([[
+    ## grid 1
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}{11:[No Name]                 }|
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+      {12:[No Name]                  [No Name]                 }|
+                                                           |
+    ## grid 2
+                                |
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+    ## grid 3
+                                |
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+    ## grid 4
+      ^                          |
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+      {1:~                         }|
+    ]], nil, nil, function()
+      iswin(screen.win_position[2].win)
+      eq(7, screen.win_position[2].startrow)
+      eq(27, screen.win_position[2].startcol)
+      eq(26, screen.win_position[2].width)
+      eq(5, screen.win_position[2].height)
+
+      iswin(screen.win_position[3].win)
+      eq(0, screen.win_position[3].startrow)
+      eq(0, screen.win_position[3].startcol)
+      eq(26, screen.win_position[3].width)
+      eq(12, screen.win_position[3].height)
+
+      iswin(screen.win_position[4].win)
+      eq(0, screen.win_position[4].startrow)
+      eq(27, screen.win_position[4].startcol)
+      eq(26, screen.win_position[4].width)
+      eq(6, screen.win_position[4].height)
+    end)
+    command('wincmd h')
+    command('q')
+    screen:expect([[
+    ## grid 1
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+      {11:[No Name]                                            }|
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+                                {12:│}                          |
+      {12:[No Name]                                            }|
+                                                           |
+    ## grid 2
+                                                           |
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+    ]], nil, nil, function()
+      -- TODO(utkarshme): We have resized both the grids. We should receive
+      -- redraw updates for "grid 4" too.
+      iswin(screen.win_position[2].win)
+      eq(7, screen.win_position[2].startrow)
+      eq(0, screen.win_position[2].startcol)
+      eq(53, screen.win_position[2].width)
+      eq(5, screen.win_position[2].height)
+
+      iswin(screen.win_position[4].win)
+      eq(0, screen.win_position[4].startrow)
+      eq(0, screen.win_position[4].startcol)
+      eq(53, screen.win_position[4].width)
+      eq(6, screen.win_position[4].height)
+    end)
   end)
 
   describe('split', function ()
@@ -372,9 +534,93 @@ describe('multigrid screen', function()
       it('splits horizontally', function ()
         command('vsp')
         command('sp')
-        -- TODO
+        screen:expect([[
+        ## grid 1
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+          {11:[No Name]                 }{12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+          {12:[No Name]                  [No Name]                 }|
+                                                               |
+        ## grid 2
+                                    |
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+        ## grid 3
+                                    |
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+        ## grid 4
+          ^                          |
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+        ]])
         insert('hello')
-        -- TODO
+        screen:expect([[
+        ## grid 1
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+          {11:[No Name] [+]             }{12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+                                    {12:│}                          |
+          {12:[No Name] [+]              [No Name] [+]             }|
+                                                               |
+        ## grid 2
+          hello                     |
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+        ## grid 3
+          hello                     |
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+        ## grid 4
+          hell^o                     |
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          {1:~                         }|
+          ]])
       end)
       it('closes splits', function ()
         command('vsp')
