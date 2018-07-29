@@ -991,8 +991,7 @@ int win_split_ins(int size, int flags, win_T *new_wp, int dir)
   }
 
   // Send the window positions to the UI
-  ui_win_position(oldwin);
-  ui_win_position(wp);
+  oldwin->w_pos_changed = true;
 
   return OK;
 }
@@ -1337,8 +1336,8 @@ static void win_rotate(int upwards, int count)
     (void)win_comp_pos();
   }
 
-  ui_win_position(wp1);
-  ui_win_position(wp2);
+  wp1->w_pos_changed = true;
+  wp2->w_pos_changed = true;
 
   redraw_later(CLEAR);
 }
@@ -1423,8 +1422,8 @@ void win_move_after(win_T *win1, win_T *win2)
   }
   win_enter(win1, false);
 
-  ui_win_position(win1);
-  ui_win_position(win2);
+  win1->w_pos_changed = true;
+  win2->w_pos_changed = true;
 }
 
 /*
@@ -2061,7 +2060,7 @@ int win_close(win_T *win, int free_buf)
   if (help_window)
     restore_snapshot(SNAP_HELP_IDX, close_curwin);
 
-  ui_win_position(curwin);
+  curwin->w_pos_changed = true;
   redraw_all_later(NOT_VALID);
   return OK;
 }
@@ -4191,7 +4190,7 @@ static void frame_comp_pos(frame_T *topfrp, int *row, int *col)
       wp->w_wincol = *col;
       redraw_win_later(wp, NOT_VALID);
       wp->w_redr_status = TRUE;
-      ui_win_position(wp);
+      wp->w_pos_changed = true;
     }
     *row += wp->w_height + wp->w_status_height;
     *col += wp->w_width + wp->w_vsep_width;
@@ -4853,7 +4852,7 @@ void win_new_height(win_T *wp, int height)
     scroll_to_fraction(wp, prev_height);
   }
 
-  ui_win_position(wp);
+  wp->w_pos_changed = true;
 }
 
 void scroll_to_fraction(win_T *wp, int prev_height)
@@ -4983,7 +4982,7 @@ void win_new_width(win_T *wp, int width)
                       0);
     }
   }
-  ui_win_position(wp);
+  wp->w_pos_changed = true;
 }
 
 void win_comp_scroll(win_T *wp)
@@ -6005,4 +6004,16 @@ void win_findbuf(typval_T *argvars, list_T *list)
       tv_list_append_number(list, wp->handle);
     }
   }
+}
+
+void win_ui_flush(void)
+{
+  FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+    if(wp->w_pos_changed) {
+      ui_call_win_position(wp->handle, wp->w_grid.handle, wp->w_winrow,
+                           wp->w_wincol, wp->w_width, wp->w_height);
+      wp->w_pos_changed = false;
+    }
+  }
+
 }
