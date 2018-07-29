@@ -377,6 +377,7 @@ int ui_current_col(void)
 void ui_flush(void)
 {
   cmdline_ui_flush();
+  win_ui_flush();
   if (pending_cursor_update) {
     ui_call_grid_cursor_goto(cursor_grid_handle, row, col);
     pending_cursor_update = false;
@@ -452,10 +453,4 @@ void ui_grid_resize(GridHandle grid_handle, int width, int height)
   wp->w_grid.internal_rows = (int)height;
   wp->w_grid.internal_columns = (int)width;
   redraw_win_later(wp, SOME_VALID);
-}
-
-void ui_win_position(win_T *wp)
-{
-  ui_call_win_position(wp->handle, wp->w_grid.handle, wp->w_winrow,
-                       wp->w_wincol, wp->w_width, wp->w_height);
 }
