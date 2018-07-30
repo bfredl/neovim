@@ -199,9 +199,14 @@ describe('multigrid screen', function()
       {1:~                                                    }|
       {1:~                                                    }|
       {1:~                                                    }|
+    ## grid 4
+      ^                                                     |
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
+      {1:~                                                    }|
     ]], nil, nil, function()
-      -- TODO(utkarshme): We have resized both the grids. We should receive
-      -- redraw updates for "grid 4" too.
       eq({
         [2] = { win = 1000, startrow = 7, startcol = 0, width = 53, height =  5 },
         [4] = { win = 1002, startrow = 0, startcol = 0, width = 53, height =  6 }

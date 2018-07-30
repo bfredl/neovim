@@ -927,7 +927,7 @@ end
 function Screen:render(headers, attr_state, preview)
   headers = headers and self._multigrid
   local rv = {}
-  for igrid,grid in ipairs(self._grids) do
+  for igrid,grid in pairs(self._grids) do
     if headers then
       table.insert(rv, "## grid "..igrid)
     end
