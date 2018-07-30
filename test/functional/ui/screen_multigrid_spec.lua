@@ -119,16 +119,10 @@ describe('multigrid screen', function()
       {1:~                         }|
       {1:~                         }|
     ]], nil, nil, function()
-      iswin(screen.win_position[2].win)
-      eq(0, screen.win_position[2].startrow)
-      eq(27, screen.win_position[2].startcol)
-      eq(26, screen.win_position[2].width)
-      eq(12, screen.win_position[2].height)
-      iswin(screen.win_position[3].win)
-      eq(0, screen.win_position[3].startrow)
-      eq(0, screen.win_position[3].startcol)
-      eq(26, screen.win_position[3].width)
-      eq(12, screen.win_position[3].height)
+      eq({
+        [2] = { win = 1000, startrow = 0, startcol = 27, width = 26, height = 12 },
+        [3] = { win = 1001, startrow = 0, startcol =  0, width = 26, height = 12 }
+      }, screen.win_position)
     end)
     command('wincmd l')
     command('split')
@@ -175,23 +169,11 @@ describe('multigrid screen', function()
       {1:~                         }|
       {1:~                         }|
     ]], nil, nil, function()
-      iswin(screen.win_position[2].win)
-      eq(7, screen.win_position[2].startrow)
-      eq(27, screen.win_position[2].startcol)
-      eq(26, screen.win_position[2].width)
-      eq(5, screen.win_position[2].height)
-
-      iswin(screen.win_position[3].win)
-      eq(0, screen.win_position[3].startrow)
-      eq(0, screen.win_position[3].startcol)
-      eq(26, screen.win_position[3].width)
-      eq(12, screen.win_position[3].height)
-
-      iswin(screen.win_position[4].win)
-      eq(0, screen.win_position[4].startrow)
-      eq(27, screen.win_position[4].startcol)
-      eq(26, screen.win_position[4].width)
-      eq(6, screen.win_position[4].height)
+      eq({
+        [2] = { win = 1000, startrow = 7, startcol = 27, width = 26, height =  5 },
+        [3] = { win = 1001, startrow = 0, startcol =  0, width = 26, height = 12 },
+        [4] = { win = 1002, startrow = 0, startcol = 27, width = 26, height =  6 }
+      }, screen.win_position)
     end)
     command('wincmd h')
     command('q')
@@ -220,17 +202,10 @@ describe('multigrid screen', function()
     ]], nil, nil, function()
       -- TODO(utkarshme): We have resized both the grids. We should receive
       -- redraw updates for "grid 4" too.
-      iswin(screen.win_position[2].win)
-      eq(7, screen.win_position[2].startrow)
-      eq(0, screen.win_position[2].startcol)
-      eq(53, screen.win_position[2].width)
-      eq(5, screen.win_position[2].height)
-
-      iswin(screen.win_position[4].win)
-      eq(0, screen.win_position[4].startrow)
-      eq(0, screen.win_position[4].startcol)
-      eq(53, screen.win_position[4].width)
-      eq(6, screen.win_position[4].height)
+      eq({
+        [2] = { win = 1000, startrow = 7, startcol = 0, width = 53, height =  5 },
+        [4] = { win = 1002, startrow = 0, startcol = 0, width = 53, height =  6 }
+      }, screen.win_position)
     end)
   end)
 

@@ -537,6 +537,8 @@ end
 
 function Screen:_handle_grid_destroy(grid)
   self._grids[grid] = nil
+  assert(self.win_position[grid])
+  self.win_position[grid] = nil
 end
 
 function Screen:_handle_eol_clear()
