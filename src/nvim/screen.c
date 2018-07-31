@@ -4326,13 +4326,6 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
     grid = &default_grid;
   }
 
-  // If UI is not externalized, keep working on the default grid
-  if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
-    row += grid->OffsetRow;
-    coloff += grid->OffsetColumn;
-    grid = &default_grid;
-  }
-
   /* Check for illegal row and col, just in case. */
   if (row >= grid->Rows)
     row = grid->Rows - 1;
@@ -4340,6 +4333,20 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
     endcol = grid->Columns;
   if (coloff > endcol) {
     return;
+  }
+  #define OFF_FROM(g) ((g).Rows*(g).Columns)
+
+  // If UI is not externalized, merge the contents of global and window grids
+  if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
+    row += grid->OffsetRow;
+    coloff += grid->OffsetColumn;
+    memcpy(default_grid.ScreenLines+OFF_FROM(default_grid),
+           grid->ScreenLines+OFF_FROM(*grid),
+           sizeof(schar_T)*grid->Columns);
+    memcpy(default_grid.ScreenAttrs+OFF_FROM(default_grid),
+           grid->ScreenAttrs+OFF_FROM(*grid),
+           sizeof(sattr_T)*grid->Columns);
+    grid = &default_grid;
   }
 
   off_from = (unsigned)(grid->Rows * grid->Columns);
