@@ -4473,13 +4473,14 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
           || default_grid.ScreenAttrs[off_to] != hl) {
         schar_copy(default_grid.ScreenLines[off_to], sc);
         default_grid.ScreenAttrs[off_to] = hl;
-        if (grid == &default_grid) {
-          ui_line(&default_grid, row, W_ENDCOL(wp), W_ENDCOL(wp) + 1,
-                  W_ENDCOL(wp) + 1, bg_attr);
+        int row_off;
+        if (ui_is_external(kUIMultigrid)) {
+          row_off = row;
         } else {
-          ui_line(&default_grid, row + wp->w_winrow, W_ENDCOL(wp),
-                  W_ENDCOL(wp) + 1, W_ENDCOL(wp) + 1, bg_attr);
+          row_off = row + wp->w_winrow;
         }
+        ui_line(&default_grid, row_off, W_ENDCOL(wp), W_ENDCOL(wp) + 1,
+                W_ENDCOL(wp) + 1, bg_attr);
       }
     } else
       default_grid.LineWraps[row] = false;
