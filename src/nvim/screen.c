@@ -118,11 +118,13 @@
 
 #define MB_FILLER_CHAR '<'  /* character used when a double-width character
                              * doesn't fit. */
-
-#define W_ENDCOL(wp)   (wp->w_width + wp->w_wincol)
-#define W_ENDROW(wp)   (wp->w_height + wp->w_winrow)
+#define W_ENDCOL(wp)   (wp->w_wincol + wp->w_width)
+#define W_ENDROW(wp)   (wp->w_winrow + wp->w_height)
 
 #define DEFAULT_GRID_HANDLE 1
+
+// Get the offset for the current line buffer when redrawing a line for a grid
+#define GRID_TMPLINE(grid) ((grid)->Rows * (grid)->Columns)
 
 static match_T search_hl;       /* used for 'hlsearch' highlight matching */
 
@@ -1815,7 +1817,7 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
    * 6. set highlighting for the Visual area an other text
    */
   col = 0;
-  off = (int)(grid->Rows * grid->Columns);
+  off = (int)GRID_TMPLINE(grid);
 
   /*
    * 1. Add the cmdwin_type for the command-line window
@@ -2718,7 +2720,7 @@ win_line (
       cur = cur->next;
   }
 
-  off = (unsigned)(grid->Rows * grid->Columns);
+  off = (unsigned)GRID_TMPLINE(grid);
   int col = 0;  // Visual column on screen.
   if (wp->w_p_rl) {
     // Rightleft window: process the text in the normal direction, but put
@@ -4325,7 +4327,7 @@ win_line (
       }
 
       col = 0;
-      off = (unsigned)(grid->Rows * grid->Columns);
+      off = (unsigned)GRID_TMPLINE(grid);
       if (wp->w_p_rl) {
         col = grid->Columns - 1;          /* col is not used if breaking! */
         off += col;
@@ -4420,22 +4422,21 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
   if (coloff > endcol) {
     return;
   }
-  #define OFF_FROM(g) ((g).Rows*(g).Columns)
 
   // If UI is not externalized, merge the contents of global and window grids
   if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
     row += grid->OffsetRow;
     coloff += grid->OffsetColumn;
-    memcpy(default_grid.ScreenLines+OFF_FROM(default_grid),
-           grid->ScreenLines+OFF_FROM(*grid),
-           sizeof(schar_T)*grid->Columns);
-    memcpy(default_grid.ScreenAttrs+OFF_FROM(default_grid),
-           grid->ScreenAttrs+OFF_FROM(*grid),
-           sizeof(sattr_T)*grid->Columns);
+    memcpy(default_grid.ScreenLines + GRID_TMPLINE(&default_grid),
+           grid->ScreenLines + GRID_TMPLINE(grid),
+           sizeof(schar_T) * grid->Columns);
+    memcpy(default_grid.ScreenAttrs + GRID_TMPLINE(&default_grid),
+           grid->ScreenAttrs + GRID_TMPLINE(grid),
+           sizeof(sattr_T) * grid->Columns);
     grid = &default_grid;
   }
 
-  off_from = (unsigned)(grid->Rows * grid->Columns);
+  off_from = (unsigned)GRID_TMPLINE(grid);
   off_to = grid->LineOffset[row] + coloff;
   max_off_from = off_from + grid->Columns;
   max_off_to = grid->LineOffset[row] + grid->Columns;
