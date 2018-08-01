@@ -1736,10 +1736,6 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
   int ri;
   ScreenGrid *grid = &wp->w_grid;
 
-  if (!ui_is_external(kUIMultigrid)) {
-    grid = &default_grid;
-  }
-
   /* Build the fold line:
    * 1. Add the cmdwin_type for the command-line window
    * 2. Add the 'foldcolumn'
@@ -6182,11 +6178,6 @@ static void screenclear2(void)
 /// are cleared.
 static void grid_clear_line(ScreenGrid *grid, unsigned off, int width)
 {
-  if (!ui_is_external(kUIMultigrid)) {
-    off += grid->OffsetColumn;
-    grid = &default_grid;
-  }
-
   for (int col = 0; col < width; col++) {
     schar_from_ascii(grid->ScreenLines[off + col], ' ');
   }
@@ -6196,10 +6187,6 @@ static void grid_clear_line(ScreenGrid *grid, unsigned off, int width)
 /// Copy part of a Screenline for vertically split window.
 static void linecopy(ScreenGrid *grid, int to, int from, int col, int width)
 {
-  if (!ui_is_external(kUIMultigrid)) {
-    grid = &default_grid;
-  }
-
   unsigned off_to = grid->LineOffset[to] + col;
   unsigned off_from = grid->LineOffset[from] + col;
 
@@ -6338,6 +6325,7 @@ int grid_ins_lines(ScreenGrid *grid, int row, int line_count, int end,
   // If UI is not externalized, keep working on default grid
   if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
     row += grid->OffsetRow;
+    end += grid->OffsetRow;
     col += grid->OffsetColumn;
     grid = &default_grid;
   }
@@ -6396,6 +6384,7 @@ int grid_del_lines(ScreenGrid *grid, int row, int line_count, int end,
   // If UI is not externalized, keep working on default grid
   if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
     row += grid->OffsetRow;
+    end += grid->OffsetRow;
     col += grid->OffsetColumn;
     grid = &default_grid;
   }
