@@ -1397,6 +1397,7 @@ static void patch_terminfo_bugs(TUIData *data, const char *term,
   bool roxterm = !!os_getenv("ROXTERM_ID");
 #endif
   bool xterm = terminfo_is_term_family(term, "xterm");
+  bool kitty = terminfo_is_term_family(term, "xterm-kitty");
   bool linuxvt = terminfo_is_term_family(term, "linux");
   bool rxvt = terminfo_is_term_family(term, "rxvt");
   bool teraterm = terminfo_is_term_family(term, "teraterm");
@@ -1452,7 +1453,7 @@ static void patch_terminfo_bugs(TUIData *data, const char *term,
     }
   }
 
-  if (!true_xterm) {
+  if (!xterm) {
     // Cannot trust terminfo; safer to disable BCE. #7624
     unibi_set_bool(ut, unibi_back_color_erase, false);
   }
