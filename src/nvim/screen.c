@@ -1527,7 +1527,7 @@ static void win_update(win_T *wp)
       wp->w_botline = lnum;
     } else if (dy_flags & DY_LASTLINE) {      // 'display' has "lastline"
       // Last line isn't finished: Display "@@@" at the end.
-      grid_fill(&wp->w_grid, wp->w_height - 1, wp->w_height,
+      grid_fill(&wp->w_grid, wp->w_grid.Rows - 1, wp->w_grid.Rows,
                 wp->w_grid.Columns - 3, wp->w_grid.Columns, '@', '@', at_attr);
       set_empty_rows(wp, srow);
       wp->w_botline = lnum;
@@ -1558,7 +1558,7 @@ static void win_update(win_T *wp)
 
     // make sure the rest of the screen is blank
     // write the 'fill_eob' character to rows that aren't part of the file.
-    win_draw_end(wp, fill_eob, ' ', row, wp->w_height, HLF_EOB);
+    win_draw_end(wp, fill_eob, ' ', row, wp->w_grid.Rows, HLF_EOB);
   }
 
   /* Reset the type of redrawing required, the window has been updated. */
@@ -5849,7 +5849,7 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
       }
     }
 
-    if (end_col == Columns) {
+    if (end_col == grid->Columns) {
       grid->LineWraps[row] = false;
     }
 

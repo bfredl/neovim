@@ -1535,7 +1535,7 @@ void edit_unputchar(void)
 {
   if (pc_status != PC_STATUS_UNSET && pc_row >= msg_scrolled) {
     if (pc_status == PC_STATUS_RIGHT) {
-      (curwin->w_wcol)++;
+      curwin->w_wcol++;
     }
     if (pc_status == PC_STATUS_RIGHT || pc_status == PC_STATUS_LEFT) {
       redrawWinline(curwin->w_cursor.lnum, false);
