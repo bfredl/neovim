@@ -4474,7 +4474,7 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
         schar_copy(default_grid.ScreenLines[off_to], sc);
         default_grid.ScreenAttrs[off_to] = hl;
         int row_off;
-        if (ui_is_external(kUIMultigrid)) {
+        if (grid == &default_grid) {
           row_off = row;
         } else {
           row_off = row + wp->w_winrow;
