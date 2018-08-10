@@ -390,6 +390,7 @@ int ui_current_col(void)
 void ui_flush(void)
 {
   cmdline_ui_flush();
+  msg_ext_ui_flush();
   if (pending_cursor_update) {
     ui_call_grid_cursor_goto(1, row, col);
     pending_cursor_update = false;

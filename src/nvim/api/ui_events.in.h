@@ -115,12 +115,8 @@ void wildmenu_select(Integer selected)
 void wildmenu_hide(void)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 
-void msg_start(String kind, Boolean keeplast)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
-void msg_chunk(String data, Integer hl_id)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
-void msg_end(void)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
+void msg_show(String kind, Array chunks, Boolean keep_last)
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 void msg_showcmd(Array content)
-  FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 #endif  // NVIM_API_UI_EVENTS_IN_H

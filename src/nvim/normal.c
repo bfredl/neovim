@@ -3465,8 +3465,9 @@ static void display_showcmd(void)
     Array content = ARRAY_DICT_INIT;
     if (len > 0) {
       Array chunk = ARRAY_DICT_INIT;
-      ADD(chunk , DICTIONARY_OBJ(ARRAY_DICT_INIT));
-      ADD(chunk , STRING_OBJ(cstr_to_string((char *)showcmd_buf)));
+      // placeholder for future highlight support
+      ADD(chunk, INTEGER_OBJ(0));
+      ADD(chunk, STRING_OBJ(cstr_to_string((char *)showcmd_buf)));
       ADD(content, ARRAY_OBJ(chunk));
     }
     ui_call_msg_showcmd(content);

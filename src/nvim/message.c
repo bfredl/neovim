@@ -114,6 +114,9 @@ static int verbose_did_open = FALSE;
 // msg_didout is too noisy, so use our own
 static bool msg_ext_didout = false;
 static const char *msg_ext_kind = NULL;
+static Array msg_ext_chunks = ARRAY_DICT_INIT;
+static bool msg_ext_clear_pending = false;
+static int msg_ext_visible = 0;
 
 /*
  * msg(s) - displays the string 's' on the status line
@@ -1121,13 +1124,11 @@ void msg_start(void)
   if (ui_is_external(kUIMessages)) {
     if (msg_ext_didout) {
       /// TODO(bfredl): maybe the check in msg_end is good enogh
-      ui_call_msg_end();
+      msg_ext_ui_flush();
     }
-
-    ui_call_msg_start(cstr_to_string(msg_ext_kind), !!msg_scroll);
-    msg_ext_didout = true;
-    msg_ext_kind = NULL;
-
+    if (!msg_scroll) {
+      msg_ext_clear_pending = true;
+    }
   }
 
   // When redirecting, may need to start a new line.
@@ -1741,14 +1742,18 @@ static void msg_puts_display(const char_u *str, int maxlen, int attr,
   int wrap;
   int did_last_char;
 
+  did_wait_return = false;
+
   if (ui_is_external(kUIMessages)) {
     msg_ext_didout = true;
     String text = cstrn_to_string((char *)(str),(size_t)maxlen);
-    ui_call_msg_chunk(text, attr);
+    Array chunk = ARRAY_DICT_INIT;
+    ADD(chunk, STRING_OBJ(text));
+    ADD(chunk, INTEGER_OBJ(attr));
+    ADD(msg_ext_chunks, ARRAY_OBJ(chunk));
     return;
   }
 
-  did_wait_return = false;
   while ((maxlen < 0 || (int)(s - str) < maxlen) && *s != NUL) {
     // We are at the end of the screen line when:
     // - When outputting a newline.
@@ -2600,12 +2605,32 @@ int msg_end(void)
     return FALSE;
   }
 
-  if (ui_is_external(kUIMessages) && msg_ext_didout) {
-    msg_ext_didout = false;
-    ui_call_msg_end();
-  }
-  ui_flush();
+  ui_flush(); // calls msg_ext_ui_flush
   return TRUE;
+}
+
+void msg_ext_ui_flush(void)
+{
+  if (!ui_is_external(kUIMessages)) {
+    return;
+  }
+  if (msg_ext_clear_pending) {
+    msg_ext_visible = 0;
+  }
+  if (msg_ext_didout) {
+    msg_ext_didout = false;
+    msg_ext_visible++;
+    ui_call_msg_show(cstr_to_string(msg_ext_kind),
+                     msg_ext_chunks, !msg_ext_clear_pending);
+    msg_ext_kind = NULL;
+    msg_ext_chunks = (Array)ARRAY_DICT_INIT;
+  } else if (msg_ext_clear_pending) {
+    // TODO(bfredl): this should probably be a proper event,
+    // messages can be cleared by other stuff than new messages...
+    ui_call_msg_show(cstr_to_string("CLEAR"),
+                     (Array)ARRAY_DICT_INIT, false);
+  }
+  msg_ext_clear_pending = false;
 }
 
 /*
@@ -2614,6 +2639,9 @@ int msg_end(void)
  */
 void msg_check(void)
 {
+  if (ui_is_external(kUIMessages)) {
+    return;
+  }
   if (msg_row == Rows - 1 && msg_col >= sc_col) {
     need_wait_return = TRUE;
     redraw_cmdline = TRUE;
