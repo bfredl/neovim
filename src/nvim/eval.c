@@ -19543,9 +19543,7 @@ void ex_echo(exarg_T *eap)
       char *tofree = encode_tv2echo(&rettv, NULL);
       const char *p = tofree;
       if (p != NULL) {
-        if (ui_is_external(kUIMessages)) {
-           ui_call_msg_start_kind(cstr_to_string("echo"));
-        }
+        msg_set_ext_kind("echo");
         for (; *p != NUL && !got_int; ++p) {
           if (*p == '\n' || *p == '\r' || *p == TAB) {
             if (*p != TAB && needclr) {
@@ -19652,9 +19650,7 @@ void ex_execute(exarg_T *eap)
     }
 
     if (eap->cmdidx == CMD_echomsg) {
-      if (ui_is_external(kUIMessages)) {
-        ui_call_msg_start_kind(cstr_to_string("echomsg"));
-      }
+      msg_set_ext_kind("echomsg");
       MSG_ATTR(ga.ga_data, echo_attr);
       ui_flush();
     } else if (eap->cmdidx == CMD_echoerr) {

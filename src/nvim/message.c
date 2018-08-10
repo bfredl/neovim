@@ -112,7 +112,8 @@ static int verbose_did_open = FALSE;
 
 // kUIMessages has an unfinished line
 // msg_didout is too noisy, so use our own
-static bool msg_didout_event = false;
+static bool msg_ext_didout = false;
+static const char *msg_ext_kind = NULL;
 
 /*
  * msg(s) - displays the string 's' on the status line
@@ -486,9 +487,6 @@ int emsg(const char_u *s_)
   int attr;
   int ignore = false;
   int severe;
-  if (ui_is_external(kUIMessages)) {
-    ui_call_msg_start_kind(cstr_to_string("emsg"));
-  }
 
   // Skip this if not giving error messages at the moment.
   if (emsg_not_now()) {
@@ -572,6 +570,7 @@ int emsg(const char_u *s_)
   }                           // wait_return has reset need_wait_return
                               // and a redraw is expected because
                               // msg_scrolled is non-zero
+  msg_set_ext_kind("emsg");
 
   /*
    * Display name and line number for the source of the error.
@@ -1076,6 +1075,13 @@ void set_keep_msg(char_u *s, int attr)
   keep_msg_attr = attr;
 }
 
+void msg_set_ext_kind(const char *msg_kind) {
+  // TODO(bfredl): would be nice to avoid dynamic scoping, but that would
+  // need refactoring the msg_ interface to not be "please pretend nvim is
+  // a terminal for a moment"
+  msg_ext_kind = msg_kind;
+}
+
 /*
  * Prepare for outputting characters in the command line.
  */
@@ -1095,7 +1101,7 @@ void msg_start(void)
     msg_clr_eos();
   }
 
-  if (!msg_scroll && full_screen) {     /* overwrite last message */
+  if (!msg_scroll && full_screen) {     /* overwrite last message */ 
     msg_row = cmdline_row;
     msg_col =
       cmdmsg_rl ? Columns - 1 :
@@ -1112,10 +1118,16 @@ void msg_start(void)
     msg_didout = FALSE;                     /* no output on current line yet */
   }
 
-  /// TODO(bfredl): maybe the check in msg_end is good enogh
-  if (ui_is_external(kUIMessages) && msg_didout_event) {
-    msg_didout_event = false;
-    ui_call_msg_end();
+  if (ui_is_external(kUIMessages)) {
+    if (msg_ext_didout) {
+      /// TODO(bfredl): maybe the check in msg_end is good enogh
+      ui_call_msg_end();
+    }
+
+    ui_call_msg_start(cstr_to_string(msg_ext_kind), !!msg_scroll);
+    msg_ext_didout = true;
+    msg_ext_kind = NULL;
+
   }
 
   // When redirecting, may need to start a new line.
@@ -1730,7 +1742,7 @@ static void msg_puts_display(const char_u *str, int maxlen, int attr,
   int did_last_char;
 
   if (ui_is_external(kUIMessages)) {
-    msg_didout_event = true;
+    msg_ext_didout = true;
     String text = cstrn_to_string((char *)(str),(size_t)maxlen);
     ui_call_msg_chunk(text, attr);
     return;
@@ -2588,8 +2600,8 @@ int msg_end(void)
     return FALSE;
   }
 
-  if (ui_is_external(kUIMessages) && msg_didout_event) {
-    msg_didout_event = false;
+  if (ui_is_external(kUIMessages) && msg_ext_didout) {
+    msg_ext_didout = false;
     ui_call_msg_end();
   }
   ui_flush();

@@ -2156,10 +2156,7 @@ win_found:
       } else if (!msg_scrolled && shortmess(SHM_OVERALL)) {
         msg_scroll = false;
       }
-      if (ui_is_external(kUIMessages)) {
-        // TODO(bfredl): really worth special case?
-        ui_call_msg_start_kind(cstr_to_string("quickfix"));
-      }
+      msg_set_ext_kind("quickfix");
       msg_attr_keep(IObuff, 0, true);
       msg_scroll = (int)i;
     }

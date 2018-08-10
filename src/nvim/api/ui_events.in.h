@@ -115,7 +115,7 @@ void wildmenu_select(Integer selected)
 void wildmenu_hide(void)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 
-void msg_start_kind(String kind)
+void msg_start(String kind, Boolean keeplast)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 void msg_chunk(String data, Integer hl_id)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;

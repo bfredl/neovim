@@ -6371,8 +6371,8 @@ int showmode(void)
     if (clear_cmdline && cmdline_row < Rows - 1)
       msg_clr_cmdline();                        /* will reset clear_cmdline */
 
-    // hint that the next msgraw/msgend is a showmode
-    ui_call_msg_start_kind(cstr_to_string("showmode"));
+    // Hint that the next msgraw/msgend is a showmode
+    msg_set_ext_kind("showmode");
     /* Position on the last line in the window, column 0 */
     msg_pos_mode();
     attr = HL_ATTR(HLF_CM);                     // Highlight mode
