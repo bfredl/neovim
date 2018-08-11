@@ -3595,7 +3595,7 @@ nextwild (
     return FAIL;
   }
 
-  if (!ui_is_external(kUIWildmenu)) {
+  if (!(ui_is_external(kUICmdline) || ui_is_external(kUIWildmenu))) {
     MSG_PUTS("...");  // show that we are busy
     ui_flush();
   }
