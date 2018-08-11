@@ -309,6 +309,7 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
     gotocmdline(true);
     redrawcmdprompt();          // draw prompt or indent
     set_cmdspos();
+    msg_ext_clear(false);
   }
   s->xpc.xp_context = EXPAND_NOTHING;
   s->xpc.xp_backslash = XP_BS_NONE;

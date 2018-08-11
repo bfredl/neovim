@@ -115,8 +115,9 @@ static int verbose_did_open = FALSE;
 static bool msg_ext_didout = false;
 static const char *msg_ext_kind = NULL;
 static Array msg_ext_chunks = ARRAY_DICT_INIT;
-static bool msg_ext_clear_pending = false;
+static bool msg_ext_overwrite = false;
 static int msg_ext_visible = 0;
+static bool msg_ext_keep = false;
 
 /*
  * msg(s) - displays the string 's' on the status line
@@ -228,7 +229,8 @@ msg_strtrunc (
 
   /* May truncate message to avoid a hit-return prompt */
   if ((!msg_scroll && !need_wait_return && shortmess(SHM_TRUNCALL)
-       && !exmode_active && msg_silent == 0) || force) {
+       && !exmode_active && msg_silent == 0 && !ui_is_external(kUIMessages))
+      || force) {
     len = vim_strsize(s);
     if (msg_scrolled != 0)
       /* Use all the columns. */
@@ -1014,6 +1016,7 @@ void wait_return(int redraw)
       cmdline_row = msg_row;
     skip_redraw = TRUE;             /* skip redraw once */
     do_redraw = FALSE;
+    msg_ext_keep = true;
   }
 
   /*
@@ -1054,6 +1057,7 @@ static void hit_return_msg(void)
   p_more = FALSE;       /* don't want see this message when scrolling back */
   if (msg_didout)       /* start on a new line */
     msg_putchar('\n');
+  msg_set_ext_kind("return_prompt");
   if (got_int)
     MSG_PUTS(_("Interrupt: "));
 
@@ -1079,10 +1083,17 @@ void set_keep_msg(char_u *s, int attr)
 }
 
 void msg_set_ext_kind(const char *msg_kind) {
+  // Don't change the label of an existing batch:
+  msg_ext_ui_flush();
+
   // TODO(bfredl): would be nice to avoid dynamic scoping, but that would
   // need refactoring the msg_ interface to not be "please pretend nvim is
   // a terminal for a moment"
   msg_ext_kind = msg_kind;
+}
+
+void msg_ext_overwrite_next(void) {
+  msg_ext_overwrite = true;
 }
 
 /*
@@ -1100,6 +1111,7 @@ void msg_start(void)
   if (need_clr_eos) {
     /* Halfway an ":echo" command and getting an (error) message: clear
      * any text from the command. */
+    // TODO(bfredl): ext_messages should discard buffer?
     need_clr_eos = FALSE;
     msg_clr_eos();
   }
@@ -1127,7 +1139,7 @@ void msg_start(void)
       msg_ext_ui_flush();
     }
     if (!msg_scroll) {
-      msg_ext_clear_pending = true;
+      msg_ext_overwrite = true;
     }
   }
 
@@ -2614,23 +2626,37 @@ void msg_ext_ui_flush(void)
   if (!ui_is_external(kUIMessages)) {
     return;
   }
-  if (msg_ext_clear_pending) {
-    msg_ext_visible = 0;
-  }
   if (msg_ext_didout) {
+    // TODO(bfredl): not here!!
+    //if (msg_ext_clear_pending) {
+    //  msg_ext_visible = 0;
+    //}
     msg_ext_didout = false;
-    msg_ext_visible++;
+    if (msg_ext_visible == 0) {
+      msg_ext_overwrite = false;
+    }
     ui_call_msg_show(cstr_to_string(msg_ext_kind),
-                     msg_ext_chunks, !msg_ext_clear_pending);
+                     msg_ext_chunks, msg_ext_overwrite);
+    if (!msg_ext_overwrite) {
+      msg_ext_visible++;
+    }
+    ui_call_MSG_DEBUG(msg_ext_visible);
     msg_ext_kind = NULL;
     msg_ext_chunks = (Array)ARRAY_DICT_INIT;
-  } else if (msg_ext_clear_pending) {
-    // TODO(bfredl): this should probably be a proper event,
-    // messages can be cleared by other stuff than new messages...
-    ui_call_msg_show(cstr_to_string("CLEAR"),
-                     (Array)ARRAY_DICT_INIT, false);
+    msg_ext_overwrite = false;
   }
-  msg_ext_clear_pending = false;
+}
+
+void msg_ext_clear(bool force) {
+  if (msg_ext_visible && (!msg_ext_keep || force)) {
+    ui_call_msg_clear();
+    msg_ext_visible = 0;
+    msg_ext_overwrite = false; // nothing to overwrite
+    ui_call_MSG_DEBUG(msg_ext_visible);
+  }
+
+  // only keep once
+  msg_ext_keep = false;
 }
 
 /*

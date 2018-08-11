@@ -442,8 +442,9 @@ void update_screen(int type)
 
   /* Clear or redraw the command line.  Done last, because scrolling may
    * mess up the command line. */
-  if (clear_cmdline || redraw_cmdline)
+  if (clear_cmdline || redraw_cmdline) {
     showmode();
+  }
 
   /* May put up an introductory message when not editing a file */
   if (!did_intro)
@@ -5809,7 +5810,7 @@ void screen_fill(int start_row, int end_row, int start_col, int end_col, int c1,
     }
 
     // TODO(bfredl): The relevant caller should do this
-    if (row == Rows - 1) {  // overwritten the command line
+    if (row == Rows - 1 && !ui_is_external(kUIMessages)) {  // overwritten the command line
       redraw_cmdline = true;
       if (start_col == 0 && end_col == Columns
           && c1 == ' ' && c2 == ' ' && attr == 0) {
@@ -6344,6 +6345,10 @@ int showmode(void)
   int nwr_save;
   int sub_attr;
 
+  if (ui_is_external(kUIMessages) && clear_cmdline) {
+    msg_ext_clear(true);
+  }
+
   do_mode = ((p_smd && msg_silent == 0)
              && ((State & TERM_FOCUS)
                  || (State & INSERT)
@@ -6480,6 +6485,7 @@ int showmode(void)
     if (need_clear || clear_cmdline)
       msg_clr_eos();
     msg_didout = FALSE;                 /* overwrite this message */
+    msg_ext_overwrite_next();
     length = msg_col;
     msg_col = 0;
     msg_no_more = false;
@@ -6531,11 +6537,15 @@ void unshowmode(bool force)
 // Clear the mode message.
 void clearmode(void)
 {
-    msg_pos_mode();
-    if (Recording) {
-      recording_mode(HL_ATTR(HLF_CM));
-    }
-    msg_clr_eos();
+  if (ui_is_external(kUIMessages)) {
+    msg_ext_clear(true);
+    return;
+  }
+  msg_pos_mode();
+  if (Recording) {
+    recording_mode(HL_ATTR(HLF_CM));
+  }
+  msg_clr_eos();
 }
 
 static void recording_mode(int attr)

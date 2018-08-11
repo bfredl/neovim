@@ -117,6 +117,12 @@ void wildmenu_hide(void)
 
 void msg_show(String kind, Array chunks, Boolean keep_last)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
+void msg_clear(void)
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 void msg_showcmd(Array content)
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
+
+// TODO(bfredl): for debugging, delete this:
+void MSG_DEBUG(Integer n_visible)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 #endif  // NVIM_API_UI_EVENTS_IN_H
