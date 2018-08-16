@@ -5252,7 +5252,9 @@ void grid_getbytes(ScreenGrid *grid, int row, int col, char_u *bytes,
 {
   unsigned off;
 
-  if (grid == NULL) {
+  if (!ui_is_external(kUIMultigrid)) {
+    row += grid->OffsetRow;
+    col += grid->OffsetColumn;
     grid = &default_grid;
   }
 
