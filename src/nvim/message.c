@@ -1041,9 +1041,13 @@ void wait_return(int redraw)
 
   if (tmpState == SETWSIZE) {       /* got resize event while in vgetc() */
     ui_refresh();
-  } else if (!skip_redraw
-             && (redraw == TRUE || (msg_scrolled != 0 && redraw != -1))) {
-    redraw_later(VALID);
+  } else if (!skip_redraw) {
+    if (redraw == TRUE || (msg_scrolled != 0 && redraw != -1)) {
+      redraw_later(VALID);
+    }
+    if (ui_is_external(kUIMessages)) {
+      msg_ext_clear(true);
+    }
   }
 }
 
@@ -1699,7 +1703,16 @@ void msg_puts_attr_len(const char *const str, const ptrdiff_t len, int attr)
   // wait-return prompt later.  Needed when scrolling, resetting
   // need_wait_return after some prompt, and then outputting something
   // without scrolling
-  if (msg_scrolled != 0 && !msg_scrolled_ign) {
+  bool overflow = false;
+  if (ui_is_external(kUIMessages)) {
+    if (msg_ext_visible > 0 && !ui_is_external(kUIMsgNothrottle)) {
+      overflow = true;
+    }
+  } else {
+    overflow = msg_scrolled != 0;
+  }
+
+  if (overflow && !msg_scrolled_ign) {
     need_wait_return = true;
   }
   msg_didany = true;  // remember that something was outputted
@@ -2657,6 +2670,11 @@ void msg_ext_clear(bool force) {
 
   // only keep once
   msg_ext_keep = false;
+}
+
+bool msg_ext_is_visible(void)
+{
+  return ui_is_external(kUIMessages) && msg_ext_visible > 0;
 }
 
 /*

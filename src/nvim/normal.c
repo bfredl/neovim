@@ -1261,8 +1261,9 @@ static void normal_redraw(NormalState *s)
     maketitle();
   }
 
-  // display message after redraw
-  if (keep_msg != NULL) {
+  // Display message after redraw. If an external message is still visible,
+  // it contains the kept message already.
+  if (keep_msg != NULL && !msg_ext_is_visible()) {
     // msg_attr_keep() will set keep_msg to NULL, must free the string here.
     // Don't reset keep_msg, msg_attr_keep() uses it to check for duplicates.
     char *p = (char *)keep_msg;
