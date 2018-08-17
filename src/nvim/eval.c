@@ -13985,7 +13985,7 @@ static void f_screenattr(typval_T *argvars, typval_T *rettv, FunPtr fptr)
       || col < 0 || col >= screen_Columns) {
     c = -1;
   } else {
-    c = ScreenAttrs[LineOffset[row] + col];
+    c = default_grid.ScreenAttrs[default_grid.LineOffset[row] + col];
   }
   rettv->vval.v_number = c;
 }
@@ -14004,8 +14004,8 @@ static void f_screenchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
       || col < 0 || col >= screen_Columns) {
     c = -1;
   } else {
-    off = LineOffset[row] + col;
-    c = utf_ptr2char(ScreenLines[off]);
+    off = default_grid.LineOffset[row] + col;
+    c = utf_ptr2char(default_grid.ScreenLines[off]);
   }
   rettv->vval.v_number = c;
 }

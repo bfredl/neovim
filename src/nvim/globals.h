@@ -153,11 +153,6 @@ typedef off_t off_T;
 ///
 /// Note: before the screen is initialized and when out of memory these can be
 /// NULL.
-EXTERN schar_T  *ScreenLines INIT(= NULL);
-EXTERN sattr_T  *ScreenAttrs INIT(= NULL);
-EXTERN unsigned *LineOffset INIT(= NULL);
-EXTERN char_u   *LineWraps INIT(= NULL);        /* line wraps to next line */
-
 EXTERN int screen_Rows INIT(= 0);           /* actual size of ScreenLines[] */
 EXTERN int screen_Columns INIT(= 0);        /* actual size of ScreenLines[] */
 

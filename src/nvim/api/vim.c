@@ -1860,9 +1860,9 @@ Array nvim__inspect_cell(Integer row, Integer col, Error *err)
       || col < 0 || col >= screen_Columns) {
     return ret;
   }
-  size_t off = LineOffset[(size_t)row] + (size_t)col;
-  ADD(ret, STRING_OBJ(cstr_to_string((char *)ScreenLines[off])));
-  int attr = ScreenAttrs[off];
+  size_t off = default_grid.LineOffset[(size_t)row] + (size_t)col;
+  ADD(ret, STRING_OBJ(cstr_to_string((char *)default_grid.ScreenLines[off])));
+  int attr = default_grid.ScreenAttrs[off];
   ADD(ret, DICTIONARY_OBJ(hl_get_attr_by_id(attr, true, err)));
   // will not work first time
   if (!highlight_use_hlstate()) {
