@@ -157,7 +157,7 @@ EXTERN int screen_Rows INIT(= 0);           /* actual size of ScreenLines[] */
 EXTERN int screen_Columns INIT(= 0);        /* actual size of ScreenLines[] */
 
 EXTERN ScreenGrid default_grid INIT(= { 0, NULL, NULL, NULL, NULL, 0, 0, 0, 0,
-                                        0, 0 });
+                                        0, 0, 0 });
 
 #define DEFAULT_GRID_HANDLE 1               /* handle for the default_grid */
 
