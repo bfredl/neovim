@@ -681,4 +681,77 @@ describe('multigrid screen', function()
       ]])
     end)
   end)
+
+  describe('grid of smaller inner size', function()
+    it('is rendered correctly', function()
+      screen:try_resize_grid(2, 8, 5)
+      screen:expect([[
+      ## grid 1
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+        {11:[No Name]                                            }|
+                                                             |
+      ## grid 2
+        ^        |
+        {1:~       }|
+        {1:~       }|
+        {1:~       }|
+        {1:~       }|
+      ]])
+    end)
+  end)
+
+  describe('grid of bigger inner size', function()
+    it('is rendered correctly', function()
+      screen:try_resize_grid(2, 80, 20)
+      screen:expect([[
+      ## grid 1
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+        {11:[No Name]                                            }|
+                                                             |
+      ## grid 2
+        ^                                                                                |
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+        {1:~                                                                               }|
+      ]])
+    end)
+  end)
 end)
