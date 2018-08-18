@@ -4071,8 +4071,8 @@ static void frame_remove(frame_T *frp)
 void win_alloc_lines(win_T *wp)
 {
   wp->w_lines_valid = 0;
-  assert(Rows >= 0);
-  wp->w_lines = xcalloc(Rows, sizeof(wline_T));
+  assert(wp->w_grid.Rows >= 0);
+  wp->w_lines = xcalloc(wp->w_grid.Rows + 1, sizeof(wline_T));
 }
 
 /*

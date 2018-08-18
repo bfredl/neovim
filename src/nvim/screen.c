@@ -4482,11 +4482,14 @@ static void grid_move_line(ScreenGrid *grid, int row, int coloff, int endcol,
         } else {
           row_off = row + wp->w_winrow;
         }
-        ui_line(&default_grid, row_off, W_ENDCOL(wp), W_ENDCOL(wp) + 1,
-                W_ENDCOL(wp) + 1, bg_attr);
+        if (row_off < default_grid.Rows) {
+          ui_line(&default_grid, row_off, W_ENDCOL(wp), W_ENDCOL(wp) + 1,
+                  W_ENDCOL(wp) + 1, bg_attr);
+        }
       }
-    } else
-      default_grid.LineWraps[row] = false;
+    } else {
+      grid->LineWraps[row] = false;
+    }
   }
 
   if (clear_end < end_dirty) {
@@ -5915,6 +5918,8 @@ void win_grid_alloc(win_T *wp, int doclear)
       || grid->Rows != rows
       || grid->Columns != columns) {
     grid_alloc(grid, rows, columns, doclear);
+    win_free_lsize(wp);
+    win_alloc_lines(wp);
     was_resized = true;
   }
 
