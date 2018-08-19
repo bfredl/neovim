@@ -575,7 +575,9 @@ int emsg(const char_u *s_)
   }                           // wait_return has reset need_wait_return
                               // and a redraw is expected because
                               // msg_scrolled is non-zero
-  msg_set_ext_kind("emsg");
+  if (msg_ext_kind == NULL) {
+    msg_set_ext_kind("emsg");
+  }
 
   /*
    * Display name and line number for the source of the error.

@@ -19656,6 +19656,7 @@ void ex_execute(exarg_T *eap)
     } else if (eap->cmdidx == CMD_echoerr) {
       /* We don't want to abort following commands, restore did_emsg. */
       save_did_emsg = did_emsg;
+      msg_set_ext_kind("echoerr");
       EMSG((char_u *)ga.ga_data);
       if (!force_abort)
         did_emsg = save_did_emsg;
