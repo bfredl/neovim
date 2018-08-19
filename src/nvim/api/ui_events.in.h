@@ -121,6 +121,8 @@ void msg_clear(void)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 void msg_showcmd(Array content)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
+void msg_ruler(Array content)
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 
 // TODO(bfredl): for debugging, delete this:
 void MSG_DEBUG(Integer n_visible)

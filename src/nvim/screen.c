@@ -6980,8 +6980,16 @@ static void win_redr_ruler(win_T *wp, int always)
       }
       get_rel_pos(wp, buffer + i, RULER_BUF_LEN - i);
     }
-    /* Truncate at window boundary. */
-    if (has_mbyte) {
+
+    if (ui_is_external(kUIMessages)) {
+      Array content = ARRAY_DICT_INIT;
+      Array chunk = ARRAY_DICT_INIT;
+      ADD(chunk, INTEGER_OBJ(attr));
+      ADD(chunk, STRING_OBJ(cstr_to_string((char *)buffer)));
+      ADD(content, ARRAY_OBJ(chunk));
+      ui_call_msg_ruler(content);
+    } else {
+      // Truncate at window boundary.
       o = 0;
       for (i = 0; buffer[i] != NUL; i += (*mb_ptr2len)(buffer + i)) {
         o += (*mb_ptr2cells)(buffer + i);
@@ -6990,17 +6998,16 @@ static void win_redr_ruler(win_T *wp, int always)
           break;
         }
       }
-    } else if (this_ru_col + (int)STRLEN(buffer) > width)
-      buffer[width - this_ru_col] = NUL;
+      screen_puts(buffer, row, this_ru_col + off, attr);
+      i = redraw_cmdline;
+      screen_fill(row, row + 1,
+          this_ru_col + off + (int)STRLEN(buffer),
+          off + width,
+          fillchar, fillchar, attr);
+      // don't redraw the cmdline because of showing the ruler
+      redraw_cmdline = i;
+    }
 
-    screen_puts(buffer, row, this_ru_col + off, attr);
-    i = redraw_cmdline;
-    screen_fill(row, row + 1,
-        this_ru_col + off + (int)STRLEN(buffer),
-        off + width,
-        fillchar, fillchar, attr);
-    /* don't redraw the cmdline because of showing the ruler */
-    redraw_cmdline = i;
     wp->w_ru_cursor = wp->w_cursor;
     wp->w_ru_virtcol = wp->w_virtcol;
     wp->w_ru_empty = empty_line;
