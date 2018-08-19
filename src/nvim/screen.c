@@ -6349,6 +6349,9 @@ int showmode(void)
     msg_ext_clear(true);
   }
 
+  // don't make non-flushed message part of the showmode
+  msg_ext_ui_flush();
+
   do_mode = ((p_smd && msg_silent == 0)
              && ((State & TERM_FOCUS)
                  || (State & INSERT)
@@ -6376,8 +6379,6 @@ int showmode(void)
     if (clear_cmdline && cmdline_row < Rows - 1)
       msg_clr_cmdline();                        /* will reset clear_cmdline */
 
-    // Hint that the next msgraw/msgend is a showmode
-    msg_set_ext_kind("showmode");
     /* Position on the last line in the window, column 0 */
     msg_pos_mode();
     attr = HL_ATTR(HLF_CM);                     // Highlight mode
@@ -6485,7 +6486,6 @@ int showmode(void)
     if (need_clear || clear_cmdline)
       msg_clr_eos();
     msg_didout = FALSE;                 /* overwrite this message */
-    msg_ext_overwrite_next();
     length = msg_col;
     msg_col = 0;
     msg_no_more = false;
@@ -6495,6 +6495,9 @@ int showmode(void)
     // Clear the whole command line.  Will reset "clear_cmdline".
     msg_clr_cmdline();
   }
+
+  // NB: also handles clearing the showmode if it was emtpy or disabled
+  msg_ext_flush_showmode();
 
   /* In Visual mode the size of the selected area must be redrawn. */
   if (VIsual_active)
@@ -6537,15 +6540,13 @@ void unshowmode(bool force)
 // Clear the mode message.
 void clearmode(void)
 {
-  if (ui_is_external(kUIMessages)) {
-    msg_ext_clear(true);
-    return;
-  }
+  msg_ext_ui_flush();
   msg_pos_mode();
   if (Recording) {
     recording_mode(HL_ATTR(HLF_CM));
   }
   msg_clr_eos();
+  msg_ext_flush_showmode();
 }
 
 static void recording_mode(int attr)

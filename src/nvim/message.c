@@ -1097,7 +1097,9 @@ void msg_set_ext_kind(const char *msg_kind) {
 }
 
 void msg_ext_overwrite_next(void) {
-  msg_ext_overwrite = true;
+  if (msg_ext_visible) {
+    msg_ext_overwrite = true;
+  }
 }
 
 /*
@@ -1138,12 +1140,9 @@ void msg_start(void)
   }
 
   if (ui_is_external(kUIMessages)) {
-    if (msg_ext_didout) {
-      /// TODO(bfredl): maybe the check in msg_end is good enogh
-      msg_ext_ui_flush();
-    }
+    msg_ext_ui_flush();
     if (!msg_scroll) {
-      msg_ext_overwrite = true;
+      msg_ext_overwrite_next();
     }
   }
 
@@ -1705,7 +1704,8 @@ void msg_puts_attr_len(const char *const str, const ptrdiff_t len, int attr)
   // without scrolling
   bool overflow = false;
   if (ui_is_external(kUIMessages)) {
-    if (msg_ext_visible > 0 && !ui_is_external(kUIMsgNothrottle)) {
+    int count = msg_ext_visible + (msg_ext_overwrite ? 0 : 1);
+    if (count > 1 && !ui_is_external(kUIMsgNothrottle)) {
       overflow = true;
     }
   } else {
@@ -2645,9 +2645,6 @@ void msg_ext_ui_flush(void)
     //  msg_ext_visible = 0;
     //}
     msg_ext_didout = false;
-    if (msg_ext_visible == 0) {
-      msg_ext_overwrite = false;
-    }
     ui_call_msg_show(cstr_to_string(msg_ext_kind),
                      msg_ext_chunks, msg_ext_overwrite);
     if (!msg_ext_overwrite) {
@@ -2658,6 +2655,12 @@ void msg_ext_ui_flush(void)
     msg_ext_chunks = (Array)ARRAY_DICT_INIT;
     msg_ext_overwrite = false;
   }
+}
+
+void msg_ext_flush_showmode(void) {
+  ui_call_msg_showmode(msg_ext_chunks);
+  msg_ext_chunks = (Array)ARRAY_DICT_INIT;
+  msg_ext_didout = false;
 }
 
 void msg_ext_clear(bool force) {

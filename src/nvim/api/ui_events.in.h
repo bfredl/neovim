@@ -115,11 +115,13 @@ void wildmenu_select(Integer selected)
 void wildmenu_hide(void)
   FUNC_API_SINCE(3) FUNC_API_REMOTE_ONLY;
 
-void msg_show(String kind, Array chunks, Boolean keep_last)
+void msg_show(String kind, Array content, Boolean replace_last)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 void msg_clear(void)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 void msg_showcmd(Array content)
+  FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
+void msg_showmode(Array content)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
 void msg_ruler(Array content)
   FUNC_API_SINCE(5) FUNC_API_REMOTE_ONLY;
