@@ -76,6 +76,7 @@ local shallowcopy = global_helpers.shallowcopy
 local helpers = require('test.functional.helpers')(nil)
 local request, run, uimeths = helpers.request, helpers.run, helpers.uimeths
 local eq = helpers.eq
+local ok = helpers.ok
 local dedent = helpers.dedent
 
 local Screen = {}
@@ -146,6 +147,10 @@ function Screen.new(width, height)
     cmdline_block = {},
     wildmenu_items = nil,
     wildmenu_selected = nil,
+    messages = {},
+    showmode = {},
+    showcmd = {},
+    ruler = {},
     _default_attr_ids = nil,
     _default_attr_ignore = nil,
     _mouse_enabled = true,
@@ -247,7 +252,8 @@ function Screen:expect(expected, attr_ids, attr_ignore)
     assert(not (attr_ids ~= nil or attr_ignore ~= nil))
     local is_key = {grid=true, attr_ids=true, attr_ignore=true, condition=true,
                     any=true, mode=true, popupmenu=true, cmdline=true,
-                    cmdline_block=true, wildmenu_items=true, wildmenu_pos=true}
+                    cmdline_block=true, wildmenu_items=true, wildmenu_pos=true.
+                    messages=true, showmode=true, showcmd=true, ruler=true}
     for k, _ in pairs(expected) do
       if not is_key[k] then
         error("Screen:expect: Unknown keyword argument '"..k.."'")
@@ -340,10 +346,17 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
       end
     end
 
+    local function orempty(val)
+      if val == nil then
+        return {}
+      end
+      return val
+    end
+
+
     -- Extension features. The default expectations should cover the case of
     -- the ext_ feature being disabled, or the feature currently not activated
     -- (for instance no external cmdline visible)
-    local expected_cmdline = expected.cmdline or {}
     local actual_cmdline = {}
     for i, entry in pairs(self.cmdline) do
       entry = shallowcopy(entry)
@@ -351,19 +364,32 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
       actual_cmdline[i] = entry
     end
 
-    local expected_block = expected.cmdline_block or {}
     local actual_block = {}
     for i, entry in ipairs(self.cmdline_block) do
       actual_block[i] = self:_chunks_repr(entry, info, ignore)
     end
 
+    local actual_messages = {}
+    for i, entry in ipairs(self.messages) do
+      print(require'inspect'(entry.content))
+      actual_messages[i] = {kind=entry.kind, content=self:_chunks_repr(entry.content, info, ignore)}
+    end
+    local actual_showmode = self:_chunks_repr(self.showmode, info, ignore)
+    local actual_showcmd = self:_chunks_repr(self.showcmd, info, ignore)
+    local actual_ruler = self:_chunks_repr(self.ruler, info, ignore)
+
     -- convert assertion errors into invalid screen state descriptions
     local status, res = pcall(function()
       eq(expected.popupmenu, self.popupmenu, "popupmenu")
-      eq(expected_cmdline, actual_cmdline, "cmdline")
-      eq(expected_block, actual_block, "cmdline_block")
+      eq(orempty(expected.cmdline), actual_cmdline, "cmdline")
+      eq(orempty(expected.block), actual_block, "cmdline_block")
       eq(expected.wildmenu_items, self.wildmenu_items, "wildmenu_items")
       eq(expected.wildmenu_pos, self.wildmenu_pos, "wildmenu_pos")
+      eq(orempty(expected.messages), actual_messages, "messages")
+      eq(orempty(expected.showmode), actual_showmode, "showmode")
+      eq(orempty(expected.showcmd), actual_showcmd, "showcmd")
+      eq(orempty(expected.ruler), actual_ruler, "ruler")
+
       if expected.mode ~= nil then
         eq(expected.mode, self.mode, "mode")
       end
@@ -675,7 +701,7 @@ function Screen:_handle_option_set(name, value)
 end
 
 function Screen:_handle_popupmenu_show(items, selected, row, col)
-  self.popupmenu = {items=items,pos=selected, anchor={row, col}}
+  self.popupmenu = {items=items, pos=selected, anchor={row, col}}
 end
 
 function Screen:_handle_popupmenu_select(selected)
@@ -729,6 +755,34 @@ end
 
 function Screen:_handle_wildmenu_hide()
   self.wildmenu_items, self.wildmenu_pos = nil, nil
+end
+
+function Screen:_handle_msg_show(kind, chunks, replace_last)
+  local pos = #self.messages
+  if not replace_last or pos == 0 then
+    pos = pos + 1
+  end
+  self.messages[pos] = {kind=kind, content=chunks}
+end
+
+function Screen:_handle_msg_clear()
+  self.messages = {}
+end
+
+function Screen:_handle_MSG_DEBUG(...)
+  self._MSG_DEBUG = {...}
+end
+
+function Screen:_handle_msg_showcmd(msg)
+  self.showcmd = msg
+end
+
+function Screen:_handle_msg_showmode(msg)
+  self.showmode = msg
+end
+
+function Screen:_handle_msg_ruler(msg)
+  self.ruler = msg
 end
 
 function Screen:_clear_block(top, bot, left, right)

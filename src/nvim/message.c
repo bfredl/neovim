@@ -1775,8 +1775,8 @@ static void msg_puts_display(const char_u *str, int maxlen, int attr,
     msg_ext_didout = true;
     String text = cstrn_to_string((char *)(str),(size_t)maxlen);
     Array chunk = ARRAY_DICT_INIT;
-    ADD(chunk, STRING_OBJ(text));
     ADD(chunk, INTEGER_OBJ(attr));
+    ADD(chunk, STRING_OBJ(text));
     ADD(msg_ext_chunks, ARRAY_OBJ(chunk));
     return;
   }
