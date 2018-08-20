@@ -204,21 +204,11 @@ end)
 
 describe('ui/ext_wildmenu', function()
   local screen
-  local items, selected = nil, nil
 
   before_each(function()
     clear()
     screen = Screen.new(25, 5)
     screen:attach({rgb=true, ext_wildmenu=true})
-    screen:set_on_event_handler(function(name, data)
-      if name == "wildmenu_show" then
-        items = data[1]
-      elseif name == "wildmenu_select" then
-        selected = data[1]
-      elseif name == "wildmenu_hide" then
-        items, selected = nil, nil
-      end
-    end)
   end)
 
   after_each(function()
@@ -245,8 +235,8 @@ describe('ui/ext_wildmenu', function()
       ~                        |
       :sign define^             |
     ]], nil, nil, function()
-      eq(expected, items)
-      eq(0, selected)
+      eq(expected, screen.wildmenu_items)
+      eq(0, screen.wildmenu_pos)
     end)
 
     feed('<tab>')
@@ -257,8 +247,8 @@ describe('ui/ext_wildmenu', function()
       ~                        |
       :sign jump^               |
     ]], nil, nil, function()
-      eq(expected, items)
-      eq(1, selected)
+      eq(expected, screen.wildmenu_items)
+      eq(1, screen.wildmenu_pos)
     end)
 
     feed('<left><left>')
@@ -269,8 +259,8 @@ describe('ui/ext_wildmenu', function()
       ~                        |
       :sign ^                   |
     ]], nil, nil, function()
-      eq(expected, items)
-      eq(-1, selected)
+      eq(expected, screen.wildmenu_items)
+      eq(-1, screen.wildmenu_pos)
     end)
 
     feed('<right>')
@@ -281,8 +271,8 @@ describe('ui/ext_wildmenu', function()
       ~                        |
       :sign define^             |
     ]], nil, nil, function()
-      eq(expected, items)
-      eq(0, selected)
+      eq(expected, screen.wildmenu_items)
+      eq(0, screen.wildmenu_pos)
     end)
 
     feed('a')
@@ -293,8 +283,8 @@ describe('ui/ext_wildmenu', function()
       ~                        |
       :sign definea^            |
     ]], nil, nil, function()
-      eq(nil, items)
-      eq(nil, selected)
+      eq(nil, screen.wildmenu_items)
+      eq(nil, screen.wildmenu_pos)
     end)
   end)
 end)

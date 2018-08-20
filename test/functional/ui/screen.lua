@@ -71,9 +71,12 @@
 -- To help write screen tests, see Screen:snapshot_util().
 -- To debug screen tests, see Screen:redraw_debug().
 
+local global_helpers = require('test.helpers')
+local shallowcopy = global_helpers.shallowcopy
 local helpers = require('test.functional.helpers')(nil)
 local request, run, uimeths = helpers.request, helpers.run, helpers.uimeths
 local eq = helpers.eq
+local ok = helpers.ok
 local dedent = helpers.dedent
 
 local Screen = {}
@@ -139,6 +142,10 @@ function Screen.new(width, height)
     suspended = false,
     mode = 'normal',
     options = {},
+    cmdline = {},
+    cmdline_block = nil,
+    wildmenu_items = nil,
+    wildmenu_selected = nil,
     _default_attr_ids = nil,
     _default_attr_ignore = nil,
     _mouse_enabled = true,
@@ -195,6 +202,7 @@ end
 
 -- Asserts that `expected` eventually matches the screen state.
 --
+--
 -- expected:    Expected screen state (string). Each line represents a screen
 --              row. Last character of each row (typically "|") is stripped.
 --              Common indentation is stripped.
@@ -209,16 +217,36 @@ end
 -- any:         true: Succeed if `expected` matches ANY screen line(s).
 --              false (default): `expected` must match screen exactly.
 function Screen:expect(expected, attr_ids, attr_ignore, condition, any)
+  local grid = nil
   local expected_rows = {}
-  if type(expected) ~= "string" then
+  if type(expected) == "table" then
+    assert(not (attr_ids or attr_ignore or condition or any))
+    grid = expected.grid
+    condition = expected.condition
+    attr_ids = expected.attr_ids
+    attr_ignore = expected.attr_ignore
+    any = expected.any
+    assert(not (any ~= nil and grid ~= nil))
+  elseif type(expected) == "string" then
+    if any then
+      any = expected
+    else
+      grid = expected
+    end
+    expected = {}
+  elseif type(expected) == "function" then
     assert(not (attr_ids or attr_ignore or condition or any))
     condition = expected
-    expected = nil
+    expected = {}
   else
+    assert(false)
+  end
+
+  if grid ~= nil then
     -- Remove the last line and dedent. Note that gsub returns more then one
     -- value.
-    expected = dedent(expected:gsub('\n[ ]+$', ''), 0)
-    for row in expected:gmatch('[^\n]+') do
+    grid = dedent(grid:gsub('\n[ ]+$', ''), 0)
+    for row in grid:gmatch('[^\n]+') do
       row = row:sub(1, #row - 1) -- Last char must be the screen delimiter.
       table.insert(expected_rows, row)
     end
@@ -238,7 +266,7 @@ function Screen:expect(expected, attr_ids, attr_ignore, condition, any)
       end
     end
 
-    if expected and not any and self._height ~= #expected_rows then
+    if grid ~= nil and self._height ~= #expected_rows then
       return ("Expected screen state's row count(" .. #expected_rows
               .. ') differs from configured height(' .. self._height .. ') of Screen.')
     end
@@ -253,18 +281,18 @@ function Screen:expect(expected, attr_ids, attr_ignore, condition, any)
       actual_rows[i] = self:_row_repr(self._rows[i], info, ignore)
     end
 
-    if expected == nil then
-      return
-    elseif any then
-      -- Search for `expected` anywhere in the screen lines.
+    if any ~= nil then
+      -- Search for `any` anywhere in the screen lines.
       local actual_screen_str = table.concat(actual_rows, '\n')
-      if nil == string.find(actual_screen_str, expected) then
+      if nil == string.find(actual_screen_str, any) then
         return (
           'Failed to match any screen lines.\n'
-          .. 'Expected (anywhere): "' .. expected .. '"\n'
+          .. 'Expected (anywhere): "' .. any .. '"\n'
           .. 'Actual:\n  |' .. table.concat(actual_rows, '|\n  |') .. '|\n\n')
       end
-    else
+    end
+
+    if grid ~= nil then
       -- `expected` must match the screen lines exactly.
       for i = 1, self._height do
         if expected_rows[i] ~= actual_rows[i] then
@@ -284,8 +312,21 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
         end
       end
     end
+
+    local expected_cmdline = expected.cmdline or {}
+    local actual_cmdline = {}
+    for i, entry in ipairs(self.cmdline) do
+      entry = shallowcopy(entry)
+      entry.content = self:_chunks_repr(entry.content, info, ignore)
+      actual_cmdline[i] = entry
+    end
+    local status, res = pcall(eq, expected_cmdline, actual_cmdline, "cmdline")
+    if not status then
+      return tostring(res)
+    end
   end)
 end
+
 
 function Screen:wait(check, timeout)
   local err, checked = false
@@ -595,6 +636,78 @@ function Screen:_handle_option_set(name, value)
   self.options[name] = value
 end
 
+function Screen:_handle_cmdline_show(content, pos, firstc, prompt, indent, level)
+  ok(level > 0)
+  if firstc == '' then firstc = nil end
+  if prompt == '' then prompt = nil end
+  if indent == 0 then indent = nil end
+  self.cmdline[level] = {content=content, pos=pos, firstc=firstc,
+                         prompt=prompt, indent=indent}
+end
+
+function Screen:_handle_cmdline_hide(level)
+  self.cmdline[level] = nil
+end
+
+function Screen:_handle_cmdline_special_char(char, shift, level)
+  -- cleared by next cmdline_show on the same level
+  self.cmdline[level].special = {char, shift}
+end
+
+function Screen:_handle_cmdline_pos(pos, level)
+  self.cmdline[level].pos = pos
+end
+
+function Screen:_handle_cmdline_block_show(block)
+  self.cmdline_block = block
+end
+
+function Screen:_handle_cmdline_block_show(block)
+  self.cmdline_block = block
+end
+
+function Screen:_handle_cmdline_block_append(item)
+  self.cmdline_block[#self.cmdline_block+1] = item
+end
+
+function Screen:_handle_cmdline_block_hide()
+  self.cmdline_block = nil
+end
+
+function Screen:_handle_wildmenu_show(items)
+  self.wildmenu_items = items
+end
+
+function Screen:_handle_wildmenu_select(pos)
+  self.wildmenu_pos = pos
+end
+
+function Screen:_handle_wildmenu_hide()
+  self.wildmenu_items, self.wildmenu_pos = nil, nil
+end
+
+-- TODO(bfredl): this implictly asserts against unexpected message types
+-- but is a bit ad-hoc and messy (wildmenu_pos is not a "message" really)
+-- we could have screen:expect{grid=..., cmdline=...} which implicitly asserts
+-- the keys not mentioned are empty
+function Screen:messages()
+  local function nonempty(val)
+    return (val ~= nil and #val > 0) and val or nil
+  end
+  messages = {
+    cmdline=nonempty(self.cmdline),
+    showmode=nonempty(self.showmode),
+    showcmd=nonempty(self.showcmd),
+    ruler=nonempty(self.ruler),
+    wildmenu_items=self.wildmenu_items,
+    wildmenu_pos=self.wildmenu_pos
+  }
+  for i, msg in ipairs(self._messages) do
+    messages[i] = msg
+  end
+  return messages
+end
+
 function Screen:_clear_block(top, bot, left, right)
   for i = top, bot do
     self:_clear_row_section(i, left, right)
@@ -643,6 +756,16 @@ function Screen:_row_repr(row, attr_ids, attr_ignore)
   return table.concat(rv, '')--:gsub('%s+$', '')
 end
 
+function Screen:_chunks_repr(chunks, attr_ids, attr_ignore)
+  local repr_chunks = {}
+  for i, chunk in ipairs(chunks) do
+    hl, text = unpack(chunk)
+    local attrs = self._attr_table[hl][1]
+    local attr_id = self:_get_attr_id(attr_ids, attr_ignore, attrs, hl)
+    repr_chunks[i] = {text, attr_id}
+  end
+  return repr_chunks
+end
 
 function Screen:_current_screen()
   -- get a string that represents the current screen state(debugging helper)

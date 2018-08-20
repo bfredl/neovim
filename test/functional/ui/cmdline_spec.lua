@@ -7,15 +7,9 @@ local command = helpers.command
 
 describe('external cmdline', function()
   local screen
-  local last_level = 0
-  local cmdline = {}
-  local block = nil
-  local wild_items = nil
-  local wild_selected = nil
 
   before_each(function()
     clear()
-    cmdline, block = {}, nil
     screen = Screen.new(25, 5)
     screen:attach({rgb=true, ext_cmdline=true})
     screen:set_default_attr_ids({
@@ -25,80 +19,25 @@ describe('external cmdline', function()
       [4] = {foreground = Screen.colors.Grey100, background = Screen.colors.Red},
       [5] = {bold = true, foreground = Screen.colors.SeaGreen4},
     })
-    screen:set_on_event_handler(function(name, data)
-      if name == "cmdline_show" then
-        local content, pos, firstc, prompt, indent, level = unpack(data)
-        ok(level > 0)
-        for _,item in ipairs(content) do
-          item[1] = screen:get_hl(item[1])
-        end
-        cmdline[level] = {content=content, pos=pos, firstc=firstc,
-                          prompt=prompt, indent=indent}
-        last_level = level
-      elseif name == "cmdline_hide" then
-        local level = data[1]
-        cmdline[level] = nil
-      elseif name == "cmdline_special_char" then
-        local char, shift, level = unpack(data)
-        cmdline[level].special = {char, shift}
-      elseif name == "cmdline_pos" then
-        local pos, level = unpack(data)
-        cmdline[level].pos = pos
-      elseif name == "cmdline_block_show" then
-        block = data[1]
-      elseif name == "cmdline_block_append" then
-        block[#block+1] = data[1]
-      elseif name == "cmdline_block_hide" then
-        block = nil
-      elseif name == "wildmenu_show" then
-        wild_items = data[1]
-      elseif name == "wildmenu_select" then
-        wild_selected = data[1]
-      elseif name == "wildmenu_hide" then
-        wild_items, wild_selected = nil, nil
-      end
-    end)
   end)
 
   after_each(function()
     screen:detach()
   end)
 
-  local function expect_cmdline(level, expected)
-    local attr_ids = screen._default_attr_ids
-    local attr_ignore = screen._default_attr_ignore
-    local actual = ''
-    for _, chunk in ipairs(cmdline[level] and cmdline[level].content or {}) do
-      local attrs, text = chunk[1], chunk[2]
-      if screen:_equal_attrs(attrs, {}) then
-        actual = actual..text
-      else
-        local attr_id = screen:_get_attr_id(attr_ids, attr_ignore, attrs)
-        actual =  actual..'{' .. attr_id .. ':' .. text .. '}'
-      end
-    end
-    eq(expected, actual)
-  end
-
   it('works', function()
     feed(':')
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq(1, last_level)
-      --print(require('inspect')(cmdline))
-      eq({{
-        content = { { {}, "" } },
-        firstc = ":",
-        indent = 0,
-        pos = 0,
-        prompt = ""
-      }}, cmdline)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{""}},
+      pos = 0,
+    }}}
 
     feed('sign')
     screen:expect([[
@@ -114,7 +53,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 4,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed('<Left>')
@@ -131,7 +70,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 3,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed('<bs>')
@@ -148,7 +87,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 2,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed('<Esc>')
@@ -159,7 +98,7 @@ describe('external cmdline', function()
       {1:~                        }|
                                |
     ]], nil, nil, function()
-      eq({}, cmdline)
+      eq({}, screen.cmdline)
     end)
   end)
 
@@ -184,7 +123,7 @@ describe('external cmdline', function()
           indent = 0,
           pos = 0,
           prompt = ""
-        }}, cmdline)
+        }}, screen.cmdline)
       end)
     end)
 
@@ -262,7 +201,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 7,
         prompt = "input"
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
     feed('<cr>')
     screen:expect([[
@@ -272,7 +211,7 @@ describe('external cmdline', function()
       {1:~                        }|
                                |
     ]], nil, nil, function()
-      eq({}, cmdline)
+      eq({}, screen.cmdline)
     end)
 
   end)
@@ -293,7 +232,7 @@ describe('external cmdline', function()
         pos = 2,
         prompt = "",
         special = {'"', true},
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed('=')
@@ -317,7 +256,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 0,
         prompt = "",
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed('1+2')
@@ -346,11 +285,11 @@ describe('external cmdline', function()
       {1:~                        }|
                                |
     ]], nil, nil, function()
-      eq(expectation, cmdline)
+      eq(expectation, screen.cmdline)
     end)
 
     -- erase information, so we check if it is retransmitted
-    cmdline = {}
+    screen.cmdline = {}
     command("redraw!")
     -- redraw! forgets cursor position. Be OK with that, as UI should indicate
     -- focus is at external cmdline anyway.
@@ -361,7 +300,7 @@ describe('external cmdline', function()
       {1:~                        }|
                                |
     ]], nil, nil, function()
-      eq(expectation, cmdline)
+      eq(expectation, screen.cmdline)
     end)
 
 
@@ -379,7 +318,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 3,
         prompt = "",
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed('<esc>')
@@ -390,7 +329,7 @@ describe('external cmdline', function()
       {1:~                        }|
                                |
     ]], nil, nil, function()
-      eq({}, cmdline)
+      eq({}, screen.cmdline)
     end)
   end)
 
@@ -409,8 +348,8 @@ describe('external cmdline', function()
         indent = 2,
         pos = 0,
         prompt = "",
-      }}, cmdline)
-      eq({ { { {}, 'function Foo()'} } }, block)
+      }}, screen.cmdline)
+      eq({ { { {}, 'function Foo()'} } }, screen.cmdline_block)
     end)
 
     feed('line1<cr>')
@@ -422,10 +361,10 @@ describe('external cmdline', function()
                                |
     ]], nil, nil, function()
       eq({ { { {}, 'function Foo()'} },
-           { { {}, '  line1'} } }, block)
+           { { {}, '  line1'} } }, screen.cmdline_block)
     end)
 
-    block = {}
+    screen.cmdline_block = {}
     command("redraw!")
     screen:expect([[
       ^                         |
@@ -435,7 +374,7 @@ describe('external cmdline', function()
                                |
     ]], nil, nil, function()
       eq({ { { {}, 'function Foo()'} },
-           { { {}, '  line1'} } }, block)
+           { { {}, '  line1'} } }, screen.cmdline_block)
     end)
 
     feed('endfunction<cr>')
@@ -446,7 +385,7 @@ describe('external cmdline', function()
       {1:~                        }|
                                |
     ]], nil, nil, function()
-      eq(nil, block)
+      eq(nil, screen.cmdline_block)
     end)
 
     -- Try once more, to check buffer is reinitialized. #8007
@@ -464,8 +403,8 @@ describe('external cmdline', function()
         indent = 2,
         pos = 0,
         prompt = "",
-      }}, cmdline)
-      eq({ { { {}, 'function Bar()'} } }, block)
+      }}, screen.cmdline)
+      eq({ { { {}, 'function Bar()'} } }, screen.cmdline_block)
     end)
 
     feed('endfunction<cr>')
@@ -476,7 +415,7 @@ describe('external cmdline', function()
       {1:~                        }|
                                |
     ]], nil, nil, function()
-      eq(nil, block)
+      eq(nil, screen.cmdline_block)
     end)
   end)
 
@@ -495,7 +434,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 4,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed('<c-f>')
@@ -506,7 +445,7 @@ describe('external cmdline', function()
       {3:[Command Line]           }|
                                |
     ]], nil, nil, function()
-      eq({}, cmdline)
+      eq({}, screen.cmdline)
     end)
 
     -- nested cmdline
@@ -524,10 +463,10 @@ describe('external cmdline', function()
         indent = 0,
         pos = 4,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
-    cmdline = {}
+    screen.cmdline = {}
     command("redraw!")
     screen:expect([[
                                |
@@ -542,7 +481,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 4,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
     feed("<c-c>")
@@ -553,7 +492,7 @@ describe('external cmdline', function()
       {3:[Command Line]           }|
                                |
     ]], nil, nil, function()
-      eq({}, cmdline)
+      eq({}, screen.cmdline)
     end)
 
     feed("<c-c>")
@@ -570,10 +509,10 @@ describe('external cmdline', function()
         indent = 0,
         pos = 4,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
 
-    cmdline = {}
+    screen.cmdline = {}
     command("redraw!")
     screen:expect([[
       ^                         |
@@ -588,7 +527,7 @@ describe('external cmdline', function()
         indent = 0,
         pos = 4,
         prompt = ""
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
   end)
 
@@ -607,11 +546,11 @@ describe('external cmdline', function()
         indent = 0,
         pos = 6,
         prompt = "secret:"
-      }}, cmdline)
+      }}, screen.cmdline)
     end)
   end)
 
-  it('works with highlighted cmdline', function()
+  it('works with highlighted cmdline #thetest', function()
     source([[
       highlight RBP1 guibg=Red
       highlight RBP2 guibg=Yellow
@@ -648,15 +587,19 @@ describe('external cmdline', function()
       PE={bold = true, foreground = Screen.colors.SeaGreen4}
     })
     feed('<f5>(a(b)a)')
-    screen:expect([[
+    screen:sleep(50)
+    screen:expect{grid=[[
       ^                         |
       {EOB:~                        }|
       {EOB:~                        }|
       {EOB:~                        }|
                                |
-    ]], nil, nil, function()
-      expect_cmdline(1, '{RBP1:(}a{RBP2:(}b{RBP2:)}a{RBP1:)}')
-    end)
+    ]], cmdline={{
+      prompt = '>',
+      content = {{'(e', 'RBP1'}, {'a'}, {'(', 'RBP2'}, {'b'},
+                 { ')', 'RBP2'}, {'a'}, {')', 'RBP1'}},
+      pos = 7,
+    }}}
   end)
 
   it('works together with ext_wildmenu', function()
@@ -687,9 +630,9 @@ describe('external cmdline', function()
         indent = 0,
         pos = 11,
         prompt = ""
-      }}, cmdline)
-      eq(expected, wild_items)
-      eq(0, wild_selected)
+      }}, screen.cmdline)
+      eq(expected, screen.wildmenu_items)
+      eq(0, screen.wildmenu_pos)
     end)
 
     feed('<tab>')
@@ -706,9 +649,9 @@ describe('external cmdline', function()
         indent = 0,
         pos = 9,
         prompt = ""
-      }}, cmdline)
-      eq(expected, wild_items)
-      eq(1, wild_selected)
+      }}, screen.cmdline)
+      eq(expected, screen.wildmenu_items)
+      eq(1, screen.wildmenu_pos)
     end)
 
     feed('<left><left>')
@@ -725,9 +668,9 @@ describe('external cmdline', function()
         indent = 0,
         pos = 5,
         prompt = ""
-      }}, cmdline)
-      eq(expected, wild_items)
-      eq(-1, wild_selected)
+      }}, screen.cmdline)
+      eq(expected, screen.wildmenu_items)
+      eq(-1, screen.wildmenu_pos)
     end)
 
     feed('<right>')
@@ -744,9 +687,9 @@ describe('external cmdline', function()
         indent = 0,
         pos = 11,
         prompt = ""
-      }}, cmdline)
-      eq(expected, wild_items)
-      eq(0, wild_selected)
+      }}, screen.cmdline)
+      eq(expected, screen.wildmenu_items)
+      eq(0, screen.wildmenu_pos)
     end)
 
     feed('a')
@@ -763,9 +706,9 @@ describe('external cmdline', function()
         indent = 0,
         pos = 12,
         prompt = ""
-      }}, cmdline)
-      eq(nil, wild_items)
-      eq(nil, wild_selected)
+      }}, screen.cmdline)
+      eq(nil, screen.wildmenu_items)
+      eq(nil, screen.wildmenu_pos)
     end)
   end)
 end)
