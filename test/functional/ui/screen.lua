@@ -143,7 +143,7 @@ function Screen.new(width, height)
     mode = 'normal',
     options = {},
     cmdline = {},
-    cmdline_block = nil,
+    cmdline_block = {},
     wildmenu_items = nil,
     wildmenu_selected = nil,
     _default_attr_ids = nil,
@@ -316,7 +316,7 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
 
     local expected_cmdline = expected.cmdline or {}
     local actual_cmdline = {}
-    for i, entry in ipairs(self.cmdline) do
+    for i, entry in pairs(self.cmdline) do
       entry = shallowcopy(entry)
       entry.content = self:_chunks_repr(entry.content, info, ignore)
       actual_cmdline[i] = entry
@@ -325,6 +325,17 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
     if not status then
       return tostring(res)
     end
+
+    local expected_block = expected.cmdline_block or {}
+    local actual_block = {}
+    for i, entry in ipairs(self.cmdline_block) do
+      actual_block[i] = self:_chunks_repr(entry, info, ignore)
+    end
+    local status, res = pcall(eq, expected_block, actual_block, "cmdline_block")
+    if not status then
+      return tostring(res)
+    end
+
   end)
 end
 
@@ -663,16 +674,12 @@ function Screen:_handle_cmdline_block_show(block)
   self.cmdline_block = block
 end
 
-function Screen:_handle_cmdline_block_show(block)
-  self.cmdline_block = block
-end
-
 function Screen:_handle_cmdline_block_append(item)
   self.cmdline_block[#self.cmdline_block+1] = item
 end
 
 function Screen:_handle_cmdline_block_hide()
-  self.cmdline_block = nil
+  self.cmdline_block = {}
 end
 
 function Screen:_handle_wildmenu_show(items)
