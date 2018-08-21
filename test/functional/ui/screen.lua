@@ -229,6 +229,7 @@ function Screen:expect(expected, attr_ids, attr_ignore, condition, any)
     assert(not (any ~= nil and grid ~= nil))
   elseif type(expected) == "string" then
     if any then
+      assert(false)
       any = expected
     else
       grid = expected

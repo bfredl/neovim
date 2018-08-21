@@ -61,7 +61,7 @@ describe("shell command :!", function()
       ":!for i in $(seq 2 3000); do echo XXXXXXXXXX $i; done\n")
 
     -- If we observe any line starting with a dot, then throttling occurred.
-    screen:expect("\n.", nil, nil, nil, true)
+    screen:expect{any="\n."}
 
     -- Final chunk of output should always be displayed, never skipped.
     -- (Throttling is non-deterministic, this test is merely a sanity check.)
