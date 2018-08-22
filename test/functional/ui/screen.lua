@@ -228,6 +228,7 @@ function Screen:expect(expected, attr_ids, attr_ignore, condition, any)
     any = expected.any
     assert(not (any ~= nil and grid ~= nil))
   elseif type(expected) == "string" then
+    assert(condition == nil)
     if any then
       assert(false)
       any = expected
@@ -339,6 +340,9 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
       eq(expected_block, actual_block, "cmdline_block")
       eq(expected.wildmenu_items, self.wildmenu_items, "wildmenu_items")
       eq(expected.wildmenu_pos, self.wildmenu_pos, "wildmenu_pos")
+      if expected.mode ~= nil then
+        eq(expected.mode, self.mode, "mode")
+      end
     end)
     if not status then
       return tostring(res)
