@@ -875,6 +875,7 @@ describe('completion', function()
   end)
 end)
 
+-- MOVE TO ui/popupmenu_spec.lua !!
 describe('ui/ext_popupmenu', function()
   local screen
   local items, selected, anchor
