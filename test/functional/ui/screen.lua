@@ -314,6 +314,11 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
       end
     end
 
+
+    -- Extension features. The default expectations should cover the case of
+    -- the ext_ feature being disabled, or the feature currently not activated
+    -- (for instance no external cmdline visible)
+
     local expected_cmdline = expected.cmdline or {}
     local actual_cmdline = {}
     for i, entry in pairs(self.cmdline) do
@@ -321,21 +326,23 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
       entry.content = self:_chunks_repr(entry.content, info, ignore)
       actual_cmdline[i] = entry
     end
-    local status, res = pcall(eq, expected_cmdline, actual_cmdline, "cmdline")
-    if not status then
-      return tostring(res)
-    end
 
     local expected_block = expected.cmdline_block or {}
     local actual_block = {}
     for i, entry in ipairs(self.cmdline_block) do
       actual_block[i] = self:_chunks_repr(entry, info, ignore)
     end
-    local status, res = pcall(eq, expected_block, actual_block, "cmdline_block")
+
+    -- convert assertion errors into invalid screen state descriptions
+    local status, res = pcall(function()
+      eq(expected_cmdline, actual_cmdline, "cmdline")
+      eq(expected_block, actual_block, "cmdline_block")
+      eq(expected.wildmenu_items, self.wildmenu_items, "wildmenu_items")
+      eq(expected.wildmenu_pos, self.wildmenu_pos, "wildmenu_pos")
+    end)
     if not status then
       return tostring(res)
     end
-
   end)
 end
 

@@ -228,63 +228,48 @@ describe('ui/ext_wildmenu', function()
     command('set wildmode=full')
     command('set wildmenu')
     feed(':sign <tab>')
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       ~                        |
       ~                        |
       ~                        |
       :sign define^             |
-    ]], nil, nil, function()
-      eq(expected, screen.wildmenu_items)
-      eq(0, screen.wildmenu_pos)
-    end)
+    ]], wildmenu_items=expected, wildmenu_pos=0}
 
     feed('<tab>')
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       ~                        |
       ~                        |
       ~                        |
       :sign jump^               |
-    ]], nil, nil, function()
-      eq(expected, screen.wildmenu_items)
-      eq(1, screen.wildmenu_pos)
-    end)
+    ]], wildmenu_items=expected, wildmenu_pos=1}
 
     feed('<left><left>')
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       ~                        |
       ~                        |
       ~                        |
       :sign ^                   |
-    ]], nil, nil, function()
-      eq(expected, screen.wildmenu_items)
-      eq(-1, screen.wildmenu_pos)
-    end)
+    ]], wildmenu_items=expected, wildmenu_pos=-1}
 
     feed('<right>')
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       ~                        |
       ~                        |
       ~                        |
       :sign define^             |
-    ]], nil, nil, function()
-      eq(expected, screen.wildmenu_items)
-      eq(0, screen.wildmenu_pos)
-    end)
+    ]], wildmenu_items=expected, wildmenu_pos=0}
 
     feed('a')
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       ~                        |
       ~                        |
       ~                        |
       :sign definea^            |
-    ]], nil, nil, function()
-      eq(nil, screen.wildmenu_items)
-      eq(nil, screen.wildmenu_pos)
-    end)
+    ]]}
   end)
 end)

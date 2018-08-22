@@ -381,136 +381,108 @@ describe('external cmdline', function()
 
   it("works with cmdline window", function()
     feed(':make')
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "make" } },
-        firstc = ":",
-        indent = 0,
-        pos = 4,
-        prompt = ""
-      }}, screen.cmdline)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"make"}},
+      pos = 4,
+    }}}
 
     feed('<c-f>')
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       {2:[No Name]                }|
       {1::}make^                    |
       {3:[Command Line]           }|
                                |
-    ]], nil, nil, function()
-      eq({}, screen.cmdline)
-    end)
+    ]]}
 
     -- nested cmdline
     feed(':yank')
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       {2:[No Name]                }|
       {1::}make^                    |
       {3:[Command Line]           }|
                                |
-    ]], nil, nil, function()
-      eq({nil, {
-        content = { { {}, "yank" } },
-        firstc = ":",
-        indent = 0,
-        pos = 4,
-        prompt = ""
-      }}, screen.cmdline)
-    end)
+    ]], cmdline={nil, {
+      firstc = ":",
+      content = {{"yank"}},
+      pos = 4,
+    }}}
 
     screen.cmdline = {}
     command("redraw!")
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       {2:[No Name]                }|
       {1::}make^                    |
       {3:[Command Line]           }|
                                |
-    ]], nil, nil, function()
-      eq({nil, {
-        content = { { {}, "yank" } },
-        firstc = ":",
-        indent = 0,
-        pos = 4,
-        prompt = ""
-      }}, screen.cmdline)
-    end)
+    ]], cmdline={nil, {
+      firstc = ":",
+      content = {{"yank"}},
+      pos = 4,
+    }}}
 
     feed("<c-c>")
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       {2:[No Name]                }|
       {1::}make^                    |
       {3:[Command Line]           }|
                                |
-    ]], nil, nil, function()
-      eq({}, screen.cmdline)
-    end)
+    ]]}
 
     feed("<c-c>")
-    screen:expect([[
+    screen:expect{grid=[[
                                |
       {2:[No Name]                }|
       {1::}make^                    |
       {3:[Command Line]           }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "make" } },
-        firstc = ":",
-        indent = 0,
-        pos = 4,
-        prompt = ""
-      }}, screen.cmdline)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"make"}},
+      pos = 4,
+    }}}
 
     screen.cmdline = {}
     command("redraw!")
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "make" } },
-        firstc = ":",
-        indent = 0,
-        pos = 4,
-        prompt = ""
-      }}, screen.cmdline)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"make"}},
+      pos = 4,
+    }}}
   end)
 
   it('works with inputsecret()', function()
     feed(":call inputsecret('secret:')<cr>abc123")
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "******" } },
-        firstc = "",
-        indent = 0,
-        pos = 6,
-        prompt = "secret:"
-      }}, screen.cmdline)
-    end)
+    ]], cmdline={{
+      prompt = "secret:",
+      content = {{"******"}},
+      pos = 6,
+    }}}
   end)
 
-  it('works with highlighted cmdline #thetest', function()
+  it('works with highlighted cmdline', function()
     source([[
       highlight RBP1 guibg=Red
       highlight RBP2 guibg=Yellow
@@ -547,7 +519,6 @@ describe('external cmdline', function()
       PE={bold = true, foreground = Screen.colors.SeaGreen4}
     })
     feed('<f5>(a(b)a)')
-    screen:sleep(50)
     screen:expect{grid=[[
       ^                         |
       {EOB:~                        }|
@@ -556,7 +527,7 @@ describe('external cmdline', function()
                                |
     ]], cmdline={{
       prompt = '>',
-      content = {{'(e', 'RBP1'}, {'a'}, {'(', 'RBP2'}, {'b'},
+      content = {{'(', 'RBP1'}, {'a'}, {'(', 'RBP2'}, {'b'},
                  { ')', 'RBP2'}, {'a'}, {')', 'RBP1'}},
       pos = 7,
     }}}
@@ -577,98 +548,68 @@ describe('external cmdline', function()
     screen:set_option('ext_wildmenu', true)
     feed(':sign <tab>')
 
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "sign define"} },
-        firstc = ":",
-        indent = 0,
-        pos = 11,
-        prompt = ""
-      }}, screen.cmdline)
-      eq(expected, screen.wildmenu_items)
-      eq(0, screen.wildmenu_pos)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"sign define"}},
+      pos = 11,
+    }}, wildmenu_items=expected, wildmenu_pos=0}
 
     feed('<tab>')
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "sign jump"} },
-        firstc = ":",
-        indent = 0,
-        pos = 9,
-        prompt = ""
-      }}, screen.cmdline)
-      eq(expected, screen.wildmenu_items)
-      eq(1, screen.wildmenu_pos)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"sign jump"}},
+      pos = 9,
+    }}, wildmenu_items=expected, wildmenu_pos=1}
 
     feed('<left><left>')
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "sign "} },
-        firstc = ":",
-        indent = 0,
-        pos = 5,
-        prompt = ""
-      }}, screen.cmdline)
-      eq(expected, screen.wildmenu_items)
-      eq(-1, screen.wildmenu_pos)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"sign "}},
+      pos = 5,
+    }}, wildmenu_items=expected, wildmenu_pos=-1}
 
     feed('<right>')
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "sign define"} },
-        firstc = ":",
-        indent = 0,
-        pos = 11,
-        prompt = ""
-      }}, screen.cmdline)
-      eq(expected, screen.wildmenu_items)
-      eq(0, screen.wildmenu_pos)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"sign define"}},
+      pos = 11,
+    }}, wildmenu_items=expected, wildmenu_pos=0}
 
     feed('a')
-    screen:expect([[
+    screen:expect{grid=[[
       ^                         |
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
                                |
-    ]], nil, nil, function()
-      eq({{
-        content = { { {}, "sign definea"} },
-        firstc = ":",
-        indent = 0,
-        pos = 12,
-        prompt = ""
-      }}, screen.cmdline)
-      eq(nil, screen.wildmenu_items)
-      eq(nil, screen.wildmenu_pos)
-    end)
+    ]], cmdline={{
+      firstc = ":",
+      content = {{"sign definea"}},
+      pos = 12,
+    }}}
   end)
 end)
