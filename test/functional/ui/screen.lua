@@ -142,6 +142,7 @@ function Screen.new(width, height)
     suspended = false,
     mode = 'normal',
     options = {},
+    popupmenu = nil,
     cmdline = {},
     cmdline_block = {},
     wildmenu_items = nil,
@@ -336,6 +337,7 @@ screen:redraw_debug() to show all intermediate screen states.  ]])
 
     -- convert assertion errors into invalid screen state descriptions
     local status, res = pcall(function()
+      eq(expected.popupmenu, self.popupmenu, "popupmenu")
       eq(expected_cmdline, actual_cmdline, "cmdline")
       eq(expected_block, actual_block, "cmdline_block")
       eq(expected.wildmenu_items, self.wildmenu_items, "wildmenu_items")
@@ -657,6 +659,18 @@ end
 
 function Screen:_handle_option_set(name, value)
   self.options[name] = value
+end
+
+function Screen:_handle_popupmenu_show(items, selected, row, col)
+  self.popupmenu = {items=items,pos=selected, anchor={row, col}}
+end
+
+function Screen:_handle_popupmenu_select(selected)
+  self.popupmenu.pos = selected
+end
+
+function Screen:_handle_popupmenu_hide()
+  self.popupmenu = nil
 end
 
 function Screen:_handle_cmdline_show(content, pos, firstc, prompt, indent, level)
