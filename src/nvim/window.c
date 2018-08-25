@@ -3962,7 +3962,7 @@ void win_free_grid(win_T *wp, bool reinit)
     ui_call_grid_destroy(wp->w_grid.handle);
     wp->w_grid.handle = 0;
   }
-  free_screengrid(&wp->w_grid);
+  grid_free(&wp->w_grid);
   if (reinit) {
     // if a float is turned into a split and back into a float, the grid
     // data structure will be reused
