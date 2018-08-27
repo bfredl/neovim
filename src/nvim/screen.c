@@ -5279,17 +5279,19 @@ bool grid_lefthalve(ScreenGrid *grid, int row, int col)
 /// char move it to the left half.  Returns the corrected column.
 int grid_fix_col(ScreenGrid *grid, int col, int row)
 {
+  int coloff = 0;
   if (!ui_is_external(kUIMultigrid)) {
     row += grid->OffsetRow;
-    col += grid->OffsetColumn;
+    coloff = grid->OffsetColumn;
     grid = &default_grid;
   }
 
+  col += coloff;
   if (grid->ScreenLines != NULL && col > 0
       && grid->ScreenLines[grid->LineOffset[row] + col][0] == 0) {
-    return col - 1 - grid->OffsetColumn;
+    return col - 1 - coloff;
   }
-  return col - grid->OffsetColumn;
+  return col - coloff;
 }
 
 /// output a single character directly to the grid and update ScreenLines.
