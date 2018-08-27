@@ -5265,6 +5265,12 @@ static int grid_off2cells(ScreenGrid *grid, size_t off, size_t max_off)
 /// Caller must make sure "row" and "col" are not invalid!
 bool grid_lefthalve(ScreenGrid *grid, int row, int col)
 {
+  if (!ui_is_external(kUIMultigrid)) {
+    row += grid->OffsetRow;
+    col += grid->OffsetColumn;
+    grid = &default_grid;
+  }
+
   return grid_off2cells(grid, grid->LineOffset[row] + col,
                         grid->LineOffset[row] + grid->Columns) > 1;
 }
