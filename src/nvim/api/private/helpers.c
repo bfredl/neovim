@@ -749,6 +749,16 @@ String cstr_as_string(char *str) FUNC_ATTR_PURE
   return (String){ .data = str, .size = strlen(str) };
 }
 
+String ga_take_string(garray_T *ga) {
+  String str = {.data = ga->ga_data, .size = ga->ga_len};
+  ga->ga_data = NULL;
+  ga->ga_len = 0;
+  ga->ga_maxlen = 0;
+  return str;
+}
+
+
+
 /// Collects `n` buffer lines into array `l`, optionally replacing newlines
 /// with NUL.
 ///

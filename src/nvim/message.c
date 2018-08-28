@@ -112,9 +112,10 @@ static int verbose_did_open = FALSE;
 
 // kUIMessages has an unfinished line
 // msg_didout is too noisy, so use our own
-static bool msg_ext_didout = false;
 static const char *msg_ext_kind = NULL;
 static Array msg_ext_chunks = ARRAY_DICT_INIT;
+static garray_T msg_ext_last_chunk = GA_INIT(sizeof(char),40);
+static sattr_T msg_ext_last_attr = -1;
 static bool msg_ext_overwrite = false;
 static int msg_ext_visible = 0;
 static bool msg_ext_keep = false;
@@ -1752,6 +1753,19 @@ void msg_printf_attr(const int attr, const char *const fmt, ...)
   msg_puts_attr_len(msgbuf, (ptrdiff_t)len, attr);
 }
 
+static void msg_ext_emit_chunk(void) {
+  if (msg_ext_last_attr == -1) {
+    return; // no chunk
+  }
+  Array chunk = ARRAY_DICT_INIT;
+  ADD(chunk, INTEGER_OBJ(msg_ext_last_attr));
+  msg_ext_last_attr = -1;
+  String text = ga_take_string(&msg_ext_last_chunk);
+  ADD(chunk, STRING_OBJ(text));
+  ADD(msg_ext_chunks, ARRAY_OBJ(chunk));
+}
+
+
 /*
  * The display part of msg_puts_attr_len().
  * May be called recursively to display scroll-back text.
@@ -1772,12 +1786,11 @@ static void msg_puts_display(const char_u *str, int maxlen, int attr,
   did_wait_return = false;
 
   if (ui_is_external(kUIMessages)) {
-    msg_ext_didout = true;
-    String text = cstrn_to_string((char *)(str),(size_t)maxlen);
-    Array chunk = ARRAY_DICT_INIT;
-    ADD(chunk, INTEGER_OBJ(attr));
-    ADD(chunk, STRING_OBJ(text));
-    ADD(msg_ext_chunks, ARRAY_OBJ(chunk));
+    if (attr != msg_ext_last_attr) {
+      msg_ext_emit_chunk();
+      msg_ext_last_attr = attr;
+    }
+    ga_concat_len(&msg_ext_last_chunk, str, maxlen);
     return;
   }
 
@@ -2641,12 +2654,13 @@ void msg_ext_ui_flush(void)
   if (!ui_is_external(kUIMessages)) {
     return;
   }
-  if (msg_ext_didout) {
+
+  msg_ext_emit_chunk();
+  if (msg_ext_chunks.size > 0) {
     // TODO(bfredl): not here!!
     //if (msg_ext_clear_pending) {
     //  msg_ext_visible = 0;
     //}
-    msg_ext_didout = false;
     ui_call_msg_show(cstr_to_string(msg_ext_kind),
                      msg_ext_chunks, msg_ext_overwrite);
     if (!msg_ext_overwrite) {
@@ -2660,9 +2674,9 @@ void msg_ext_ui_flush(void)
 }
 
 void msg_ext_flush_showmode(void) {
+  msg_ext_emit_chunk();
   ui_call_msg_showmode(msg_ext_chunks);
   msg_ext_chunks = (Array)ARRAY_DICT_INIT;
-  msg_ext_didout = false;
 }
 
 void msg_ext_clear(bool force) {
