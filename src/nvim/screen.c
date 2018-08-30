@@ -5980,13 +5980,14 @@ void win_grid_alloc(win_T *wp, int doclear)
       grid_free(grid);
       grid->Rows = rows;
       grid->Columns = columns;
-      grid->OffsetRow = wp->w_winrow;
-      grid->OffsetColumn = wp->w_wincol;
     }
     win_free_lsize(wp);
     win_alloc_lines(wp);
     grid->was_resized = true;
   }
+
+  grid->OffsetRow = wp->w_winrow;
+  grid->OffsetColumn = wp->w_wincol;
 
   // send grid resize event if:
   // - a grid was just resized
