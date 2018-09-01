@@ -198,7 +198,7 @@ void clear_hl_tables(bool reinit)
       // the meaning of 0 doesn't change anyway
       // but the rest must be retransmitted
       memset(default_grid.ScreenAttrs, 0, sizeof(*default_grid.ScreenAttrs)
-             * (size_t)(screen_Rows * screen_Columns));
+             * (size_t)(default_grid.Rows * default_grid.Columns));
     }
   } else {
     kv_destroy(attr_entries);
