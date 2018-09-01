@@ -14013,8 +14013,8 @@ static void f_screenattr(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 
   const int row = (int)tv_get_number_chk(&argvars[0], NULL) - 1;
   const int col = (int)tv_get_number_chk(&argvars[1], NULL) - 1;
-  if (row < 0 || row >= screen_Rows
-      || col < 0 || col >= screen_Columns) {
+  if (row < 0 || row >= default_grid.Rows
+      || col < 0 || col >= default_grid.Columns) {
     c = -1;
   } else {
     c = default_grid.ScreenAttrs[default_grid.LineOffset[row] + col];
@@ -14032,8 +14032,8 @@ static void f_screenchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
 
   const int row = tv_get_number_chk(&argvars[0], NULL) - 1;
   const int col = tv_get_number_chk(&argvars[1], NULL) - 1;
-  if (row < 0 || row >= screen_Rows
-      || col < 0 || col >= screen_Columns) {
+  if (row < 0 || row >= default_grid.Rows
+      || col < 0 || col >= default_grid.Columns) {
     c = -1;
   } else {
     off = default_grid.LineOffset[row] + col;

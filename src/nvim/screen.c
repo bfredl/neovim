@@ -6094,13 +6094,14 @@ void grid_assign_handle(ScreenGrid *grid)
 
 /*
  * Resize the shell to Rows and Columns.
- * Allocate ScreenLines[] and associated items.
+ * Allocate default_grid.ScreenLines[] and associated items.
  *
  * There may be some time between setting Rows and Columns and (re)allocating
- * ScreenLines[].  This happens when starting up and when (manually) changing
- * the shell size.  Always use screen_Rows and screen_Columns to access items
- * in ScreenLines[].  Use Rows and Columns for positioning text etc. where the
- * final size of the shell is needed.
+ * default_grid.ScreenLines[].  This happens when starting up and when
+ * (manually) changing the shell size.  Always use default_grid.Rows and
+ * default_grid.Columns to access items in default_grid.ScreenLines[].  Use Rows
+ * and Columns for positioning text etc. where the final size of the shell is
+ * needed.
  */
 void screenalloc(bool doclear)
 {
@@ -6173,11 +6174,6 @@ retry:
 
   tab_page_click_defs = new_tab_page_click_defs;
   tab_page_click_defs_size = default_grid.Columns;
-
-  /* It's important that screen_Rows and screen_Columns reflect the actual
-   * size of ScreenLines[].  Set them before calling anything. */
-  screen_Rows = default_grid.Rows;
-  screen_Columns = default_grid.Columns;
 
   default_grid.OffsetRow = 0;
   default_grid.OffsetColumn = 0;
