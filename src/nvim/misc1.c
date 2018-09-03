@@ -1238,7 +1238,7 @@ int plines_win_nofill(
     return 1;
   }
 
-  if (wp->w_width == 0) {
+  if (wp->w_grid.Columns == 0) {
     return 1;
   }
 
@@ -1248,8 +1248,8 @@ int plines_win_nofill(
   }
 
   const int lines = plines_win_nofold(wp, lnum);
-  if (winheight && lines > wp->w_height) {
-    return wp->w_height;
+  if (winheight && lines > wp->w_grid.Rows) {
+    return wp->w_grid.Rows;
   }
   return lines;
 }
@@ -1279,7 +1279,7 @@ int plines_win_nofold(win_T *wp, linenr_T lnum)
   /*
    * Add column offset for 'number', 'relativenumber' and 'foldcolumn'.
    */
-  width = wp->w_width - win_col_off(wp);
+  width = wp->w_grid.Columns - win_col_off(wp);
   if (width <= 0 || col > 32000) {
     return 32000;  // bigger than the number of screen columns
   }
@@ -1305,7 +1305,7 @@ int plines_win_col(win_T *wp, linenr_T lnum, long column)
   if (!wp->w_p_wrap)
     return lines + 1;
 
-  if (wp->w_width == 0)
+  if (wp->w_grid.Columns == 0)
     return lines + 1;
 
   char_u *line = ml_get_buf(wp->w_buffer, lnum, false);
@@ -1327,7 +1327,7 @@ int plines_win_col(win_T *wp, linenr_T lnum, long column)
   }
 
   // Add column offset for 'number', 'relativenumber', 'foldcolumn', etc.
-  int width = wp->w_width - win_col_off(wp);
+  int width = wp->w_grid.Columns - win_col_off(wp);
   if (width <= 0) {
     return 9999;
   }
