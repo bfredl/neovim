@@ -405,6 +405,8 @@ static void remote_ui_highlight_set(UI *ui, int id)
 static void remote_ui_grid_cursor_goto(UI *ui, Integer grid, Integer row,
                                        Integer col)
 {
+  grid = ui->ui_ext[kUIMultigrid] ? grid : DEFAULT_GRID_HANDLE;
+
   if (ui->ui_ext[kUINewgrid]) {
     Array args = ARRAY_DICT_INIT;
     ADD(args, INTEGER_OBJ(grid));
