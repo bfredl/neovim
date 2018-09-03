@@ -4230,8 +4230,14 @@ win_line (
       if (ui_current_row() == row - 1
           && filler_todo <= 0
           && wp->w_width == grid->Columns) {
+
+        ScreenGrid *temp_grid = grid;
+        if (!ui_is_external(kUIMultigrid)) {
+          temp_grid = &default_grid;
+        }
+
         /* Remember that the line wraps, used for modeless copy. */
-        grid->LineWraps[row - 1] = TRUE;
+        temp_grid->LineWraps[row - 1] = TRUE;
 
         // Special trick to make copy/paste of wrapped lines work with
         // xterm/screen: write an extra character beyond the end of
@@ -4241,12 +4247,13 @@ win_line (
         // (something has been written in it).
         // Don't do this for double-width characters.
         // Don't do this for a window not at the right screen border.
-        if (grid_off2cells(grid, grid->LineOffset[row],
-                           grid->LineOffset[row] + grid->Columns) != 2
-            && grid_off2cells(grid,
-                              grid->LineOffset[row - 1]
-                              + (int)grid->Columns - 2,
-                              grid->LineOffset[row] + grid->Columns) != 2) {
+        if (grid_off2cells(temp_grid, temp_grid->LineOffset[row],
+                           temp_grid->LineOffset[row] + temp_grid->Columns) != 2
+            && grid_off2cells(temp_grid,
+                              temp_grid->LineOffset[row - 1]
+                              + (int)temp_grid->Columns - 2,
+                              temp_grid->LineOffset[row]
+                              + temp_grid->Columns) != 2) {
           ui_add_linewrap(row - 1);
         }
       }
