@@ -92,8 +92,9 @@ EXTERN struct nvim_stats_s {
  * Number of Rows and Columns in the screen.
  * Must be long to be able to use them as options in option.c.
  * Note: Use default_grid.Rows and default_grid.Columns to access items in
- * ScreenLines[]. They may have different values when the screen wasn't
- * (re)allocated yet after setting Rows or Columns (e.g., when starting up).
+ * default_grid.ScreenLines[]. They may have different values when the screen
+ * wasn't (re)allocated yet after setting Rows or Columns (e.g., when starting
+ * up).
  */
 #define DFLT_COLS       80              // default value for 'columns'
 #define DFLT_ROWS       24              // default value for 'lines'
