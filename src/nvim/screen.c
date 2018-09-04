@@ -5874,9 +5874,13 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
       }
     }
 
-    int col = start_col;
-    int dirty_first = grid->was_resized ? col : INT_MAX;
+    // if grid was resized (in ext_multigrid mode), the UI has no redraw updates
+    // for the newly resized grid. It is better mark everything as dirty and
+    // send all the updates.
+    int dirty_first = grid->was_resized ? start_col : INT_MAX;
     int dirty_last = grid->was_resized ? grid->Columns : 0;
+
+    int col = start_col;
     schar_from_char(sc, c1);
     int lineoff = grid->LineOffset[row];
     for (col = start_col; col < end_col; col++) {
