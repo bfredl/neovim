@@ -675,7 +675,7 @@ static void win_update(win_T *wp)
 
   type = wp->w_redr_type;
 
-  win_grid_alloc(wp, false);
+  win_grid_alloc(wp, true);
 
   if (type == NOT_VALID) {
     wp->w_redr_status = TRUE;
@@ -5956,9 +5956,11 @@ int screen_valid(int doclear)
   return default_grid.ScreenLines != NULL;
 }
 
-/// (re)allocate a window grid if size changed
-/// If "doclear" is true, clear the screen if resized.
-// TODO(utkarshme): Think of a better name, place
+/// (Re)allocates a window grid if size changed while in ext_multigrid mode.
+/// Updates size, offsets and handle for the grid regardless.
+///
+/// If "doclear" is true, don't try to copy from the old grid rather clear the
+/// resized grid.
 void win_grid_alloc(win_T *wp, int doclear)
 {
   ScreenGrid *grid = &wp->w_grid;
@@ -5980,7 +5982,7 @@ void win_grid_alloc(win_T *wp, int doclear)
       || grid->Rows != rows
       || grid->Columns != columns) {
     if (want_allocation) {
-      grid_alloc(grid, rows, columns, doclear);
+      grid_alloc(grid, rows, columns, !doclear);
     } else {
       // Single grid mode, all rendering will be redirected to default_grid.
       // Only keep track of the size and offset of the window.
@@ -6138,6 +6140,9 @@ void grid_alloc(ScreenGrid *grid, int rows, int columns, bool copy)
   new.Rows = rows;
   new.Columns = columns;
 
+  memset(new.ScreenLines, ' ', ncells * sizeof(schar_T));
+  memset(new.ScreenAttrs, 0, ncells * sizeof(sattr_T));
+
   for (new_row = 0; new_row < new.Rows; new_row++) {
     new.LineOffset[new_row] = new_row * new.Columns;
     new.LineWraps[new_row] = false;
@@ -6146,10 +6151,6 @@ void grid_alloc(ScreenGrid *grid, int rows, int columns, bool copy)
       // possible from the old screen to the new one and clear the rest
       // (used when resizing the window at the "--more--" prompt or when
       // executing an external command, for the GUI).
-      memset(new.ScreenLines + new_row * new.Columns,
-             ' ', (size_t)new.Columns * sizeof(schar_T));
-      memset(new.ScreenAttrs + new_row * new.Columns,
-             0, (size_t)new.Columns * sizeof(sattr_T));
       old_row = new_row + (grid->Rows - new.Rows);
       if (old_row >= 0 && grid->ScreenLines != NULL) {
         int len = MIN(grid->Columns, new.Columns);
