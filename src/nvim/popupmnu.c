@@ -68,9 +68,7 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed)
   int kind_width;
   int extra_width;
   int i;
-  int row;
   int context_lines;
-  int col;
   int above_row;
   int below_row;
   int redo_count = 0;
@@ -90,12 +88,19 @@ redo:
   below_row = cmdline_row;
 
   // anchor position: the start of the completed word
-  row = curwin->w_wrow + curwin->w_winrow;
+  int grid = (int)curwin->w_grid.handle;
+  int row = curwin->w_wrow;
+  int col = curwin->w_wcol;
   if (curwin->w_p_rl) {
-    col = curwin->w_wincol + curwin->w_width - curwin->w_wcol - 1;
-  } else {
-    col = curwin->w_wincol + curwin->w_wcol;
+    col = curwin->w_grid.Columns - col - 1;
   }
+
+  if (!(pum_external && ui_is_external(kUIMultigrid))) {
+    grid = (int)default_grid.handle;
+    row += curwin->w_winrow;
+    col += curwin->w_wincol;
+  }
+
 
   if (pum_external) {
     if (array_changed) {
@@ -108,7 +113,7 @@ redo:
         ADD(item, STRING_OBJ(cstr_to_string((char *)array[i].pum_info)));
         ADD(arr, ARRAY_OBJ(item));
       }
-      ui_call_popupmenu_show(arr, selected, row, col);
+      ui_call_popupmenu_show(arr, selected, row, col, grid);
     } else {
       ui_call_popupmenu_select(selected);
     }
