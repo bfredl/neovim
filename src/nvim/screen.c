@@ -132,6 +132,13 @@ static schar_T  *current_ScreenLine;
 StlClickDefinition *tab_page_click_defs = NULL;
 long tab_page_click_defs_size = 0;
 
+// for line_putchar
+typedef struct {
+  int prev_c;  // previous Arabic character
+  int prev_c1;  // first composing char for prev_c
+  const char_u *p;
+} LineState;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "screen.c.generated.h"
 #endif
@@ -1731,6 +1738,55 @@ static int compute_foldcolumn(win_T *wp, int col)
   return fdc;
 }
 
+#define LINE_STATE(p) { 0, 0, p }
+
+static int line_putchar(LineState *s, schar_T *dest, int maxcells, bool rl)
+{
+  const char_u *p = s->p;
+  int cells = utf_ptr2cells(p);
+  int c_len = utfc_ptr2len(p);
+  int u8c, u8cc[MAX_MCO];
+  if (cells > maxcells) {
+    return -1; // TODO
+  }
+  u8c = utfc_ptr2char(p, u8cc);
+  if (*p < 0x80 && u8cc[0] == 0) {
+    schar_from_ascii(dest[0], *p);
+    s->prev_c = u8c;
+  } else {
+    if (p_arshape && !p_tbidi && arabic_char(u8c)) {
+      // Do Arabic shaping.
+      int pc, pc1, nc;
+      int pcc[MAX_MCO];
+      int firstbyte = *p;
+
+      // The idea of what is the previous and next
+      // character depends on 'rightleft'.
+      if (rl) {
+        pc = s->prev_c;
+        pc1 = s->prev_c1;
+        nc = utf_ptr2char(p + c_len);
+        s->prev_c1 = u8cc[0];
+      } else {
+        pc = utfc_ptr2char(p + c_len, pcc);
+        nc = s->prev_c;
+        pc1 = pcc[0];
+      }
+      s->prev_c = u8c;
+
+      u8c = arabic_shape(u8c, &firstbyte, &u8cc[0], pc, pc1, nc);
+    } else {
+      s->prev_c = u8c;
+    }
+    schar_from_cc(dest[0], u8c, u8cc);
+  }
+  if (cells > 1) {
+    dest[1][0] = 0;
+  }
+  s->p += c_len;
+  return cells;
+}
+
 /*
  * Display one folded line.
  */
@@ -1746,6 +1802,7 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
   int txtcol;
   int off = (int)(current_ScreenLine - ScreenLines);
   int ri;
+
 
   /* Build the fold line:
    * 1. Add the cmdwin_type for the command-line window
@@ -1863,13 +1920,7 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
    *    Right-left text is put in columns 0 - number-col, normal text is put
    *    in columns number-col - window-width.
    */
-  int cells;
-  int u8c, u8cc[MAX_MCO];
   int idx;
-  int c_len;
-  char_u  *p;
-  int prev_c = 0;  // previous Arabic character
-  int prev_c1 = 0;  // first composing char for prev_c
 
   if (wp->w_p_rl) {
     idx = off;
@@ -1877,50 +1928,17 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
     idx = off + col;
   }
 
-  // Store multibyte characters in ScreenLines[] et al. correctly.
-  for (p = text; *p != NUL; ) {
-    cells = utf_ptr2cells(p);
-    c_len = utfc_ptr2len(p);
-    if (col + cells > wp->w_width - (wp->w_p_rl ? col : 0)) {
+  LineState s = LINE_STATE(text);
+
+  while (*s.p != NUL) {
+    // TODO(bfredl): cargo-culted from the existing code, obviously wrong
+    int maxcells = wp->w_width - col - (wp->w_p_rl ? col : 0);
+    int cells = line_putchar(&s, &ScreenLines[idx], maxcells, wp->w_p_rl);
+    if (cells == -1) {
       break;
-    }
-    u8c = utfc_ptr2char(p, u8cc);
-    if (*p < 0x80 && u8cc[0] == 0) {
-      schar_from_ascii(ScreenLines[idx], *p);
-      prev_c = u8c;
-    } else {
-      if (p_arshape && !p_tbidi && arabic_char(u8c)) {
-        // Do Arabic shaping.
-        int pc, pc1, nc;
-        int pcc[MAX_MCO];
-        int firstbyte = *p;
-
-        // The idea of what is the previous and next
-        // character depends on 'rightleft'.
-        if (wp->w_p_rl) {
-          pc = prev_c;
-          pc1 = prev_c1;
-          nc = utf_ptr2char(p + c_len);
-          prev_c1 = u8cc[0];
-        } else {
-          pc = utfc_ptr2char(p + c_len, pcc);
-          nc = prev_c;
-          pc1 = pcc[0];
-        }
-        prev_c = u8c;
-
-        u8c = arabic_shape(u8c, &firstbyte, &u8cc[0], pc, pc1, nc);
-      } else {
-        prev_c = u8c;
-      }
-      schar_from_cc(ScreenLines[idx], u8c, u8cc);
-    }
-    if (cells > 1) {
-      ScreenLines[idx + 1][0] = 0;
     }
     col += cells;
     idx += cells;
-    p += c_len;
   }
 
   /* Fill the rest of the line with the fold filler */
@@ -3093,20 +3111,6 @@ win_line (
       }
     }
 
-    if (*ptr == NUL && n_extra == 0 && do_eoltext) {
-      p_extra = (char_u *)bufhl_info.eol_text;
-      p_extra_free = NULL;
-      n_extra = STRLEN(p_extra);
-      c_extra = 0;
-      char_attr = 0;
-      area_attr = 0;
-      if (bufhl_info.eol_attr) {
-        extra_attr = bufhl_info.eol_attr;
-        n_attr = n_extra;
-      }
-      do_eoltext = false;
-    }
-
     /*
      * Get the next character to put on the screen.
      */
@@ -3967,14 +3971,19 @@ win_line (
             && (int)wp->w_virtcol <
             wp->w_width * (row - startrow + 1) + v
             && lnum != wp->w_cursor.lnum)
-           || draw_color_col)
+           || draw_color_col || do_eoltext)
           && !wp->w_p_rl
           ) {
         int rightmost_vcol = 0;
         int i;
+        char *text = do_eoltext ? bufhl_info.eol_text : "";
+        LineState s = LINE_STATE((char_u *)text);
+        bool delay_text = lcs_eol <= 0;
 
-        if (wp->w_p_cuc)
+        if (wp->w_p_cuc) {
           rightmost_vcol = wp->w_virtcol;
+        }
+
         if (draw_color_col)
           /* determine rightmost colorcolumn to possibly draw */
           for (i = 0; color_cols[i] >= 0; ++i)
@@ -3985,21 +3994,40 @@ win_line (
         int mc_attr = win_hl_attr(wp, HLF_MC);
 
         while (col < wp->w_width) {
-          schar_from_ascii(ScreenLines[off], ' ');
-          col++;
+          int cells = -1;
+          if (!delay_text && *s.p != NUL) {
+            cells = line_putchar(&s, &ScreenLines[off], wp->w_width - col, false);
+          }
+          delay_text = false;
+
+          if (cells == -1) {
+            do_eoltext = false;
+            schar_from_ascii(ScreenLines[off], ' ');
+            cells = 1;
+          }
+          col += cells;
           if (draw_color_col) {
             draw_color_col = advance_color_col(VCOL_HLC, &color_cols);
           }
 
+          int attr = 0;
           if (wp->w_p_cuc && VCOL_HLC == (long)wp->w_virtcol) {
-            ScreenAttrs[off++] = cuc_attr;
+            attr = cuc_attr;
           } else if (draw_color_col && VCOL_HLC == *color_cols) {
-            ScreenAttrs[off++] = mc_attr;
-          } else {
-            ScreenAttrs[off++] = wp->w_hl_attr_normal;
+            attr = mc_attr;
           }
 
-          if (VCOL_HLC >= rightmost_vcol)
+          if (do_eoltext) {
+            attr = hl_combine_attr(attr, bufhl_info.eol_attr);
+          }
+
+          ScreenAttrs[off] = attr;
+          if (cells == 2) {
+            ScreenAttrs[off+1] = attr;
+          }
+          off += cells;
+
+          if (VCOL_HLC >= rightmost_vcol && *s.p == NUL)
             break;
 
           ++vcol;
