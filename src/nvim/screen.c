@@ -1618,7 +1618,12 @@ static void win_update(win_T *wp)
     }
   }
 
-  wp->w_grid.was_resized = false;
+  if (wp->w_grid.was_resized) {
+    // TODO(utkarshme): This resets the cursor position so that we send cursor
+    // update to the grid. Find out if there is a better way to do so.
+    ui_grid_cursor_goto(&wp->w_grid, 0, 0);
+    wp->w_grid.was_resized = false;
+  }
 
   /* restore got_int, unless CTRL-C was hit while redrawing */
   if (!got_int)
