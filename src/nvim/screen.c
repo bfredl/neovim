@@ -2300,8 +2300,8 @@ win_line (
     if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
       has_bufhl = true;
       extra_check = true;
-      if (bufhl_info.eol_text) {
-          do_eoltext = true;
+      if (bufhl_info.line->eol_text) {
+        do_eoltext = true;
       }
     }
 
@@ -3976,7 +3976,7 @@ win_line (
           ) {
         int rightmost_vcol = 0;
         int i;
-        char *text = do_eoltext ? bufhl_info.eol_text : "";
+        char *text = do_eoltext ? bufhl_info.line->eol_text : "";
         LineState s = LINE_STATE((char_u *)text);
         bool delay_text = lcs_eol <= 0;
 

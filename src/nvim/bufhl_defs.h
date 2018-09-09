@@ -25,12 +25,10 @@ typedef struct {
 } BufhlLine;
 #define BUFHLLINE_INIT(l) { l, KV_INITIAL_VALUE, NULL, 0, 0 }
 
-// TODO: merge me with BufhlLine?
 typedef struct {
-  BufhlItemVec entries;
+  BufhlLine *line;
   int current;
   colnr_T valid_to;
-  char *eol_text;
   int eol_attr;
 } BufhlLineInfo;
 

@@ -5562,8 +5562,7 @@ bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
     return false;
   }
   info->valid_to = -1;
-  info->entries = lineinfo->items;
-  info->eol_text = lineinfo->eol_text;
+  info->line = lineinfo;
   info->eol_attr = lineinfo->eol_id ? syn_id2attr(lineinfo->eol_id) : 0;
   return true;
 }
@@ -5585,8 +5584,8 @@ int bufhl_get_attr(BufhlLineInfo *info, colnr_T col)
   }
   int attr = 0;
   info->valid_to = MAXCOL;
-  for (size_t i = 0; i < kv_size(info->entries); i++) {
-    BufhlItem entry = kv_A(info->entries, i);
+  for (size_t i = 0; i < kv_size(info->line->items); i++) {
+    BufhlItem entry = kv_A(info->line->items, i);
     if (entry.start <= col && col <= entry.stop) {
       int entry_attr = syn_id2attr(entry.hl_id);
       attr = hl_combine_attr(attr, entry_attr);
