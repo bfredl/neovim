@@ -968,11 +968,10 @@ void nvim_buf_clear_highlight(Buffer buffer,
 }
 
 Integer nvim_buf_set_eol_text(Buffer buffer,
-                               Integer src_id,
-                               String hl_group,
-                               Integer line,
-                               String text,
-                               Error *err)
+                              Integer src_id,
+                              Integer line,
+                              Array chunks,
+                              Error *err)
   FUNC_API_SINCE(4)
 {
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -984,14 +983,42 @@ Integer nvim_buf_set_eol_text(Buffer buffer,
     api_set_error(err, kErrorTypeValidation, "Line number outside range");
     return 0;
   }
-  int hlg_id = 0;
-  if (hl_group.size > 0) {
-    hlg_id = syn_check_group((char_u *)hl_group.data, (int)hl_group.size);
+
+  EolText eol_text = KV_INITIAL_VALUE;
+  for (size_t i = 0; i < chunks.size; i++) {
+    if (chunks.items[i].type != kObjectTypeArray) {
+      api_set_error(err, kErrorTypeValidation, "Chunk is not an array");
+      goto free_exit;
+    }
+    Array chunk = chunks.items[i].data.array;
+    if (chunk.size == 0 || chunk.size > 2
+        || chunk.items[0].type != kObjectTypeString
+        || (chunk.size == 2 && chunk.items[1].type != kObjectTypeString)) {
+      api_set_error(err, kErrorTypeValidation,
+                    "Chunk is not an array with one or two strings");
+      goto free_exit;
+    }
+
+    String str = chunk.items[0].data.string;
+    char *text = xstrdup(str.size > 0 ? str.data : "");
+
+    int hl_id = 0;
+    if (chunk.size == 2) {
+      String hl = chunk.items[1].data.string;
+      if (hl.size > 0) {
+        hl_id = syn_check_group((char_u *)hl.data, (int)hl.size);
+      }
+    }
+    kv_push(eol_text, ((EolTextChunk){ .text = text, .hl_id = hl_id }));
   }
 
-  src_id = bufhl_add_eol_text(buf, (int)src_id, hlg_id, (linenr_T)line+1,
-                        xstrdup(text.data));
+  src_id = bufhl_add_eol_text(buf, (int)src_id, (linenr_T)line+1,
+                              eol_text);
   return src_id;
+
+free_exit:
+  kv_destroy(eol_text);
+  return 0;
 }
 // Check if deleting lines made the cursor position invalid.
 // Changed the lines from "lo" to "hi" and added "extra" lines (negative if

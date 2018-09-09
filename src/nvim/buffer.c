@@ -5377,21 +5377,25 @@ void bufhl_add_hl_pos_offset(buf_T *buf,
 
 int bufhl_add_eol_text(buf_T *buf,
                  int src_id,
-                 int hl_id,
                  linenr_T lnum,
-                 char *text) {
+                 EolText eol_text) {
   static int next_src_id = 1;
   if (src_id == 0) {
     src_id = next_src_id++;
   }
 
   BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, true);
-  if (lineinfo->eol_text) {
-    xfree(lineinfo->eol_text);
+  kv_destroy(lineinfo->eol_text); // No-op on empty initialized vec
+  if (kv_size(eol_text) > 0) {
+    lineinfo->eol_src = src_id;
+    lineinfo->eol_text = eol_text;
+  } else {
+    lineinfo->eol_src = 0;
+    lineinfo->eol_text = (EolText)KV_INITIAL_VALUE;
+    // currently not needed, but allow a future caller with
+    // 0 size and non-zero capacity
+    kv_destroy(eol_text);
   }
-  lineinfo->eol_src = src_id;
-  lineinfo->eol_text = text;
-  lineinfo->eol_id = hl_id;
 
   if (0 < lnum && lnum <= buf->b_ml.ml_line_count) {
     changed_lines_buf(buf, lnum, lnum+1, 0);
@@ -5475,13 +5479,13 @@ static BufhlLineStatus bufhl_clear_line(BufhlLine *lineinfo, int src_id,
     changed = kBLSChanged;
   }
 
-  if (lineinfo->eol_text && (src_id < 0 || src_id == lineinfo->eol_src)) {
-    xfree(lineinfo->eol_text);
-    lineinfo->eol_text = NULL;
+  if (kv_size(lineinfo->eol_text) != 0 && (src_id < 0 || src_id == lineinfo->eol_src)) {
+    kv_destroy(lineinfo->eol_text);
+    lineinfo->eol_text = (EolText)KV_INITIAL_VALUE;
     changed = kBLSChanged;
   }
 
-  if (kv_size(lineinfo->items) == 0 && lineinfo->eol_text == NULL) {
+  if (kv_size(lineinfo->items) == 0 && kv_size(lineinfo->eol_text) == 0) {
     kv_destroy(lineinfo->items);
     return kBLSDeleted;
   }
@@ -5563,7 +5567,6 @@ bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
   }
   info->valid_to = -1;
   info->line = lineinfo;
-  info->eol_attr = lineinfo->eol_id ? syn_id2attr(lineinfo->eol_id) : 0;
   return true;
 }
 

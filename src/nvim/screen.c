@@ -2300,7 +2300,7 @@ win_line (
     if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
       has_bufhl = true;
       extra_check = true;
-      if (bufhl_info.line->eol_text) {
+      if (kv_size(bufhl_info.line->eol_text)) {
         do_eoltext = true;
       }
     }
@@ -3976,8 +3976,10 @@ win_line (
           ) {
         int rightmost_vcol = 0;
         int i;
-        char *text = do_eoltext ? bufhl_info.line->eol_text : "";
-        LineState s = LINE_STATE((char_u *)text);
+        size_t eol_pos = 0;
+        LineState s = LINE_STATE((char_u *)"");
+        int eol_attr = 0;
+        EolText eol_text = bufhl_info.line->eol_text;
         bool delay_text = lcs_eol <= 0;
 
         if (wp->w_p_cuc) {
@@ -3995,13 +3997,24 @@ win_line (
 
         while (col < wp->w_width) {
           int cells = -1;
-          if (!delay_text && *s.p != NUL) {
-            cells = line_putchar(&s, &ScreenLines[off], wp->w_width - col, false);
+          if (do_eoltext && !delay_text) {
+            if (*s.p == NUL) {
+              if (eol_pos < eol_text.size) {
+                s.p = (char_u *)kv_A(eol_text, eol_pos).text;
+                int hl_id = kv_A(eol_text, eol_pos).hl_id;
+                eol_attr = hl_id > 0 ? syn_id2attr(hl_id) : 0;
+                eol_pos++;
+              } else {
+               do_eoltext = false;
+              }
+            }
+            if(*s.p != NUL) {
+              cells = line_putchar(&s, &ScreenLines[off], wp->w_width - col, false);
+            }
           }
           delay_text = false;
 
           if (cells == -1) {
-            do_eoltext = false;
             schar_from_ascii(ScreenLines[off], ' ');
             cells = 1;
           }
@@ -4018,7 +4031,7 @@ win_line (
           }
 
           if (do_eoltext) {
-            attr = hl_combine_attr(attr, bufhl_info.eol_attr);
+            attr = hl_combine_attr(attr, eol_attr);
           }
 
           ScreenAttrs[off] = attr;
@@ -4027,8 +4040,9 @@ win_line (
           }
           off += cells;
 
-          if (VCOL_HLC >= rightmost_vcol && *s.p == NUL)
+          if (VCOL_HLC >= rightmost_vcol && *s.p == NUL && eol_pos >= eol_text.size) {
             break;
+          }
 
           ++vcol;
         }
