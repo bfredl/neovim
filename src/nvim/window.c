@@ -6067,6 +6067,10 @@ void win_findbuf(typval_T *argvars, list_T *list)
 
 void win_ui_flush(void)
 {
+  if (!ui_is_external(kUIMultigrid)) {
+    return;
+  }
+
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if(wp->w_pos_changed && wp->w_grid.ScreenLines != NULL) {
       ui_call_win_position(wp->handle, wp->w_grid.handle, wp->w_winrow,
