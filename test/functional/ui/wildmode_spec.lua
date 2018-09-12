@@ -167,7 +167,7 @@ describe("'wildmenu'", function()
     screen:sleep(10)      -- Flush
     -- Check only the last 2 lines, because the shell output is
     -- system-dependent.
-    screen:expect{any='!  #  &  <  =  >  @  >   \n:!^'}
+    screen:expect{any='!  #  &  <  =  >  @  >   |\n:!^'}
   end)
 end)
 
