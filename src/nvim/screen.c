@@ -717,8 +717,8 @@ static void win_update(win_T *wp)
 
     if (buf->terminal) {
       terminal_resize(buf->terminal,
-                      (uint16_t)(MAX(0, wp->w_width - win_col_off(wp))),
-                      (uint16_t)wp->w_height);
+                      (uint16_t)(MAX(0, wp->w_grid.Columns - win_col_off(wp))),
+                      (uint16_t)wp->w_grid.Rows);
     }
   } else if (buf->b_mod_set
              && buf->b_mod_xlines != 0
