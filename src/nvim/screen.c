@@ -1485,7 +1485,7 @@ static void win_update(win_T *wp)
       if (wp->w_p_rnu) {
         // 'relativenumber' set: The text doesn't need to be drawn, but
         // the number column nearly always does.
-        (void)win_line(wp, lnum, srow, wp->w_height, true, true);
+        (void)win_line(wp, lnum, srow, wp->w_grid.Rows, true, true);
       }
 
       // This line does not need to be drawn, advance to the next one.
@@ -6389,7 +6389,7 @@ void setcursor(void)
 /// Returns FAIL if the lines are not inserted, OK for success.
 int win_ins_lines(win_T *wp, int row, int line_count, int invalid, int mayclear)
 {
-  if (wp->w_height < 5) {
+  if (wp->w_grid.Rows < 5) {
     return FAIL;
   }
 
