@@ -941,69 +941,6 @@ int eol_of_line(buf_T *buf, linenr_T lnum) {
 }
 
 
-// original kb_itr_get as exists in upstream klib
-// just modified the return arguments to 0 and 1 instaed of -1 and 0
-static inline int debug_original_get(kbtree_markitems_t *b, ExtendedMark * __restrict k, kbitr_markitems_t *itr)
-{
-  int i, r = 0;
-  itr->p = itr->stack;
-  itr->p->x = b->root; itr->p->i = 0;
-  while (itr->p->x) {
-    i = __kb_getp_aux_markitems(itr->p->x, k, &r);
-    if (i >= 0 && r == 0)
-      return 1;
-    if (itr->p->x->is_internal == 0)
-      return 0;
-    itr->p[1].x = __KB_PTR(b, itr->p->x)[i + 1];
-    itr->p[1].i = i;
-    ++itr->p;
-  }
-  return 0;
-}
-
-static inline int debug_itr_get(kbtree_markitems_t *b, ExtendedMark k, kbitr_markitems_t *itr) {
-  return debug_itr_getp(b,&k,itr);
-}
-
-static inline int debug_itr_getp(kbtree_markitems_t *b, ExtendedMark * __restrict k, kbitr_markitems_t *itr) {
-  if (b->n_keys == 0) {
-    itr->p = NULL;
-    return 0;
-  }
-  int i, r = 0;
-  itr->p = itr->stack;
-  itr->p->x = b->root;
-  while (itr->p->x) {
-    i = __kb_getp_aux_markitems(itr->p->x, k, &r);
-     itr->p->i = i;
-    if (i >= 0 && r == 0)
-      return 1;
-    ++itr->p->i;
-    itr->p[1].x = itr->p->x->is_internal? __KB_PTR(b, itr->p->x)[i + 1] : 0;
-    ++itr->p;
-  }
-  return 0;
-}
-
-static inline int debug_itr_next_markitems(kbtree_markitems_t *b, kbitr_markitems_t *itr) {
-  if (itr->p < itr->stack)
-    return 0;
-  for (;;) {
-    ++itr->p->i; // BOOM
-    while (itr->p->x && itr->p->i <= itr->p->x->n) {
-      itr->p[1].i = 0;
-      itr->p[1].x = itr->p->x->is_internal? __KB_PTR(b, itr->p->x)[itr->p->i] : 0;
-      ++itr->p;
-    }
-    --itr->p;
-    if (itr->p < itr->stack)
-      return 0;
-    if (itr->p->x && itr->p->i < itr->p->x->n)
-      return 1;
-  }
-}
-
-
 // Adjust columns and rows for extmarks
 // based off mark_col_adjust in mark.c
 // returns true if something was moved otherwise false
@@ -1016,55 +953,33 @@ static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
   colnr_T *cp;
   long col_amount;
 
-  kbitr_extlines_t itr;
-  ExtMarkLine t;
-  t.lnum = lnum == -1 ? 1 : lnum;
-  if (!kb_itr_get_extlines(&buf->b_extlines, &t, &itr)) {
-    kb_itr_next_extlines(&buf->b_extlines, &itr);
-  }
-  ExtMarkLine *extline;
-  for (; ((&itr)->p >= (&itr)->stack); kb_itr_next_extlines(&buf->b_extlines, &itr)) {
-    extline = ((&itr)->p->x->key)[(&itr)->p->i];
-    if (extline->lnum > lnum && lnum != -1) { break; }
-    {
-      kbitr_markitems_t mitr;
-      ExtendedMark mt;
-      mt.ns_id = 0;
-      mt.mark_id = 0;
-      mt.line = ((void *) 0);
-      mt.col = 0;
+  FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
+    FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
+      marks_exist = true;
+      cp = &(extmark->col);
 
-      if (!debug_itr_get(&extline->items, mt, &mitr)) {
-     // if (!debug_original_get(&extline->items, &mt, &mitr)) {
-     // if (!kb_itr_get_markitems(&extline->items, mt, &mitr)) {
-        // kb_itr_next_markitems(&extline->items, &mitr);
-        debug_itr_next_markitems(&extline->items, &mitr);
-
+      col_amount = (*calc_amount)(mincol, *cp, func_arg);
+      // No update required for this guy
+      if (col_amount == 0 && lnum_amount == 0) {
+        continue;
       }
-      ExtendedMark *extmark;
-      for (; ((&mitr)->p >= (&mitr)->stack); kb_itr_next_markitems(
-              &extline->items, &mitr)) {
-        extmark = &((&mitr)->p->x->key)[(&mitr)->p->i];
-        {
-          cp = &(extmark->col);
-          col_amount = (*calc_amount)(mincol, *cp, func_arg);
-          if (col_amount == 0 && lnum_amount == 0) { continue; }
-          if (col_amount < 0 && *cp <= (colnr_T) -col_amount && *cp > mincol) {
-            marks_exist = 1;
-            extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
-                           extline->lnum + lnum_amount, BufPosStartCol,
-                           kExtmarkNoUndo, &mitr);
-          }
-          else if (*cp >= mincol) {
-            marks_exist = 1;
+
+      // Set mark to start of line
+      if (col_amount < 0
+          && *cp <= (colnr_T)-col_amount
+          && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
             extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
                            extline->lnum + lnum_amount,
-                           *cp + (colnr_T) col_amount, kExtmarkNoUndo, &mitr);
-          }
-        };
+                           BufPosStartCol, kExtmarkNoUndo, &mitr);
+      // Update the mark
+      } else if (*cp >= mincol) {
+          // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
+          extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                         extline->lnum + lnum_amount,
+                         *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
       }
-    };
-  }
+    })
+  })
   if (marks_exist) {
       return true;
   } else {
