@@ -364,10 +364,6 @@ static inline ExtendedMark kb_delp_markitems(kbtree_markitems_t *b, ExtendedMark
     b->root = (x->ptr)[0];
     xfree(x);
   }
-  if (ret.mark_id != k->mark_id) {
-    int a =1;
-    assert(false);
-  }
   return ret;
 }
 
