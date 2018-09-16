@@ -1128,33 +1128,17 @@ void extmark_copy_and_place(buf_T *buf,
   }
 
   // Move extmarks to their final position
-  kbitr_markitems_t mitr;
-  ExtendedMark mt;
-  mt.ns_id = 1;
-  mt.mark_id = 0;
-  mt.line = ((void *) 0);
-  kbitr_extlines_t itr;
-  ExtMarkLine t;
-  t.lnum = l_lnum == -1 ? 1 : l_lnum;
-  if (!kb_itr_get_extlines(&buf->b_extlines, &t, &itr)) { kb_itr_next_extlines(&buf->b_extlines, &itr); }
-  ExtMarkLine *extline;
-  for (; ((&itr)->p >= (&itr)->stack); kb_itr_next_extlines(&buf->b_extlines, &itr)) {
-    extline = ((&itr)->p->x->key)[(&itr)->p->i];
-    if (extline->lnum > u_lnum && u_lnum != -1) { break; }
-    {
-      mt.col = (l_col == -1 || extline->lnum != l_lnum) ? 1 : l_col;
-      if (!kb_itr_get_markitems(&extline->items, mt, &mitr)) { kb_itr_next_markitems(&extline->items, &mitr); }
-      ExtendedMark *extmark;
-      for (; ((&mitr)->p >= (&mitr)->stack); kb_itr_next_markitems(&extline->items, &mitr)) {
-        extmark = &((&mitr)->p->x->key)[(&mitr)->p->i];
-        if (u_col != -1 && extmark->line->lnum == u_lnum && extmark->col > u_col) { break; }
-        {
-          marks_moved = true;
-          extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id, p_lnum, p_col, kExtmarkNoUndo, &mitr);
-        };
-      }
-    };
-  }
+  FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, l_lnum, l_col, u_lnum, u_col, {
+    marks_moved = true;
+    extmark_update(extmark,
+                   buf,
+                   extmark->ns_id,
+                   extmark->mark_id,
+                   p_lnum,
+                   p_col,
+                   kExtmarkNoUndo,
+                   &mitr);
+  })
 
   // Record the undo for the actual move
   if (marks_moved && undo == kExtmarkUndo) {
