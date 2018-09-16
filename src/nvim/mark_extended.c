@@ -105,8 +105,7 @@ int extmark_set(buf_T *buf,
 
   ExtendedMark *extmark = extmark_from_id(buf, ns, id);
   if (!extmark) {
-    int rv =  extmark_create(buf, ns, id, lnum, col, op);
-    return rv;
+    return extmark_create(buf, ns, id, lnum, col, op);
   } else {
     extmark_update(extmark, buf, ns, id, lnum,  col, op, NULL);
     return 2;
@@ -1078,54 +1077,34 @@ void extmark_adjust(buf_T *buf,
   int eol;
   bool marks_exist = false;
   linenr_T *lp;
-  kbitr_extlines_t itr;
-  ExtMarkLine t;
-  t.lnum = 1 == -1 ? 1 : 1;
-  if (!kb_itr_get_extlines(&buf->b_extlines, &t, &itr)) { kb_itr_next_extlines(&buf->b_extlines, &itr); }
-  ExtMarkLine *extline;
-  for (; ((&itr)->p >= (&itr)->stack); kb_itr_next_extlines(&buf->b_extlines, &itr)) {
-    extline = ((&itr)->p->x->key)[(&itr)->p->i];
-    if (extline->lnum > 0x7fffffff && 0x7fffffff != -1) { break; }
-    {
-      marks_exist = 1;
-      lp = &(extline->lnum);
-      if (*lp >= line1 && *lp <= line2) {
-        if (end_temp && amount > 0) {
+  FOR_ALL_EXTMARKLINES(buf, MINLNUM, MAXLNUM, {
+    marks_exist = true;
+    lp = &(extline->lnum);
+    if (*lp >= line1 && *lp <= line2) {
+      // 1st call with end_temp = true, store the lines in a temp position
+      if (end_temp && amount > 0) {
           kb_del_itr_extlines(&buf->b_extlines, &itr);
-          (*((((buf->b_extmark_move_space).size == (buf->b_extmark_move_space).capacity)
-              ? (((buf->b_extmark_move_space).capacity = ((buf->b_extmark_move_space).capacity ?
-                                                          (buf->b_extmark_move_space).capacity << 1
-                                                                                               : 8), (buf->b_extmark_move_space).items = xrealloc(
-                          (buf->b_extmark_move_space).items,
-                          sizeof((buf->b_extmark_move_space).items[0]) * (buf->b_extmark_move_space).capacity)), 0)
-              : 0), ((buf->b_extmark_move_space).items + ((buf->b_extmark_move_space).size++))) = (extline));
-        }
-        if (amount == 0x7fffffff) {
-          kbitr_markitems_t mitr;
-          ExtendedMark mt;
-          mt.ns_id = 0;
-          mt.mark_id = 0;
-          mt.line = ((void *) 0);
-          mt.col = 0;
-          if (!kb_itr_get_markitems(&extline->items, mt, &mitr)) { kb_itr_next_markitems(&extline->items, &mitr); }
-          ExtendedMark *extmark;
-          for (; ((&mitr)->p >= (&mitr)->stack); kb_itr_next_markitems(&extline->items, &mitr)) {
-            extmark = &((&mitr)->p->x->key)[(&mitr)->p->i];
-            {
-              eol = eol_of_line(buf, extline->lnum - 1);
-              extmark_copy_and_place(curbuf, extline->lnum, 1, extline->lnum, 0x7fffffff, extline->lnum - 1, eol,
-                                     kExtmarkUndo);
-              kb_del_itr_extlines(&buf->b_extlines, &itr);
-            };
-          }
-        }
-        else { *lp += amount; }
+          kv_push(buf->b_extmark_move_space, extline);
       }
-      else if (amount_after && *lp > line2) {
-        *lp += amount_after;
+
+      // Delete the line
+      if (amount == MAXLNUM) {
+        FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
+          eol = eol_of_line(buf, extline->lnum - 1);
+          extmark_copy_and_place(curbuf,
+                                 extline->lnum, BufPosStartCol,
+                                 extline->lnum, MAXCOL,
+                                 extline->lnum - 1, eol,
+                                 kExtmarkUndo);
+          kb_del_itr_extlines(&buf->b_extlines, &itr);
+        })
+      } else {
+        *lp += amount;
       }
-    };
-  }
+    } else if (amount_after && *lp > line2) {
+      *lp += amount_after;
+    }
+  })
 
   if (undo == kExtmarkUndo && marks_exist) {
     u_extmark_adjust(buf, line1, line2, amount, amount_after);
