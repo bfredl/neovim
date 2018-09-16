@@ -5,7 +5,7 @@
 #include "nvim/lib/kbtree.h"
 #include "nvim/lib/kvec.h"
 #include "nvim/map.h"
-
+// TODO(timeyyy): clean up the macros (is the ns paramenter required?)
 // TODO(timeyyy): Support '.', normal vim marks etc
 #define Extremity -1    // Start or End of lnum or col
 
