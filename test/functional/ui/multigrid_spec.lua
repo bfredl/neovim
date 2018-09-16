@@ -32,7 +32,8 @@ describe('multigrid screen', function()
       [9] = {foreground = Screen.colors.SlateBlue, underline = true},
       [10] = {foreground = Screen.colors.Red},
       [11] = {bold = true, reverse = true},
-      [12] = {reverse = true}
+      [12] = {reverse = true},
+      [13] = {foreground = Screen.colors.DarkBlue, background = Screen.colors.LightGrey},
     })
     screen.win_position = {}
   end)
@@ -751,6 +752,181 @@ describe('multigrid screen', function()
         {1:~                                                                               }|
         {1:~                                                                               }|
         {1:~                                                                               }|
+      ]])
+    end)
+  end)
+
+  describe('with resized grid', function()
+    before_each(function()
+      screen:try_resize_grid(2, 60, 20)
+    end)
+    it('gets written till grid width', function()
+      insert(('a'):rep(60).."\n")
+      screen:expect([[
+      ## grid 1
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+        {11:[No Name] [+]                                        }|
+                                                             |
+      ## grid 2
+        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|
+        ^                                                            |
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+      ]])
+    end)
+
+    it('wraps with grid width', function()
+      insert(('b'):rep(80).."\n")
+      screen:expect([[
+      ## grid 1
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+        {11:[No Name] [+]                                        }|
+                                                             |
+      ## grid 2
+        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb|
+        bbbbbbbbbbbbbbbbbbbb                                        |
+        ^                                                            |
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+      ]])
+    end)
+
+    it('displays messages with default grid width', function()
+      command('echomsg "this is a very very very very very very very very'..
+        ' long message"')
+      screen:expect([[
+      ## grid 1
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+        {11:[No Name]                                            }|
+        this is a very very very...ry very very long message |
+      ## grid 2
+        ^                                                            |
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+      ]])
+    end)
+
+    it('creates folds with grid width', function()
+      insert('this is a fold\nthis is inside fold\nthis is outside fold')
+      feed('kzfgg')
+      screen:expect([[
+      ## grid 1
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+                                                             |
+        {11:[No Name] [+]                                        }|
+                                                             |
+      ## grid 2
+        {13:^+--  2 lines: this is a fold································}|
+        this is outside fold                                        |
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
+        {1:~                                                           }|
       ]])
     end)
   end)
