@@ -1018,29 +1018,14 @@ static void win_update(win_T *wp)
       }
     }
 
-    /* When starting redraw in the first line, redraw all lines.  When
-     * there is only one window it's probably faster to clear the screen
-     * first. */
+    // When starting redraw in the first line, redraw all lines.
     if (mid_start == 0) {
       mid_end = wp->w_grid.Rows;
-      if (ONE_WINDOW) {
-        // Clear the screen when it was not done by win_del_lines() or
-        // win_ins_lines() above, "screen_cleared" is kFalse or kNone
-        // then.
-        if (screen_cleared != kTrue) {
-          screenclear();
-        }
-        // The screen was cleared, redraw the tab pages line.
-        if (redraw_tabline) {
-          draw_tabline();
-        }
-      }
     }
 
-    /* When win_del_lines() or win_ins_lines() caused the screen to be
-     * cleared (only happens for the first window) or when screenclear()
-     * was called directly above, "must_redraw" will have been set to
-     * NOT_VALID, need to reset it here to avoid redrawing twice. */
+    // When win_del_lines() or win_ins_lines() caused the screen to be cleared
+    // (only happens for the first window) "must_redraw" will have been set to
+    // NOT_VALID, need to reset it here to avoid redrawing twice.
     if (screen_cleared == kTrue) {
       must_redraw = 0;
     }
@@ -6194,7 +6179,7 @@ retry:
 
   must_redraw = CLEAR;          /* need to clear the screen later */
   if (doclear)
-    screenclear2();
+    screenclear();
 
 
   entered = FALSE;
@@ -6304,41 +6289,50 @@ void clear_tab_page_click_defs(StlClickDefinition *const tpcd,
 void screenclear(void)
 {
   check_for_delay(FALSE);
-  screenalloc(false);       /* allocate screen buffers if size changed */
-  screenclear2();           /* clear the screen */
+  screenalloc(false);         // allocate screen buffers if size changed
+  grid_clear(&default_grid);  // clear the screen
 }
 
-static void screenclear2(void)
+static void grid_clear(ScreenGrid *grid)
 {
-  int i;
-
-  if (starting == NO_SCREEN || default_grid.ScreenLines == NULL) {
+  if (starting == NO_SCREEN || grid->ScreenLines == NULL) {
     return;
   }
 
-  /* blank out ScreenLines */
-  for (i = 0; i < default_grid.Rows; ++i) {
-    grid_clear_line(&default_grid, default_grid.LineOffset[i],
-                    (int)default_grid.Columns);
-    default_grid.LineWraps[i] = FALSE;
+  for (int i = 0; i < grid->Rows; i++) {
+    grid_clear_line(grid, grid->LineOffset[i], (int)grid->Columns);
+    grid->LineWraps[i] = false;
   }
 
-  ui_call_grid_clear(1);  // clear the display
-  clear_cmdline = false;
-  mode_displayed = false;
-  screen_cleared = kTrue;   // can use contents of ScreenLines now
+  ui_call_grid_clear(grid->handle);  // clear the grid
 
-  win_rest_invalid(firstwin);
-  redraw_cmdline = TRUE;
-  redraw_tabline = TRUE;
-  if (must_redraw == CLEAR)     /* no need to clear again */
-    must_redraw = NOT_VALID;
-  compute_cmdrow();
-  msg_row = cmdline_row;        /* put cursor on last line for messages */
-  msg_col = 0;
-  msg_scrolled = 0;             /* can't scroll back */
-  msg_didany = FALSE;
-  msg_didout = FALSE;
+  if (grid == &default_grid) {
+
+    // since the default_grid was cleared, all windows' statuslines are now
+    // cleared; so mark them to be redrawn.
+    win_T *wp = firstwin;
+    while (wp != NULL) {
+      wp->w_redr_status = TRUE;
+      wp = wp->w_next;
+    }
+
+    // mark cmdline, tabline etc. to be redrawn too.
+    clear_cmdline = false;
+    mode_displayed = false;
+    screen_cleared = kTrue;       // can use contents of ScreenLines now
+
+    redraw_cmdline = true;
+    redraw_tabline = true;
+    if (must_redraw == CLEAR) {   // no need to clear again
+      must_redraw = NOT_VALID;
+    }
+    compute_cmdrow();
+    msg_row = cmdline_row;        // put cursor on last line for messages
+    msg_col = 0;
+    msg_scrolled = 0;             // can't scroll back
+    msg_didany = false;
+    msg_didout = false;
+  }
 }
 
 /// clear a line in the grid starting at "off" until "width" characters
@@ -6420,9 +6414,10 @@ static int win_do_lines(win_T *wp, int row, int line_count,
   }
 
   // only a few lines left: redraw is faster
-  // TODO(utkarshme): this seems useless now
-  if (mayclear && wp->w_grid.Rows - line_count < 5 && wp->w_width == wp->w_grid.Columns) {
-    screenclear();          /* will set wp->w_lines_valid to 0 */
+  if (mayclear && wp->w_grid.Rows - line_count < 5) {
+    grid_clear(&wp->w_grid);
+    redraw_win_later(wp, NOT_VALID);
+    wp->w_redr_status = true;
     return FAIL;
   }
 
@@ -6444,19 +6439,6 @@ static int win_do_lines(win_T *wp, int row, int line_count,
                             wp->w_grid.Rows, 0, wp->w_grid.Columns);
   }
   return retval;
-}
-
-/*
- * window 'wp' and everything after it is messed up, mark it for redraw
- */
-static void win_rest_invalid(win_T *wp)
-{
-  while (wp != NULL) {
-    redraw_win_later(wp, NOT_VALID);
-    wp->w_redr_status = TRUE;
-    wp = wp->w_next;
-  }
-  redraw_cmdline = TRUE;
 }
 
 /*

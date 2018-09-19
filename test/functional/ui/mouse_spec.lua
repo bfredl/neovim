@@ -669,7 +669,7 @@ describe('ui/mouse/input', function()
                                                            |
       {0:~                                                    }|
       {4:[No Name] [+]                                        }|
-                                                           |
+      :vsp                                                 |
     ]])
     feed('<ScrollWheelUp><27,0>')
     screen:expect([[
