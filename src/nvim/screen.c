@@ -4415,9 +4415,6 @@ static void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol,
     row = grid->Rows - 1;
   if (endcol > grid->Columns)
     endcol = grid->Columns;
-  if (coloff > endcol) {
-    return;
-  }
 
   // If UI is not externalized, merge the contents of global and window grids
   if (!ui_is_external(kUIMultigrid) && grid != &default_grid) {
