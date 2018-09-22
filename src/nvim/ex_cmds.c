@@ -3236,8 +3236,6 @@ static void extmark_move_regmatch_single(lpos_T startpos,
 static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
 {
   colnr_T mincol;
-  colnr_T endcol;
-  colnr_T col_amount;
   linenr_T u_lnum;
   mincol = s.startpos.col + 1;
 
@@ -4112,18 +4110,13 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
           current_match.end.lnum = lnum;
         }
 
-        // TODO(timeyyy): should we be moving when preview?
-        // TODO(timeyyy): multiline regmatches ?
         // Adjust extmarks, by delete and then insert
         if (!preview) {
           newline_in_pat = strcnt(pat, '\\n');
           newline_in_sub = current_match.end.lnum - current_match.start.lnum;
-//          newline_in_sub = strcnt(sub, '\\r');
           if (newline_in_pat || newline_in_sub) {
             ExtmarkSubMulti sub_multi;
             no_of_lines_changed = newline_in_sub - newline_in_pat;
-
-            colnr_T mincol = regmatch.startpos[0].col + 1;
 
             sub_multi.newline_in_pat = newline_in_pat;
             sub_multi.newline_in_sub = newline_in_sub;
@@ -4142,8 +4135,6 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
             no_of_lines_changed = 0;
 
             if (regmatch.startpos[0].col != -1) {
-//                assert(regmatch.startpos[1].lnum == -1);
-
               ExtmarkSubSingle sub_single;
               sub_single.sublen = sublen;
               sub_single.lnum = lnum;
