@@ -685,7 +685,7 @@ static void win_update(win_T *wp)
 
   type = wp->w_redr_type;
 
-  win_grid_alloc(wp, true);
+  win_grid_alloc(wp, false);
 
   if (type == NOT_VALID) {
     wp->w_redr_status = TRUE;
@@ -5941,8 +5941,8 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
     // if grid was resized (in ext_multigrid mode), the UI has no redraw updates
     // for the newly resized grid. It is better mark everything as dirty and
     // send all the updates.
-    int dirty_first = grid->was_resized ? start_col : INT_MAX;
-    int dirty_last = grid->was_resized ? grid->Columns : 0;
+    int dirty_first = INT_MAX;
+    int dirty_last = 0;
 
     int col = start_col;
     schar_from_char(sc, c1);
@@ -5956,9 +5956,7 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
         if (dirty_first == INT_MAX) {
           dirty_first = col;
         }
-        if (!grid->was_resized) {
-          dirty_last = col+1;
-        }
+        dirty_last = col+1;
       }
       if (col == start_col) {
         schar_from_char(sc, c2);
@@ -6196,7 +6194,7 @@ retry:
 
 void grid_alloc(ScreenGrid *grid, int rows, int columns, bool copy)
 {
-  int new_row, old_row;
+  int new_row;
   ScreenGrid new = *grid;
 
   size_t ncells = (size_t)((rows+1) * columns);
@@ -6212,21 +6210,20 @@ void grid_alloc(ScreenGrid *grid, int rows, int columns, bool copy)
     new.LineOffset[new_row] = new_row * new.Columns;
     new.LineWraps[new_row] = false;
 
-    grid_clear_line(&new, 0, columns);
+    grid_clear_line(&new, new.LineOffset[new_row], columns);
 
     if (copy) {
       // If the screen is not going to be cleared, copy as much as
       // possible from the old screen to the new one and clear the rest
       // (used when resizing the window at the "--more--" prompt or when
       // executing an external command, for the GUI).
-      old_row = new_row + (grid->Rows - new.Rows);
-      if (old_row >= 0 && grid->ScreenLines != NULL) {
+      if (new_row < grid->Rows && grid->ScreenLines != NULL) {
         int len = MIN(grid->Columns, new.Columns);
         memmove(new.ScreenLines + new.LineOffset[new_row],
-                grid->ScreenLines + grid->LineOffset[old_row],
+                grid->ScreenLines + grid->LineOffset[new_row],
                 (size_t)len * sizeof(schar_T));
         memmove(new.ScreenAttrs + new.LineOffset[new_row],
-                grid->ScreenAttrs + grid->LineOffset[old_row],
+                grid->ScreenAttrs + grid->LineOffset[new_row],
                 (size_t)len * sizeof(sattr_T));
       }
     }
@@ -6407,14 +6404,6 @@ static int win_do_lines(win_T *wp, int row, int line_count,
   }
 
   if (!redrawing() || line_count <= 0) {
-    return FAIL;
-  }
-
-  // only a few lines left: redraw is faster
-  if (mayclear && wp->w_grid.Rows - line_count < 5) {
-    grid_clear(&wp->w_grid);
-    redraw_win_later(wp, NOT_VALID);
-    wp->w_redr_status = true;
     return FAIL;
   }
 

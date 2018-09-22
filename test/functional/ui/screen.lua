@@ -487,6 +487,14 @@ function Screen:_handle_resize(width, height)
   self._grid = self._grids[1]
 end
 
+local function min(x,y)
+  if x < y then
+    return x
+  else
+    return y
+  end
+end
+
 function Screen:_handle_grid_resize(grid, width, height)
   local rows = {}
   for _ = 1, height do
@@ -496,8 +504,19 @@ function Screen:_handle_grid_resize(grid, width, height)
     end
     table.insert(rows, cols)
   end
-  self._cursor.row = 1
-  self._cursor.col = 1
+  if grid > 1 and self._grids[grid] ~= nil then
+    local old = self._grids[grid]
+    for i = 1, min(height,old.height) do
+      for j = 1, min(width,old.width) do
+        rows[i][j] = old.rows[i][j]
+      end
+    end
+  end
+
+  if self._cursor.grid == grid then
+    self._cursor.row = 1
+    self._cursor.col = 1
+  end
   self._grids[grid] = {
     rows=rows,
     width=width,
