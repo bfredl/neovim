@@ -14,7 +14,10 @@
 
 // Macro Documentation: FOR_ALL_?
 // Search exclusively using the range values given.
-// -1 can be input for range values to the start and end of the line/col
+// -1 can be input for range values to the start and end of the line/col.
+// The ns parameter: Unless otherwise stated, this is only a starting point
+//    for the btree to searched in, the results being itterated over will
+//    still contain extmarks from other namespaces.
 
 // see FOR_ALL_? for documentation
 #define FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, code)\
