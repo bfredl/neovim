@@ -350,7 +350,7 @@ static void extmark_free_id_set(ExtmarkNs *ns_obj, uint64_t id)
   ns_obj->free_id = id + 1;
 }
 
-// free extmarks from the buffej
+// free extmarks from the buffer
 void extmark_free_all(buf_T *buf)
 {
   if (!buf->b_extmark_ns) {
@@ -360,10 +360,14 @@ void extmark_free_all(buf_T *buf)
   uint64_t ns;
   ExtmarkNs *ns_obj;
 
+  // Macro hygiene.
+  {
+    FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, MINLNUM, MINCOL, MAXLNUM, MAXCOL, {
+      kb_del_itr(markitems, &extline->items, &mitr);
+    });
+  }
+
   map_foreach(buf->b_extmark_ns, ns, ns_obj, {
-     FOR_ALL_EXTMARKS(buf, ns, MINLNUM, MINCOL, MAXLNUM, MAXCOL, {
-       kb_del_itr(markitems, &extline->items, &mitr);
-     });
     pmap_free(uint64_t)(ns_obj->map);
     xfree(ns_obj);
   });
