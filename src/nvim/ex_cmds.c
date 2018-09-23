@@ -3240,9 +3240,8 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
   mincol = s.startpos.col + 1;
 
   linenr_T n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
-  linenr_T n_newline_in_pat = n_u_lnum - s.lnum;
-  long n_after_newline_in_pat = s.endpos.col;
-  long n_before_newline_in_pat =  mincol - s.cm_start.col;
+  colnr_T n_after_newline_in_pat = s.endpos.col;
+  colnr_T n_before_newline_in_pat =  mincol - s.cm_start.col;
   // TODO: This should mostly work, what about for backrefs?
    long n_after_newline_in_sub;
    if (!s.newline_in_sub) {
@@ -3263,10 +3262,10 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
                            s.lnum, mincol,
                            kExtmarkUndo);
     // 2. Move marks on last newline
-    mincol = mincol - (colnr_T) n_before_newline_in_pat;
+    mincol = mincol - n_before_newline_in_pat;
     extmark_col_adjust(curbuf,
                        u_lnum,
-                       (colnr_T) (n_after_newline_in_pat + 1),
+                       n_after_newline_in_pat + 1,
                        -s.newline_in_pat,
                        mincol - n_after_newline_in_pat,
                        kExtmarkUndo);
@@ -3442,9 +3441,9 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
   bool preview = (State & CMDPREVIEW);
   extmark_sub_multi_vec_t extmark_sub_multi = KV_INITIAL_VALUE;
   extmark_sub_single_vec_t extmark_sub_single = KV_INITIAL_VALUE;
-  int no_of_lines_changed;
-  size_t newline_in_pat;
-  size_t newline_in_sub;
+  linenr_T no_of_lines_changed = 0;
+  linenr_T newline_in_pat = 0;
+  linenr_T newline_in_sub = 0;
 
   // inccomand tests fail without this check
   if (!preview) {
@@ -4112,7 +4111,7 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
 
         // Adjust extmarks, by delete and then insert
         if (!preview) {
-          newline_in_pat = strcnt(pat, '\\n');
+          newline_in_pat = strcnt((const char *)pat, '\\n');
           newline_in_sub = current_match.end.lnum - current_match.start.lnum;
           if (newline_in_pat || newline_in_sub) {
             ExtmarkSubMulti sub_multi;

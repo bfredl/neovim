@@ -265,9 +265,9 @@ typedef struct {
   lpos_T startpos;
   lpos_T endpos;
   linenr_T lnum;
-  long newline_in_pat;
-  long newline_in_sub;
-  long lnum_added;
+  linenr_T newline_in_pat;
+  linenr_T newline_in_sub;
+  linenr_T lnum_added;
   lpos_T cm_start;  // start of the match
   lpos_T cm_end;    // end of the match
   int eol;    // end of the match
