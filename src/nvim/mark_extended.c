@@ -70,7 +70,7 @@
 colnr_T BufPosStartCol = 1;
 linenr_T BufPosStartRow = 1;
 
-static linenr_T check_lnum(buf_T *buf, linenr_T lnum)
+linenr_T extmark_check_lnum(buf_T *buf, linenr_T lnum)
 {
   linenr_T maxlen = buf->b_ml.ml_line_count + 1;
   if (lnum > maxlen) {
@@ -79,7 +79,7 @@ static linenr_T check_lnum(buf_T *buf, linenr_T lnum)
   return lnum;
 }
 
-static colnr_T check_col(buf_T *buf, linenr_T lnum, colnr_T col)
+colnr_T extmark_check_col(buf_T *buf, linenr_T lnum, colnr_T col)
 {
   int line_len = len_of_line_inclusive_white_space(buf, lnum);
   colnr_T maxlen = (colnr_T)line_len + 1;
@@ -90,19 +90,16 @@ static colnr_T check_col(buf_T *buf, linenr_T lnum, colnr_T col)
 }
 
 
-// Create or update an extmark, marks are force to a valid position.
+// Create or update an extmark
 // Returns 1 on new mark created
 // Returns 2 on succesful update
 int extmark_set(buf_T *buf,
                 uint64_t ns,
                 uint64_t id,
-                linenr_T _lnum,
-                colnr_T _col,
+                linenr_T lnum,
+                colnr_T col,
                 ExtmarkOp op)
 {
-  linenr_T lnum = check_lnum(buf, _lnum);
-  colnr_T col = check_col(buf, lnum, _col);
-
   ExtendedMark *extmark = extmark_from_id(buf, ns, id);
   if (!extmark) {
     return extmark_create(buf, ns, id, lnum, col, op);

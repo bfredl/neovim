@@ -1074,7 +1074,9 @@ Integer nvim_buf_set_mark(Buffer buffer,
   }
 
   rv = (Integer)extmark_set(buf, (uint64_t)namespace, id_num,
-                            (linenr_T)row, (colnr_T)col, kExtmarkUndo);
+                            extmark_check_lnum(buf, (linenr_T)row),
+                            extmark_check_col(buf, (linenr_T)row, (colnr_T)col),
+                            kExtmarkUndo);
   if (return_id) {
     return (Integer)id_num;
   } else {

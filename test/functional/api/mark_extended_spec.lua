@@ -56,7 +56,7 @@ describe('Extmarks buffer api', function()
 
   before_each(function()
     -- Initialize some namespaces and insert 12345 into a buffer
-    marks = {1, 2, 3, 4, 5, 6, 7}
+    marks = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
     positions = {{1, 1,}, {1, 3}, {1, 4}}
 
     ns_string = "my-fancy-plugin"
@@ -1111,7 +1111,7 @@ describe('Extmarks buffer api', function()
     check_undo_redo(buf, ns, marks[3], 1, 5, 1, 9)
   end)
 
-  it('substitions over multiple lines with newline in pattern #extmarks2', function()
+  it('substitions over multiple lines with newline in pattern #extmarks3', function()
     feed('A<cr>67890<cr>xx<esc>')
     buffer('set_mark', buf, ns, marks[1], 1, 4)
     buffer('set_mark', buf, ns, marks[2], 1, 5)
@@ -1340,6 +1340,18 @@ describe('Extmarks buffer api', function()
     buffer('set_mark', buf, ns, marks[1], invalid_lnum, invalid_col)
     rv = buffer('lookup_mark', buf, ns, marks[1])
     eq({marks[1], 2, 1}, rv)
+  end)
+
+  it('bug from check_col in extmark_set #extmarks_sub', function()
+    -- This bug was caused by extmark_set always using
+    -- check_col. check_col always uses the current buffer.
+    -- This wasn't working during undo so we now use
+    -- check_col and check_lnum only when they are required.
+    feed('A<cr>67890<cr>xx<esc>')
+    feed('A<cr>12345<cr>67890<cr>xx<esc>')
+    buffer('set_mark', buf, ns, marks[1], 4, 5)
+    feed([[:1,5s:5\n:5 <cr>]])
+    check_undo_redo(buf, ns, marks[1], 4, 5, 3, 7)
   end)
 
 end)
