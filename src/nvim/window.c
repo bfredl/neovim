@@ -1265,7 +1265,7 @@ static void win_exchange(long Prenum)
   (void)win_comp_pos();                 /* recompute window positions */
 
   win_enter(wp, true);
-  redraw_later(CLEAR);
+  redraw_later(NOT_VALID);
 }
 
 /*
@@ -1340,7 +1340,7 @@ static void win_rotate(int upwards, int count)
     (void)win_comp_pos();
   }
 
-  redraw_later(CLEAR);
+  redraw_later(NOT_VALID);
 }
 
 /*
@@ -1480,7 +1480,7 @@ static void win_equal_rec(
       frame_new_height(topfr, height, FALSE, FALSE);
       topfr->fr_win->w_wincol = col;
       frame_new_width(topfr, width, FALSE, FALSE);
-      redraw_all_later(CLEAR);
+      redraw_all_later(NOT_VALID);
     }
   } else if (topfr->fr_layout == FR_ROW) {
     topfr->fr_width = width;
@@ -3105,7 +3105,7 @@ int win_new_tabpage(int after, char_u *filename)
     newtp->tp_topframe = topframe;
     last_status(FALSE);
 
-    redraw_all_later(CLEAR);
+    redraw_all_later(NOT_VALID);
 
     apply_autocmds(EVENT_WINNEW, NULL, NULL, false, curbuf);
     apply_autocmds(EVENT_WINENTER, NULL, NULL, false, curbuf);
@@ -3312,7 +3312,7 @@ static void enter_tabpage(tabpage_T *tp, buf_T *old_curbuf, int trigger_enter_au
 
   last_status(FALSE);           /* status line may appear or disappear */
   (void)win_comp_pos();         /* recompute w_winrow for all windows */
-  must_redraw = CLEAR;          /* need to redraw everything */
+  must_redraw = NOT_VALID;      /* need to redraw everything */
   diff_need_scrollbind = TRUE;
 
   /* The tabpage line may have appeared or disappeared, may need to resize
@@ -3335,7 +3335,7 @@ static void enter_tabpage(tabpage_T *tp, buf_T *old_curbuf, int trigger_enter_au
       apply_autocmds(EVENT_BUFENTER, NULL, NULL, FALSE, curbuf);
   }
 
-  redraw_all_later(CLEAR);
+  redraw_all_later(NOT_VALID);
 }
 
 /*
@@ -5443,7 +5443,7 @@ restore_snapshot (
     win_comp_pos();
     if (wp != NULL && close_curwin)
       win_goto(wp);
-    redraw_all_later(CLEAR);
+    redraw_all_later(NOT_VALID);
   }
   clear_snapshot(curtab, idx);
 }

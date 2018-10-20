@@ -3981,7 +3981,7 @@ static char *set_bool_option(const int opt_idx, char_u *const varp,
         /* Enable Arabic shaping (major part of what Arabic requires) */
         if (!p_arshape) {
           p_arshape = TRUE;
-          redraw_later_clear();
+          redraw_all_later(NOT_VALID);
         }
       }
 

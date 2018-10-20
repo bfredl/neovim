@@ -848,7 +848,7 @@ void wait_return(int redraw)
   FILE        *save_scriptout;
 
   if (redraw == TRUE)
-    must_redraw = CLEAR;
+    must_redraw = NOT_VALID;
 
   /* If using ":silent cmd", don't wait for a return.  Also don't set
    * need_wait_return to do it later. */

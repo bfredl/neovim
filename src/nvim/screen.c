@@ -167,12 +167,6 @@ void redraw_win_later(win_T *wp, int type)
   }
 }
 
-/// Forces a complete redraw later.  Also resets the highlighting.
-void redraw_later_clear(void)
-{
-  redraw_all_later(CLEAR);
-}
-
 /*
  * Mark all windows to be redrawn later.
  */
@@ -845,14 +839,6 @@ static void win_update(win_T *wp)
       type = VALID;
   }
 
-  // Trick: we want to avoid clearing the screen twice.  screenclear() will
-  // set "screen_cleared" to kTrue.  The special value kNone (which is still
-  // non-zero and thus not kFalse) will indicate that screenclear() was not
-  // called.
-  if (screen_cleared) {
-    screen_cleared = kNone;
-  }
-
   /*
    * If there are no changes on the screen that require a complete redraw,
    * handle three cases:
@@ -906,7 +892,7 @@ static void win_update(win_T *wp)
            */
           if (i > 0)
             check_for_delay(FALSE);
-          if (win_ins_lines(wp, 0, i, FALSE, wp == firstwin) == OK) {
+          if (win_ins_lines(wp, 0, i, FALSE) == OK) {
             if (wp->w_lines_valid != 0) {
               /* Need to update rows that are new, stop at the
                * first one that scrolled down. */
@@ -965,7 +951,7 @@ static void win_update(win_T *wp)
         row -= wp->w_topfill;
         if (row > 0) {
           check_for_delay(FALSE);
-          if (win_del_lines(wp, 0, row, FALSE, wp == firstwin) == OK)
+          if (win_del_lines(wp, 0, row, FALSE) == OK)
             bot_start = wp->w_height - row;
           else
             mid_start = 0;                      /* redraw all lines */
@@ -1006,31 +992,9 @@ static void win_update(win_T *wp)
       }
     }
 
-    /* When starting redraw in the first line, redraw all lines.  When
-     * there is only one window it's probably faster to clear the screen
-     * first. */
+    // When starting redraw in the first line, redraw all lines.
     if (mid_start == 0) {
       mid_end = wp->w_height;
-      if (ONE_WINDOW) {
-        // Clear the screen when it was not done by win_del_lines() or
-        // win_ins_lines() above, "screen_cleared" is kFalse or kNone
-        // then.
-        if (screen_cleared != kTrue) {
-          screenclear();
-        }
-        // The screen was cleared, redraw the tab pages line.
-        if (redraw_tabline) {
-          draw_tabline();
-        }
-      }
-    }
-
-    /* When win_del_lines() or win_ins_lines() caused the screen to be
-     * cleared (only happens for the first window) or when screenclear()
-     * was called directly above, "must_redraw" will have been set to
-     * NOT_VALID, need to reset it here to avoid redrawing twice. */
-    if (screen_cleared == kTrue) {
-      must_redraw = 0;
     }
   } else {
     /* Not VALID or INVERTED: redraw all lines. */
@@ -1343,7 +1307,7 @@ static void win_update(win_T *wp)
             else {
               check_for_delay(FALSE);
               if (win_del_lines(wp, row,
-                      -xtra_rows, FALSE, FALSE) == FAIL)
+                      -xtra_rows, FALSE) == FAIL)
                 mod_bot = MAXLNUM;
               else
                 bot_start = wp->w_height + xtra_rows;
@@ -1357,7 +1321,7 @@ static void win_update(win_T *wp)
             else {
               check_for_delay(FALSE);
               if (win_ins_lines(wp, row + old_rows,
-                      xtra_rows, FALSE, FALSE) == FAIL)
+                      xtra_rows, FALSE) == FAIL)
                 mod_bot = MAXLNUM;
               else if (top_end > row + old_rows)
                 /* Scrolled the part at the top that requires
@@ -6166,7 +6130,6 @@ static void screenclear2(void)
   ui_call_grid_clear(1);  // clear the display
   clear_cmdline = false;
   mode_displayed = false;
-  screen_cleared = kTrue;   // can use contents of ScreenLines now
 
   win_rest_invalid(firstwin);
   redraw_cmdline = TRUE;
@@ -6229,13 +6192,13 @@ void setcursor(void)
 /// If 'mayclear' is TRUE the screen will be cleared if it is faster than
 /// scrolling.
 /// Returns FAIL if the lines are not inserted, OK for success.
-int win_ins_lines(win_T *wp, int row, int line_count, int invalid, int mayclear)
+int win_ins_lines(win_T *wp, int row, int line_count, int invalid)
 {
   if (wp->w_height < 5) {
     return FAIL;
   }
 
-  return win_do_lines(wp, row, line_count, invalid, mayclear, false);
+  return win_do_lines(wp, row, line_count, invalid, false);
 }
 
 /// Delete "line_count" window lines at "row" in window "wp".
@@ -6243,27 +6206,21 @@ int win_ins_lines(win_T *wp, int row, int line_count, int invalid, int mayclear)
 /// If "mayclear" is TRUE the screen will be cleared if it is faster than
 /// scrolling
 /// Return OK for success, FAIL if the lines are not deleted.
-int win_del_lines(win_T *wp, int row, int line_count, int invalid, int mayclear)
+int win_del_lines(win_T *wp, int row, int line_count, int invalid)
 {
-  return win_do_lines(wp, row, line_count, invalid, mayclear, true);
+  return win_do_lines(wp, row, line_count, invalid, true);
 }
 
 // Common code for win_ins_lines() and win_del_lines().
 // Returns OK or FAIL when the work has been done.
 static int win_do_lines(win_T *wp, int row, int line_count,
-                        int invalid, int mayclear, int del)
+                        int invalid, int del)
 {
   if (invalid) {
     wp->w_lines_valid = 0;
   }
 
   if (!redrawing() || line_count <= 0) {
-    return FAIL;
-  }
-
-  // only a few lines left: redraw is faster
-  if (mayclear && Rows - line_count < 5 && wp->w_width == Columns) {
-    screenclear();          /* will set wp->w_lines_valid to 0 */
     return FAIL;
   }
 

@@ -255,7 +255,7 @@ void do_exmode(int improved)
 
   --RedrawingDisabled;
   --no_wait_return;
-  update_screen(CLEAR);
+  update_screen(NOT_VALID);
   need_wait_return = FALSE;
   msg_scroll = save_msg_scroll;
 }
