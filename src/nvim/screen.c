@@ -3680,34 +3680,6 @@ win_line (
                      (col < wp->w_width))) {
           c = ' ';
           ptr--;  // put it back at the NUL
-        } else if ((diff_hlf != (hlf_T)0 || line_attr_lowprio || line_attr)
-                   && (wp->w_p_rl
-                       ? (col >= 0)
-                       : (col - boguscols < wp->w_width))) {
-          // Highlight until the right side of the window
-          c = ' ';
-          ptr--;  // put it back at the NUL
-
-          // Remember we do the char for line highlighting.
-          did_line_attr++;
-
-          // don't do search HL for the rest of the line
-          if ((line_attr_lowprio || line_attr)
-              && char_attr == search_attr
-              && (did_line_attr > 1
-                  || (wp->w_p_list && lcs_eol > 0))) {
-            char_attr = line_attr;
-          }
-          if (diff_hlf == HLF_TXD) {
-            diff_hlf = HLF_CHD;
-            if (attr == 0 || char_attr != attr) {
-              char_attr = win_hl_attr(wp, diff_hlf);
-              if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
-                char_attr = hl_combine_attr(char_attr,
-                                            win_hl_attr(wp, HLF_CUL));
-              }
-            }
-          }
         }
       }
 
@@ -3946,7 +3918,8 @@ win_line (
             && (int)wp->w_virtcol <
             wp->w_width * (row - startrow + 1) + v
             && lnum != wp->w_cursor.lnum)
-           || draw_color_col || do_virttext)
+           || draw_color_col || line_attr_lowprio || line_attr
+           || diff_hlf != (hlf_T)0 || do_virttext)
           && !wp->w_p_rl) {
         int rightmost_vcol = 0;
         int i;
@@ -3977,6 +3950,19 @@ win_line (
         int cuc_attr = win_hl_attr(wp, HLF_CUC);
         int mc_attr = win_hl_attr(wp, HLF_MC);
 
+        int diff_attr = 0;
+        if (diff_hlf == HLF_TXD) {
+          diff_hlf = HLF_CHD;
+        }
+        if (diff_hlf != 0) {
+          diff_attr = win_hl_attr(wp, diff_hlf);
+        }
+
+        int base_attr = hl_combine_attr(line_attr_lowprio, diff_attr);
+        if (base_attr || line_attr) {
+          rightmost_vcol = INT_MAX;
+        }
+
         while (col < wp->w_width) {
           int cells = -1;
           if (do_virttext && !delay_virttext) {
@@ -4006,7 +3992,8 @@ win_line (
             draw_color_col = advance_color_col(VCOL_HLC, &color_cols);
           }
 
-          int attr = 0;
+          int attr = base_attr;
+
           if (wp->w_p_cuc && VCOL_HLC == (long)wp->w_virtcol) {
             attr = cuc_attr;
           } else if (draw_color_col && VCOL_HLC == *color_cols) {
@@ -4016,6 +4003,8 @@ win_line (
           if (do_virttext) {
             attr = hl_combine_attr(attr, virt_attr);
           }
+
+          attr = hl_combine_attr(attr, line_attr);
 
           ScreenAttrs[off] = attr;
           if (cells == 2) {
