@@ -3915,8 +3915,7 @@ win_line (
             wp->w_width * (row - startrow + 1) + v
             && lnum != wp->w_cursor.lnum)
            || draw_color_col || line_attr_lowprio || line_attr
-           || diff_hlf != (hlf_T)0 || do_virttext)
-          && !wp->w_p_rl) {
+           || diff_hlf != (hlf_T)0 || do_virttext)) {
         int rightmost_vcol = 0;
         int i;
 
@@ -3959,7 +3958,9 @@ win_line (
           rightmost_vcol = INT_MAX;
         }
 
-        while (col < wp->w_width) {
+        int col_stride = wp->w_p_rl ? -1 : 1;
+
+        while (wp->w_p_rl ? col >= 0 : col < wp->w_width) {
           int cells = -1;
           if (do_virttext && !delay_virttext) {
             if (*s.p == NUL) {
@@ -3983,7 +3984,7 @@ win_line (
             schar_from_ascii(ScreenLines[off], ' ');
             cells = 1;
           }
-          col += cells;
+          col += cells * col_stride;
           if (draw_color_col) {
             draw_color_col = advance_color_col(VCOL_HLC, &color_cols);
           }
@@ -4006,7 +4007,7 @@ win_line (
           if (cells == 2) {
             ScreenAttrs[off+1] = attr;
           }
-          off += cells;
+          off += cells * col_stride;
 
           if (VCOL_HLC >= rightmost_vcol && *s.p == NUL
               && virt_pos >= virt_text.size) {
