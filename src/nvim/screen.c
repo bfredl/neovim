@@ -2199,7 +2199,6 @@ win_line (
                                         // of the matches
   int prev_c = 0;                       // previous Arabic character
   int prev_c1 = 0;                      // first composing char for prev_c
-  int did_line_attr = 0;
 
   bool search_attr_from_match = false;  // if search_attr is from :match
   BufhlLineInfo bufhl_info;             // bufhl data for this line
@@ -3041,8 +3040,7 @@ win_line (
         }
         // Only highlight one character after the last column.
         if (*ptr == NUL
-            && (did_line_attr >= 1
-                || (wp->w_p_list && lcs_eol_one == -1))) {
+            && (wp->w_p_list && lcs_eol_one == -1)) {
           search_attr = 0;
         }
       }
@@ -3827,11 +3825,7 @@ win_line (
                    || lnum == curwin->w_cursor.lnum)
                && c == NUL)
               // highlight 'hlsearch' match at end of line
-              || (prevcol_hl_flag
-                  //&& !(wp->w_p_cul && lnum == wp->w_cursor.lnum
-                  //     && !(wp == curwin && VIsual_active))
-                  //&& diff_hlf == (hlf_T)0
-                  && !did_line_attr))) {
+              || prevcol_hl_flag)) {
         int n = 0;
 
         if (wp->w_p_rl) {
@@ -3889,7 +3883,6 @@ win_line (
         }
         ++vcol;
         eol_hl_off = 1;
-        did_line_attr = 1; // delet this
       }
       // Highlight 'cursorcolumn' & 'colorcolumn' past end of the line.
       if (wp->w_p_wrap) {
