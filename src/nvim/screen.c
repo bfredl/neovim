@@ -3920,7 +3920,7 @@ win_line (
 
         // Make sure alignment is the same regardless
         // if listchars=eol:X is used or not.
-        bool delay_virttext = lcs_eol <= 0;
+        bool delay_virttext = lcs_eol == lcs_eol_one && eol_hl_off == 0;
 
         if (wp->w_p_cuc) {
           rightmost_vcol = wp->w_virtcol;
