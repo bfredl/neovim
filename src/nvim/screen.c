@@ -3875,8 +3875,10 @@ win_line (
           }
         }
 
-        int eol_attr = hl_combine_attr(line_attr_lowprio, char_attr);
-        eol_attr = hl_combine_attr(eol_attr, line_attr);
+        int eol_attr = char_attr;
+        if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+          eol_attr = hl_combine_attr(win_hl_attr(wp, HLF_CUL), eol_attr);
+        }
         ScreenAttrs[off] = eol_attr;
         if (wp->w_p_rl) {
           --col;
