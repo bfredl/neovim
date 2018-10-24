@@ -396,6 +396,43 @@ describe('Buffer highlighting', function()
         {1:~                                       }|
                                                 |
       ]])
+
+      -- special case: empty line has extra eol highlight
+      feed("ggd$")
+      screen:expect([[
+        ^ {3:=}{2: 3}                                    |
+        3 + {11:ERROR:} invalid syntax               |
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5|
+        , 5, 5, 5, 5, 5, 5,  Lorem ipsum dolor s|
+        x = 4                                   |
+        {1:~                                       }|
+        {1:~                                       }|
+                                                |
+      ]])
+
+      feed("jvk")
+      screen:expect([[
+        ^ {3:=}{2: 3}                                    |
+        {13:3} + {11:ERROR:} invalid syntax               |
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5|
+        , 5, 5, 5, 5, 5, 5,  Lorem ipsum dolor s|
+        x = 4                                   |
+        {1:~                                       }|
+        {1:~                                       }|
+        {7:-- VISUAL --}                            |
+      ]])
+
+      feed("o")
+      screen:expect([[
+        {13: }{3:=}{2: 3}                                    |
+        ^3 + {11:ERROR:} invalid syntax               |
+        5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5|
+        , 5, 5, 5, 5, 5, 5,  Lorem ipsum dolor s|
+        x = 4                                   |
+        {1:~                                       }|
+        {1:~                                       }|
+        {7:-- VISUAL --}                            |
+      ]])
     end)
 
 
