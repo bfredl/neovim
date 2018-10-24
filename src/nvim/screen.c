@@ -3796,7 +3796,7 @@ win_line (
     /*
      * At end of the text line or just after the last character.
      */
-    if (c == NUL || did_line_attr == 1) {
+    if (c == NUL) {
       long prevcol = (long)(ptr - line) - (c == NUL);
 
       /* we're not really at that column when skipping some text */
@@ -3828,10 +3828,10 @@ win_line (
                && c == NUL)
               // highlight 'hlsearch' match at end of line
               || (prevcol_hl_flag
-                  && !(wp->w_p_cul && lnum == wp->w_cursor.lnum
-                       && !(wp == curwin && VIsual_active))
-                  && diff_hlf == (hlf_T)0
-                  && did_line_attr <= 1))) {
+                  //&& !(wp->w_p_cul && lnum == wp->w_cursor.lnum
+                  //     && !(wp == curwin && VIsual_active))
+                  //&& diff_hlf == (hlf_T)0
+                  && !did_line_attr))) {
         int n = 0;
 
         if (wp->w_p_rl) {
@@ -3875,10 +3875,9 @@ win_line (
           }
         }
 
-        if (wp->w_hl_attr_normal != 0) {
-          char_attr = hl_combine_attr(wp->w_hl_attr_normal, char_attr);
-        }
-        ScreenAttrs[off] = char_attr;
+        int eol_attr = hl_combine_attr(line_attr_lowprio, char_attr);
+        eol_attr = hl_combine_attr(eol_attr, line_attr);
+        ScreenAttrs[off] = eol_attr;
         if (wp->w_p_rl) {
           --col;
           --off;
@@ -3888,13 +3887,8 @@ win_line (
         }
         ++vcol;
         eol_hl_off = 1;
+        did_line_attr = 1; // delet this
       }
-    }
-
-    //
-    // At end of the text line.
-    //
-    if (c == NUL) {
       // Highlight 'cursorcolumn' & 'colorcolumn' past end of the line.
       if (wp->w_p_wrap) {
         v = wp->w_skipcol;
