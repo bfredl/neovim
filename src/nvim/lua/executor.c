@@ -337,6 +337,31 @@ int nlua_debug(lua_State *lstate)
   return 0;
 }
 
+/// add the value to the registry
+int nlua_ref(lua_State *lstate, int index)
+{
+  lua_pushvalue(lstate, index);
+  return luaL_ref(lstate, LUA_REGISTRYINDEX);
+}
+
+/// remove the value from the registry
+void nlua_unref(lua_State *lstate, int ref)
+{
+  luaL_unref(lstate, LUA_REGISTRYINDEX, ref);
+}
+
+void executor_free_luaref(int ref)
+{
+  lua_State *const lstate = nlua_enter();
+  nlua_unref(lstate, ref);
+}
+
+/// push a value referenced in the regirstry
+void nlua_pushref(lua_State *lstate, int ref)
+{
+  lua_rawgeti(lstate, LUA_REGISTRYINDEX, ref);
+}
+
 /// Evaluate lua string
 ///
 /// Used for luaeval().
@@ -425,9 +450,30 @@ Object executor_exec_lua_api(const String str, const Array args, Error *err)
     return NIL;
   }
 
-  return nlua_pop_Object(lstate, err);
+  return nlua_pop_Object(lstate, false, err);
 }
 
+Object executor_exec_lua_cb(int ref, const char *name, Array args)
+{
+  lua_State *const lstate = nlua_enter();
+  nlua_pushref(lstate, ref);
+  lua_pushstring(lstate, name);
+  for (size_t i = 0; i < args.size; i++) {
+    nlua_push_Object(lstate, args.items[i]);
+  }
+
+  if (lua_pcall(lstate, (int)args.size+1, 1, 0)) {
+    size_t len;
+    const char *errstr = lua_tolstring(lstate, -1, &len);
+    // TODO: cb:s might not always be msg-safe, imagine cb from
+    // lua_ui_flush, let the caller deal with the error instead?
+    emsgf("Error executing lua cb: %.*s", (int)len, errstr);
+    return NIL;
+  }
+  Error err;
+
+  return nlua_pop_Object(lstate, false, &err);
+}
 
 /// Run lua string
 ///

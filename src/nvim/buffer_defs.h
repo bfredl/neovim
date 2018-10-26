@@ -787,6 +787,7 @@ struct file_buffer {
   // array of channelids which have asked to receive updates for this
   // buffer.
   kvec_t(uint64_t) update_channels;
+  kvec_t(int) update_callbacks;
 };
 
 /*

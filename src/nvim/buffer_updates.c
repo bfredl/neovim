@@ -5,17 +5,23 @@
 #include "nvim/memline.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/msgpack_rpc/channel.h"
+#include "nvim/lua/executor.h"
 #include "nvim/assert.h"
 #include "nvim/buffer.h"
 
 // Register a channel. Return True if the channel was added, or already added.
 // Return False if the channel couldn't be added because the buffer is
 // unloaded.
-bool buf_updates_register(buf_T *buf, uint64_t channel_id, bool send_buffer)
+bool buf_updates_register(buf_T *buf, uint64_t channel_id, int lua_ref, bool send_buffer)
 {
   // must fail if the buffer isn't loaded
   if (buf->b_ml.ml_mfp == NULL) {
     return false;
+  }
+
+  if (channel_id == LUA_INTERNAL_CALL) {
+    kv_push(buf->update_callbacks, lua_ref);
+    return true;
   }
 
   // count how many channels are currently watching the buffer
@@ -67,6 +73,11 @@ bool buf_updates_register(buf_T *buf, uint64_t channel_id, bool send_buffer)
   }
 
   return true;
+}
+
+bool buf_updates_active(buf_T *buf)
+{
+    return kv_size(buf->update_channels) || kv_size(buf->update_callbacks);
 }
 
 void buf_updates_send_end(buf_T *buf, uint64_t channelid)
@@ -133,42 +144,49 @@ void buf_updates_send_changes(buf_T *buf,
                               int64_t num_removed,
                               bool send_tick)
 {
+
+  if (!buf_updates_active(buf)) {
+    return;
+  }
+
   // if one the channels doesn't work, put its ID here so we can remove it later
   uint64_t badchannelid = 0;
+
+  // send through the changes now channel contents now
+  Array args = ARRAY_DICT_INIT;
+  args.size = 6;
+  args.items = xcalloc(sizeof(Object), args.size);
+
+  // the first argument is always the buffer handle
+  args.items[0] = BUFFER_OBJ(buf->handle);
+
+  // next argument is b:changedtick
+  args.items[1] = send_tick ? INTEGER_OBJ(buf_get_changedtick(buf)) : NIL;
+
+  // the first line that changed (zero-indexed)
+  args.items[2] = INTEGER_OBJ(firstline - 1);
+
+  // the last line that was changed
+  args.items[3] = INTEGER_OBJ(firstline - 1 + num_removed);
+
+  // linedata of lines being swapped in
+  Array linedata = ARRAY_DICT_INIT;
+  if (num_added > 0) {
+      STATIC_ASSERT(SIZE_MAX >= MAXLNUM, "size_t smaller than MAXLNUM");
+      linedata.size = (size_t)num_added;
+      linedata.items = xcalloc(sizeof(Object), (size_t)num_added);
+      buf_collect_lines(buf, (size_t)num_added, firstline, true, &linedata,
+                        NULL);
+  }
+  args.items[4] = ARRAY_OBJ(linedata);
+  args.items[5] = BOOLEAN_OBJ(false);
 
   // notify each of the active channels
   for (size_t i = 0; i < kv_size(buf->update_channels); i++) {
     uint64_t channelid = kv_A(buf->update_channels, i);
 
-    // send through the changes now channel contents now
-    Array args = ARRAY_DICT_INIT;
-    args.size = 6;
-    args.items = xcalloc(sizeof(Object), args.size);
-
-    // the first argument is always the buffer handle
-    args.items[0] = BUFFER_OBJ(buf->handle);
-
-    // next argument is b:changedtick
-    args.items[1] = send_tick ? INTEGER_OBJ(buf_get_changedtick(buf)) : NIL;
-
-    // the first line that changed (zero-indexed)
-    args.items[2] = INTEGER_OBJ(firstline - 1);
-
-    // the last line that was changed
-    args.items[3] = INTEGER_OBJ(firstline - 1 + num_removed);
-
-    // linedata of lines being swapped in
-    Array linedata = ARRAY_DICT_INIT;
-    if (num_added > 0) {
-        STATIC_ASSERT(SIZE_MAX >= MAXLNUM, "size_t smaller than MAXLNUM");
-        linedata.size = (size_t)num_added;
-        linedata.items = xcalloc(sizeof(Object), (size_t)num_added);
-        buf_collect_lines(buf, (size_t)num_added, firstline, true, &linedata,
-                          NULL);
-    }
-    args.items[4] = ARRAY_OBJ(linedata);
-    args.items[5] = BOOLEAN_OBJ(false);
-    if (!rpc_send_event(channelid, "nvim_buf_lines_event", args)) {
+    // TODO(bfredl): elide the copy when possible?
+    if (!rpc_send_event(channelid, "nvim_buf_lines_event", copy_array(args))) {
       // We can't unregister the channel while we're iterating over the
       // update_channels array, so we remember its ID to unregister it at
       // the end.
@@ -183,6 +201,17 @@ void buf_updates_send_changes(buf_T *buf,
     ELOG("Disabling buffer updates for dead channel %"PRIu64, badchannelid);
     buf_updates_unregister(buf, badchannelid);
   }
+
+  // notify each of the active channels
+  for (size_t i = 0; i < kv_size(buf->update_callbacks); i++) {
+    int ref = kv_A(buf->update_callbacks, i);
+    Object res = executor_exec_lua_cb(ref, "nvim_buf_lines_event", args);
+
+    if (res.type == kObjectTypeBoolean && res.data.boolean == true) {
+      // delete this callback.
+    }
+  }
+
 }
 
 void buf_updates_changedtick(buf_T *buf)
