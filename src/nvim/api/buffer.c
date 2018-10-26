@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <lauxlib.h>
 
 #include "nvim/api/buffer.h"
 #include "nvim/api/private/helpers.h"
@@ -108,25 +109,39 @@ String buffer_get_line(Buffer buffer, Integer index, Error *err)
 /// @param[out] err Details of an error that may have occurred
 /// @return False when updates couldn't be enabled because the buffer isn't
 ///         loaded or `opts` contained an invalid key; otherwise True.
+///         TODO: LUA_API_NO_EVAL
 Boolean nvim_buf_attach(uint64_t channel_id,
                         Buffer buffer,
                         Boolean send_buffer,
-                        Dictionary opts,
+                        DictionaryOf(luaref) opts,
                         Error *err)
-  FUNC_API_SINCE(4) FUNC_API_REMOTE_ONLY
+  FUNC_API_SINCE(4)
 {
-  if (opts.size > 0) {
-      api_set_error(err, kErrorTypeValidation, "dict isn't empty");
-      return false;
-  }
-
   buf_T *buf = find_buffer_by_handle(buffer, err);
 
   if (!buf) {
     return false;
   }
 
-  return buf_updates_register(buf, channel_id, send_buffer);
+  bool is_lua = (channel_id == LUA_INTERNAL_CALL);
+  int ref = LUA_NOREF;
+  for (size_t i = 0; i < opts.size; i++) {
+    String k = opts.items[i].key;
+    Object *v = &opts.items[i].value;
+    if (is_lua && strequal("on_event", k.data)) {
+      if (v->type != kObjectTypeLuaRef) {
+        api_set_error(err, kErrorTypeValidation, "callback is not a function");
+        return false;
+      }
+      ref = v->data.integer;
+      v->data.integer = LUA_NOREF;
+    } else {
+      api_set_error(err, kErrorTypeValidation, "unexpected key: %s", k.data);
+      return false;
+    }
+  }
+
+  return buf_updates_register(buf, channel_id, ref, send_buffer);
 }
 //
 /// Deactivate updates from this buffer to the current channel.

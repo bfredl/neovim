@@ -106,6 +106,7 @@ typedef enum {
   kObjectTypeString,
   kObjectTypeArray,
   kObjectTypeDictionary,
+  kObjectTypeLuaRef,
   // EXT types, cannot be split or reordered, see #EXT_OBJECT_TYPE_SHIFT
   kObjectTypeBuffer,
   kObjectTypeWindow,
