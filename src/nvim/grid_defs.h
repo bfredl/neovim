@@ -61,4 +61,6 @@ typedef struct {
   size_t comp_index;
 } ScreenGrid;
 
+#define SCREEN_GRID_INIT { 0, NULL, NULL, NULL, NULL, 0, 0, 0, 0, \
+                           0, 0, 0, 0, 0, 0 }
 #endif  // NVIM_GRID_DEFS_H

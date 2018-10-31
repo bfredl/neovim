@@ -154,6 +154,8 @@ static bool highlights_invalid = false;
 
 static bool conceal_cursor_used = false;
 
+static bool floats_invalid = false;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "screen.c.generated.h"
 #endif
@@ -454,16 +456,19 @@ void update_screen(int type)
 
     /* redraw status line after the window to minimize cursor movement */
     if (wp->w_redr_status) {
-      win_redr_status(wp, true);  // any popup menu will be redrawn below
+      win_redr_status(wp);
     }
   }
-  send_grid_resize = false;
-  highlights_invalid = false;
+
   end_search_hl();
   // May need to redraw the popup menu.
-  if (pum_drawn()) {
+  if (pum_drawn() && floats_invalid) {
     pum_redraw();
   }
+
+  send_grid_resize = false;
+  highlights_invalid = false;
+  floats_invalid = false;
 
   /* Reset b_mod_set flags.  Going through all windows is probably faster
    * than going through all buffers (there could be many buffers). */
@@ -4508,7 +4513,7 @@ void redraw_statuslines(void)
 {
   FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
     if (wp->w_redr_status) {
-      win_redr_status(wp, false);
+      win_redr_status(wp);
     }
   }
   if (redraw_tabline)
@@ -4781,7 +4786,7 @@ win_redr_status_matches (
 /// If inversion is possible we use it. Else '=' characters are used.
 /// If "ignore_pum" is true, also redraw statusline when the popup menu is
 /// displayed.
-static void win_redr_status(win_T *wp, int ignore_pum)
+static void win_redr_status(win_T *wp)
 {
   int row;
   char_u      *p;
@@ -4804,7 +4809,7 @@ static void win_redr_status(win_T *wp, int ignore_pum)
   if (wp->w_status_height == 0) {
     // no status line, can only be last window
     redraw_cmdline = true;
-  } else if (!redrawing() || (!ignore_pum && pum_drawn())) {
+  } else if (!redrawing()) {
     // Don't redraw right now, do it later. Don't update status line when
     // popup menu is visible and may be drawn over it
     wp->w_redr_status = true;
@@ -5427,10 +5432,10 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
         grid->chars[off + 1][0] = 0;
         grid->attrs[off + 1] = attr;
       }
-      if (put_dirty_first == -1) {
+      if (put_dirty_first == -1 || col < put_dirty_first) {
         put_dirty_first = col;
       }
-      put_dirty_last = col+mbyte_cells;
+      put_dirty_last = MAX(put_dirty_last, col+mbyte_cells);
     }
 
     off += mbyte_cells;
@@ -5837,7 +5842,7 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
     if (dirty_last > dirty_first) {
       // TODO(bfredl): support a cleared suffix even with a batched line?
       if (put_dirty_row == row) {
-        if (put_dirty_first == -1) {
+        if (put_dirty_first == -1 || dirty_first < put_dirty_first) {
           put_dirty_first = dirty_first;
         }
         put_dirty_last = MAX(put_dirty_last, dirty_last);
@@ -6180,6 +6185,7 @@ static void screenclear2(void)
     default_grid.line_wraps[i] = false;
   }
 
+  floats_invalid = true;
   ui_call_grid_clear(1);  // clear the display
   clear_cmdline = false;
   mode_displayed = false;
@@ -6908,11 +6914,6 @@ void showruler(int always)
 {
   if (!always && !redrawing())
     return;
-  if (pum_drawn()) {
-    // Don't redraw right now, do it later.
-    curwin->w_redr_status = true;
-    return;
-  }
   if ((*p_stl != NUL || *curwin->w_p_stl != NUL) && curwin->w_status_height) {
     redraw_custom_statusline(curwin);
   } else {
@@ -6947,10 +6948,6 @@ static void win_redr_ruler(win_T *wp, int always)
   if (wp == lastwin && lastwin->w_status_height == 0)
     if (edit_submode != NULL)
       return;
-  // Don't draw the ruler when the popup menu is visible, it may overlap.
-  if (pum_drawn()) {
-    return;
-  }
 
   if (*p_ruf) {
     int save_called_emsg = called_emsg;
