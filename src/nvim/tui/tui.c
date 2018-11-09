@@ -104,7 +104,7 @@ typedef struct {
   cursorentry_T cursor_shapes[SHAPE_IDX_COUNT];
   HlAttrs clear_attrs;
   kvec_t(HlAttrs) attrs;
-  HlAttrs print_attrs;
+  int print_attr_id;
   bool default_attr;
   ModeShape showing_mode;
   struct {
@@ -305,7 +305,7 @@ static void terminfo_stop(UI *ui)
 static void tui_terminal_start(UI *ui)
 {
   TUIData *data = ui->data;
-  data->print_attrs = HLATTRS_INVALID;
+  data->print_attr_id = -1;
   ugrid_init(&data->grid);
   terminfo_start(ui);
   update_size(ui);
@@ -439,8 +439,18 @@ static void sigwinch_cb(SignalWatcher *watcher, int signum, void *data)
   ui_schedule_refresh();
 }
 
-static bool attrs_differ(HlAttrs a1, HlAttrs a2, bool rgb)
+static bool attrs_differ(UI *ui, int id1, int id2, bool rgb)
 {
+  TUIData *data = ui->data;
+  if (id1 == id2) {
+    return false;
+  }
+  if (id1 < 0 || id2 < 0) {
+    return true;
+  }
+  HlAttrs a1 = kv_A(data->attrs, (size_t)id1);
+  HlAttrs a2 = kv_A(data->attrs, (size_t)id2);
+
   if (rgb) {
     return a1.rgb_fg_color != a2.rgb_fg_color
       || a1.rgb_bg_color != a2.rgb_bg_color
@@ -461,15 +471,16 @@ static bool no_bg(UI *ui, HlAttrs attrs)
                   : attrs.cterm_bg_color == 0;
 }
 
-static void update_attrs(UI *ui, HlAttrs attrs)
+static void update_attrs(UI *ui, int attr_id)
 {
   TUIData *data = ui->data;
 
-  if (!attrs_differ(attrs, data->print_attrs, ui->rgb)) {
+  if (!attrs_differ(ui, attr_id, data->print_attr_id, ui->rgb)) {
+    data->print_attr_id = attr_id;
     return;
   }
-
-  data->print_attrs = attrs;
+  data->print_attr_id = attr_id;
+  HlAttrs attrs = kv_A(data->attrs, (size_t)attr_id);
 
   int fg = ui->rgb ? attrs.rgb_fg_color : (attrs.cterm_fg_color - 1);
   if (fg == -1) {
@@ -599,7 +610,7 @@ static void print_cell(UI *ui, UCell *ptr)
     // Printing the next character finally advances the cursor.
     final_column_wrap(ui);
   }
-  update_attrs(ui, kv_A(data->attrs, ptr->attr));
+  update_attrs(ui, ptr->attr);
   out(ui, ptr->data, strlen(ptr->data));
   grid->col++;
   if (data->immediate_wrap_after_last_column) {
@@ -615,8 +626,8 @@ static bool cheap_to_print(UI *ui, int row, int col, int next)
   UCell *cell = grid->cells[row] + col;
   while (next) {
     next--;
-    if (attrs_differ(kv_A(data->attrs, cell->attr),
-                     data->print_attrs, ui->rgb)) {
+    if (attrs_differ(ui, cell->attr,
+                     data->print_attr_id, ui->rgb)) {
       if (data->default_attr) {
         return false;
       }
@@ -743,11 +754,10 @@ static void clear_region(UI *ui, int top, int bot, int left, int right,
   TUIData *data = ui->data;
   UGrid *grid = &data->grid;
 
-  HlAttrs attrs = kv_A(data->attrs, (size_t)attr_id);
-  update_attrs(ui, attrs);
+  update_attrs(ui, attr_id);
 
   // non-BCE terminals can't clear with non-default background color
-  bool can_clear = data->bce || no_bg(ui, attrs);
+  bool can_clear = data->bce || no_bg(ui, kv_A(data->attrs, attr_id));
 
   // Background is set to the default color and the right edge matches the
   // screen end, try to use terminal codes for clearing the requested area.
@@ -1105,7 +1115,7 @@ static void tui_default_colors_set(UI *ui, Integer rgb_fg, Integer rgb_bg,
   data->clear_attrs.cterm_fg_color = (int)cterm_fg;
   data->clear_attrs.cterm_bg_color = (int)cterm_bg;
 
-  data->print_attrs = HLATTRS_INVALID;
+  data->print_attr_id = -1;
   invalidate(ui, 0, data->grid.height, 0, data->grid.width);
 }
 
@@ -1233,7 +1243,7 @@ static void tui_option_set(UI *ui, String name, Object value)
   if (strequal(name.data, "termguicolors")) {
     ui->rgb = value.data.boolean;
 
-    data->print_attrs = HLATTRS_INVALID;
+    data->print_attr_id = -1;
     invalidate(ui, 0, data->grid.height, 0, data->grid.width);
   }
 }
