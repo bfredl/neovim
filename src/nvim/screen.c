@@ -115,6 +115,7 @@
 #include "nvim/window.h"
 #include "nvim/os/time.h"
 #include "nvim/api/private/helpers.h"
+#include "nvim/api/vim.h"
 
 #define MB_FILLER_CHAR '<'  /* character used when a double-width character
                              * doesn't fit. */
@@ -2245,6 +2246,8 @@ win_line (
   row = startrow;
   screen_row = row + wp->w_winrow;
 
+  char *luatext = NULL;
+
   if (!number_only) {
     // To speed up the loop below, set extra_check when there is linebreak,
     // trailing white space and/or syntax processing to be done.
@@ -2262,6 +2265,20 @@ win_line (
         has_syntax = true;
         extra_check = true;
       }
+    }
+
+    Error err = ERROR_INIT;
+    Array args = ARRAY_DICT_INIT;
+    ADD(args, WINDOW_OBJ(wp->handle));
+    ADD(args, INTEGER_OBJ(lnum));
+    String s = cstr_to_string("return vim.on_winline(...)");
+    Object o = nvim_execute_lua(s, args, &err);
+    if (o.type == kObjectTypeString) {
+      luatext = o.data.string.data;
+      do_virttext = true;
+    } else if (ERROR_SET(&err)) {
+      luatext = err.msg;
+      do_virttext = true;
     }
 
     if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
@@ -3912,8 +3929,14 @@ win_line (
         int rightmost_vcol = 0;
         int i;
 
-        VirtText virt_text = do_virttext ? bufhl_info.line->virt_text
-                                        : (VirtText)KV_INITIAL_VALUE;
+        VirtText virt_text;
+        if (luatext) {
+          virt_text = (VirtText)KV_INITIAL_VALUE;
+          kv_push(virt_text, ((VirtTextChunk){.text = luatext, .hl_id = 0}));
+        } else {
+          virt_text = do_virttext ? bufhl_info.line->virt_text
+                                  : (VirtText)KV_INITIAL_VALUE;
+        }
         size_t virt_pos = 0;
         LineState s = LINE_STATE((char_u *)"");
         int virt_attr = 0;
@@ -4305,6 +4328,7 @@ win_line (
   }
 
   xfree(p_extra_free);
+  xfree(luatext);
   return row;
 }
 
