@@ -649,7 +649,7 @@ static bool cheap_to_print(UI *ui, int row, int col, int next)
 /// (ASCII 0/12) means the same thing and does not mean home.  VT, CVT, and
 /// TAB also stop at software-defined tabulation stops, not at a fixed set
 /// of row/column positions.
-static void cursor_goto(UI *ui, int row, int col)
+static void cursor_goto(UI *ui, int row, int col, bool keep_hl)
 {
   TUIData *data = ui->data;
   UGrid *grid = &data->grid;
@@ -664,13 +664,17 @@ static void cursor_goto(UI *ui, int row, int col)
   if (grid->row == -1) {
     goto safe_move;
   }
-  if (0 == col ? col != grid->col :
+  if ((keep_hl && !data->default_attr) ? false :
+      0 == col ? col != grid->col :
       row != grid->row ? false :
       1 == col ? 2 < grid->col && cheap_to_print(ui, grid->row, 0, col) :
       2 == col ? 5 < grid->col && cheap_to_print(ui, grid->row, 0, col) :
       false) {
     // Motion to left margin from anywhere else, or CR + printing chars is
     // even less expensive than using BSes or CUB.
+    if (!data->default_attr) {
+      update_attrs(ui, 0);
+    }
     unibi_out(ui, unibi_carriage_return);
     ugrid_goto(grid, grid->row, 0);
   } else if (col > grid->col) {
@@ -766,7 +770,7 @@ static void clear_region(UI *ui, int top, int bot, int left, int right,
       unibi_out(ui, unibi_clear_screen);
       ugrid_goto(&data->grid, top, left);
     } else {
-      cursor_goto(ui, top, 0);
+      cursor_goto(ui, top, 0, true);
       unibi_out(ui, unibi_clr_eos);
     }
   } else {
@@ -774,7 +778,7 @@ static void clear_region(UI *ui, int top, int bot, int left, int right,
 
     // iterate through each line and clear
     for (int row = top; row < bot; row++) {
-      cursor_goto(ui, row, left);
+      cursor_goto(ui, row, left, true);
       if (can_clear && right == ui->width) {
         unibi_out(ui, unibi_clr_eol);
       } else if (data->can_erase_chars && can_clear && width >= 5) {
@@ -1053,7 +1057,7 @@ static void tui_grid_scroll(UI *ui, Integer g, Integer startrow, Integer endrow,
     if (!data->scroll_region_is_full_screen) {
       set_scroll_region(ui, top, bot, left, right);
     }
-    cursor_goto(ui, top, left);
+    cursor_goto(ui, top, left, false);
 
     if (rows > 0) {
       if (rows == 1) {
@@ -1152,7 +1156,7 @@ static void tui_flush(UI *ui)
       }
 
       UGRID_FOREACH_CELL(grid, row, r.left, clear_col, {
-        cursor_goto(ui, row, col);
+        cursor_goto(ui, row, col, false);
         print_cell(ui, cell);
       });
       if (clear_col < r.right) {
@@ -1161,7 +1165,7 @@ static void tui_flush(UI *ui)
     }
   }
 
-  cursor_goto(ui, data->row, data->col);
+  cursor_goto(ui, data->row, data->col, false);
 
   flush_buf(ui);
 }
@@ -1261,7 +1265,7 @@ static void tui_raw_line(UI *ui, Integer g, Integer linerow, Integer startcol,
     grid->cells[linerow][c].attr = attrs[c-startcol];
   }
   UGRID_FOREACH_CELL(grid, (int)linerow, (int)startcol, (int)endcol, {
-    cursor_goto(ui, (int)linerow, col);
+    cursor_goto(ui, (int)linerow, col, false);
     print_cell(ui, cell);
   });
 
@@ -1278,7 +1282,7 @@ static void tui_raw_line(UI *ui, Integer g, Integer linerow, Integer startcol,
 
     if (endcol != grid->width) {
       // Print the last cell of the row, if we haven't already done so.
-      cursor_goto(ui, (int)linerow, grid->width - 1);
+      cursor_goto(ui, (int)linerow, grid->width - 1, false);
       print_cell(ui, &grid->cells[linerow][grid->width - 1]);
     }
 
