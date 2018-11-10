@@ -788,6 +788,8 @@ struct file_buffer {
   // buffer.
   kvec_t(uint64_t) update_channels;
   kvec_t(int) update_callbacks;
+
+  char *b_luahl;
 };
 
 /*
