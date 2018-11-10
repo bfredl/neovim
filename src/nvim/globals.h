@@ -167,6 +167,10 @@ EXTERN char_u   *LineWraps INIT(= NULL);        /* line wraps to next line */
 EXTERN int screen_Rows INIT(= 0);           /* actual size of ScreenLines[] */
 EXTERN int screen_Columns INIT(= 0);        /* actual size of ScreenLines[] */
 
+EXTERN sattr_T *lua_attr_buf INIT(= NULL);
+EXTERN size_t lua_attr_bufsize INIT(= 0);
+EXTERN bool lua_attr_active INIT(= false);
+
 /*
  * When vgetc() is called, it sets mod_mask to the set of modifiers that are
  * held down based on the MOD_MASK_* symbols that are read first.
