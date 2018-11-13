@@ -367,7 +367,11 @@ include_directories(SYSTEM ${MSGPACK_INCLUDE_DIRS})
 # Note: The test lib requires LuaJIT; it will be skipped if LuaJIT is missing.
 option(PREFER_LUA "Prefer Lua over LuaJIT in the nvim executable." OFF)
 
-if(PREFER_LUA)
+if(1)
+  set(LUA_PREFERRED_INCLUDE_DIRS /home/bjorn/dev/raptorjit/src/)
+  set(LUA_PREFERRED_LIBRARIES /home/bjorn/dev/raptorjit/src/raptorjit.a)
+  find_package(LuaJit)
+elseif(PREFER_LUA)
   find_package(Lua 5.1 REQUIRED)
   set(LUA_PREFERRED_INCLUDE_DIRS ${LUA_INCLUDE_DIR})
   set(LUA_PREFERRED_LIBRARIES ${LUA_LIBRARIES})

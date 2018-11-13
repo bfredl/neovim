@@ -32,6 +32,7 @@ else
 TSPoint = ffi.typeof("TSPoint")
 end
 
+TSSymbol = ffi.typeof("TSSymbol")
 --ffi.load(path..'/../utf8proc/libutf8proc.so',true)
 --l = ffi.load(path..'/../tree-sitter/build/libtreesitter_rt.so')
 l = ffi.C
@@ -113,8 +114,8 @@ function create_parser(bufnr)
   local tsstate = {}
   tsstate.bufnr = bufnr
   tsstate.parser = l.ts_parser_new()
-  clang = l.tree_sitter_c()
-  l.ts_parser_set_language(tsstate.parser,clang)
+  tsstate.lang = l.tree_sitter_c() -- FIXME
+  l.ts_parser_set_language(tsstate.parser,tsstate.lang)
   --tree = l.ts_parser_parse_string(tsstate.parser, nil, data, string.len(data))
   parse_tree(tsstate)
   attach_buf(tsstate)
@@ -198,12 +199,22 @@ hl_map = {
   ["#ifdef"]="PreProc",
   ["#else"]="PreProc",
   ["#endif"]="PreProc",
+  ["true"]="Boolean",
+  ["false"]="Boolean",
 }
 
+hl_map_symb = {}
 id_map = {}
-for k,v in pairs(hl_map) do
-  id_map[k] = a.nvim__syn_attr(v)
+function ts_syntax_init(tsstate)
+  for k,v in pairs(hl_map) do
+    local s = tonumber(l.ts_language_symbol_for_name(tsstate.lang,k))
+    if s ~= 0 then
+      hl_map_symb[s] = v
+      id_map[s] = a.nvim__syn_attr(v)
+    end
+  end
 end
+
 
 function ts_line(line,endl,drawing)
   if endl == nil then endl = line+1 end
@@ -219,11 +230,12 @@ function ts_line(line,endl,drawing)
   local node = l.ts_tree_cursor_current_node(cursor)
   local continue = true
   local i = 500
+  local map = (drawing and id_map) or hl_map_symb
   while continue do
     --print(inspect_node(node))
-    local name = ffi.string(l.ts_node_type(node))
-    local map = (drawing and id_map) or hl_map
-    local hl = map[name]
+    --local name = ffi.string(l.ts_node_type(node))
+    local symb = tonumber(l.ts_node_symbol(node))
+    local hl = map[symb]
     if hl then
       if not drawing then
         print(inspect_node(node))
@@ -263,5 +275,6 @@ function ts_on_winhl(win, buf, lnum)
 end
 
 function ts_syntax()
+  ts_syntax_init(theparser)
   a.nvim_buf_set_luahl(theparser.bufnr, "return ts_on_winhl(...)")
 end

@@ -41,9 +41,6 @@ else()
   set(AMD64_ABI "")
 endif()
 set(INSTALLCMD_UNIX ${MAKE_PRG} CFLAGS=-fPIC
-                                CFLAGS+=-DLUAJIT_DISABLE_JIT
-                                CFLAGS+=-DLUA_USE_APICHECK
-                                CFLAGS+=-DLUA_USE_ASSERT
                                 ${AMD64_ABI}
                                 CCDEBUG+=-g
                                 Q=
