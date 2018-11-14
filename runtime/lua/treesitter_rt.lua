@@ -71,6 +71,7 @@ function parse_tree(tsstate, force)
   tsstate.valid = true
   return tsstate.tree
 end
+local parse_tree = parse_tree
 
 function the_cb(tsstate, ev, ...)
   if ev == "nvim_buf_lines_event" then
@@ -159,7 +160,7 @@ function ts_cursor()
   ts_inspect_pos(row-1, col)
 end
 
-function ts_forward(c,startbyte)
+local function ts_forward(c,startbyte)
   if l.ts_tree_cursor_goto_first_child_for_byte(c,startbyte) ~= -1 then
     --print("child")
     return true
@@ -204,10 +205,11 @@ hl_map = {
 }
 
 hl_map_symb = {}
-id_map = {}
+local id_map = {}
 function ts_syntax_init(tsstate)
   for k,v in pairs(hl_map) do
-    local s = tonumber(l.ts_language_symbol_for_name(tsstate.lang,k))
+    --local s = tonumber(l.ts_language_symbol_for_name(tsstate.lang,k))
+    local s = k
     if s ~= 0 then
       hl_map_symb[s] = v
       id_map[s] = a.nvim__syn_attr(v)
@@ -216,25 +218,27 @@ function ts_syntax_init(tsstate)
 end
 
 
-function ts_line(line,endl,drawing)
+local nvim_buf_get_offset = a.nvim_buf_get_offset
+local nvim__put_attr = a.nvim__put_attr
+local tonumber = tonumber
+local ffistring = ffi.string
+function ts_line(cursor, bufnr, line,endl,drawing)
   if endl == nil then endl = line+1 end
   if not drawing then
     a.nvim_buf_clear_highlight(0, my_syn_ns, line, endl)
   end
-  tree = parse_tree(theparser)
-  root = l.ts_tree_root_node(tree)
   --local node = l.ts_node_descendant_for_point_range(root, TSPoint(line,0), TSPoint(line,0))
   --local cursor = l.ts_tree_cursor_new(node)
-  local cursor = l.ts_tree_cursor_new(root)
-  local startbyte = a.nvim_buf_get_offset(theparser.bufnr, line)
+  --TODO: reuse cursor?
+  local startbyte = nvim_buf_get_offset(bufnr, line)
   local node = l.ts_tree_cursor_current_node(cursor)
   local continue = true
   local i = 500
   local map = (drawing and id_map) or hl_map_symb
   while continue do
     --print(inspect_node(node))
-    --local name = ffi.string(l.ts_node_type(node))
-    local symb = tonumber(l.ts_node_symbol(node))
+    local symb = ffistring(l.ts_node_type(node))
+    --local symb = tonumber(l.ts_node_symbol(node))
     local hl = map[symb]
     if hl then
       if not drawing then
@@ -245,9 +249,9 @@ function ts_line(line,endl,drawing)
       local endp = l.ts_node_end_point(node)
       if start.row == endp.row then
         if drawing then
-          a.nvim__put_attr(hl, start.column, endp.column)
+          nvim__put_attr(hl, start.column, endp.column)
         else
-          a.nvim_buf_add_highlight(theparser.bufnr, my_syn_ns, hl, start.row, start.column, endp.column)
+          a.nvim_buf_add_highlight(bufnr, my_syn_ns, hl, start.row, start.column, endp.column)
         end
       end
     end
@@ -264,17 +268,28 @@ function ts_line(line,endl,drawing)
     if i == 0 then continue = false end
   end
 end
+local ts_line = ts_line
 
 if false then
-  ts_line(0,300)
+  local tree = parse_tree(theparser)
+  local root = l.ts_tree_root_node(tree)
+  local cursor = l.ts_tree_cursor_new(root)
+  ts_line(cursor, theparser.bufnr, 0,300)
 end
 
 
-function ts_on_winhl(win, buf, lnum)
-  ts_line(lnum, lnum+1, true)
-end
 
 function ts_syntax()
   ts_syntax_init(theparser)
+  local parser = theparser
+  local tree0 = parse_tree(parser)
+  local root0 = l.ts_tree_root_node(tree0)
+  local cursor = l.ts_tree_cursor_new(root0)
+  function _G.ts_on_winhl(win, buf, lnum)
+    local tree = parse_tree(parser)
+    local root = l.ts_tree_root_node(tree)
+    l.ts_tree_cursor_reset(cursor, root)
+    ts_line(cursor, buf, lnum, lnum+1, true)
+  end
   a.nvim_buf_set_luahl(theparser.bufnr, "return ts_on_winhl(...)")
 end
