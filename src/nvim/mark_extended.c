@@ -1,22 +1,21 @@
-// mark_extended.c --
-// Implements extended marks for text widgets.
-// Each Mark exists in a btree of lines containing btrees
-// of columns.
+// This is an open source non-commercial project. Dear PVS-Studio, please check
+// it. PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+
+// Implements extended marks for plugins
+// Each Mark exists in a btree of lines containing btrees of columns.
 //
-// The btree provides efficent range lookus.
+// The btree provides efficent range lookups.
 // A map of pointers to the marks is used for fast lookup by mark id.
 //
 // Marks are moved by calls to: extmark_col_adjust, extmark_adjust, or
 // extmark_col_adjust_delete which are based on col_adjust and mark_adjust from
 // mark.c
 //
-// TODO(timeyyy): document the header file here..
 // Undo/Redo of marks is implemented by storing the call arguments to
 // extmark_col_adjust or extmark_adjust. The list of arguments
 // is applied in extmark_apply_undo. The only case where we have to
 // copy extmarks is for the area being effected by a delete.
 //
-// TODO(timeyyy): documentaion needs to be update
 // Marks live in namespaces that allow plugins/users to segregate marks
 // from other users, namespaces have to be initialized before usage
 //
@@ -24,47 +23,25 @@
 // http://blog.atom.io/2015/06/16/optimizing-an-important-atom-primitive.html
 // Other implementations exist in gtk and tk toolkits.
 //
-//
-// Some Notes and misconeption points
-// ----------------------------------
 // Deleting marks only happens explicitly extmark_del, deleteing over a
 // range of marks will only move the marks.
 //
 // deleting on a mark will leave it in that same position unless it is on
 // the eol of the line.
-//
-// Testing for correct mark behavior.
-// ----------------------------------
-// To play around with what the marks SHOULD do, check out the tk
-// text marks to use as a reference (for off by one behaviour etc)
-//
-// Warning: tkinter col starts at 0 while neovim starts at 1
-//
-// from a python3 shell:
-//
-// from tkinter import *
-// text = Text()
-// text.pack()
-// # Check the net for a full guide but in general the following are useful:
-// # text.mark_set("1", "1.5")
-// # text.index("1")
-// # text.get("1")
 
 #include <assert.h>
 #include "nvim/vim.h"
-#include "charset.h"           // skipwhite
+#include "charset.h"
 #include "nvim/mark_extended.h"
-#include "nvim/memline.h"      // ml_get_buf
-#include "nvim/pos.h"          // MAXLNUM
-#include "nvim/globals.h"      // FOR_ALL_BUFFERS
-#include "nvim/map.h"          // pmap ...
-#include "nvim/lib/kbtree.h"   // kbitr ...
-#include "nvim/undo.h"         // force_get_undo_header
+#include "nvim/memline.h"
+#include "nvim/pos.h"
+#include "nvim/globals.h"
+#include "nvim/map.h"
+#include "nvim/lib/kbtree.h"
+#include "nvim/undo.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
-#include "mark_extended.h"
-
 #endif
 
 colnr_T BufPosStartCol = 1;
@@ -134,7 +111,7 @@ ExtmarkArray extmark_get(buf_T *buf,
                          linenr_T l_lnum,
                          colnr_T l_col,
                          linenr_T u_lnum,
-                        colnr_T u_col,
+                         colnr_T u_col,
                          int64_t amount,
                          int dir)
 {
@@ -248,10 +225,9 @@ static void extmark_update(ExtendedMark *extmark,
   // Just update the column
   } else {
     if (mitr != NULL) {
-      // It didn't have to be this way, but the btree stays organized during our iterations
+      // The btree stays organized during iteration with kbitr_t
       extmark->col = col;
-    }
-    else {
+    } else {
       // Keep the btree in order
       kb_del(markitems, &old_line->items, *extmark);
       extmark_put(col, id, old_line, ns);
@@ -359,7 +335,7 @@ void extmark_free_all(buf_T *buf)
 
   // Macro hygiene.
   {
-    FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, MINLNUM, MINCOL, MAXLNUM, MAXCOL, {
+    FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, 1, 1, MAXLNUM, MAXCOL, {
       kb_del_itr(markitems, &extline->items, &mitr);
     });
   }
@@ -892,7 +868,7 @@ static void apply_undo_move(ExtmarkUndoObject undo_info, bool undo)
 // for anything other than deletes
 // Return, desired col amount where the adjustment should take place
 // (not taking) eol into account
-long update_constantly(colnr_T _, colnr_T __, long col_amount)
+static long update_constantly(colnr_T _, colnr_T __, long col_amount)
 {
   return col_amount;
 }
@@ -900,7 +876,7 @@ long update_constantly(colnr_T _, colnr_T __, long col_amount)
 // for deletes,
 // Return, desired col amount where the adjustment should take place
 // (not taking) eol into account
-long update_variably(colnr_T mincol, colnr_T current, long endcol)
+static long update_variably(colnr_T mincol, colnr_T current, long endcol)
 {
   colnr_T start_effected_range = mincol - 1;
   long col_amount;
@@ -936,7 +912,8 @@ int len_of_line_inclusive_white_space(buf_T *buf, linenr_T lnum)
   return len;
 }
 
-int eol_of_line(buf_T *buf, linenr_T lnum) {
+int eol_of_line(buf_T *buf, linenr_T lnum)
+{
   return len_of_line_inclusive_white_space(buf, lnum) + 1;
 }
 
@@ -944,10 +921,10 @@ int eol_of_line(buf_T *buf, linenr_T lnum) {
 // Adjust columns and rows for extmarks
 // based off mark_col_adjust in mark.c
 // returns true if something was moved otherwise false
-static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
-                                colnr_T mincol, long lnum_amount,
-                                long (*calc_amount)(colnr_T, colnr_T, long),
-                                long func_arg)
+static bool extmark_col_adjust_impl(buf_T *buf, linenr_T lnum,
+                                    colnr_T mincol, long lnum_amount,
+                                    long (*calc_amount)(colnr_T, colnr_T, long),
+                                    long func_arg)
 {
   bool marks_exist = false;
   colnr_T *cp;
@@ -987,27 +964,33 @@ static bool _extmark_col_adjust(buf_T *buf, linenr_T lnum,
   }
 }
 
-// use _extmark_col_adjust to move columns by inserting
-// Doesn't take the eol into consideration (possible to put marks in invalid positions)
+// Adjust columns and rows for extmarks
+//
+// based off mark_col_adjust in mark.c
+// use extmark_col_adjust_impl to move columns by inserting
+// Doesn't take the eol into consideration (possible to put marks in invalid
+// positions)
 void extmark_col_adjust(buf_T *buf, linenr_T lnum,
                         colnr_T mincol, long lnum_amount,
                         long col_amount, ExtmarkOp undo)
 {
   assert(col_amount > INT_MIN && col_amount <= INT_MAX);
 
-  bool marks_moved =  _extmark_col_adjust(buf, lnum, mincol, lnum_amount,
-                                          &update_constantly, col_amount);
+  bool marks_moved =  extmark_col_adjust_impl(buf, lnum, mincol, lnum_amount,
+                                              &update_constantly, col_amount);
 
   if (undo == kExtmarkUndo && marks_moved) {
     u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
   }
 }
 
-// Adjust marks by doing a delete on a line
-// Automatically readusts to take the eol into account
+// Adjust marks after a delete on a line
+//
+// Automatically readjusts to take the eol into account
 // TODO(timeyyy): change mincol to be for the mark to be copied, not moved
-// mincol: First column that needs to be moved (start of delete range)
-// endcol: Last column which needs to be copied (end of delete range + 1)
+//
+// @param mincol First column that needs to be moved (start of delete range)
+// @param endcol Last column which needs to be copied (end of delete range + 1)
 void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
                                colnr_T mincol, colnr_T endcol,
                                ExtmarkOp undo, int _eol)
@@ -1023,14 +1006,14 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
     u_extmark_copy(buf, lnum, start_effected_range, lnum, endcol);
   }
 
-  marks_moved = _extmark_col_adjust(buf, lnum, mincol, 0,
-                                    &update_variably, (long)endcol);
+  marks_moved = extmark_col_adjust_impl(buf, lnum, mincol, 0,
+                                        &update_variably, (long)endcol);
 
   // Deletes at the end of the line have different behaviour than the normal
   // case when deleted.
   // Cleanup any marks that are floating beyond the end of line.
-  // we allow this to be passed in as well because the buffer may have already been
-  // mutated.
+  // we allow this to be passed in as well because the buffer may have already
+  // been mutated.
   int eol = _eol;
   if (!eol) {
     eol = eol_of_line(buf, lnum);
@@ -1039,12 +1022,6 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
     extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
                    extline->lnum, (colnr_T)eol, kExtmarkNoUndo, &mitr);
   })
-
-  // TODO
-  // Enable Undo/Redo for the marks that were floating beyond the eol
-  // if (undo == kExtmarkUndo) {
-    // u_extmark_copy(buf, lnum, eol, lnum, -1);
-  // }
 
   // Record the undo for the actual move
   if (marks_moved && undo == kExtmarkUndo) {
@@ -1163,11 +1140,14 @@ ExtMarkLine *extline_ref(kbtree_t(extlines) *b, linenr_T lnum)
   return *pp;
 }
 
-// Put an extmark into a line, combination of id and ns_id must be unique
+/// Put an extmark into a line,
+///
+/// caller must ensure combination of id and ns_id isn't in use.
 void extmark_put(colnr_T col,
                  uint64_t id,
                  ExtMarkLine *extline,
-                 uint64_t ns) {
+                 uint64_t ns)
+{
   ExtendedMark t;
   t.col = col;
   t.mark_id = id;
