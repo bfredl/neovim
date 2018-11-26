@@ -83,12 +83,11 @@ describe('Extmarks buffer api', function()
     eq({row, col}, rv)
 
     -- remove the test marks
-    rv = curbufmeths.del_extmark(ns, marks[1])
-    eq(1, rv)
-    rv = curbufmeths.del_extmark(ns, marks[2])
-    eq(1, rv)
-    rv = curbufmeths.del_extmark(ns, marks[3])
-    eq(1, rv)
+    eq(true, curbufmeths.del_extmark(ns, marks[1]))
+    eq(false, curbufmeths.del_extmark(ns, marks[1]))
+    eq(true, curbufmeths.del_extmark(ns, marks[2]))
+    eq(true, curbufmeths.del_extmark(ns, marks[3]))
+    eq(false, curbufmeths.del_extmark(ns, 1000))
   end)
 
   it('querying for information and ranges #extmarks', function()
