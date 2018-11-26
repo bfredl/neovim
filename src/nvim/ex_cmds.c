@@ -9,7 +9,6 @@
 #include <float.h>
 #include <stdbool.h>
 #include <string.h>
-#include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <math.h>
@@ -3242,13 +3241,13 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
   linenr_T n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
   colnr_T n_after_newline_in_pat = s.endpos.col;
   colnr_T n_before_newline_in_pat =  mincol - s.cm_start.col;
-  // TODO: This should mostly work, what about for backrefs?
-   long n_after_newline_in_sub;
-   if (!s.newline_in_sub) {
-     n_after_newline_in_sub = s.cm_end.col - s.cm_start.col;
-   } else {
-     n_after_newline_in_sub = s.cm_end.col;
-   }
+  // TODO(timeyyy): This should mostly work, what about for backrefs?
+  long n_after_newline_in_sub;
+  if (!s.newline_in_sub) {
+    n_after_newline_in_sub = s.cm_end.col - s.cm_start.col;
+  } else {
+    n_after_newline_in_sub = s.cm_end.col;
+  }
 
   if (s.newline_in_pat && !s.newline_in_sub) {
     // -- Delete Pattern --
@@ -3286,30 +3285,30 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
                        kExtmarkUndo);
 
   } else {
-   // The data in sub_obj is as if the substituons above had already taken place.
-   // For our extmarks they haven't as we work from the bottom of the buffer up.
-   // Readjust the data.
-   n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
-   n_u_lnum = n_u_lnum - s.lnum_added;
+    // The data in sub_obj is as if the substituons above had already taken
+    // place. For our extmarks they haven't as we work from the bottom of the
+    // buffer up. Readjust the data.
+    n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
+    n_u_lnum = n_u_lnum - s.lnum_added;
 
-   // adjusted = L - (i-1)N
-   // where L = lnum value, N= lnum_added and i = iteration
-   linenr_T a_l_lnum = s.cm_start.lnum - ((i -1) * s.lnum_added);
-   linenr_T a_u_lnum = a_l_lnum + s.endpos.lnum;
-   assert(s.startpos.lnum == 0);
+    // adjusted = L - (i-1)N
+    // where L = lnum value, N= lnum_added and i = iteration
+    linenr_T a_l_lnum = s.cm_start.lnum - ((i -1) * s.lnum_added);
+    linenr_T a_u_lnum = a_l_lnum + s.endpos.lnum;
+    assert(s.startpos.lnum == 0);
 
-   mincol = s.startpos.col + 1;
-   u_lnum = n_u_lnum;
+    mincol = s.startpos.col + 1;
+    u_lnum = n_u_lnum;
 
-   if (!s.newline_in_pat && s.newline_in_sub) {
-     // -- Delete Pattern --
-     // 1. Move marks in the pattern
-     extmark_col_adjust_delete(curbuf,
-                               a_l_lnum,
-                               mincol + 1,
-                               s.endpos.col + 1,
-                               kExtmarkUndo,
-                               s.eol);
+    if (!s.newline_in_pat && s.newline_in_sub) {
+      // -- Delete Pattern --
+      // 1. Move marks in the pattern
+      extmark_col_adjust_delete(curbuf,
+                                a_l_lnum,
+                                mincol + 1,
+                                s.endpos.col + 1,
+                                kExtmarkUndo,
+                                s.eol);
 
      extmark_adjust(curbuf,
                     a_u_lnum + 1,
@@ -3325,71 +3324,71 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
                         s.newline_in_sub,
                         (long)-mincol + 1 + n_after_newline_in_sub,
                         kExtmarkUndo);
-   } else if (s.newline_in_pat && s.newline_in_sub) {
+    } else if (s.newline_in_pat && s.newline_in_sub) {
+      if (s.lnum_added >= 0) {
+        linenr_T u_col = n_after_newline_in_pat == 0
+                         ? 1 : n_after_newline_in_pat;
+        extmark_copy_and_place(curbuf,
+                               a_l_lnum, mincol,
+                               a_u_lnum, u_col,
+                               a_l_lnum, mincol,
+                               kExtmarkUndo);
+        // 2. Move marks on last newline
+        mincol = mincol - (colnr_T)n_before_newline_in_pat;
+        extmark_col_adjust(curbuf,
+                           a_u_lnum,
+                           (colnr_T)(n_after_newline_in_pat + 1),
+                           -s.newline_in_pat,
+                           mincol - n_after_newline_in_pat,
+                           kExtmarkUndo);
+         // TODO(timeyyy): nothing to do here if lnum_added = 0
+         extmark_adjust(curbuf,
+                        a_u_lnum + 1,
+                        MAXLNUM,
+                        (long)s.lnum_added,
+                        0,
+                        kExtmarkUndo,
+                        false);
 
-     if (s.lnum_added >= 0) {
-
-       extmark_copy_and_place(curbuf,
-                              a_l_lnum, mincol,
-                              a_u_lnum, n_after_newline_in_pat == 0 ? 1 : n_after_newline_in_pat,
-                              a_l_lnum, mincol,
-                              kExtmarkUndo);
-       // 2. Move marks on last newline
-       mincol = mincol - (colnr_T) n_before_newline_in_pat;
-       extmark_col_adjust(curbuf,
-                          a_u_lnum,
-                          (colnr_T) (n_after_newline_in_pat + 1),
-                          -s.newline_in_pat,
-                          mincol - n_after_newline_in_pat,
-                          kExtmarkUndo);
-       // TODO nothing to do here if lnum_added = 0
-       extmark_adjust(curbuf,
-                      a_u_lnum + 1,
-                      MAXLNUM,
-                      (long)s.lnum_added,
-                      0,
-                      kExtmarkUndo,
-                      false);
-
-       extmark_col_adjust(curbuf,
-                          a_l_lnum,
-                          mincol + 1,
-                          s.newline_in_sub,
-                          (long)-mincol + n_after_newline_in_sub,
-                          kExtmarkUndo);
-     } else {
-       mincol = s.startpos.col + 1;
-       a_l_lnum = s.startpos.lnum + 1;
-       a_u_lnum = s.endpos.lnum + 1;
-       extmark_copy_and_place(curbuf,
-                              a_l_lnum, mincol,
-                              a_u_lnum, n_after_newline_in_pat,
-                              a_l_lnum, mincol,
-                              kExtmarkUndo);
-       // 2. Move marks on last newline
-       mincol = mincol - (colnr_T) n_before_newline_in_pat;
-       extmark_col_adjust(curbuf,
-                          a_u_lnum,
-                          (colnr_T) (n_after_newline_in_pat + 1),
-                          -s.newline_in_pat,
-                          mincol - n_after_newline_in_pat,
-                          kExtmarkUndo);
-       extmark_adjust(curbuf,
-                      a_u_lnum,
-                      a_u_lnum,
-                      MAXLNUM,
-                      s.lnum_added,
-                      kExtmarkUndo,
-                      false);
-     // 3. Insert
-     extmark_col_adjust(curbuf,
-                        a_l_lnum,
-                        mincol + 1,
-                        s.newline_in_sub,
-                        (long)-mincol + n_after_newline_in_sub,
-                        kExtmarkUndo);
-     }
-   }
+         extmark_col_adjust(curbuf,
+                            a_l_lnum,
+                            mincol + 1,
+                            s.newline_in_sub,
+                            (long)-mincol + n_after_newline_in_sub,
+                            kExtmarkUndo);
+      } else {
+        mincol = s.startpos.col + 1;
+        a_l_lnum = s.startpos.lnum + 1;
+        a_u_lnum = s.endpos.lnum + 1;
+        extmark_copy_and_place(curbuf,
+                               a_l_lnum, mincol,
+                               a_u_lnum, n_after_newline_in_pat,
+                               a_l_lnum, mincol,
+                               kExtmarkUndo);
+        // 2. Move marks on last newline
+        mincol = mincol - (colnr_T)n_before_newline_in_pat;
+        extmark_col_adjust(curbuf,
+                           a_u_lnum,
+                           (colnr_T)(n_after_newline_in_pat + 1),
+                           -s.newline_in_pat,
+                           mincol - n_after_newline_in_pat,
+                           kExtmarkUndo);
+        extmark_adjust(curbuf,
+                       a_u_lnum,
+                       a_u_lnum,
+                       MAXLNUM,
+                       s.lnum_added,
+                       kExtmarkUndo,
+                       false);
+        // 3. Insert
+        extmark_col_adjust(curbuf,
+                           a_l_lnum,
+                           mincol + 1,
+                           s.newline_in_sub,
+                           (long)-mincol + n_after_newline_in_sub,
+                           kExtmarkUndo);
+      }
+    }
   }
 }
 
@@ -4285,7 +4284,6 @@ skip:
         ++sub_nlines;
       xfree(new_start);              /* for when substitute was cancelled */
       xfree(sub_firstline);          /* free the copy of the original line */
-      // maybe sub_firstline - new_start ????
       sub_firstline = NULL;
     }
 
@@ -4396,13 +4394,13 @@ skip:
     if (no_of_lines_changed < 0) {
       for (size_t i = 0; i < n; i++) {
         sub_multi = kv_A(extmark_sub_multi, i);
-        extmark_move_regmatch_multi(sub_multi, (int) i);
+        extmark_move_regmatch_multi(sub_multi, (int)i);
       }
     } else {
       // Move extmarks in reverse order to avoid moving marks we just moved...
       for (size_t i = 0; i < n; i++) {
         sub_multi = kv_Z(extmark_sub_multi, i);
-        extmark_move_regmatch_multi(sub_multi, (int) (n - i));
+        extmark_move_regmatch_multi(sub_multi, (int)(n - i));
       }
     }
     kv_destroy(extmark_sub_multi);

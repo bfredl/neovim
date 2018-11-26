@@ -1622,7 +1622,7 @@ int op_delete(oparg_T *oap)
       (void)del_bytes((colnr_T)n, !virtual_op,
                       oap->op_type == OP_DELETE && !oap->is_VIsual);
       extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
-                      (colnr_T)0, 0L, (long)-n, kExtmarkUndo);
+                         (colnr_T)0, 0L, (long)-n, kExtmarkUndo);
       curwin->w_cursor = curpos;  // restore curwin->w_cursor
       (void)do_join(2, false, false, false, false);
     }
@@ -1639,10 +1639,9 @@ setmarks:
   }
   curbuf->b_op_start = oap->start;
 
-  // TODO(timeyyy): refactor
-  // Move extended marks
-  // + 1 to change to buhttps://www.youtube.com/watch?v=kdEftS89rLYf mode, then plus 1 because we only move marks after
-  // the deleted col
+  // TODO(timeyyy): refactor: Move extended marks
+  // + 1 to change to buf mode,
+  // and + 1 because we only move marks after the deleted col
   colnr_T mincol = oap->start.col + 1 + 1;
   colnr_T endcol;
   if (oap->motion_type == kMTBlockWise) {
@@ -1665,7 +1664,7 @@ setmarks:
       endcol = endcol - 1;
       // for some reason we required this :/
       if (endcol < mincol) {
-        endcol=mincol;
+        endcol = mincol;
       }
     }
     extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo, 0);
