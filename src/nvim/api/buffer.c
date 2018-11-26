@@ -912,11 +912,9 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
 /// @param id any nsmark id that selects only one nsmark (no positions)
 /// @param[out] err Details of an error that may have occurred
 /// @return [nsmark_id, row, col]
-ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
-                                     Integer namespace,
-                                     Integer id,
-                                     Error *err)
-  FUNC_API_SINCE(4)
+ArrayOf(Integer,2) nvim_buf_get_extmark(Buffer buffer, Integer namespace,
+                                        Integer id, Error *err)
+  FUNC_API_SINCE(5)
 {
   Array rv = ARRAY_DICT_INIT;
 
@@ -937,7 +935,6 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
   if (!extmark) {
     return rv;
   }
-  ADD(rv, INTEGER_OBJ((Integer)extmark->mark_id));
   ADD(rv, INTEGER_OBJ((Integer)extmark->line->lnum));
   ADD(rv, INTEGER_OBJ((Integer)extmark->col));
   return rv;
@@ -950,27 +947,23 @@ ArrayOf(Object) nvim_buf_lookup_mark(Buffer buffer,
 /// @param lower One of:  nsmark id, (row, col) or -1 for start of buffer
 /// @param upper One of: nsmark id, (row, col) or -1 for end of buffer
 /// @param amount Maximum number of marks to return or -1 for all marks found
-/// @param reverse Boolean to switch the search direction.
+/// @param from_end when using limited amount, include marks for end of
+/// rangeusing limited amount, include marks for end of range.
 /// /// @param[out] err Details of an error that may have occurred
 /// @return [[nsmark_id, row, col], ...]
-ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
-                                   Integer namespace,
-                                   Object lower,
-                                   Object upper,
-                                   Integer amount,
-                                   Boolean reverse,
-                                   Error *err)
-  FUNC_API_SINCE(4)
+Array nvim_buf_list_extmarks(Buffer buffer, Integer ns_id,
+                             Object start, Object end, Integer amount,
+                             Boolean from_end, Error *err)
+  FUNC_API_SINCE(5)
 {
   Array rv = ARRAY_DICT_INIT;
 
   buf_T *buf = find_buffer_by_handle(buffer, err);
-
   if (!buf) {
     return rv;
   }
 
-  if (!ns_initialized((uint64_t)namespace)) {
+  if (!ns_initialized((uint64_t)ns_id)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -981,47 +974,32 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 
   linenr_T l_lnum;
   colnr_T l_col;
-  if (!set_extmark_index_from_obj(buffer, namespace, lower, &l_lnum, &l_col,
-                                  err)) {
+  if (!set_extmark_index_from_obj(buffer, ns_id, start, &l_lnum, &l_col, err)) {
     return rv;
   }
 
   linenr_T u_lnum;
   colnr_T u_col;
-  if (!set_extmark_index_from_obj(buffer, namespace, upper, &u_lnum, &u_col,
-                                  err)) {
+  if (!set_extmark_index_from_obj(buffer, ns_id, end, &u_lnum, &u_col, err)) {
     return rv;
   }
 
   // TODO(timeyyy): assert lower <= upper
 
-  ExtendedMark *extmark;
-  Array mark = ARRAY_DICT_INIT;
+  ExtmarkArray marks = extmark_get(buf, (uint64_t)ns_id, l_lnum, l_col,
+                                   u_lnum, u_col, (int64_t)amount,
+                                   from_end ? BACKWARD: FORWARD);
 
-  // Range Query
-  ExtmarkArray extmarks_in_range;
-
-  extmarks_in_range = extmark_get(buf,
-                                  (uint64_t)namespace,
-                                  l_lnum,
-                                  l_col,
-                                  u_lnum,
-                                  u_col,
-                                  (int64_t)amount,
-                                  reverse ? BACKWARD: FORWARD);
-
-  size_t n = kv_size(extmarks_in_range);
-  for (size_t i = 0; i < n; i++) {
-    mark.size = 0;
-    mark.capacity = 0;
-    mark.items = 0;
-    extmark = kv_A(extmarks_in_range, i);
+  for (size_t i = 0; i < kv_size(marks); i++) {
+    Array mark = ARRAY_DICT_INIT;
+    ExtendedMark *extmark = kv_A(marks, i);
     ADD(mark, INTEGER_OBJ((Integer)extmark->mark_id));
     ADD(mark, INTEGER_OBJ(extmark->line->lnum));
     ADD(mark, INTEGER_OBJ(extmark->col));
     ADD(rv, ARRAY_OBJ(mark));
   }
-  kv_destroy(extmarks_in_range);
+
+  kv_destroy(marks);
   return rv;
 }
 
@@ -1030,19 +1008,15 @@ ArrayOf(Object) nvim_buf_get_marks(Buffer buffer,
 /// If an invalid namespace is given, an error will be raised.
 ///
 /// @param buffer The buffer handle
-/// @param namespace a identifier returned previously with nvim_create_namespace
-/// @param id The nsmark's id or 0 for a randomly generated id
+/// @param ns_id a identifier returned previously with nvim_create_namespace
+/// @param id The nsmark's id or 0 for next free id
 /// @param row The row to set the nsmark to.
 /// @param col The column to set the nsmark to.
 /// @param[out] err Details of an error that may have occurred
-/// @return 1 on new, 2 on update; or a nsmark_id if id was 0
-Integer nvim_buf_set_mark(Buffer buffer,
-                          Integer namespace,
-                          Integer id,
-                          Integer row,
-                          Integer col,
-                          Error *err)
-  FUNC_API_SINCE(4)
+/// @return the nsmark_id for a new mark, or 0 for an update
+Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer id,
+                             Integer row, Integer col, Error *err)
+  FUNC_API_SINCE(5)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1050,7 +1024,7 @@ Integer nvim_buf_set_mark(Buffer buffer,
   if (!buf) {
     return rv;
   }
-  if (!ns_initialized((uint64_t)namespace)) {
+  if (!ns_initialized((uint64_t)ns_id)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
@@ -1061,11 +1035,9 @@ Integer nvim_buf_set_mark(Buffer buffer,
     return rv;
   }
 
-  bool return_id = false;
   uint64_t id_num;
   if (id == 0) {
-    id_num = extmark_free_id_get(buf, (uint64_t)namespace);
-    return_id = true;
+    id_num = extmark_free_id_get(buf, (uint64_t)ns_id);
   } else if (id > 0) {
     id_num = (uint64_t)id;
   } else {
@@ -1073,29 +1045,29 @@ Integer nvim_buf_set_mark(Buffer buffer,
     return rv;
   }
 
-  rv = (Integer)extmark_set(buf, (uint64_t)namespace, id_num,
-                            extmark_check_lnum(buf, (linenr_T)row),
-                            extmark_check_col(buf, (linenr_T)row, (colnr_T)col),
-                            kExtmarkUndo);
-  if (return_id) {
+  bool new = extmark_set(buf, (uint64_t)ns_id, id_num,
+                         extmark_check_lnum(buf, (linenr_T)row),
+                         extmark_check_col(buf, (linenr_T)row, (colnr_T)col),
+                         kExtmarkUndo);
+  if (new) {
     return (Integer)id_num;
   } else {
-    return rv;
+    return 0;
   }
 }
 
 /// Remove a namespaced mark
 ///
 /// @param buffer The buffer handle
-/// @param namespace a identifier returned previously with nvim_create_namespace
+/// @param ns_id a identifier returned previously with nvim_create_namespace
 /// @param id The nsmark's id
 /// @param[out] err Details of an error that may have occurred
 /// @return 1 on success, 0 on no nsmark found
-Integer nvim_buf_del_mark(Buffer buffer,
-                          Integer namespace,
-                          Integer id,
-                          Error *err)
-  FUNC_API_SINCE(4)
+Integer nvim_buf_del_extmark(Buffer buffer,
+                            Integer ns_id,
+                            Integer id,
+                            Error *err)
+  FUNC_API_SINCE(5)
 {
   Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1103,13 +1075,12 @@ Integer nvim_buf_del_mark(Buffer buffer,
   if (!buf) {
     return rv;
   }
-  if (!ns_initialized((uint64_t)namespace)) {
+  if (!ns_initialized((uint64_t)ns_id)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
 
-  rv = (Integer)extmark_del(buf, (uint64_t)namespace, (uint64_t)id,
-                            kExtmarkUndo);
+  rv = (Integer)extmark_del(buf, (uint64_t)ns_id, (uint64_t)id, kExtmarkUndo);
   return rv;
 }
 

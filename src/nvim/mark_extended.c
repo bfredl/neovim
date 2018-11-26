@@ -67,9 +67,9 @@ colnr_T extmark_check_col(buf_T *buf, linenr_T lnum, colnr_T col)
 }
 
 
-// Create or update an extmark
-// Returns 1 on new mark created
-// Returns 2 on succesful update
+/// Create or update an extmark
+///
+/// @returns wheter a new mark was created
 int extmark_set(buf_T *buf,
                 uint64_t ns,
                 uint64_t id,
@@ -79,10 +79,11 @@ int extmark_set(buf_T *buf,
 {
   ExtendedMark *extmark = extmark_from_id(buf, ns, id);
   if (!extmark) {
-    return extmark_create(buf, ns, id, lnum, col, op);
+    extmark_create(buf, ns, id, lnum, col, op);
+    return true;
   } else {
     extmark_update(extmark, buf, ns, id, lnum,  col, op, NULL);
-    return 2;
+    return false;
   }
 }
 
@@ -156,7 +157,7 @@ ExtmarkArray extmark_get(buf_T *buf,
   return array;
 }
 
-static bool extmark_create(buf_T *buf,
+static void extmark_create(buf_T *buf,
                            uint64_t ns,
                            uint64_t id,
                            linenr_T lnum,
