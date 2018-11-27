@@ -190,7 +190,6 @@ static void extmark_create(buf_T *buf,
 
   // Set a free id so extmark_free_id_get works
   extmark_free_id_set(ns_obj, id);
-  return true;
 }
 
 // update the position of an extmark
@@ -342,6 +341,7 @@ void extmark_free_all(buf_T *buf)
   }
 
   map_foreach(buf->b_extmark_ns, ns, ns_obj, {
+    (void)ns;
     pmap_free(uint64_t)(ns_obj->map);
     xfree(ns_obj);
   });
