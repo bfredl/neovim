@@ -4110,7 +4110,8 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
 
         // Adjust extmarks, by delete and then insert
         if (!preview) {
-          newline_in_pat = strcnt((const char *)pat, '\n');
+          newline_in_pat = (regmatch.endpos[0].lnum
+                            - regmatch.startpos[0].lnum);
           newline_in_sub = current_match.end.lnum - current_match.start.lnum;
           if (newline_in_pat || newline_in_sub) {
             ExtmarkSubMulti sub_multi;
