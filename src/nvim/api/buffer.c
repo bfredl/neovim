@@ -948,7 +948,7 @@ ArrayOf(Integer) nvim_buf_get_extmark(Buffer buffer, Integer namespace,
 /// @param upper One of: extmark id, (row, col) or -1 for end of buffer
 /// @param amount Maximum number of marks to return or -1 for all marks found
 /// @param from_end when using limited amount, include marks for end of
-/// rangeusing limited amount, include marks for end of range.
+/// range using limited amount, include marks for end of range.
 /// /// @param[out] err Details of an error that may have occurred
 /// @return [[nsmark_id, row, col], ...]
 Array nvim_buf_list_extmarks(Buffer buffer, Integer ns_id,

@@ -69,7 +69,7 @@ colnr_T extmark_check_col(buf_T *buf, linenr_T lnum, colnr_T col)
 
 /// Create or update an extmark
 ///
-/// @returns wheter a new mark was created
+/// @returns whether a new mark was created
 int extmark_set(buf_T *buf,
                 uint64_t ns,
                 uint64_t id,

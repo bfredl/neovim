@@ -3241,7 +3241,6 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
   linenr_T n_u_lnum = s.lnum + s.endpos.lnum - s.startpos.lnum;
   colnr_T n_after_newline_in_pat = s.endpos.col;
   colnr_T n_before_newline_in_pat =  mincol - s.cm_start.col;
-  // TODO(timeyyy): This should mostly work, what about for backrefs?
   long n_after_newline_in_sub;
   if (!s.newline_in_sub) {
     n_after_newline_in_sub = s.cm_end.col - s.cm_start.col;
