@@ -7,6 +7,7 @@ local Screen = require('test.functional.ui.screen')
 
 local request = helpers.request
 local eq = helpers.eq
+local ok = helpers.ok
 local curbufmeths = helpers.curbufmeths
 local insert = helpers.insert
 local feed = helpers.feed
@@ -1116,4 +1117,51 @@ describe('Extmarks buffer api', function()
     check_undo_redo(ns, marks[1], 4, 5, 3, 7)
   end)
 
+end)
+
+describe('Extmarks buffer api', function()
+  local ns1
+  local ns2
+  local ns_marks = {}
+  before_each(function()
+    clear()
+    ns1 = request('nvim_create_namespace', "ns1")
+    ns2 = request('nvim_create_namespace', "ns2")
+    ns_marks = {[ns1]={}, [ns2]={}}
+    lines = {}
+    for i = 1,30 do
+      lines[#lines+1] = string.rep("x ",i)
+    end
+    curbufmeths.set_lines(0, -1, true, lines)
+    local ns = ns1
+    local q = 0
+    for i = 1,30 do
+      for j = 1,i do
+        local id = curbufmeths.set_extmark(ns,0, i,j)
+        eq(nil, ns_marks[ns][id])
+        ok(id > 0)
+        ns_marks[ns][id] = {i,j}
+        ns = ns1+ns2-ns
+        q = q + 1
+      end
+    end
+    eq(233, #ns_marks[ns1])
+    eq(232, #ns_marks[ns2])
+
+  end)
+
+  it("can get marks", function()
+    local marks1 = curbufmeths.get_extmarks(ns1, {0,0}, {-1, -1}, -1, false)
+    eq(233, #marks1)
+    local marks2 = curbufmeths.get_extmarks(ns2, {0,0}, {-1, -1}, -1, false)
+    eq(232, #marks2)
+  end)
+
+  it("can clear marks", function()
+    curbufmeths.clear_namespace(ns1, 0, -1)
+    local marks1 = curbufmeths.get_extmarks(ns1, {0,0}, {-1, -1}, -1, false)
+    eq(0, #marks1)
+    local marks2 = curbufmeths.get_extmarks(ns2, {0,0}, {-1, -1}, -1, false)
+    eq(232, #marks2)
+  end)
 end)
