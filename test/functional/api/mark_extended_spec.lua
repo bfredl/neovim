@@ -19,13 +19,13 @@ local ALL = -1
 local rv = nil
 
 local function check_undo_redo(ns, mark, sr, sc, er, ec) --s = start, e = end
-  rv = curbufmeths.get_extmark(ns, mark)
+  rv = curbufmeths.get_extmark_by_id(ns, mark)
   eq({er, ec}, rv)
   feed("u")
-  rv = curbufmeths.get_extmark(ns, mark)
+  rv = curbufmeths.get_extmark_by_id(ns, mark)
   eq({sr, sc}, rv)
   feed("<c-r>")
-  rv = curbufmeths.get_extmark(ns, mark)
+  rv = curbufmeths.get_extmark_by_id(ns, mark)
   eq({er, ec}, rv)
 end
 
@@ -57,7 +57,7 @@ describe('Extmarks buffer api', function()
   it('adds, updates  and deletes marks #extmarks', function()
     rv = curbufmeths.set_extmark(ns, marks[1], positions[1][1], positions[1][2])
     eq(marks[1], rv)
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({positions[1][1], positions[1][2]}, rv)
     -- Test adding a second mark on same row works
     rv = curbufmeths.set_extmark(ns, marks[2], positions[2][1], positions[2][2])
@@ -68,14 +68,14 @@ describe('Extmarks buffer api', function()
     -- Test an update, (same pos)
     rv = curbufmeths.set_extmark(ns, marks[1], positions[1][1], positions[1][2])
     eq(0, rv)
-    rv = curbufmeths.get_extmark(ns, marks[2])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[2])
     eq({positions[2][1], positions[2][2]}, rv)
     -- Test an update, (new pos)
     row = positions[1][1]
     col = positions[1][2] + 1
     rv = curbufmeths.set_extmark(ns, marks[1], row, col)
     eq(0, rv)
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({row, col}, rv)
 
     -- remove the test marks
@@ -95,7 +95,7 @@ describe('Extmarks buffer api', function()
       end
     end
 
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
     for i, m in ipairs(marks) do
       if positions[i] ~= nil then
         eq({m, positions[i][1], positions[i][2]}, rv[i])
@@ -103,93 +103,93 @@ describe('Extmarks buffer api', function()
     end
 
     -- next with mark id
-    rv = curbufmeths.list_extmarks(ns, marks[1], TO_END, 1, 0)
+    rv = curbufmeths.get_extmarks(ns, marks[1], TO_END, 1, 0)
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
-    rv = curbufmeths.list_extmarks(ns, marks[2], TO_END, 1, 0)
+    rv = curbufmeths.get_extmarks(ns, marks[2], TO_END, 1, 0)
     eq({{marks[2], positions[2][1], positions[2][2]}}, rv)
     -- next with positional when mark exists at position
-    rv = curbufmeths.list_extmarks(ns, positions[1], TO_END, 1, 0)
+    rv = curbufmeths.get_extmarks(ns, positions[1], TO_END, 1, 0)
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
     -- next with positional index (no mark at position)
-    rv = curbufmeths.list_extmarks(ns, {positions[1][1], positions[1][2] +1}, TO_END, 1, 0)
+    rv = curbufmeths.get_extmarks(ns, {positions[1][1], positions[1][2] +1}, TO_END, 1, 0)
     eq({{marks[2], positions[2][1], positions[2][2]}}, rv)
     -- next with Extremity index
-    rv = curbufmeths.list_extmarks(ns, -1, -1, 1, 0)
+    rv = curbufmeths.get_extmarks(ns, -1, -1, 1, 0)
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
 
     -- nextrange with mark id
-    rv = curbufmeths.list_extmarks(ns, marks[1], marks[3], ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, marks[1], marks[3], ALL, 0)
     eq({marks[1], positions[1][1], positions[1][2]}, rv[1])
     eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
     eq({marks[3], positions[3][1], positions[3][2]}, rv[3])
     -- nextrange with amount
-    rv = curbufmeths.list_extmarks(ns, marks[1], marks[3], 2, 0)
+    rv = curbufmeths.get_extmarks(ns, marks[1], marks[3], 2, 0)
     eq(2, table.getn(rv))
     -- nextrange with positional when mark exists at position
-    rv = curbufmeths.list_extmarks(ns, positions[1], positions[3], ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, positions[1], positions[3], ALL, 0)
     eq({marks[1], positions[1][1], positions[1][2]}, rv[1])
     eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
     eq({marks[3], positions[3][1], positions[3][2]}, rv[3])
-    rv = curbufmeths.list_extmarks(ns, positions[2], positions[3], ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, positions[2], positions[3], ALL, 0)
     eq(2, table.getn(rv))
     -- nextrange with positional index (no mark at position)
     local lower = {positions[1][1], positions[2][2] -1}
     local upper = {positions[2][1], positions[3][2] - 1}
-    rv = curbufmeths.list_extmarks(ns, lower, upper, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, lower, upper, ALL, 0)
     eq({{marks[2], positions[2][1], positions[2][2]}}, rv)
     lower = {positions[3][1], positions[3][2] + 1}
     upper = {positions[3][1], positions[3][2] + 2}
-    rv = curbufmeths.list_extmarks(ns, lower, upper, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, lower, upper, ALL, 0)
     eq({}, rv)
     -- nextrange with extremity index
     lower = {positions[2][1], positions[2][2]+1}
     upper = -1
-    rv = curbufmeths.list_extmarks(ns, lower, upper, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, lower, upper, ALL, 0)
     eq({{marks[3], positions[3][1], positions[3][2]}}, rv)
 
     -- prev with mark id
-    rv = curbufmeths.list_extmarks(ns, TO_START, marks[3], 1, 1)
+    rv = curbufmeths.get_extmarks(ns, TO_START, marks[3], 1, 1)
     eq({{marks[3], positions[3][1], positions[3][2]}}, rv)
-    rv = curbufmeths.list_extmarks(ns, TO_START, marks[2], 1, 1)
+    rv = curbufmeths.get_extmarks(ns, TO_START, marks[2], 1, 1)
     eq({{marks[2], positions[2][1], positions[2][2]}}, rv)
     -- prev with positional when mark exists at position
-    rv = curbufmeths.list_extmarks(ns, TO_START, positions[3], 1, 1)
+    rv = curbufmeths.get_extmarks(ns, TO_START, positions[3], 1, 1)
     eq({{marks[3], positions[3][1], positions[3][2]}}, rv)
     -- prev with positional index (no mark at position)
-    rv = curbufmeths.list_extmarks(ns, TO_START, {positions[1][1], positions[1][2] +1}, 1, 1)
+    rv = curbufmeths.get_extmarks(ns, TO_START, {positions[1][1], positions[1][2] +1}, 1, 1)
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
     -- prev with Extremity index
-    rv = curbufmeths.list_extmarks(ns, -1, -1, 1, 1)
+    rv = curbufmeths.get_extmarks(ns, -1, -1, 1, 1)
     eq({{marks[3], positions[3][1], positions[3][2]}}, rv)
 
     -- prevrange with mark id
-    rv = curbufmeths.list_extmarks(ns, marks[1], marks[3], ALL, 1)
+    rv = curbufmeths.get_extmarks(ns, marks[1], marks[3], ALL, 1)
     eq({marks[3], positions[3][1], positions[3][2]}, rv[1])
     eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
     eq({marks[1], positions[1][1], positions[1][2]}, rv[3])
     -- prevrange with amount
-    rv = curbufmeths.list_extmarks(ns, marks[1], marks[3], 2, 1)
+    rv = curbufmeths.get_extmarks(ns, marks[1], marks[3], 2, 1)
     eq(2, table.getn(rv))
     -- prevrange with positional when mark exists at position
-    rv = curbufmeths.list_extmarks(ns, positions[1], positions[3], ALL, 1)
+    rv = curbufmeths.get_extmarks(ns, positions[1], positions[3], ALL, 1)
     eq({marks[3], positions[3][1], positions[3][2]}, rv[1])
     eq({marks[2], positions[2][1], positions[2][2]}, rv[2])
     eq({marks[1], positions[1][1], positions[1][2]}, rv[3])
-    rv = curbufmeths.list_extmarks(ns, positions[1], positions[2], ALL, 1)
+    rv = curbufmeths.get_extmarks(ns, positions[1], positions[2], ALL, 1)
     eq(2, table.getn(rv))
     -- prevrange with positional index (no mark at position)
     lower = {positions[2][1], positions[2][2] + 1}
     upper = {positions[3][1], positions[3][2] + 1}
-    rv = curbufmeths.list_extmarks(ns, lower, upper, ALL, 1)
+    rv = curbufmeths.get_extmarks(ns, lower, upper, ALL, 1)
     eq({{marks[3], positions[3][1], positions[3][2]}}, rv)
     lower = {positions[3][1], positions[3][2] + 1}
     upper = {positions[3][1], positions[3][2] + 2}
-    rv = curbufmeths.list_extmarks(ns, lower, upper, ALL, 1)
+    rv = curbufmeths.get_extmarks(ns, lower, upper, ALL, 1)
     eq({}, rv)
     -- prevrange with extremity index
     lower = -1
     upper = {positions[2][1], positions[2][2] - 1}
-    rv = curbufmeths.list_extmarks(ns, lower, upper, ALL, 1)
+    rv = curbufmeths.get_extmarks(ns, lower, upper, ALL, 1)
     eq({{marks[1], positions[1][1], positions[1][2]}}, rv)
   end)
 
@@ -202,19 +202,19 @@ describe('Extmarks buffer api', function()
       end
     end
 
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, 1, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, 1, 0)
     eq(1, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, 2, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, 2, 0)
     eq(2, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, 3, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, 3, 0)
     eq(3, table.getn(rv))
 
     -- now in reverse
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, 1, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, 1, 0)
     eq(1, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, 2, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, 2, 0)
     eq(2, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, 3, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, 3, 0)
     eq(3, table.getn(rv))
   end)
 
@@ -226,7 +226,7 @@ describe('Extmarks buffer api', function()
     curbufmeths.set_extmark(ns, marks[1], 1, 5) -- check col > our upper bound
     curbufmeths.set_extmark(ns, marks[2], 2, 2) -- check col < lower bound
     curbufmeths.set_extmark(ns, marks[3], 3, 1) -- check is inclusive
-    rv = curbufmeths.list_extmarks(ns, {1, 4}, {3, 1}, -1, 0)
+    rv = curbufmeths.get_extmarks(ns, {1, 4}, {3, 1}, -1, 0)
     eq({{marks[1], 1, 5},
         {marks[2], 2, 2},
         {marks[3], 3, 1}},
@@ -241,7 +241,7 @@ describe('Extmarks buffer api', function()
     curbufmeths.set_extmark(ns, marks[1], 3, 2) -- check col < our lower bound
     curbufmeths.set_extmark(ns, marks[2], 2, 5) -- check col > upper bound
     curbufmeths.set_extmark(ns, marks[3], 1, 3) -- check is inclusive
-    rv = curbufmeths.list_extmarks(ns, {1, 3}, {3, 4}, -1, 1)
+    rv = curbufmeths.get_extmarks(ns, {1, 3}, {3, 4}, -1, 1)
     eq({{marks[1], 3, 2},
         {marks[2], 2, 5},
         {marks[3], 1, 3}},
@@ -250,7 +250,7 @@ describe('Extmarks buffer api', function()
 
   it('get_marks amount 0 returns nothing #extmarks', function()
     curbufmeths.set_extmark(ns, marks[1], positions[1][1], positions[1][2])
-    rv = curbufmeths.list_extmarks(ns, {-1, -1}, {-1, -1}, 0, 0)
+    rv = curbufmeths.get_extmarks(ns, {-1, -1}, {-1, -1}, 0, 0)
     eq({}, rv)
   end)
 
@@ -351,7 +351,7 @@ describe('Extmarks buffer api', function()
       ~              |
                      |
     ]])
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq(1, rv[2])
     eq(6, rv[3])
     -- check_undo_redo(ns, marks[1], 1, 3, 1, 6)
@@ -670,20 +670,20 @@ describe('Extmarks buffer api', function()
     feed('o<esc>')
     curbufmeths.set_extmark(ns, marks[2], 1, 8)
     curbufmeths.set_extmark(ns, marks[3], 1, 9)
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
 
     feed("u")
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
     eq(1, table.getn(rv))
 
     feed("<c-r>")
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
     eq(3, table.getn(rv))
 
     -- Test updates
     feed('o<esc>')
     curbufmeths.set_extmark(ns, marks[1], positions[1][1], positions[1][2])
-    rv = curbufmeths.list_extmarks(ns, marks[1], marks[1], 1, 0)
+    rv = curbufmeths.get_extmarks(ns, marks[1], marks[1], 1, 0)
     feed("u")
     feed("<c-r>")
     check_undo_redo(ns, marks[1], 1, 2, positions[1][1], positions[1][2])
@@ -692,10 +692,10 @@ describe('Extmarks buffer api', function()
     feed('o<esc>')
     curbufmeths.del_extmark(ns, marks[3])
     feed("u")
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
     eq(3, table.getn(rv))
     feed("<c-r>")
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
     eq(2, table.getn(rv))
   end)
 
@@ -704,7 +704,7 @@ describe('Extmarks buffer api', function()
     feed('A<cr>12345<esc>')
     curbufmeths.set_extmark(ns, marks[1], 2, 3)
     feed('dd')
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     check_undo_redo(ns, marks[1], 2, 3, 1, 6)
   end)
 
@@ -713,9 +713,9 @@ describe('Extmarks buffer api', function()
     eq(1, rv)
     rv = curbufmeths.set_extmark(ns2, marks[1], positions[1][1], positions[1][2])
     eq(1, rv)
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
     eq(1, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns2, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns2, TO_START, TO_END, ALL, 0)
     eq(1, table.getn(rv))
 
     -- Set more marks for testing the ranges
@@ -725,32 +725,32 @@ describe('Extmarks buffer api', function()
     rv = curbufmeths.set_extmark(ns2, marks[3], positions[3][1], positions[3][2])
 
     -- get_next (amount set)
-    rv = curbufmeths.list_extmarks(ns, TO_START, positions[2], 1, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, positions[2], 1, 0)
     eq(1, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns2, TO_START, positions[2], 1, 0)
+    rv = curbufmeths.get_extmarks(ns2, TO_START, positions[2], 1, 0)
     eq(1, table.getn(rv))
     -- get_prev (amount set)
-    rv = curbufmeths.list_extmarks(ns, TO_START, positions[1], 1, 1)
+    rv = curbufmeths.get_extmarks(ns, TO_START, positions[1], 1, 1)
     eq(1, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns2, TO_START, positions[1], 1, 1)
+    rv = curbufmeths.get_extmarks(ns2, TO_START, positions[1], 1, 1)
     eq(1, table.getn(rv))
 
     -- get_next (amount not set)
-    rv = curbufmeths.list_extmarks(ns, positions[1], positions[2], ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, positions[1], positions[2], ALL, 0)
     eq(2, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns2, positions[1], positions[2], ALL, 0)
+    rv = curbufmeths.get_extmarks(ns2, positions[1], positions[2], ALL, 0)
     eq(2, table.getn(rv))
     -- get_prev (amount not set)
-    rv = curbufmeths.list_extmarks(ns, positions[1], positions[2], ALL, 1)
+    rv = curbufmeths.get_extmarks(ns, positions[1], positions[2], ALL, 1)
     eq(2, table.getn(rv))
-    rv = curbufmeths.list_extmarks(ns2, positions[1], positions[2], ALL, 1)
+    rv = curbufmeths.get_extmarks(ns2, positions[1], positions[2], ALL, 1)
     eq(2, table.getn(rv))
 
     curbufmeths.del_extmark(ns, marks[1])
-    rv = curbufmeths.list_extmarks(ns, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns, TO_START, TO_END, ALL, 0)
     eq(2, table.getn(rv))
     curbufmeths.del_extmark(ns2, marks[1])
-    rv = curbufmeths.list_extmarks(ns2, TO_START, TO_END, ALL, 0)
+    rv = curbufmeths.get_extmarks(ns2, TO_START, TO_END, ALL, 0)
     eq(2, table.getn(rv))
   end)
 
@@ -780,9 +780,9 @@ describe('Extmarks buffer api', function()
     -- Set the mark before the cursor, should stay there
     curbufmeths.set_extmark(ns, marks[2], 1, 11)
     feed("i<cr><esc>")
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({2, 4}, rv)
-    rv = curbufmeths.get_extmark(ns, marks[2])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[2])
     eq({1, 11}, rv)
     check_undo_redo(ns, marks[1], 1, 13, 2, 4)
   end)
@@ -795,12 +795,12 @@ describe('Extmarks buffer api', function()
     feed("0iint <esc>A {<cr><esc>0i1M1<esc>")
     curbufmeths.set_extmark(ns, marks[1], 2, 2)
     feed("0i<c-f><esc>")
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({2, 4}, rv)
     check_undo_redo(ns, marks[1], 2, 2, 2, 4)
     -- now check when cursor at eol
     feed("uA<c-f><esc>")
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({2, 4}, rv)
   end)
 
@@ -811,12 +811,12 @@ describe('Extmarks buffer api', function()
     feed("0i<tab><esc>")
     curbufmeths.set_extmark(ns, marks[1], 1, 4)
     feed("bi<c-d><esc>")
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({1, 2}, rv)
     check_undo_redo(ns, marks[1], 1, 4, 1, 2)
     -- check when cursor at eol
     feed("uA<c-d><esc>")
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({1, 2}, rv)
   end)
 
@@ -946,7 +946,7 @@ describe('Extmarks buffer api', function()
     check_undo_redo(ns, marks[5], 3, 1, 4, 1)
     feed('u')
     feed([[:1,2s:3:\rxx<cr>]])
-    eq({2, 4}, curbufmeths.get_extmark(ns, marks[3]))
+    eq({2, 4}, curbufmeths.get_extmark_by_id(ns, marks[3]))
   end)
 
   it('substitions over multiple lines with replace in substition #extmarks_sub', function()
@@ -1068,7 +1068,7 @@ describe('Extmarks buffer api', function()
     -- the mark before shouldn't move
     curbufmeths.set_extmark(ns, marks[2], 1, 3)
     feed('b<c-x>')
-    rv = curbufmeths.get_extmark(ns, marks[2])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[2])
     eq({1, 3}, rv)
     check_undo_redo(ns, marks[1], 1, 5, 1, 4)
     -- TODO do we need to test marks[1] ???
@@ -1080,19 +1080,19 @@ describe('Extmarks buffer api', function()
     local ns_invalid = ns2 + 1
     rv = curbufmeths.set_extmark(ns_invalid, marks[1], positions[1][1], positions[1][2])
     rv = curbufmeths.del_extmark(ns_invalid, marks[1])
-    rv = curbufmeths.list_extmarks(ns_invalid, positions[1], positions[2], ALL, 0)
-    rv = curbufmeths.get_extmark(ns_invalid, marks[1])
+    rv = curbufmeths.get_extmarks(ns_invalid, positions[1], positions[2], ALL, 0)
+    rv = curbufmeths.get_extmark_by_id(ns_invalid, marks[1])
 
   end)
 
   it('when col > line-length, set the mark on eol #extmarks', function()
     local invalid_col = init_text:len() + 1
     curbufmeths.set_extmark(ns, marks[1], 1, invalid_col)
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({1, init_text:len() + 1}, rv)
     -- Test another
     curbufmeths.set_extmark(ns, marks[1], 1, invalid_col)
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({1, init_text:len() + 1}, rv)
   end)
 
@@ -1100,7 +1100,7 @@ describe('Extmarks buffer api', function()
     local invalid_col = init_text:len() + 1
     local invalid_lnum = 3 -- line1 ends in an eol. so line 2 contains a valid position (eol)?
     curbufmeths.set_extmark(ns, marks[1], invalid_lnum, invalid_col)
-    rv = curbufmeths.get_extmark(ns, marks[1])
+    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({2, 1}, rv)
   end)
 

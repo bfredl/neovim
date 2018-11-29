@@ -912,8 +912,8 @@ ArrayOf(Integer, 2) nvim_buf_get_mark(Buffer buffer, String name, Error *err)
 /// @param id the extmark id
 /// @param[out] err Details of an error that may have occurred
 /// @return (row, col) tuple or empty list () if extmark id was absent
-ArrayOf(Integer) nvim_buf_get_extmark(Buffer buffer, Integer namespace,
-                                        Integer id, Error *err)
+ArrayOf(Integer) nvim_buf_get_extmark_by_id(Buffer buffer, Integer namespace,
+                                             Integer id, Error *err)
   FUNC_API_SINCE(5)
 {
   Array rv = ARRAY_DICT_INIT;
@@ -951,9 +951,9 @@ ArrayOf(Integer) nvim_buf_get_extmark(Buffer buffer, Integer namespace,
 /// range using limited amount, include marks for end of range.
 /// /// @param[out] err Details of an error that may have occurred
 /// @return [[nsmark_id, row, col], ...]
-Array nvim_buf_list_extmarks(Buffer buffer, Integer ns_id,
-                             Object start, Object end, Integer amount,
-                             Boolean from_end, Error *err)
+Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
+                            Object start, Object end, Integer amount,
+                            Boolean from_end, Error *err)
   FUNC_API_SINCE(5)
 {
   Array rv = ARRAY_DICT_INIT;
