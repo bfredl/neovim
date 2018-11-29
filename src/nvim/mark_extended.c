@@ -144,41 +144,24 @@ ExtmarkArray extmark_get(buf_T *buf,
 {
   ExtmarkArray array = KV_INITIAL_VALUE;
   // Find all the marks
-  if (amount == -1) {
-    if (dir == FORWARD) {
-      FOR_ALL_EXTMARKS(buf, ns, l_lnum, l_col, u_lnum, u_col, {
-        if (extmark->ns_id == ns) {
-          kv_push(array, extmark);
+  if (dir == FORWARD) {
+    FOR_ALL_EXTMARKS(buf, ns, l_lnum, l_col, u_lnum, u_col, {
+      if (extmark->ns_id == ns) {
+        kv_push(array, extmark);
+        if (kv_size(array) == (size_t)amount) {
+          return array;
         }
-      })
-    } else {
-      FOR_ALL_EXTMARKS_PREV(buf, ns, l_lnum, l_col, u_lnum, u_col, {
-        if (extmark->ns_id == ns) {
-          kv_push(array, extmark);
-        }
-      })
-    }
-  // Find only a certain amount of marks (only thing extra is the size check )
+      }
+    })
   } else {
-    if (dir == FORWARD) {
-      FOR_ALL_EXTMARKS(buf, ns, l_lnum, l_col, u_lnum, u_col, {
-        if (extmark->ns_id == ns) {
-          kv_push(array, extmark);
-          if (kv_size(array) == (size_t)amount) {
-            return array;
-          }
+    FOR_ALL_EXTMARKS_PREV(buf, ns, l_lnum, l_col, u_lnum, u_col, {
+      if (extmark->ns_id == ns) {
+        kv_push(array, extmark);
+        if (kv_size(array) == (size_t)amount) {
+          return array;
         }
-      })
-    } else {
-      FOR_ALL_EXTMARKS_PREV(buf, ns, l_lnum, l_col, u_lnum, u_col, {
-        if (extmark->ns_id == ns) {
-          kv_push(array, extmark);
-          if (kv_size(array) == (size_t)amount) {
-            return array;
-          }
-        }
-      })
-    }
+      }
+    })
   }
   return array;
 }
