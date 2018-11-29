@@ -138,11 +138,9 @@ typedef struct ExtMarkLine
 KBTREE_INIT(extlines, ExtMarkLine *, extline_cmp, 10)
 
 
-typedef PMap(uint64_t) IntMap;
-
 
 typedef struct ExtmarkNs {  // For namespacing extmarks
-  IntMap *map;              // For fast lookup
+  PMap(uint64_t) *map;      // For fast lookup
   uint64_t free_id;         // For automatically assigning id's
 } ExtmarkNs;
 

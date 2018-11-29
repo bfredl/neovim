@@ -101,6 +101,32 @@ int extmark_del(buf_T *buf,
   return extmark_delete(extmark, buf, ns, id, op);
 }
 
+// Remove an extmark
+// Returns 0 on missing id
+void extmark_clear(buf_T *buf,
+                   uint64_t ns,
+                   linenr_T line_start,
+                   linenr_T line_stop)
+{
+  ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
+  if (!ns_obj) {
+    // nothing to do
+    return;
+  }
+  FOR_ALL_EXTMARKLINES(buf, line_start, line_stop, {
+    FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
+      if (extmark->ns_id == ns) {
+        // Remove our key from the namespace
+        pmap_del(uint64_t)(ns_obj->map, extmark->mark_id);
+        kb_del_itr(markitems, &extline->items, &mitr);
+      }
+    });
+    if (kb_size(&extline->items) == 0) {
+      kb_del_itr(extlines, &buf->b_extlines, &itr);
+    }
+  });
+}
+
 // Returns the position of marks between a range,
 // marks found at the start or end index will be included,
 // if upper_lnum or upper_col are negative the buffer
