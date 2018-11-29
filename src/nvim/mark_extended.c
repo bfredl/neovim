@@ -313,14 +313,12 @@ ExtendedMark *extmark_from_pos(buf_T *buf,
 // Returns an avaliable id in a namespace
 uint64_t extmark_free_id_get(buf_T *buf, uint64_t ns)
 {
-  uint64_t free_id = 0;
-
   if (!buf->b_extmark_ns) {
-    return free_id;
+    return 1;
   }
   ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
   if (!ns_obj) {
-    return free_id;
+    return 1;
   }
   return ns_obj->free_id;
 }
