@@ -7,7 +7,6 @@ local Screen = require('test.functional.ui.screen')
 
 local request = helpers.request
 local eq = helpers.eq
-local meths = helpers.meths
 local curbufmeths = helpers.curbufmeths
 local insert = helpers.insert
 local feed = helpers.feed
@@ -16,11 +15,8 @@ local clear = helpers.clear
 local TO_START = {-1, -1}
 local TO_END = {-1, -1}
 local ALL = -1
-local RANDOM_MARK_ID = 0
 
 local rv = nil
-local rv1 = nil
-local rv2 = nil
 
 local function check_undo_redo(ns, mark, sr, sc, er, ec) --s = start, e = end
   rv = curbufmeths.get_extmark(ns, mark)
@@ -759,18 +755,18 @@ describe('Extmarks buffer api', function()
   end)
 
   it('mark set can create unique identifiers #extmarks', function()
-    local id = 0;
-    -- id is 0
-    rv = curbufmeths.set_extmark(ns, marks[1], positions[1][1], positions[1][2])
-    eq(1, rv)
-    -- id should be + 1
-    id = curbufmeths.set_extmark(ns, RANDOM_MARK_ID, positions[1][1], positions[1][2])
-    eq(1 + 1, id)
-    -- id is 3
-    rv = curbufmeths.set_extmark(ns, 3, positions[2][1], positions[2][2])
-    eq(3, rv)
-    id = curbufmeths.set_extmark(ns, RANDOM_MARK_ID, positions[1][1], positions[1][2])
-    eq(1 + 3, id)
+    -- create mark with id 1
+    eq(1, curbufmeths.set_extmark(ns, 1, positions[1][1], positions[1][2]))
+    -- ask for unique id, it should be the next one, i e 2
+    eq(2, curbufmeths.set_extmark(ns, 0, positions[1][1], positions[1][2]))
+    eq(3, curbufmeths.set_extmark(ns, 3, positions[2][1], positions[2][2]))
+    eq(4, curbufmeths.set_extmark(ns, 0, positions[1][1], positions[1][2]))
+
+    -- mixing manual and allocated id:s are not recommened, but it should
+    -- do something reasonable
+    eq(6, curbufmeths.set_extmark(ns, 6, positions[2][1], positions[2][2]))
+    eq(7, curbufmeths.set_extmark(ns, 0, positions[1][1], positions[1][2]))
+    eq(8, curbufmeths.set_extmark(ns, 0, positions[1][1], positions[1][2]))
   end)
 
   it('auto indenting with enter works #extmarks', function()
