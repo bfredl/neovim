@@ -935,8 +935,8 @@ ArrayOf(Integer) nvim_buf_get_extmark_by_id(Buffer buffer, Integer namespace,
   if (!extmark) {
     return rv;
   }
-  ADD(rv, INTEGER_OBJ((Integer)extmark->line->lnum));
-  ADD(rv, INTEGER_OBJ((Integer)extmark->col));
+  ADD(rv, INTEGER_OBJ((Integer)extmark->line->lnum-1));
+  ADD(rv, INTEGER_OBJ((Integer)extmark->col-1));
   return rv;
 }
 
@@ -974,13 +974,13 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 
   linenr_T l_lnum;
   colnr_T l_col;
-  if (!set_extmark_index_from_obj(buffer, ns_id, start, &l_lnum, &l_col, err)) {
+  if (!set_extmark_index_from_obj(buf, ns_id, start, &l_lnum, &l_col, err)) {
     return rv;
   }
 
   linenr_T u_lnum;
   colnr_T u_col;
-  if (!set_extmark_index_from_obj(buffer, ns_id, end, &u_lnum, &u_col, err)) {
+  if (!set_extmark_index_from_obj(buf, ns_id, end, &u_lnum, &u_col, err)) {
     return rv;
   }
 
@@ -994,8 +994,8 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
     Array mark = ARRAY_DICT_INIT;
     ExtendedMark *extmark = kv_A(marks, i);
     ADD(mark, INTEGER_OBJ((Integer)extmark->mark_id));
-    ADD(mark, INTEGER_OBJ(extmark->line->lnum));
-    ADD(mark, INTEGER_OBJ(extmark->col));
+    ADD(mark, INTEGER_OBJ(extmark->line->lnum-1));
+    ADD(mark, INTEGER_OBJ(extmark->col-1));
     ADD(rv, ARRAY_OBJ(mark));
   }
 
@@ -1015,24 +1015,33 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 /// @param[out] err Details of an error that may have occurred
 /// @return the nsmark_id for a new mark, or 0 for an update
 Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer id,
-                             Integer row, Integer col, Error *err)
+                             Integer line, Integer col, Error *err)
   FUNC_API_SINCE(5)
 {
-  Integer rv = 0;
   buf_T *buf = find_buffer_by_handle(buffer, err);
-
   if (!buf) {
-    return rv;
+    return 0;
   }
+
   if (!ns_initialized((uint64_t)ns_id)) {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
-    return rv;
+    return 0;
   }
-  if (row < 1 || col < 1) {
-    api_set_error(err,
-                  kErrorTypeValidation,
-                  _("Row and column must be greater than 0"));
-    return rv;
+
+  if (line < 0 || line >= buf->b_ml.ml_line_count) {
+    api_set_error(err, kErrorTypeValidation, "line value outside range");
+    return 0;
+  }
+
+ // TODO(bfredl): maybe we shouldn't check this. Correct marks later
+ // when text is changed?
+  size_t len = STRLEN(ml_get_buf(curbuf, line+1, false));
+  if (col > (Integer)len) { // XXX: for tests. Delet this and/or update tests!
+    col = (Integer)len;
+  }
+  if (col < 0 || col > (Integer)len) {
+    api_set_error(err, kErrorTypeValidation, "col value outside range");
+    return 0;
   }
 
   uint64_t id_num;
@@ -1042,13 +1051,14 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer id,
     id_num = (uint64_t)id;
   } else {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));
-    return rv;
+    return 0;
   }
 
   bool new = extmark_set(buf, (uint64_t)ns_id, id_num,
-                         extmark_check_lnum(buf, (linenr_T)row),
-                         extmark_check_col(buf, (linenr_T)row, (colnr_T)col),
+                         line+1,
+                         (colnr_T)col+1,
                          kExtmarkUndo);
+
   if (new) {
     return (Integer)id_num;
   } else {

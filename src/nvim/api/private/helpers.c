@@ -1286,12 +1286,6 @@ bool extmark_is_range_extremity(Object id)
   return false;
 }
 
-// Return true if the position is valid TODO(timeyyy): implement
-bool extmark_is_valid_pos(Object id)
-{
-  return true;
-}
-
 // Is the Namespace in use?
 bool ns_initialized(uint64_t ns)
 {
@@ -1307,44 +1301,51 @@ bool ns_initialized(uint64_t ns)
 //
 // *lnum: linenr_T, lnum to be set
 // *col: colnr_T, col to be set
-bool set_extmark_index_from_obj(Buffer buffer, Integer namespace,
-                                Object obj, linenr_T *lnum, colnr_T *col,
+bool set_extmark_index_from_obj(buf_T *buf, Integer namespace,
+                                Object obj, linenr_T *lnum, colnr_T *colnr,
                                 Error *err)
 {
-  // Check if it is an extremity
-  if (extmark_is_range_extremity(obj)) {
-    *lnum = Extremity;
-    *col = Extremity;
-    return true;
-  }
+  // Check if it is mark id
+  if (obj.type == kObjectTypeInteger) {
+    Integer id = obj.data.integer;
+    if (id < 0) {  // sentinel value for extremity
+      *lnum = -1;
+      *colnr = -1;
+      return true;
+    } else if (id == 0) {
+      api_set_error(err, kErrorTypeValidation, _("Mark id must be positive"));
+      return false;
+    }
 
-  // Check if it is a mark
-  ExtendedMark *_extmark = extmark_from_id_or_pos(buffer,
-                                                  namespace,
-                                                  obj,
-                                                  err,
-                                                  false);
-  if (_extmark) {
-    *lnum = _extmark->line->lnum;
-    *col = _extmark->col;
-    return true;
-  }
+    ExtendedMark *extmark = extmark_from_id(buf, (uint64_t)namespace,
+                                            (uint64_t)id);
+    if (extmark) {
+      *lnum = extmark->line->lnum;
+      *colnr = extmark->col;
+      return true;
+    } else {
+      api_set_error(err, kErrorTypeValidation, _("No mark with requested id"));
+      return false;
+    }
 
   // Check if it is a position
-  if (extmark_is_valid_pos(obj)) {
-    if (obj.type == kObjectTypeArray) {
-      if (obj.data.array.size != 2) {
-        api_set_error(err, kErrorTypeValidation,
-                      _("Position must have 2 elements"));
-      } else {
-        *lnum = (linenr_T)obj.data.array.items[0].data.integer;
-        *col = (colnr_T)obj.data.array.items[1].data.integer;
-        return true;
-      }
-    } else {
+  } else if (obj.type == kObjectTypeArray) {
+    Array pos = obj.data.array;
+    if (pos.size != 2
+        || pos.items[0].type != kObjectTypeInteger
+        || pos.items[1].type != kObjectTypeInteger) {
       api_set_error(err, kErrorTypeValidation,
-                    _("Position must be in a list"));
+                    _("Position must have 2 integer elements"));
+      return false;
     }
+    Integer line = pos.items[0].data.integer;
+    Integer col = pos.items[1].data.integer;
+    *lnum = (linenr_T)(line >= 0 ? line + 1 : -1);
+    *colnr = (colnr_T)(col >= 0 ? col + 1 : -1);
+    return true;
+  } else {
+    api_set_error(err, kErrorTypeValidation,
+                  _("Position must be a mark id Integer or position Array"));
+    return false;
   }
-  return false;
 }
