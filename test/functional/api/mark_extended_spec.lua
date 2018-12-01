@@ -1135,8 +1135,8 @@ describe('Extmarks buffer api', function()
     curbufmeths.set_lines(0, -1, true, lines)
     local ns = ns1
     local q = 0
-    for i = 1,30 do
-      for j = 1,i do
+    for i = 0,29 do
+      for j = 0,i do
         local id = curbufmeths.set_extmark(ns,0, i,j)
         eq(nil, ns_marks[ns][id])
         ok(id > 0)
