@@ -4084,3 +4084,11 @@ int decl(pos_T *lp)
   }
   return r;
 }
+
+char *ml_inspect_stack(buf_T *buf) {
+  char *p = IObuff;
+  for (int i = 0; i < buf->b_ml.ml_stack_top; i++) {
+    p += snprintf(p, 5, "%d ", buf->b_ml.ml_stack[i].ip_index);
+  }
+  return IObuff;
+}

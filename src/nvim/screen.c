@@ -2461,6 +2461,9 @@ win_line (
   line = ml_get_buf(wp->w_buffer, lnum, FALSE);
   ptr = line;
 
+  do_virttext = true;
+  char *faketext = ml_inspect_stack(wp->w_buffer);
+
   if (has_spell && !number_only) {
     // For checking first word with a capital skip white space.
     if (cap_col == 0) {
@@ -3917,8 +3920,11 @@ win_line (
         int rightmost_vcol = 0;
         int i;
 
-        VirtText virt_text = do_virttext ? bufhl_info.line->virt_text
-                                        : (VirtText)KV_INITIAL_VALUE;
+        //VirtText virt_text = do_virttext ? bufhl_info.line->virt_text
+        //                                : (VirtText)KV_INITIAL_VALUE;
+        VirtText virt_text = KV_INITIAL_VALUE;
+        kv_push(virt_text, ((VirtTextChunk){faketext, 0}));
+        
         size_t virt_pos = 0;
         LineState s = LINE_STATE((char_u *)"");
         int virt_attr = 0;
