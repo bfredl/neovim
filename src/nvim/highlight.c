@@ -50,8 +50,11 @@ bool highlight_use_hlstate(void)
 /// a semantic description (see ext_hlstate documentation).
 /// Add a new entry to the attr_entries array if the combination is new.
 /// @return 0 for error.
-static int get_attr_entry(HlEntry entry)
+static int get_attr_entry(bool standard, HlEntry full_entry)
 {
+  static bool recursive = false;
+  HlEntry entry = full_entry;
+  
   if (!hlstate_active) {
     // This information will not be used, erase it and reduce the table size.
     entry.kind = kHlUnknown;
@@ -60,41 +63,42 @@ static int get_attr_entry(HlEntry entry)
   }
 
   int id = map_get(HlEntry, int)(attr_entry_ids, entry);
-  if (id > 0) {
-    return id;
+  bool existing = (id > 0);
+
+  if (!existing) {
+    if (kv_size(attr_entries) > MAX_TYPENR) {
+      // Running out of attribute entries!  remove all attributes, and
+      // compute new ones for all groups.
+      // When called recursively, we are really out of numbers.
+      if (recursive) {
+        EMSG(_("E424: Too many different highlighting attributes in use"));
+        return 0;
+      }
+      recursive = true;
+
+      clear_hl_tables(true);
+
+      recursive = false;
+      if (entry.kind == kHlCombine) {
+        // This entry is now invalid, don't put it
+        return 0;
+      }
+    }
+
+    id = (int)kv_size(attr_entries);
+    kv_push(attr_entries, entry);
+
+    map_put(HlEntry, int)(attr_entry_ids, entry, id);
   }
 
-  static bool recursive = false;
-  if (kv_size(attr_entries) > MAX_TYPENR) {
-    // Running out of attribute entries!  remove all attributes, and
-    // compute new ones for all groups.
-    // When called recursively, we are really out of numbers.
-    if (recursive) {
-      EMSG(_("E424: Too many different highlighting attributes in use"));
-      return 0;
-    }
-    recursive = true;
+  if (!existing || standard) {
+    Array inspect = hl_inspect(id, full_entry);
 
-    clear_hl_tables(true);
-
-    recursive = false;
-    if (entry.kind == kHlCombine) {
-      // This entry is now invalid, don't put it
-      return 0;
-    }
+    // Note: internally we don't distinguish between cterm and rgb attributes,
+    // remote_ui_hl_attr_define will however.
+    ui_call_hl_attr_define(id, entry.attr, entry.attr, inspect);
+    api_free_array(inspect);
   }
-
-  id = (int)kv_size(attr_entries);
-  kv_push(attr_entries, entry);
-
-  map_put(HlEntry, int)(attr_entry_ids, entry, id);
-
-  Array inspect = hl_inspect(id);
-
-  // Note: internally we don't distinguish between cterm and rgb attributes,
-  // remote_ui_hl_attr_define will however.
-  ui_call_hl_attr_define(id, entry.attr, entry.attr, inspect);
-  api_free_array(inspect);
   return id;
 }
 
@@ -117,7 +121,8 @@ int hl_get_syn_attr(int idx, HlAttrs at_en)
       || at_en.rgb_fg_color != -1 || at_en.rgb_bg_color != -1
       || at_en.rgb_sp_color != -1 || at_en.cterm_ae_attr != 0
       || at_en.rgb_ae_attr != 0) {
-    return get_attr_entry((HlEntry){ .attr = at_en, .kind = kHlSyntax,
+    return get_attr_entry(false,
+                          (HlEntry){ .attr = at_en, .kind = kHlSyntax,
                                      .id1 = idx, .id2 = 0 });
   } else {
     // If all the fields are cleared, clear the attr field back to default value
@@ -128,7 +133,7 @@ int hl_get_syn_attr(int idx, HlAttrs at_en)
 /// Get attribute code for a builtin highlight group.
 ///
 /// The final syntax group could be modified by hi-link or 'winhighlight'.
-int hl_get_ui_attr(int idx, int final_id, bool optional)
+int hl_get_ui_attr(int idx, int final_id, bool standard, bool optional)
 {
   HlAttrs attrs = HLATTRS_INIT;
   bool available = false;
@@ -141,7 +146,8 @@ int hl_get_ui_attr(int idx, int final_id, bool optional)
   if (optional && !available) {
     return 0;
   }
-  return get_attr_entry((HlEntry){ .attr = attrs, .kind = kHlUI,
+  return get_attr_entry(standard,
+                        (HlEntry){ .attr = attrs, .kind = kHlUI,
                                    .id1 = idx, .id2 = final_id });
 }
 
@@ -155,9 +161,9 @@ void update_window_hl(win_T *wp, bool invalid)
   // determine window specific background set in 'winhighlight'
   if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] > 0) {
     wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE,
-                                          wp->w_hl_ids[HLF_INACTIVE], true);
+                                          wp->w_hl_ids[HLF_INACTIVE], false, true);
   } else if (wp->w_hl_id_normal > 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, true);
+    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, false, true);
   } else {
     wp->w_hl_attr_normal = 0;
   }
@@ -169,7 +175,7 @@ void update_window_hl(win_T *wp, bool invalid)
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int attr;
     if (wp->w_hl_ids[hlf] > 0) {
-      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf], false);
+      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf], false, false);
     } else {
       attr = HL_ATTR(hlf);
     }
@@ -180,7 +186,7 @@ void update_window_hl(win_T *wp, bool invalid)
 /// Gets HL_UNDERLINE highlight.
 int hl_get_underline(void)
 {
-  return get_attr_entry((HlEntry){
+  return get_attr_entry(false, (HlEntry){
       .attr = (HlAttrs){
           .cterm_ae_attr = (int16_t)HL_UNDERLINE,
           .cterm_fg_color = 0,
@@ -199,7 +205,7 @@ int hl_get_underline(void)
 /// Get attribute code for forwarded :terminal highlights.
 int hl_get_term_attr(HlAttrs *aep)
 {
-  return get_attr_entry((HlEntry){ .attr= *aep, .kind = kHlTerminal,
+  return get_attr_entry(false, (HlEntry){ .attr= *aep, .kind = kHlTerminal,
                                    .id1 = 0, .id2 = 0 });
 }
 
@@ -277,7 +283,8 @@ int hl_combine_attr(int char_attr, int prim_attr)
     new_en.rgb_sp_color = spell_aep.rgb_sp_color;
   }
 
-  id = get_attr_entry((HlEntry){ .attr = new_en, .kind = kHlCombine,
+  id = get_attr_entry(false,
+                      (HlEntry){ .attr = new_en, .kind = kHlCombine,
                                  .id1 = char_attr, .id2 = prim_attr });
   if (id > 0) {
     map_put(int, int)(combine_attr_entries, combine_tag, id);
