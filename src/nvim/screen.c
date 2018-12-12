@@ -6327,6 +6327,8 @@ int showmode(void)
       return 0;
     }
 
+    msg_ext_start_showmode();
+
     nwr_save = need_wait_return;
 
     /* wait a bit before overwriting an important message */

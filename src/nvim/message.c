@@ -119,6 +119,7 @@ static sattr_T msg_ext_last_attr = -1;
 static bool msg_ext_overwrite = false;
 static int msg_ext_visible = 0;
 static bool msg_ext_keep = false;
+static bool msg_ext_is_showmode = false;
 
 /*
  * msg(s) - displays the string 's' on the status line
@@ -1693,6 +1694,12 @@ void msg_puts_attr_len(const char *const str, const ptrdiff_t len, int attr)
   FUNC_ATTR_NONNULL_ALL
 {
   assert(len < 0 || memchr(str, 0, len) == NULL);
+
+  if (msg_ext_is_showmode) {
+    msg_puts_display((const char_u *)str, len, attr, false);
+    return;
+  }
+
   // If redirection is on, also write to the redirection file.
   redir_write(str, len);
 
@@ -2681,10 +2688,20 @@ void msg_ext_ui_flush(void)
   }
 }
 
+void msg_ext_start_showmode(void)
+{
+  if (ui_is_external(kUIMessages)) {
+    msg_ext_is_showmode = true;
+  }
+}
+
 void msg_ext_flush_showmode(void) {
-  msg_ext_emit_chunk();
-  ui_call_msg_showmode(msg_ext_chunks);
-  msg_ext_chunks = (Array)ARRAY_DICT_INIT;
+  if (ui_is_external(kUIMessages)) {
+    msg_ext_emit_chunk();
+    ui_call_msg_showmode(msg_ext_chunks);
+    msg_ext_chunks = (Array)ARRAY_DICT_INIT;
+  }
+  msg_ext_is_showmode = false;
 }
 
 void msg_ext_clear(bool force) {
