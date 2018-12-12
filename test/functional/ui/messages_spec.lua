@@ -3,6 +3,7 @@ local Screen = require('test.functional.ui.screen')
 local clear, feed = helpers.clear, helpers.feed
 local eval = helpers.eval
 local eq = helpers.eq
+local command = helpers.command
 
 describe('ui/ext_messages', function()
   local screen
@@ -10,7 +11,7 @@ describe('ui/ext_messages', function()
   before_each(function()
     clear()
     screen = Screen.new(25, 5)
-    screen:attach({rgb=true, ext_messages=true})
+    screen:attach({rgb=true, ext_messages=true, ext_popupmenu=true})
     screen:set_default_attr_ids({
       [1] = {bold = true, foreground = Screen.colors.Blue1},
       [2] = {foreground = Screen.colors.Grey100, background = Screen.colors.Red},
@@ -72,7 +73,7 @@ describe('ui/ext_messages', function()
       {1:~                        }|
       {1:~                        }|
       {1:~                        }|
-    ]], messages={ {
+    ]], messages={{
         content = { { "bork", 2 } },
         kind = "echoerr"
       }, {
@@ -84,7 +85,7 @@ describe('ui/ext_messages', function()
       }, {
         content = { { "Press ENTER or type command to continue", 4 } },
         kind = "return_prompt"
-      } }}
+    }}}
 
     feed('<cr>')
     screen:expect{grid=[[
@@ -124,6 +125,7 @@ describe('ui/ext_messages', function()
   end)
 
   it('supports showmode', function()
+    command('imap <f2> <cmd>echomsg "stuff"<cr>')
     feed('i')
     screen:expect{grid=[[
       ^                         |
@@ -132,6 +134,37 @@ describe('ui/ext_messages', function()
       {1:~                        }|
                                |
     ]], showmode={{"-- INSERT --", 3}}}
+
+    feed('<f2>')
+    screen:expect{grid=[[
+      ^                         |
+      {1:~                        }|
+      {1:~                        }|
+      {1:~                        }|
+                               |
+    ]], messages={{
+      content = { { "stuff" } },
+      kind = "echomsg"
+    }}, showmode={{ "-- INSERT --", 3 }}}
+
+
+    feed('alphpabet<cr>alphanum<cr>')
+    screen:expect{grid=[[
+      alphpabet                |
+      alphanum                 |
+      ^                         |
+      {1:~                        }|
+      {1:~                        }|
+    ]], messages={ {
+        content = { { "stuff" } },
+        kind = "echomsg"
+      } }, showmode={ { "-- INSERT --", 3 } }}
+
+    feed('<c-x>')
+    screen:snapshot_util()
+    
+    feed('<c-p>')
+    screen:snapshot_util()
   end)
 
 end)
