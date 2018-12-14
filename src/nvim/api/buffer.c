@@ -944,8 +944,8 @@ ArrayOf(Integer) nvim_buf_get_extmark_by_id(Buffer buffer, Integer namespace,
 ///
 /// @param buffer The buffer handle
 /// @param namespace An id returned previously from nvim_create_namespace
-/// @param lower One of:  extmark id, (row, col) or -1 for start of buffer
-/// @param upper One of: extmark id, (row, col) or -1 for end of buffer
+/// @param lower One of:  extmark id, (row, col)
+/// @param upper One of: extmark id, (row, col) 
 /// @param amount Maximum number of marks to return or -1 for all marks found
 /// @param from_end when using limited amount, include marks for end of
 /// range using limited amount, include marks for end of range.
@@ -953,7 +953,7 @@ ArrayOf(Integer) nvim_buf_get_extmark_by_id(Buffer buffer, Integer namespace,
 /// @return [[nsmark_id, row, col], ...]
 Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
                             Object start, Object end, Integer amount,
-                            Boolean from_end, Error *err)
+                            Error *err)
   FUNC_API_SINCE(5)
 {
   Array rv = ARRAY_DICT_INIT;
@@ -972,23 +972,35 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
     return rv;
   }
 
+
+  bool reverse = false;
+
   linenr_T l_lnum;
   colnr_T l_col;
-  if (!set_extmark_index_from_obj(buf, ns_id, start, &l_lnum, &l_col, err, false)) {
+  if (!set_extmark_index_from_obj(buf, ns_id, start, &l_lnum, &l_col, err)) {
     return rv;
   }
 
   linenr_T u_lnum;
   colnr_T u_col;
-  if (!set_extmark_index_from_obj(buf, ns_id, end, &u_lnum, &u_col, err, true)) {
+  if (!set_extmark_index_from_obj(buf, ns_id, end, &u_lnum, &u_col, err)) {
     return rv;
   }
 
-  // TODO(timeyyy): assert lower <= upper
+  if (l_lnum > u_lnum || (l_lnum == u_lnum && l_col > u_col)) {
+    linenr_T tmp_lnum = l_lnum;
+    l_lnum = u_lnum;
+    u_lnum = tmp_lnum;
+    colnr_T tmp_col = l_col;
+    l_col = u_col;
+    u_col = tmp_col;
+    reverse = true;
+  }
+
 
   ExtmarkArray marks = extmark_get(buf, (uint64_t)ns_id, l_lnum, l_col,
                                    u_lnum, u_col, (int64_t)amount,
-                                   from_end ? BACKWARD: FORWARD);
+                                   reverse);
 
   for (size_t i = 0; i < kv_size(marks); i++) {
     Array mark = ARRAY_DICT_INIT;

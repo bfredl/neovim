@@ -140,11 +140,11 @@ ExtmarkArray extmark_get(buf_T *buf,
                          linenr_T u_lnum,
                          colnr_T u_col,
                          int64_t amount,
-                         int dir)
+                         bool reverse)
 {
   ExtmarkArray array = KV_INITIAL_VALUE;
   // Find all the marks
-  if (dir == FORWARD) {
+  if (!reverse) {
     FOR_ALL_EXTMARKS(buf, ns, l_lnum, l_col, u_lnum, u_col, {
       if (extmark->ns_id == ns) {
         kv_push(array, extmark);
