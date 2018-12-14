@@ -1033,13 +1033,10 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer id,
     return 0;
   }
 
- // TODO(bfredl): maybe we shouldn't check this. Correct marks later
- // when text is changed?
   size_t len = STRLEN(ml_get_buf(curbuf, line+1, false));
-  if (col > (Integer)len) { // XXX: for tests. Delet this and/or update tests!
+  if (col == -1) {
     col = (Integer)len;
-  }
-  if (col < 0 || col > (Integer)len) {
+  } else if (col < -1 || col > (Integer)len) {
     api_set_error(err, kErrorTypeValidation, "col value outside range");
     return 0;
   }

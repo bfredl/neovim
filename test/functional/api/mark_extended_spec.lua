@@ -9,6 +9,7 @@ local request = helpers.request
 local eq = helpers.eq
 local ok = helpers.ok
 local curbufmeths = helpers.curbufmeths
+local meth_pcall = helpers.meth_pcall
 local insert = helpers.insert
 local feed = helpers.feed
 local clear = helpers.clear
@@ -668,8 +669,8 @@ describe('Extmarks buffer api', function()
     feed('o<esc>')
     curbufmeths.set_extmark(ns, marks[1], 0, 1)
     feed('o<esc>')
-    curbufmeths.set_extmark(ns, marks[2], 0, 7)
-    curbufmeths.set_extmark(ns, marks[3], 0, 8)
+    curbufmeths.set_extmark(ns, marks[2], 0, -1)
+    curbufmeths.set_extmark(ns, marks[3], 0, -1)
     rv = curbufmeths.get_extmarks(ns, {0, 0}, {-1, -1}, ALL, 0)
 
     feed("u")
@@ -1085,15 +1086,19 @@ describe('Extmarks buffer api', function()
 
   end)
 
-  it('when col > line-length, set the mark on eol #extmarks', function()
-    local invalid_col = init_text:len() + 1
-    curbufmeths.set_extmark(ns, marks[1], 0, invalid_col)
+  it('when col = line-length, set the mark on eol #extmarks', function()
+    curbufmeths.set_extmark(ns, marks[1], 0, -1)
     rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({0, init_text:len()}, rv)
     -- Test another
-    curbufmeths.set_extmark(ns, marks[1], 0, invalid_col)
+    curbufmeths.set_extmark(ns, marks[1], 0, -1)
     rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     eq({0, init_text:len()}, rv)
+  end)
+
+  it('when col = line-length, set the mark on eol #extmarks', function()
+    local invalid_col = init_text:len() + 1
+    eq({false, "col value outside range"}, meth_pcall(curbufmeths.set_extmark, ns, marks[1], 0, invalid_col))
   end)
 
  -- TODO(bfredl): decide what to do with this
