@@ -1274,18 +1274,6 @@ ExtendedMark *extmark_from_id_or_pos(Buffer buffer,
   return extmark;
 }
 
-// Return true if the extmark id is for the beginning or end of
-// the buffer
-bool extmark_is_range_extremity(Object id)
-{
-  if (id.type == kObjectTypeInteger) {
-    if ((linenr_T)id.data.integer == Extremity) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // Is the Namespace in use?
 bool ns_initialized(uint64_t ns)
 {
@@ -1303,16 +1291,12 @@ bool ns_initialized(uint64_t ns)
 // *col: colnr_T, col to be set
 bool set_extmark_index_from_obj(buf_T *buf, Integer namespace,
                                 Object obj, linenr_T *lnum, colnr_T *colnr,
-                                Error *err)
+                                Error *err, bool upper)
 {
   // Check if it is mark id
   if (obj.type == kObjectTypeInteger) {
     Integer id = obj.data.integer;
-    if (id < 0) {  // sentinel value for extremity
-      *lnum = -1;
-      *colnr = -1;
-      return true;
-    } else if (id == 0) {
+    if (id < 0) {
       api_set_error(err, kErrorTypeValidation, _("Mark id must be positive"));
       return false;
     }
@@ -1340,8 +1324,20 @@ bool set_extmark_index_from_obj(buf_T *buf, Integer namespace,
     }
     Integer line = pos.items[0].data.integer;
     Integer col = pos.items[1].data.integer;
-    *lnum = (linenr_T)(line >= 0 ? line + 1 : -1);
-    *colnr = (colnr_T)(col >= 0 ? col + 1 : -1);
+    if (upper && line >= 0 && col >= 0) {
+      if (col > 0) {
+        col--;
+      } else if (line > 0) {
+        line--;
+        col = -1;
+      } else {
+        *lnum = -1;
+        *colnr = 0;
+        return true;
+      }
+    }
+    *lnum = (linenr_T)(line >= 0 ? line + 1 : MAXLNUM);
+    *colnr = (colnr_T)(col >= 0 ? col + 1 : MAXCOL);
     return true;
   } else {
     api_set_error(err, kErrorTypeValidation,

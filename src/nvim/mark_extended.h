@@ -5,9 +5,6 @@
 #include "nvim/lib/kbtree.h"
 #include "nvim/lib/kvec.h"
 #include "nvim/map.h"
-// TODO(timeyyy): Support '.', normal vim marks etc
-#define Extremity -1    // Start or End of lnum or col
-
 
 #define extline_cmp(a, b) (kb_generic_cmp((a)->lnum, (b)->lnum))
 
@@ -22,14 +19,14 @@
 #define FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, code)\
   kbitr_t(extlines) itr;\
   ExtMarkLine t;\
-  t.lnum = l_lnum == Extremity ? MINLNUM : l_lnum;\
+  t.lnum = l_lnum;\
   if (!kb_itr_get(extlines, &buf->b_extlines, &t, &itr)) { \
     kb_itr_next(extlines, &buf->b_extlines, &itr);\
   }\
   ExtMarkLine *extline;\
   for (; kb_itr_valid(&itr); kb_itr_next(extlines, &buf->b_extlines, &itr)) { \
     extline = kb_itr_key(&itr);\
-    if (extline->lnum > u_lnum && u_lnum != Extremity) { \
+    if (extline->lnum > u_lnum) { \
       break;\
     }\
       code;\
@@ -39,14 +36,14 @@
 #define FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, code)\
   kbitr_t(extlines) itr;\
   ExtMarkLine t;\
-  t.lnum = u_lnum == Extremity ? MAXLNUM : u_lnum;\
+  t.lnum = u_lnum;\
   if (!kb_itr_get(extlines, &buf->b_extlines, &t, &itr)) { \
     kb_itr_prev(extlines, &buf->b_extlines, &itr);\
   }\
   ExtMarkLine *extline;\
   for (; kb_itr_valid(&itr); kb_itr_prev(extlines, &buf->b_extlines, &itr)) { \
     extline = kb_itr_key(&itr);\
-    if (extline->lnum < l_lnum && l_lnum != Extremity) { \
+    if (extline->lnum < l_lnum) { \
       break;\
     }\
     code;\
@@ -60,7 +57,7 @@
   mt.mark_id = 0;\
   mt.line = NULL;\
   FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, { \
-    mt.col = (l_col ==  Extremity || extline->lnum != l_lnum) ? MINCOL : l_col;\
+    mt.col = (extline->lnum != l_lnum) ? MINCOL : l_col;\
     if (!kb_itr_get(markitems, &extline->items, mt, &mitr)) { \
         kb_itr_next(markitems, &extline->items, &mitr);\
     } \
@@ -69,8 +66,7 @@
          kb_itr_valid(&mitr); \
          kb_itr_next(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
-      if (u_col != Extremity \
-          && extmark->line->lnum == u_lnum \
+      if (extmark->line->lnum == u_lnum \
           && extmark->col > u_col) { \
         break;\
       }\
@@ -86,7 +82,7 @@
   mt.mark_id = sizeof(uint64_t);\
   mt.ns_id = ns;\
   FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, { \
-    mt.col = (u_col == Extremity || extline->lnum != u_lnum) ? MAXCOL : u_col;\
+    mt.col = (extline->lnum != u_lnum) ? MAXCOL : u_col;\
     if (!kb_itr_get(markitems, &extline->items, mt, &mitr)) { \
         kb_itr_prev(markitems, &extline->items, &mitr);\
     } \
@@ -95,8 +91,7 @@
          kb_itr_valid(&mitr); \
          kb_itr_prev(markitems, &extline->items, &mitr)) { \
       extmark = &kb_itr_key(&mitr);\
-      if (l_col != Extremity \
-          && extmark->line->lnum == l_lnum \
+      if (extmark->line->lnum == l_lnum \
           && extmark->col < l_col) { \
           break;\
       }\

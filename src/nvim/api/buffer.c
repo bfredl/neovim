@@ -974,13 +974,13 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 
   linenr_T l_lnum;
   colnr_T l_col;
-  if (!set_extmark_index_from_obj(buf, ns_id, start, &l_lnum, &l_col, err)) {
+  if (!set_extmark_index_from_obj(buf, ns_id, start, &l_lnum, &l_col, err, false)) {
     return rv;
   }
 
   linenr_T u_lnum;
   colnr_T u_col;
-  if (!set_extmark_index_from_obj(buf, ns_id, end, &u_lnum, &u_col, err)) {
+  if (!set_extmark_index_from_obj(buf, ns_id, end, &u_lnum, &u_col, err, true)) {
     return rv;
   }
 
