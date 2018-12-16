@@ -123,6 +123,7 @@ void extmark_clear(buf_T *buf,
     });
     if (kb_size(&extline->items) == 0) {
       kb_del_itr(extlines, &buf->b_extlines, &itr);
+      extline_free_delay(extline);
     }
   });
 }
@@ -265,6 +266,7 @@ static int extmark_delete(ExtendedMark *extmark,
   // Remove the line if there are no more marks in the line
   if (kb_size(&extline->items) == 0) {
     kb_del(extlines, &buf->b_extlines, extline);
+    extline_free(extline);
   }
   return true;
 }
@@ -340,12 +342,11 @@ void extmark_free_all(buf_T *buf)
   uint64_t ns;
   ExtmarkNs *ns_obj;
 
-  // Macro hygiene.
-  {
-    FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, 1, 1, MAXLNUM, MAXCOL, {
-      kb_del_itr(markitems, &extline->items, &mitr);
-    });
-  }
+  FOR_ALL_EXTMARKLINES(buf, 1, MAXLNUM, {
+    kb_del_itr(extlines, &buf->b_extlines, &itr);
+    extline_free_delay(extline);
+  })
+  extline_free_delay(NULL);
 
   map_foreach(buf->b_extmark_ns, ns, ns_obj, {
     (void)ns;
@@ -355,11 +356,6 @@ void extmark_free_all(buf_T *buf)
 
   pmap_free(uint64_t)(buf->b_extmark_ns);
 
-  FOR_ALL_EXTMARKLINES(buf, MINLNUM, MAXLNUM, {
-    kb_destroy(markitems, (&extline->items));
-    kb_del_itr(extlines, &buf->b_extlines, &itr);
-    xfree(extline);
-  })
   // k?_init called to set pointers to NULL
   kb_destroy(extlines, (&buf->b_extlines));
   kb_init(&buf->b_extlines);
@@ -1062,31 +1058,29 @@ void extmark_adjust(buf_T *buf,
 
   int eol;
   bool marks_exist = false;
-  linenr_T *lp;
   FOR_ALL_EXTMARKLINES(buf, MINLNUM, MAXLNUM, {
     marks_exist = true;
-    lp = &(extline->lnum);
-    if (*lp >= line1 && *lp <= line2) {
+    if (extline->lnum >= line1 && extline->lnum <= line2) {
       // 1st call with end_temp = true, store the lines in a temp position
       if (end_temp && amount > 0) {
-          kb_del_itr_extlines(&buf->b_extlines, &itr);
+          kb_del_itr(extlines, &buf->b_extlines, &itr);
           kv_push(buf->b_extmark_move_space, extline);
-      }
-
-      // Delete the line
-      if (amount == MAXLNUM) {
+      } else if (amount == MAXLNUM) {
+// Delete the line
         eol = eol_of_line(buf, extline->lnum - 1);
         extmark_copy_and_place(curbuf,
                                extline->lnum, BufPosStartCol,
                                extline->lnum, MAXCOL,
                                extline->lnum - 1, eol,
                                kExtmarkUndo);
-         kb_del_itr_extlines(&buf->b_extlines, &itr);
+         kb_del_itr(extlines, &buf->b_extlines, &itr);
+         extline_free_delay(extline);
+         extline = NULL;
       } else {
-        *lp += amount;
+        extline->lnum += amount;
       }
-    } else if (amount_after && *lp > line2) {
-      *lp += amount_after;
+    } else if (amount_after && extline->lnum > line2) {
+      extline->lnum += amount_after;
     }
   })
 
@@ -1146,6 +1140,21 @@ ExtMarkLine *extline_ref(kbtree_t(extlines) *b, linenr_T lnum)
   }
   // Return existing
   return *pp;
+}
+
+void extline_free(ExtMarkLine *extline)
+{
+  kb_destroy(markitems, (&extline->items));
+  xfree(extline);
+}
+
+void extline_free_delay(ExtMarkLine *extline)
+{
+  static ExtMarkLine *to_free = NULL;
+  if (to_free) {
+    extline_free(to_free);
+  }
+  to_free = extline;
 }
 
 /// Put an extmark into a line,

@@ -141,7 +141,6 @@ typedef struct ExtmarkNs {  // For namespacing extmarks
 
 
 typedef kvec_t(ExtendedMark *) ExtmarkArray;
-typedef kvec_t(ExtMarkLine *) ExtlineArray;
 
 
 // Undo/redo extmarks
