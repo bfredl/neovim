@@ -1058,11 +1058,10 @@ void extmark_adjust(buf_T *buf,
 
       // Delete the line
       if (amount == MAXLNUM) {
-        eol = extmark_eol_col(buf, extline->lnum - 1);
         extmark_copy_and_place(curbuf,
                                extline->lnum, 1,
                                extline->lnum, MAXCOL,
-                               extline->lnum - 1, eol,
+                               line1, 1,
                                kExtmarkUndo);
          kb_del_itr_extlines(&buf->b_extlines, &itr);
       } else {
