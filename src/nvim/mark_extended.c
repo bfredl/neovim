@@ -44,9 +44,6 @@
 # include "mark_extended.c.generated.h"
 #endif
 
-colnr_T BufPosStartCol = 1;
-linenr_T BufPosStartRow = 1;
-
 linenr_T extmark_check_lnum(buf_T *buf, linenr_T lnum)
 {
   linenr_T maxlen = buf->b_ml.ml_line_count + 1;
@@ -940,7 +937,7 @@ static bool extmark_col_adjust_impl(buf_T *buf, linenr_T lnum,
           && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
             extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
                            extline->lnum + lnum_amount,
-                           BufPosStartCol, kExtmarkNoUndo, &mitr);
+                           1, kExtmarkNoUndo, &mitr);
       // Update the mark
       } else if (*cp >= mincol) {
           // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
@@ -1048,10 +1045,11 @@ void extmark_adjust(buf_T *buf,
   int eol;
   bool marks_exist = false;
   linenr_T *lp;
-  FOR_ALL_EXTMARKLINES(buf, MINLNUM, MAXLNUM, {
+ 
+  FOR_ALL_EXTMARKLINES(buf, line1, MAXLNUM, {
     marks_exist = true;
     lp = &(extline->lnum);
-    if (*lp >= line1 && *lp <= line2) {
+    if (*lp <= line2) {
       // 1st call with end_temp = true, store the lines in a temp position
       if (end_temp && amount > 0) {
           kb_del_itr_extlines(&buf->b_extlines, &itr);
@@ -1062,7 +1060,7 @@ void extmark_adjust(buf_T *buf,
       if (amount == MAXLNUM) {
         eol = extmark_eol_col(buf, extline->lnum - 1);
         extmark_copy_and_place(curbuf,
-                               extline->lnum, BufPosStartCol,
+                               extline->lnum, 1,
                                extline->lnum, MAXCOL,
                                extline->lnum - 1, eol,
                                kExtmarkUndo);
@@ -1152,21 +1150,5 @@ void extmark_put(colnr_T col,
   assert(!kb_getp(markitems, b, &t));
 
   kb_put(markitems, b, t);
-}
-
-// We only need to compare columns as rows are stored in different trees.
-// Marks are ordered by: position, namespace, mark_id
-// This improves moving marks but slows down all other use cases (searches)
-int mark_cmp(ExtendedMark a, ExtendedMark b)
-{
-  int cmp = kb_generic_cmp(a.col, b.col);
-  if (cmp != 0) {
-    return cmp;
-  }
-  cmp = kb_generic_cmp(a.ns_id, b.ns_id);
-  if (cmp != 0) {
-    return cmp;
-  }
-  return kb_generic_cmp(a.mark_id, b.mark_id);
 }
 

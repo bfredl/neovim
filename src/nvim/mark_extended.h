@@ -117,9 +117,24 @@
   }\
 
 
-int mark_cmp(ExtendedMark a, ExtendedMark b);
+// We only need to compare columns as rows are stored in different trees.
+// Marks are ordered by: position, namespace, mark_id
+// This improves moving marks but slows down all other use cases (searches)
+static inline int extmark_cmp(ExtendedMark a, ExtendedMark b)
+{
+  int cmp = kb_generic_cmp(a.col, b.col);
+  if (cmp != 0) {
+    return cmp;
+  }
+  cmp = kb_generic_cmp(a.ns_id, b.ns_id);
+  if (cmp != 0) {
+    return cmp;
+  }
+  return kb_generic_cmp(a.mark_id, b.mark_id);
+}
 
-#define markitems_cmp(a, b) (mark_cmp((a), (b)))
+
+#define markitems_cmp(a, b) (extmark_cmp((a), (b)))
 KBTREE_INIT(markitems, ExtendedMark, markitems_cmp, 10)
 
 
