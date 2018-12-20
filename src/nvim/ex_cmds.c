@@ -4125,7 +4125,7 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
 
             sub_multi.startpos = regmatch.startpos[0];
             sub_multi.endpos = regmatch.endpos[0];
-            sub_multi.eol = eol_of_line(curbuf, lnum);
+            sub_multi.eol = extmark_eol_col(curbuf, lnum);
 
             kv_push(extmark_sub_multi, sub_multi);
             // Collect information required for moving extmarks WITHOUT \n, \r

@@ -58,10 +58,9 @@ linenr_T extmark_check_lnum(buf_T *buf, linenr_T lnum)
 
 colnr_T extmark_check_col(buf_T *buf, linenr_T lnum, colnr_T col)
 {
-  int line_len = len_of_line_inclusive_white_space(buf, lnum);
-  colnr_T maxlen = (colnr_T)line_len + 1;
-  if (col > maxlen) {
-    return maxlen;
+  colnr_T maxcol = extmark_eol_col(buf, lnum);
+  if (col > maxcol) {
+    return maxcol;
   }
   return col;
 }
@@ -900,29 +899,15 @@ static long update_variably(colnr_T mincol, colnr_T current, long endcol)
 }
 
 
-// Return pointer to line.
-char_u *get_line_ptr(linenr_T lnum)
-{
-  return ml_get_buf(curbuf, lnum, false);
-}
-
-// TODO(timeyyy): Does this belong somewhere else?
-// Get the length of the current line, including trailing white space.
-// If the lnum doesn't exist, returns 0
-// based from ex_cmds.c/linelen
-int len_of_line_inclusive_white_space(buf_T *buf, linenr_T lnum)
+/// Get the column position for EOL on a line
+///
+/// If the lnum doesn't exist, returns 0
+colnr_T extmark_eol_col(buf_T *buf, linenr_T lnum)
 {
   if (lnum > buf->b_ml.ml_line_count) {
     return 0;
   }
-  char_u *line = get_line_ptr(lnum);
-  int len = linetabsize(line);
-  return len;
-}
-
-int eol_of_line(buf_T *buf, linenr_T lnum)
-{
-  return len_of_line_inclusive_white_space(buf, lnum) + 1;
+  return (colnr_T)STRLEN(ml_get_buf(buf, lnum, false)) + 1;
 }
 
 
@@ -1024,7 +1009,7 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   // been mutated.
   int eol = _eol;
   if (!eol) {
-    eol = eol_of_line(buf, lnum);
+    eol = extmark_eol_col(buf, lnum);
   }
   FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, lnum, eol, lnum, -1, {
     extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
@@ -1075,7 +1060,7 @@ void extmark_adjust(buf_T *buf,
 
       // Delete the line
       if (amount == MAXLNUM) {
-        eol = eol_of_line(buf, extline->lnum - 1);
+        eol = extmark_eol_col(buf, extline->lnum - 1);
         extmark_copy_and_place(curbuf,
                                extline->lnum, BufPosStartCol,
                                extline->lnum, MAXCOL,
