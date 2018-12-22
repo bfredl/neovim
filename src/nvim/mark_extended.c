@@ -91,7 +91,7 @@ void extmark_clear(buf_T *buf,
     return;
   }
   FOR_ALL_EXTMARKLINES(buf, line_start, line_stop, {
-    FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
+    FOR_ALL_EXTMARKS_IN_LINE(extline->items, 0, MAXCOL, {
       if (extmark->ns_id == ns) {
         // Remove our key from the namespace
         pmap_del(uint64_t)(ns_obj->map, extmark->mark_id);
@@ -261,7 +261,7 @@ ExtendedMark *extmark_from_id(buf_T *buf, uint64_t ns, uint64_t id)
     return NULL;
   }
 
-  FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
+  FOR_ALL_EXTMARKS_IN_LINE(extline->items, 0, MAXCOL, {
     if (extmark->ns_id == ns
         && extmark->mark_id == id) {
       return extmark;
@@ -902,7 +902,7 @@ static bool extmark_col_adjust_impl(buf_T *buf, linenr_T lnum,
   long col_amount;
 
   FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
-    FOR_ALL_EXTMARKS_IN_LINE(extline->items, {
+    FOR_ALL_EXTMARKS_IN_LINE(extline->items, mincol, MAXCOL, {
       marks_exist = true;
       cp = &(extmark->col);
 
@@ -1023,7 +1023,6 @@ void extmark_adjust(buf_T *buf,
     return;
   }
 
-  int eol;
   bool marks_exist = false;
   linenr_T *lp;
  
@@ -1044,7 +1043,9 @@ void extmark_adjust(buf_T *buf,
                                extline->lnum, MAXCOL,
                                line1, 1,
                                kExtmarkUndo);
+       if (extline->lnum != line1) {
          kb_del_itr_extlines(&buf->b_extlines, &itr);
+       }
       } else {
         *lp += amount;
       }
@@ -1074,17 +1075,36 @@ void extmark_copy_and_place(buf_T *buf,
     u_extmark_copy(buf, l_lnum, l_col, u_lnum, u_col);
   }
 
+
   // Move extmarks to their final position
-  FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, l_lnum, l_col, u_lnum, u_col, {
-    marks_moved = true;
-    extmark_update(extmark,
-                   buf,
-                   extmark->ns_id,
-                   extmark->mark_id,
-                   p_lnum,
-                   p_col,
-                   kExtmarkNoUndo,
-                   &mitr);
+  // Careful: if we move items within the same line, we might change order of
+  // marks within the same extline. Too keep it simple, first delete all items
+  // from the extline and put them back in the right order.
+  FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, {
+    kvec_t(ExtendedMark) temp_space = KV_INITIAL_VALUE;
+    bool same_line = (extline->lnum == p_lnum);
+    FOR_ALL_EXTMARKS_IN_LINE(extline->items,
+                             (extline->lnum > l_lnum) ? 0 : l_col,
+                             (extline->lnum < u_lnum) ? MAXCOL : u_col, {
+      marks_moved = true;
+      if (!same_line) {
+        extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                       p_lnum, p_col, kExtmarkNoUndo, &mitr);
+      } else {
+        kv_push(temp_space, *extmark);
+        kb_del_itr(markitems, &extline->items, &mitr);
+      }
+    })
+    if (same_line) {
+      for (size_t i = 0; i < kv_size(temp_space); i++) {
+        ExtendedMark mark = kv_A(temp_space, i);
+        extmark_put(p_col, mark.mark_id, extline, mark.ns_id);
+        ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, mark.ns_id);
+        pmap_put(uint64_t)(ns_obj->map, mark.mark_id, extline);
+      }
+      kv_destroy(temp_space);
+    }
+
   })
 
   // Record the undo for the actual move

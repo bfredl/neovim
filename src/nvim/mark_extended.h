@@ -100,19 +100,23 @@
   })
 
 
-#define FOR_ALL_EXTMARKS_IN_LINE(items, code)\
+#define FOR_ALL_EXTMARKS_IN_LINE(items, l_col, u_col, code)\
   kbitr_t(markitems) mitr;\
   ExtendedMark mt;\
   mt.ns_id = 0;\
   mt.mark_id = 0;\
   mt.line = NULL;\
-  mt.col = 0;\
+  mt.col = l_col;\
+  colnr_T extline_u_col = u_col;\
   if (!kb_itr_get(markitems, &items, mt, &mitr)) { \
     kb_itr_next(markitems, &items, &mitr);\
   } \
   ExtendedMark *extmark;\
   for (; kb_itr_valid(&mitr); kb_itr_next(markitems, &items, &mitr)) { \
     extmark = &kb_itr_key(&mitr);\
+    if (extmark->col > extline_u_col) { \
+      break;\
+    }\
     code;\
   }\
 
