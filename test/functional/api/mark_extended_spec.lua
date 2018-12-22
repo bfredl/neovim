@@ -702,7 +702,6 @@ describe('Extmarks buffer api', function()
     feed('A<cr>12345<esc>')
     curbufmeths.set_extmark(ns, marks[1], 1, 2)
     feed('dd')
-    rv = curbufmeths.get_extmark_by_id(ns, marks[1])
     check_undo_redo(ns, marks[1], 1, 2, 1, 0)
   end)
 

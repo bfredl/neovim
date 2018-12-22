@@ -46,6 +46,7 @@
 
 /// Create or update an extmark
 ///
+/// must not be used during iteration!
 /// @returns whether a new mark was created
 int extmark_set(buf_T *buf,
                 uint64_t ns,
@@ -59,7 +60,12 @@ int extmark_set(buf_T *buf,
     extmark_create(buf, ns, id, lnum, col, op);
     return true;
   } else {
+    ExtMarkLine *extline = extmark->line;
     extmark_update(extmark, buf, ns, id, lnum,  col, op, NULL);
+    if (kb_size(&extline->items) == 0) {
+      kb_del(extlines, &buf->b_extlines, extline);
+      extline_free(extline);
+    }
     return false;
   }
 }
@@ -702,7 +708,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                              undo_info.data.copy_place.u_col,
                              undo_info.data.copy_place.p_lnum,
                              undo_info.data.copy_place.p_col,
-                             kExtmarkNoUndo);
+                             kExtmarkNoUndo, true);
     }
   // kAdjustMove
   } else if (undo_info.type == kAdjustMove) {
@@ -1042,10 +1048,10 @@ void extmark_adjust(buf_T *buf,
                                extline->lnum, 1,
                                extline->lnum, MAXCOL,
                                line1, 1,
-                               kExtmarkUndo);
+                               kExtmarkUndo, false);
        if (extline->lnum != line1) {
-         extline_free_delay(extline);
          kb_del_itr_extlines(&buf->b_extlines, &itr);
+         extline_free_delay(extline);
        }
       } else {
         *lp += amount;
@@ -1060,7 +1066,10 @@ void extmark_adjust(buf_T *buf,
   }
 }
 
-// Range points to copy
+/// Range points to copy
+///
+/// if part of a larger iteration we can't delete, then the caller
+/// must check for empty lines.
 void extmark_copy_and_place(buf_T *buf,
                             linenr_T l_lnum,
                             colnr_T l_col,
@@ -1068,7 +1077,9 @@ void extmark_copy_and_place(buf_T *buf,
                             colnr_T u_col,
                             linenr_T p_lnum,
                             colnr_T p_col,
-                            ExtmarkOp undo)
+                            ExtmarkOp undo,
+                            bool delete)
+
 {
   bool marks_moved = false;
   if (undo == kExtmarkUndo) {
@@ -1104,6 +1115,9 @@ void extmark_copy_and_place(buf_T *buf,
         pmap_put(uint64_t)(ns_obj->map, mark.mark_id, extline);
       }
       kv_destroy(temp_space);
+    } else if (delete && kb_size(&extline->items) == 0) {
+      kb_del_itr(extlines, &buf->b_extlines, &itr);
+      extline_free_delay(extline);
     }
 
   })

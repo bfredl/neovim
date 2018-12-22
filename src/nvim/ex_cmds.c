@@ -3258,7 +3258,7 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
                            s.lnum, mincol,
                            u_lnum, n_after_newline_in_pat,
                            s.lnum, mincol,
-                           kExtmarkUndo);
+                           kExtmarkUndo, true);
     // 2. Move marks on last newline
     mincol = mincol - n_before_newline_in_pat;
     extmark_col_adjust(curbuf,
@@ -3331,7 +3331,7 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
                                a_l_lnum, mincol,
                                a_u_lnum, u_col,
                                a_l_lnum, mincol,
-                               kExtmarkUndo);
+                               kExtmarkUndo, true);
         // 2. Move marks on last newline
         mincol = mincol - (colnr_T)n_before_newline_in_pat;
         extmark_col_adjust(curbuf,
@@ -3363,7 +3363,7 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, int i)
                                a_l_lnum, mincol,
                                a_u_lnum, n_after_newline_in_pat,
                                a_l_lnum, mincol,
-                               kExtmarkUndo);
+                               kExtmarkUndo, true);
         // 2. Move marks on last newline
         mincol = mincol - (colnr_T)n_before_newline_in_pat;
         extmark_col_adjust(curbuf,
