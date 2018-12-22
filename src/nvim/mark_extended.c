@@ -100,6 +100,7 @@ void extmark_clear(buf_T *buf,
     });
     if (kb_size(&extline->items) == 0) {
       kb_del_itr(extlines, &buf->b_extlines, &itr);
+      extline_free_delay(extline);
     }
   });
 }
@@ -242,6 +243,7 @@ static int extmark_delete(ExtendedMark *extmark,
   // Remove the line if there are no more marks in the line
   if (kb_size(&extline->items) == 0) {
     kb_del(extlines, &buf->b_extlines, extline);
+    extline_free(extline);
   }
   return true;
 }
@@ -317,12 +319,11 @@ void extmark_free_all(buf_T *buf)
   uint64_t ns;
   ExtmarkNs *ns_obj;
 
-  // Macro hygiene.
-  {
-    FOR_ALL_EXTMARKS(buf, STARTING_NAMESPACE, 1, 1, MAXLNUM, MAXCOL, {
-      kb_del_itr(markitems, &extline->items, &mitr);
-    });
-  }
+  FOR_ALL_EXTMARKLINES(buf, 1, MAXLNUM, {
+    kb_del_itr(extlines, &buf->b_extlines, &itr);
+    extline_free_delay(extline);
+  })
+  extline_free_delay(NULL);
 
   map_foreach(buf->b_extmark_ns, ns, ns_obj, {
     (void)ns;
@@ -332,11 +333,6 @@ void extmark_free_all(buf_T *buf)
 
   pmap_free(uint64_t)(buf->b_extmark_ns);
 
-  FOR_ALL_EXTMARKLINES(buf, MINLNUM, MAXLNUM, {
-    kb_destroy(markitems, (&extline->items));
-    kb_del_itr(extlines, &buf->b_extlines, &itr);
-    xfree(extline);
-  })
   // k?_init called to set pointers to NULL
   kb_destroy(extlines, (&buf->b_extlines));
   kb_init(&buf->b_extlines);
@@ -927,6 +923,7 @@ static bool extmark_col_adjust_impl(buf_T *buf, linenr_T lnum,
                          *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
       }
     })
+
   })
   if (marks_exist) {
       return true;
@@ -1044,6 +1041,7 @@ void extmark_adjust(buf_T *buf,
                                line1, 1,
                                kExtmarkUndo);
        if (extline->lnum != line1) {
+         extline_free_delay(extline);
          kb_del_itr_extlines(&buf->b_extlines, &itr);
        }
       } else {
@@ -1129,6 +1127,21 @@ ExtMarkLine *extline_ref(kbtree_t(extlines) *b, linenr_T lnum)
   }
   // Return existing
   return *pp;
+}
+
+void extline_free(ExtMarkLine *extline)
+{
+  kb_destroy(markitems, (&extline->items));
+  xfree(extline);
+}
+
+void extline_free_delay(ExtMarkLine *extline)
+{
+  static ExtMarkLine *to_free = NULL;
+  if (to_free) {
+    extline_free(to_free);
+  }
+  to_free = extline;
 }
 
 /// Put an extmark into a line,
