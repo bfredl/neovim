@@ -164,7 +164,7 @@ static void extmark_create(buf_T *buf,
   }
 
   // Create or get a line
-  ExtMarkLine *extline = extline_ref(&buf->b_extlines, lnum);
+  ExtMarkLine *extline = extline_ref(&buf->b_extlines, lnum, true);
   // Create and put mark on the line
   extmark_put(col, id, extline, ns);
 
@@ -198,7 +198,7 @@ static void extmark_update(ExtendedMark *extmark,
   ExtMarkLine *old_line = extmark->line;
   // Move the mark to a new line and update column
   if (old_line->lnum != lnum) {
-    ExtMarkLine *ref_line = extline_ref(&buf->b_extlines, lnum);
+    ExtMarkLine *ref_line = extline_ref(&buf->b_extlines, lnum, true);
     extmark_put(col, id, ref_line, ns);
     // Update the hashmap
     ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
@@ -897,39 +897,42 @@ static bool extmark_col_adjust_impl(buf_T *buf, linenr_T lnum,
   colnr_T *cp;
   long col_amount;
 
-  FOR_ALL_EXTMARKLINES(buf, lnum, lnum, {
-    FOR_ALL_EXTMARKS_IN_LINE(extline->items, mincol, MAXCOL, {
-      marks_exist = true;
-      cp = &(extmark->col);
+  ExtMarkLine *extline = extline_ref(&buf->b_extlines, lnum, false);
+  if (!extline) {
+    return false;
+  }
 
-      col_amount = (*calc_amount)(mincol, *cp, func_arg);
-      // No update required for this guy
-      if (col_amount == 0 && lnum_amount == 0) {
-        continue;
-      }
+  FOR_ALL_EXTMARKS_IN_LINE(extline->items, mincol, MAXCOL, {
+    marks_exist = true;
+    cp = &(extmark->col);
 
-      // Set mark to start of line
-      if (col_amount < 0
-          && *cp <= (colnr_T)-col_amount
-          && *cp > mincol) {  // TODO(timeyyy): does mark.c need this line?
-            extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
-                           extline->lnum + lnum_amount,
-                           1, kExtmarkNoUndo, &mitr);
-      // Update the mark
-      } else if (*cp >= mincol) {
-          // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
+    col_amount = (*calc_amount)(mincol, *cp, func_arg);
+    // No update required for this guy
+    if (col_amount == 0 && lnum_amount == 0) {
+      continue;
+    }
+
+    // Set mark to start of line
+    if (col_amount < 0
+        && *cp <= (colnr_T)-col_amount) {  // TODO(timeyyy): does mark.c need this line?
           extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
                          extline->lnum + lnum_amount,
-                         *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
-      }
-    })
-
+                         1, kExtmarkNoUndo, &mitr);
+    // Update the mark
+    } else {
+        // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
+        extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+                       extline->lnum + lnum_amount,
+                       *cp + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
+    }
   })
-  if (marks_exist) {
-      return true;
-  } else {
-      return false;
+
+  if (kb_size(&extline->items) == 0) {
+    kb_del(extlines, &buf->b_extlines, extline);
+    extline_free(extline);
   }
+
+  return marks_exist;
 }
 
 // Adjust columns and rows for extmarks
@@ -1112,13 +1115,16 @@ void extmark_copy_and_place(buf_T *buf,
 }
 
 // Get reference to line in kbtree_t, allocating it if neccessary.
-ExtMarkLine *extline_ref(kbtree_t(extlines) *b, linenr_T lnum)
+ExtMarkLine *extline_ref(kbtree_t(extlines) *b, linenr_T lnum, bool put)
 {
   ExtMarkLine t, **pp;
   t.lnum = lnum;
 
   pp = kb_get(extlines, b, &t);
   if (!pp) {
+    if (!put) {
+      return NULL;
+    }
     ExtMarkLine *p = xcalloc(sizeof(ExtMarkLine), 1);
     p->lnum = lnum;
     // p->items zero initialized
