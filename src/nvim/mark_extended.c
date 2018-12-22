@@ -106,7 +106,7 @@ void extmark_clear(buf_T *buf,
     });
     if (kb_size(&extline->items) == 0) {
       kb_del_itr(extlines, &buf->b_extlines, &itr);
-      extline_free_delay(extline);
+      extline_free(extline);
     }
   });
 }
@@ -327,9 +327,8 @@ void extmark_free_all(buf_T *buf)
 
   FOR_ALL_EXTMARKLINES(buf, 1, MAXLNUM, {
     kb_del_itr(extlines, &buf->b_extlines, &itr);
-    extline_free_delay(extline);
+    extline_free(extline);
   })
-  extline_free_delay(NULL);
 
   map_foreach(buf->b_extmark_ns, ns, ns_obj, {
     (void)ns;
@@ -1051,7 +1050,7 @@ void extmark_adjust(buf_T *buf,
                                kExtmarkUndo, false);
        if (extline->lnum != line1) {
          kb_del_itr_extlines(&buf->b_extlines, &itr);
-         extline_free_delay(extline);
+         extline_free(extline);
        }
       } else {
         *lp += amount;
@@ -1117,7 +1116,7 @@ void extmark_copy_and_place(buf_T *buf,
       kv_destroy(temp_space);
     } else if (delete && kb_size(&extline->items) == 0) {
       kb_del_itr(extlines, &buf->b_extlines, &itr);
-      extline_free_delay(extline);
+      extline_free(extline);
     }
 
   })
@@ -1153,15 +1152,6 @@ void extline_free(ExtMarkLine *extline)
 {
   kb_destroy(markitems, (&extline->items));
   xfree(extline);
-}
-
-void extline_free_delay(ExtMarkLine *extline)
-{
-  static ExtMarkLine *to_free = NULL;
-  if (to_free) {
-    extline_free(to_free);
-  }
-  to_free = extline;
 }
 
 /// Put an extmark into a line,
