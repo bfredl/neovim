@@ -44,25 +44,6 @@
 # include "mark_extended.c.generated.h"
 #endif
 
-linenr_T extmark_check_lnum(buf_T *buf, linenr_T lnum)
-{
-  linenr_T maxlen = buf->b_ml.ml_line_count + 1;
-  if (lnum > maxlen) {
-    return maxlen;
-  }
-  return lnum;
-}
-
-colnr_T extmark_check_col(buf_T *buf, linenr_T lnum, colnr_T col)
-{
-  colnr_T maxcol = extmark_eol_col(buf, lnum);
-  if (col > maxcol) {
-    return maxcol;
-  }
-  return col;
-}
-
-
 /// Create or update an extmark
 ///
 /// @returns whether a new mark was created

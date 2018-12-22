@@ -1040,12 +1040,14 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer id,
     return 0;
   }
 
-  if (line < 0 || line >= buf->b_ml.ml_line_count) {
+  size_t len = 0;
+  if (line < 0 || line > buf->b_ml.ml_line_count) {
     api_set_error(err, kErrorTypeValidation, "line value outside range");
     return 0;
+  } else if (line < buf->b_ml.ml_line_count) {
+    len = STRLEN(ml_get_buf(curbuf, line+1, false));
   }
 
-  size_t len = STRLEN(ml_get_buf(curbuf, line+1, false));
   if (col == -1) {
     col = (Integer)len;
   } else if (col < -1 || col > (Integer)len) {
