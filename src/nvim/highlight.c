@@ -177,6 +177,18 @@ void update_window_hl(win_T *wp, bool invalid)
   }
 }
 
+int win_get_userhl(win_T *wp, int userhl, int default_attr)
+{
+  if (userhl == 0)
+    return default_attr;
+  else if (userhl < 0)
+    return syn_id2attr(-userhl);
+  else if (wp != NULL && wp != curwin && wp->w_status_height != 0)
+    return highlight_stlnc[userhl - 1];
+  else
+    return highlight_user[userhl - 1];
+}
+
 /// Gets HL_UNDERLINE highlight.
 int hl_get_underline(void)
 {

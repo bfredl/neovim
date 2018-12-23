@@ -2963,7 +2963,7 @@ void maketitle(void)
         called_emsg = false;
         build_stl_str_hl(curwin, (char_u *)buf, sizeof(buf),
                          p_titlestring, use_sandbox,
-                         0, maxlen, NULL, NULL);
+                         0, maxlen, NULL, NULL, NULL);
         t_str = (char_u *)buf;
         if (called_emsg) {
           set_string_option_direct((char_u *)"titlestring", -1, (char_u *)"",
@@ -3074,7 +3074,7 @@ void maketitle(void)
         called_emsg = FALSE;
         build_stl_str_hl(curwin, i_str, sizeof(buf),
             p_iconstring, use_sandbox,
-            0, 0, NULL, NULL);
+            0, 0, NULL, NULL, NULL);
         if (called_emsg)
           set_string_option_direct((char_u *)"iconstring", -1,
               (char_u *)"", OPT_FREE, SID_ERROR);
@@ -3190,7 +3190,8 @@ int build_stl_str_hl(
     char_u fillchar,
     int maxwidth,
     struct stl_hlrec *hltab,
-    StlClickRecord *tabtab
+    StlClickRecord *tabtab,
+    Array *ext_items_out
 )
 {
   int groupitems[STL_MAX_ITEM];
@@ -3211,7 +3212,8 @@ int build_stl_str_hl(
       Highlight,
       TabPage,
       ClickFunc,
-      Trunc
+      Trunc,
+      GroupEnd,
     } type;
   } items[STL_MAX_ITEM];
 #define TMPLEN 70
@@ -3359,10 +3361,25 @@ int build_stl_str_hl(
         }
 
         if (!has_normal_items) {
-          out_p = t;
+          if (!ext_items_out) {
+            out_p = t;
+          }
           group_len = 0;
         }
       }
+
+      if (ext_items_out) {
+        if (group_len == 0) {
+          curitem = groupitems[groupdepth];
+        } else {
+          items[curitem].type = GroupEnd;
+          items[curitem].start = out_p;
+          items[curitem++].minwid = (group_len == 0);
+        }
+        continue;
+      }
+
+
 
       // If the group is longer than it is allowed to be
       // truncate by removing bytes from the start of the group text.
@@ -4030,6 +4047,38 @@ int build_stl_str_hl(
   // Free the format buffer if we allocated it internally
   if (usefmt != fmt) {
     xfree(usefmt);
+  }
+
+  if (ext_items_out) {
+    Array ext_items = ARRAY_DICT_INIT;
+    for (size_t i = 0; i < (size_t)itemcnt; i++) {
+      Array item = ARRAY_DICT_INIT;
+      if (items[i].type == Normal) {
+        ADD(item, STRING_OBJ(cstr_to_string("text")));
+        char_u *end = (i < (size_t)(itemcnt-1)) ? items[i+1].start : out_p;
+        size_t len = (size_t)(end - items[i].start);
+        ADD(item, STRING_OBJ(cbuf_to_string((const char *)items[i].start, len)));
+      } else if (items[i].type == Highlight) {
+        ADD(item, STRING_OBJ(cstr_to_string("hl")));
+        ADD(item, INTEGER_OBJ(win_get_userhl(wp, items[i].minwid, 0)));
+      } else if (items[i].type == Group) {
+        ADD(item, STRING_OBJ(cstr_to_string("GROUP_START")));
+        ADD(item, INTEGER_OBJ(items[i].minwid));
+        ADD(item, INTEGER_OBJ(items[i].maxwid));
+      } else if (items[i].type == GroupEnd) {
+        ADD(item, STRING_OBJ(cstr_to_string("GROUP_END")));
+        if (items[i].minwid) {
+          ADD(item, STRING_OBJ(cstr_to_string("ERASED")));
+        }
+      } else {
+        ADD(item, INTEGER_OBJ(items[i].type));
+        ADD(item, INTEGER_OBJ(items[i].minwid));
+        ADD(item, INTEGER_OBJ(items[i].maxwid));
+      }
+      ADD(ext_items, ARRAY_OBJ(item));
+    }
+    *ext_items_out = ext_items;
+    return 0;
   }
 
   // We have now processed the entire statusline format string.

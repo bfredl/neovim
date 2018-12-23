@@ -534,7 +534,7 @@ static void prt_header(prt_settings_T *const psettings, const int pagenum,
     use_sandbox = was_set_insecurely((char_u *)"printheader", 0);
     build_stl_str_hl(curwin, tbuf, (size_t)width + IOSIZE,
         p_header, use_sandbox,
-        ' ', width, NULL, NULL);
+        ' ', width, NULL, NULL, NULL);
 
     /* Reset line numbers */
     curwin->w_cursor.lnum = tmp_lnum;

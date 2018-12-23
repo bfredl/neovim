@@ -115,6 +115,7 @@
 #include "nvim/window.h"
 #include "nvim/os/time.h"
 #include "nvim/api/private/helpers.h"
+#include "nvim/api/window.h"  // TODO: delet this.
 
 #define MB_FILLER_CHAR '<'  /* character used when a double-width character
                              * doesn't fit. */
@@ -5124,14 +5125,25 @@ win_redr_custom (
   p_crb_save = ewp->w_p_crb;
   ewp->w_p_crb = FALSE;
 
+  Array ext_out = ARRAY_DICT_INIT;
+
   /* Make a copy, because the statusline may include a function call that
    * might change the option value and free the memory. */
   stl = vim_strsave(stl);
   width = build_stl_str_hl(ewp, buf, sizeof(buf),
       stl, use_sandbox,
-      fillchar, maxwidth, hltab, tabtab);
+      fillchar, maxwidth, hltab, tabtab, &ext_out);
+  width = build_stl_str_hl(ewp, buf, sizeof(buf),
+      stl, use_sandbox,
+      fillchar, maxwidth, hltab, tabtab, NULL);
   xfree(stl);
   ewp->w_p_crb = p_crb_save;
+
+  if (wp) {
+    Error err = ERROR_INIT;
+    nvim_win_set_var(wp->handle, cstr_as_string("stl"), ARRAY_OBJ(ext_out), &err);
+  }
+  api_free_array(ext_out);
 
   // Make all characters printable.
   p = (char_u *)transstr((const char *)buf);
@@ -5158,15 +5170,7 @@ win_redr_custom (
     screen_puts_len(p, len, row, col, curattr);
     col += vim_strnsize(p, len);
     p = hltab[n].start;
-
-    if (hltab[n].userhl == 0)
-      curattr = attr;
-    else if (hltab[n].userhl < 0)
-      curattr = syn_id2attr(-hltab[n].userhl);
-    else if (wp != NULL && wp != curwin && wp->w_status_height != 0)
-      curattr = highlight_stlnc[hltab[n].userhl - 1];
-    else
-      curattr = highlight_user[hltab[n].userhl - 1];
+    curattr = win_get_userhl(wp, hltab[n].userhl, attr);
   }
   // Make sure to use an empty string instead of p, if p is beyond buf + len.
   screen_puts(p >= buf + len ? (char_u *)"" : p, row, col, curattr);
