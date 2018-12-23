@@ -1175,3 +1175,47 @@ void extmark_put(colnr_T col,
   kb_put(markitems, b, t);
 }
 
+
+void extmark_check(buf_T *buf)
+{
+  bool pipig = false;
+  kbitr_t(extlines) itr;
+  linenr_T lastlnum = 0;
+  for (kb_itr_first(extlines, &buf->b_extlines, &itr); kb_itr_valid(&itr);
+       kb_itr_next(extlines, &buf->b_extlines, &itr)) {
+    ExtMarkLine *extline = kb_itr_key(&itr);
+    if (extline->lnum <= lastlnum) {
+      pipig += fprintf(stderr, "DOUBLE LINE %ld %ld\n", lastlnum,
+          extline->lnum);
+    }
+    lastlnum = extline->lnum;
+
+    kbitr_t(markitems) mitr;
+    bool seen = false;
+    ExtendedMark lastmark;
+    for (kb_itr_first(markitems, &extline->items, &mitr); kb_itr_valid(&mitr);
+         kb_itr_next(markitems, &extline->items, &mitr)) {
+      ExtendedMark mark = kb_itr_key(&mitr);
+      if (seen && extmark_cmp(lastmark, mark) > -1) {
+        pipig += fprintf(stderr, "DISORDER ON %ld\n", extline->lnum);
+      }
+      if (false || mark.line != extline) {
+        pipig += fprintf(stderr, "MARK [%ld, %d] ns %lu id %lu\n",
+                         extline->lnum, mark.col,
+                         mark.ns_id, mark.mark_id);
+      }
+      if (mark.line != extline) {
+        pipig += fprintf(stderr, "DISLOCATED!\n");
+      }
+      seen = true;
+      lastmark = mark;
+    }
+    if (!seen) {
+      pipig += fprintf(stderr, "EMTPY LINE %ld\n", extline->lnum);
+    }
+  }
+  if (pipig) {
+    fprintf(stderr, "===============\n");
+  }
+
+}

@@ -929,6 +929,8 @@ ArrayOf(Integer) nvim_buf_get_extmark_by_id(Buffer buffer, Integer namespace,
     return rv;
   }
 
+  extmark_check(buf);
+
   ExtendedMark *extmark = extmark_from_id(buf,
                                           (uint64_t)namespace,
                                           (uint64_t)id);
@@ -967,6 +969,8 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
     api_set_error(err, kErrorTypeValidation, _("Invalid mark namespace"));
     return rv;
   }
+
+  extmark_check(buf);
 
   if (amount == 0) {
     return rv;
