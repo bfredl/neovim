@@ -368,14 +368,17 @@ find_package(Msgpack 1.0.0 REQUIRED)
 include_directories(SYSTEM ${MSGPACK_INCLUDE_DIRS})
 
 # Note: The test lib requires LuaJIT; it will be skipped if LuaJIT is missing.
-option(PREFER_LUA "Prefer Lua over LuaJIT in the nvim executable." OFF)
+option(PREFER_LUA "Prefer Lua over LuaJIT in the nvim executable." ON)
 
 if(PREFER_LUA)
   find_package(Lua 5.1 REQUIRED)
   set(LUA_PREFERRED_INCLUDE_DIRS ${LUA_INCLUDE_DIR})
-  set(LUA_PREFERRED_LIBRARIES ${LUA_LIBRARIES})
+  #set(LUA_PREFERRED_LIBRARIES ${LUA_LIBRARIES})
+  set(LUA_PREFERRED_INCLUDE_DIRS /home/bjorn/dev/neovim/.deps/usr/include/)
+  set(LUA_PREFERRED_LIBRARIES /home/bjorn/dev/neovim/.deps/usr/lib/liblua.a )
+
   # Passive (not REQUIRED): if LUAJIT_FOUND is not set, nvim-test is skipped.
-  find_package(LuaJit)
+  #find_package(LuaJit)
 else()
   find_package(LuaJit REQUIRED)
   set(LUA_PREFERRED_INCLUDE_DIRS ${LUAJIT_INCLUDE_DIRS})
@@ -450,7 +453,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "OpenBSD|FreeBSD|Windows")  # see #5318
   message(STATUS "skipping jemalloc on this system: ${CMAKE_SYSTEM_NAME}")
   option(ENABLE_JEMALLOC "enable jemalloc" OFF)
 else()
-  option(ENABLE_JEMALLOC "enable jemalloc" ON)
+  option(ENABLE_JEMALLOC "enable jemalloc" OFF)
 endif()
 
 if(ENABLE_JEMALLOC)
@@ -491,6 +494,7 @@ endforeach()
 
 # Find Lua interpreter
 include(LuaHelpers)
+set(LUA_PRG /usr/bin/lua5.1)
 set(LUA_DEPENDENCIES lpeg mpack bit)
 if(NOT LUA_PRG)
   foreach(CURRENT_LUA_PRG luajit lua5.1 lua5.2 lua)

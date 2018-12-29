@@ -29,19 +29,19 @@ set(DEPS_DOWNLOAD_DIR "${DEPS_BUILD_DIR}/downloads" CACHE PATH "Dependencies dow
 
 option(USE_BUNDLED "Use bundled dependencies." ON)
 
-option(USE_BUNDLED_GPERF "Use the bundled version of gperf." ${USE_BUNDLED})
-option(USE_BUNDLED_JEMALLOC "Use the bundled jemalloc." ${USE_BUNDLED})
+option(USE_BUNDLED_GPERF "Use the bundled version of gperf." OFF)
+option(USE_BUNDLED_JEMALLOC "Use the bundled jemalloc." OFF)
 option(USE_BUNDLED_UNIBILIUM "Use the bundled unibilium." ${USE_BUNDLED})
 option(USE_BUNDLED_LIBTERMKEY "Use the bundled libtermkey." ${USE_BUNDLED})
 option(USE_BUNDLED_LIBVTERM "Use the bundled libvterm." ${USE_BUNDLED})
 option(USE_BUNDLED_LIBUV "Use the bundled libuv." ${USE_BUNDLED})
 option(USE_BUNDLED_MSGPACK "Use the bundled msgpack." ${USE_BUNDLED})
-option(USE_BUNDLED_LUAJIT "Use the bundled version of luajit." ${USE_BUNDLED})
-option(USE_BUNDLED_LUAROCKS "Use the bundled version of luarocks." ${USE_BUNDLED})
-option(USE_BUNDLED_LUV "Use the bundled version of luv." ${USE_BUNDLED})
+option(USE_BUNDLED_LUAJIT "Use the bundled version of luajit." OFF)
+option(USE_BUNDLED_LUAROCKS "Use the bundled version of luarocks." OFF)
+option(USE_BUNDLED_LUV "Use the bundled version of luv." OFF)
 #XXX(tarruda): Lua is only used for debugging the functional test client, no
 # build it unless explicitly requested
-option(USE_BUNDLED_LUA "Use the bundled version of lua." OFF)
+option(USE_BUNDLED_LUA "Use the bundled version of lua." ON)
 
 if(USE_BUNDLED AND MSVC)
   option(USE_BUNDLED_GETTEXT "Use the bundled version of gettext." ON)

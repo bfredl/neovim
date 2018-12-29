@@ -86,13 +86,13 @@ BuildLua(CONFIGURE_COMMAND ${LUA_CONFIGURE_COMMAND}
   INSTALL_COMMAND ${LUA_INSTALL_COMMAND})
 list(APPEND THIRD_PARTY_DEPS lua)
 
-set(BUSTED ${DEPS_INSTALL_DIR}/bin/busted)
-set(BUSTED_LUA ${BUSTED}-lua)
+#set(BUSTED ${DEPS_INSTALL_DIR}/bin/busted)
+#set(BUSTED_LUA ${BUSTED}-lua)
 
-add_custom_command(OUTPUT ${BUSTED_LUA}
-  COMMAND sed -e 's/^exec/exec $$LUA_DEBUGGER/' -e 's/jit//g' < ${BUSTED} > ${BUSTED_LUA} && chmod +x ${BUSTED_LUA}
-  DEPENDS lua busted)
-add_custom_target(busted-lua
-  DEPENDS ${DEPS_INSTALL_DIR}/bin/busted-lua)
+#add_custom_command(OUTPUT ${BUSTED_LUA}
+#  COMMAND sed -e 's/^exec/exec $$LUA_DEBUGGER/' -e 's/jit//g' < ${BUSTED} > ${BUSTED_LUA} && chmod +x ${BUSTED_LUA}
+#  DEPENDS lua busted)
+#add_custom_target(busted-lua
+#  DEPENDS ${DEPS_INSTALL_DIR}/bin/busted-lua)
 
-list(APPEND THIRD_PARTY_DEPS busted-lua)
+#list(APPEND THIRD_PARTY_DEPS busted-lua)
