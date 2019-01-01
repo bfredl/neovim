@@ -263,17 +263,22 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
   // global variables. This is ugly but its how the rest of the code expects to
   // find mouse coordinates, and it would be too expensive to refactor this
   // now.
-  int col, row, advance;
-  if (sscanf(*ptr, "<%d,%d>%n", &col, &row, &advance) != EOF && advance) {
+  int grid = -1, col, row, advance;
+  // TODO(bfredl): sscanf maybe does not behave as inteded by the original code
+  if ((sscanf(*ptr, "<%d,%d,%d>%n", &grid, &col, &row, &advance) == 3
+       && advance)
+      || ((grid = -1) && sscanf(*ptr, "<%d,%d>%n", &col, &row, &advance) == 2
+          && advance)) {
     if (col >= 0 && row >= 0) {
       // Make sure the mouse position is valid.  Some terminals may
       // return weird values.
-      if (col >= Columns) {
+      if (grid == -1 && col >= Columns) {
         col = (int)Columns - 1;
       }
-      if (row >= Rows) {
+      if (grid == -1 && row >= Rows) {
         row = (int)Rows - 1;
       }
+      mouse_grid = grid;
       mouse_row = row;
       mouse_col = col;
     }
@@ -284,6 +289,7 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
   if (mouse_code != KE_LEFTRELEASE && mouse_code != KE_RIGHTRELEASE
       && mouse_code != KE_MIDDLERELEASE) {
       static int orig_mouse_code = 0;
+      static int orig_mouse_grid = 0;
       static int orig_mouse_col = 0;
       static int orig_mouse_row = 0;
       static uint64_t orig_mouse_time = 0;  // time of previous mouse click
@@ -296,6 +302,7 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
       if (mouse_code == orig_mouse_code
           && timediff < mouset
           && orig_num_clicks != 4
+          && orig_mouse_grid == mouse_grid
           && orig_mouse_col == mouse_col
           && orig_mouse_row == mouse_row) {
         orig_num_clicks++;
@@ -303,6 +310,7 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
         orig_num_clicks = 1;
       }
       orig_mouse_code = mouse_code;
+      orig_mouse_grid = mouse_col;
       orig_mouse_col = mouse_col;
       orig_mouse_row = mouse_row;
       orig_mouse_time = mouse_time;
