@@ -6440,6 +6440,33 @@ int grid_del_lines(ScreenGrid *grid, int row, int line_count, int end, int col,
   return OK;
 }
 
+void grid_scroll_lines(ScreenGrid *grid, int row, int height,
+                       int col, int width, int count)
+{
+  screen_adjust_grid(&grid, &row, &col);
+  int moved, src, target;
+  if (count > 0) {
+    moved = height-count;
+    src = row+count;
+    target = row;
+  } else {
+    moved = height+count;
+    src = row;
+    target = row-count;
+  }
+
+  if (width == grid->Columns) {
+    memmove(grid->line_offset+target,grid->line_offset+src,
+            moved*sizeof(*grid->line_offset));
+    memmove(grid->line_wraps+target,grid->line_wraps+src,
+            moved*sizeof(*grid->line_wraps));
+  } else {
+    int start = count > 0 ? 0 : height-count-1;
+    int stop = count > 0 ?  : height-1;
+    for (int row = start; row != stop; row+= delta) {
+    }
+  }
+}
 
 /*
  * show the current mode and ruler
