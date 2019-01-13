@@ -310,22 +310,18 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
   // global variables. This is ugly but its how the rest of the code expects to
   // find mouse coordinates, and it would be too expensive to refactor this
   // now.
-  int grid = -1, col, row, advance;
-  // TODO(bfredl): sscanf maybe does not behave as inteded by the original code
-  if ((sscanf(*ptr, "<%d,%d,%d>%n", &grid, &col, &row, &advance) == 3
-       && advance)
-      || ((grid = -1) && sscanf(*ptr, "<%d,%d>%n", &col, &row, &advance) == 2
-          && advance)) {
+  int col, row, advance;
+  if (sscanf(*ptr, "<%d,%d>%n", &col, &row, &advance) != EOF && advance) {
     if (col >= 0 && row >= 0) {
       // Make sure the mouse position is valid.  Some terminals may
       // return weird values.
-      if (grid == -1 && col >= Columns) {
+      if (col >= Columns) {
         col = (int)Columns - 1;
       }
-      if (grid == -1 && row >= Rows) {
+      if (row >= Rows) {
         row = (int)Rows - 1;
       }
-      mouse_grid = grid;
+      mouse_grid = 0;
       mouse_row = row;
       mouse_col = col;
     }

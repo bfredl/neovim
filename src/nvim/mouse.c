@@ -70,6 +70,7 @@ int jump_to_mouse(int flags,
   bool first;
   int row = mouse_row;
   int col = mouse_col;
+  int grid = mouse_grid;
   int mouse_char;
 
   mouse_past_bottom = false;
@@ -125,13 +126,13 @@ retnomove:
       return IN_UNKNOWN;
 
     // find the window where the row is in
-    wp = mouse_find_win(mouse_grid, &row, &col);
+    wp = mouse_find_win(&grid, &row, &col);
     if (wp == NULL) {
       return IN_UNKNOWN;
     }
     dragwin = NULL;
     // winpos and height may change in win_enter()!
-    if (mouse_grid == DEFAULT_GRID_HANDLE && row >= wp->w_height) {
+    if (grid == DEFAULT_GRID_HANDLE && row >= wp->w_height) {
       // In (or below) status line
       on_status_line = row - wp->w_height + 1;
       dragwin = wp;
@@ -139,7 +140,7 @@ retnomove:
       on_status_line = 0;
     }
 
-    if (mouse_grid == DEFAULT_GRID_HANDLE && col >= wp->w_width) {
+    if (grid == DEFAULT_GRID_HANDLE && col >= wp->w_width) {
       // In separator line
       on_sep_line = col - wp->w_width + 1;
       dragwin = wp;
@@ -433,11 +434,17 @@ bool mouse_comp_pos(win_T *win, int *rowp, int *colp, linenr_T *lnump)
 /// updated to become relative to the top-left of the window.
 ///
 /// @return NULL when something is wrong.
-win_T *mouse_find_win(int grid, int *rowp, int *colp)
+win_T *mouse_find_win(int *gridp, int *rowp, int *colp)
 {
-  win_T *wp_grid = mouse_find_grid_win(grid, rowp, colp);
+  win_T *wp_grid = mouse_find_grid_win(gridp, rowp, colp);
   if (wp_grid) {
     return wp_grid;
+  }
+
+  // TODO(bfredl): grid zero will have floats displayed on it, and will
+  // be adjusted to float grids.
+  if (*gridp == 0) {
+    *gridp = DEFAULT_GRID_HANDLE;
   }
 
   frame_T     *fp;
@@ -471,10 +478,10 @@ win_T *mouse_find_win(int grid, int *rowp, int *colp)
   return NULL;
 }
 
-static win_T *mouse_find_grid_win(int grid, int *rowp, int *colp)
+static win_T *mouse_find_grid_win(int *grid, int *rowp, int *colp)
 {
-  if (grid > 1) {
-    win_T *wp = get_win_by_grid_handle(grid);
+  if (*grid > 1) {
+    win_T *wp = get_win_by_grid_handle(*grid);
     if (wp && wp->w_grid.chars) {
       *rowp = MIN(*rowp, wp->w_grid.Rows-1);
       *colp = MIN(*colp, wp->w_grid.Columns-1);
