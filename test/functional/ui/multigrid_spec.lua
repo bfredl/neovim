@@ -4,6 +4,8 @@ local clear = helpers.clear
 local feed, command, insert = helpers.feed, helpers.command, helpers.insert
 local eq = helpers.eq
 local eval = helpers.eval
+local meths = helpers.meths
+local wait = helpers.wait
 
 
 describe('ext_multigrid', function()
@@ -1556,7 +1558,7 @@ describe('ext_multigrid', function()
       {1:~                                                    }|
     ]])
 
-    feed('<LeftMouse><2,5,0>')
+    meths.input_mouse('left', 'press', '', 2, 0, 5)
     screen:expect([[
     ## grid 1
       [2:-----------------------------------------------------]|
@@ -1622,7 +1624,7 @@ describe('ext_multigrid', function()
       {1:~                                                    }|
     ]])
 
-    feed('<LeftMouse><2,6,1>')
+    meths.input_mouse('left', 'press', '', 2, 1, 6)
     screen:expect([[
     ## grid 1
       [3:-----------------------------------------------------]|
@@ -1654,7 +1656,7 @@ describe('ext_multigrid', function()
       {1:~                                                    }|
     ]])
 
-    feed('<LeftMouse><3,4,1>')
+    meths.input_mouse('left', 'press', '', 3, 1, 4)
     screen:expect([[
     ## grid 1
       [3:-----------------------------------------------------]|
@@ -1743,7 +1745,7 @@ describe('ext_multigrid', function()
       {1:~                                                                               }|
     ]])
 
-    feed('<LeftMouse><3,64,0>')
+    meths.input_mouse('left', 'press', '', 3, 0, 64)
     screen:expect([[
     ## grid 1
       [3:-----------------------------------------------------]|
@@ -1771,8 +1773,12 @@ describe('ext_multigrid', function()
       {1:~                                                                               }|
     ]])
 
-    feed('<LeftMouse><1,20,6>')
-    feed('<LeftDrag><1,20,4>')
+    meths.input_mouse('left', 'press', '', 1,6, 20)
+    -- TODO(bfredl): "batching" input_mouse is formally not supported yet.
+    -- Normally it should work fine in async context when nvim is not blocked,
+    -- but add a wait be sure.
+    wait()
+    meths.input_mouse('left', 'drag', '', 1, 4, 20)
     screen:expect([[
     ## grid 1
       [3:-----------------------------------------------------]|
@@ -1840,8 +1846,9 @@ describe('ext_multigrid', function()
       {1:~                         }|
     ]])
 
-    feed('<LeftMouse><1,26,8>')
-    feed('<LeftDrag><1,30,6>')
+    meths.input_mouse('left', 'press', '', 1,8, 26)
+    wait()
+    meths.input_mouse('left', 'drag', '', 1, 6, 30)
     screen:expect([[
     ## grid 1
       [3:-----------------------------------------------------]|
@@ -1878,7 +1885,5 @@ describe('ext_multigrid', function()
       {1:~                             }|
       {1:~                             }|
     ]])
-
-
   end)
 end)
