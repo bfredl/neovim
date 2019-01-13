@@ -207,6 +207,83 @@ Integer nvim_input(String keys)
   return (Integer)input_enqueue(keys);
 }
 
+/// Send mouse event from GUI
+///
+/// Note: currently this doesn't not support "scripting" multiple mouse events
+/// by calling it multiple times in a loop, the intermediate mouse positions
+/// will be ignored. It should be used to implement real-time mouse input
+/// in a GUI.
+///
+/// The call is non-blocking.  Doesn't wait on any resulting action, but queues
+/// the event to be processend soon by the event loop.
+///
+/// @param button which mouse button, one of "left", "right", "middle" or
+///               "wheel"
+/// @param action For ordinary buttons, one of "press", "drag" and "release"
+///               For the wheel, use "up", "down", "left" and "right".
+/// @param modifier TODO
+/// @param grid For a client using |ui-multigrid| pass in the grid number.
+///             Other clients should pass in 0 (and not 1).
+/// @param row row position of mouse
+/// @param col col position of mouse
+/// @return Number of bytes actually written (can be fewer than
+///         requested if the buffer becomes full).
+void nvim_input_mouse(String button, String action, String modifier,
+                      Integer grid, Integer row, Integer col, Error *err)
+  FUNC_API_SINCE(6) FUNC_API_ASYNC
+{
+  if (button.data == NULL || action.data == NULL) {
+    goto error;
+  }
+
+  int code = 0;
+
+  if (strequal(button.data, "left")) {
+    code = KE_LEFTMOUSE;
+  } else if (strequal(button.data, "middle")) {
+    code = KE_MIDDLEMOUSE;
+  } else if (strequal(button.data, "right")) {
+    code = KE_RIGHTMOUSE;
+  } else if (strequal(button.data, "wheel")) {
+    code = KE_MOUSEDOWN;
+  } else {
+    goto error;
+  }
+
+  if (code == KE_MOUSEDOWN) {
+    if (strequal(action.data, "down")) {
+      // pass
+    } else if (strequal(action.data, "up")) {
+      code = KE_MOUSEUP;
+    } else if (strequal(action.data, "left")) {
+      code += KE_MOUSELEFT;
+    } else if (strequal(action.data, "right")) {
+      code += KE_MOUSERIGHT;
+    } else {
+      goto error;
+    }
+  } else {
+    if (strequal(action.data, "press")) {
+      // pass
+    } else if (strequal(action.data, "drag")) {
+      code += KE_LEFTDRAG - KE_LEFTMOUSE;
+    } else if (strequal(action.data, "release")) {
+      code += KE_LEFTRELEASE - KE_LEFTMOUSE;
+    } else {
+      goto error;
+    }
+  }
+
+  uint8_t modmask = 0;
+
+  input_enqueue_mouse(code, modmask, (int)grid, (int)row, (int)col);
+  return;
+
+error:
+  api_set_error(err, kErrorTypeValidation,
+                "invalid button or action");
+}
+
 /// Replaces terminal codes and |keycodes| (<CR>, <Esc>, ...) in a string with
 /// the internal representation.
 ///
