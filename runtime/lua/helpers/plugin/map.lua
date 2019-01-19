@@ -20,11 +20,18 @@ local function register_fn(ns, keys, shortmode, fn)
   end
 end
 
-local function map_to_ns(keys, ns, opts, mapcmd, is_cmd, shortmode)
-  local keys_rhs = keys:gsub("<", "<lt>")
-  local sshortmode = shortmode:sub(1,1)
-  local rhs = "lua require('helpers.plugin.map').functions["..
-                  tostring(ns).."]['"..sshortmode.."']['"..keys_rhs.."']()"
+-- NB: only here for testing, useful for more stuff like autocmds etc
+local function put_ref(val)
+  assert(val ~= nil)
+  local id = #vim._ref+1
+  vim._ref[id] = val
+  return id
+end
+
+
+local function map_to_ns(keys, opts, mapcmd, is_cmd, func)
+  id = put_ref(func)
+  local rhs = "lua vim._ref[".. id  .."]()"
   rhs = (is_cmd and " <Cmd>"..rhs) or rhs
   opts = (opts and opts.." ") or ""
   mapcmd = (mapcmd and mapcmd.." ") or ""
@@ -179,7 +186,7 @@ local function map(self, arg1, arg2)
 
   register_fn(ns, keys, shortmode, fn)
 
-  map_to_ns(keys, ns, opts, mapcmd, is_cmd, shortmode)
+  map_to_ns(keys, opts, mapcmd, is_cmd, fn)
 end
 
 local function unmap(self, keys, mode)

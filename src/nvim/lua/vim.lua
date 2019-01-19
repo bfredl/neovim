@@ -123,6 +123,7 @@ local module = {
   _os_proc_children = _os_proc_children,
   _os_proc_info = _os_proc_info,
   _system = _system,
+  _ref = {},
 }
 
 return module
