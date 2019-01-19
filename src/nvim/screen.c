@@ -4263,7 +4263,7 @@ win_line (
 /// screen positions.
 static void screen_adjust_grid(ScreenGrid **grid, int *row_off, int *col_off)
 {
-  if (!ui_is_external(kUIMultigrid) && *grid != &default_grid) {
+  if (!(*grid)->chars && *grid != &default_grid) {
     *row_off += (*grid)->row_offset;
     *col_off += (*grid)->col_offset;
     *grid = &default_grid;

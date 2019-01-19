@@ -270,7 +270,7 @@ void ui_attach_impl(UI *ui)
   if (ui_count == MAX_UI_COUNT) {
     abort();
   }
-  if (!!ui->ui_ext[kUIMultigrid]) {
+  if (!ui->ui_ext[kUIMultigrid]) {
     compositor_attach(ui);
   }
 
