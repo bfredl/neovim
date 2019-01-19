@@ -52,6 +52,10 @@ static bool valid_screen = true;
 static bool msg_scroll_mode = false;
 static int msg_first_invalid = 0;
 
+static size_t isize = 0;
+static int *istart = NULL, *iend = NULL;
+static int *fstart = NULL, *fend = NULL;
+
 void compositor_init(void)
 {
   if (compositor != NULL) {
@@ -118,21 +122,17 @@ void compositor_put_grid(ScreenGrid *grid, int rowpos, int colpos, bool valid)
 {
   if (grid->comp_index != 0) {
     if (rowpos != grid->comp_row || colpos != grid->comp_col) {
-      int old_row = grid->comp_row;
-      // Temporalily mark grid as invisible
-      grid->comp_row = default_grid.Rows;
       // grids will be resized and moved when the shell is resized but we
       // cant't draw right then as the screen is not valid. Floats will
       // instead be drawn after grid is cleared after the shell resize.
-      if (valid_screen && compositor_active()) {
       // TODO(bfredl): inefficent, only draw up to grid->comp_index
-        compose_area(old_row, old_row+grid->Rows, grid->comp_col,
-                     grid->comp_col+grid->Columns);
-      }
+      invalidate(grid->comp_row, grid->comp_row+grid->Rows, grid->comp_col,
+                   grid->comp_col+grid->Columns);
       grid->comp_row = rowpos;
       grid->comp_col = colpos;
       if (valid) {
-        grid_draw(grid);
+        invalidate(grid->comp_row, grid->comp_row+grid->Rows, grid->comp_col,
+                   grid->comp_col+grid->Columns);
       }
     }
     return;
@@ -175,8 +175,8 @@ void compositor_remove_grid(ScreenGrid *grid)
 
   if (compositor_active()) {
     // inefficent: only draw up to grid->comp_index
-    compose_area(grid->comp_row, grid->comp_row+grid->Rows,
-                 grid->comp_col, grid->comp_col+grid->Columns);
+    invalidate(grid->comp_row, grid->comp_row+grid->Rows,
+               grid->comp_col, grid->comp_col+grid->Columns);
   }
 }
 
@@ -364,7 +364,7 @@ static void compositor_grid_scroll(UI *ui, Integer grid, Integer top,
     // Fubbit:
     // 1. don't redraw the scrolled-in area
     // 2. check if rectangles actually overlap
-    compose_area(top, bot, left, right);
+    invalidate(top, bot, left, right);
   } else {
     msg_first_invalid = MIN(msg_first_invalid, (int)top);
     ui_composed_call_grid_scroll(1, top, bot, left, right, rows, cols);
@@ -381,7 +381,7 @@ static void compositor_grid_resize(UI *ui, Integer grid,
     chk_width = (int)width;
     chk_height = (int)height;
 #endif
-    size_t new_bufsize = (size_t)width;
+    size_t new_bufsize = (size_t)width, new_isize = (size_t)height;
     if (bufsize != new_bufsize) {
       xfree(linebuf);
       xfree(attrbuf);
@@ -389,16 +389,21 @@ static void compositor_grid_resize(UI *ui, Integer grid,
       attrbuf = xmalloc(new_bufsize * sizeof(*attrbuf));
       bufsize = new_bufsize;
     }
+    if (isize != new_isize) {
+      xfree(istart);
+      xfree(iend);
+      istart = xmalloc(new_isize * sizeof(*istart));
+      iend = xmalloc(new_isize * sizeof(*iend));
+      memset(istart, -1, new_isize * sizeof(*istart));
+      memset(iend, 0, new_isize * sizeof(*iend));
+    }
   }
 }
 
-static void grid_draw(ScreenGrid *grid)
+static void invalidate(int row_start, int row_end, int col_start, int col_end)
 {
-  for (int r = 0; r < grid->Rows; r++) {
-    size_t off = grid->line_offset[r];
-    draw_line(grid, r, 0, grid->Columns, grid->Columns, 0,
-              grid->line_wraps[r], (const schar_T *)grid->chars+off,
-              (const sattr_T *)grid->attrs+off);
+  for (int r = row_start; r < row_end; r++) {
+    istart[r] = MIN(istart[r], col_start);
+    iend[r] = MAX(iend[r], col_end);
   }
 }
-
