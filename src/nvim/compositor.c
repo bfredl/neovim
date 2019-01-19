@@ -89,7 +89,6 @@ void compositor_init(void)
 
 void compositor_attach(UI *ui)
 {
-  // compositor_init()
   composed_uis++;
   ui->composed = true;
 }
@@ -112,6 +111,9 @@ bool compositor_active(void)
   return composed_uis != 0;
 }
 
+/// TODO(bfredl): ideally the compositor should just use win_float_pos events,
+/// though that will require slight event order adjustment: emit the win_pos
+/// events in the beginning of  update_screen(0), rather than in ui_flush()
 void compositor_put_grid(ScreenGrid *grid, int rowpos, int colpos, bool valid)
 {
   if (grid->comp_index != 0) {
