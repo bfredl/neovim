@@ -270,7 +270,7 @@ void ui_attach_impl(UI *ui)
   if (ui_count == MAX_UI_COUNT) {
     abort();
   }
-  if (!ui->ui_ext[kUIFloat] && !ui->ui_ext[kUIMultigrid]) {
+  if (!!ui->ui_ext[kUIMultigrid]) {
     compositor_attach(ui);
   }
 
@@ -320,7 +320,7 @@ void ui_detach_impl(UI *ui)
     ui_schedule_refresh();
   }
 
-  if (!ui->ui_ext[kUIFloat]) {
+  if (!ui->ui_ext[kUIMultigrid]) {
     compositor_detach(ui);
   }
 }
