@@ -2224,7 +2224,7 @@ static int ins_compl_add(char_u *const str, int len,
   }
 
   /* Remove any popup menu before changing the list of matches. */
-  ins_compl_del_pum();
+  ins_compl_del_pum(false);
 
   /*
    * Allocate a new match structure.
@@ -2490,9 +2490,11 @@ void set_completion(colnr_T startcol, list_T *list)
 static pumitem_T *compl_match_array = NULL;
 static int compl_match_arraysize;
 
+
 /*
  * Update the screen and when there is any scrolling remove the popup menu.
  */
+/*
 static void ins_compl_upd_pum(void)
 {
   int h;
@@ -2504,14 +2506,17 @@ static void ins_compl_upd_pum(void)
       ins_compl_del_pum();
   }
 }
+*/
 
 /*
  * Remove any popup menu.
  */
-static void ins_compl_del_pum(void)
+static void ins_compl_del_pum(bool undisplay)
 {
   if (compl_match_array != NULL) {
-    pum_undisplay();
+    if (undisplay) {
+      pum_undisplay();
+    }
     xfree(compl_match_array);
     compl_match_array = NULL;
   }
@@ -2941,7 +2946,7 @@ static void ins_compl_free(void)
   if (compl_first_match == NULL)
     return;
 
-  ins_compl_del_pum();
+  ins_compl_del_pum(true);
   pum_clear();
 
   compl_curr_match = compl_first_match;
@@ -3046,7 +3051,7 @@ static bool ins_compl_need_restart(void)
  */
 static void ins_compl_new_leader(void)
 {
-  ins_compl_del_pum();
+  ins_compl_del_pum(false);
   ins_compl_delete();
   ins_bytes(compl_leader + ins_compl_len());
   compl_used_match = FALSE;
@@ -4306,10 +4311,15 @@ ins_compl_next (
 
   if (!allow_get_expansion) {
     /* may undisplay the popup menu first */
-    ins_compl_upd_pum();
+    // TODO: check coverage for this.
+    // Does it still look correct, and is done efficiently (pum->pum redraw)?
+    //ins_compl_upd_pum();
 
     /* redraw to show the user what was inserted */
-    update_screen(0);
+    // TODO: what if ins_compl_show_pum return early?
+    // can we just defer all pum redraws to ordinary event loop redraw,
+    // with a flag to draw the pum also (the horror!)
+    //update_screen(0);
 
     /* display the updated popup menu */
     ins_compl_show_pum();
@@ -4863,7 +4873,9 @@ static int ins_complete(int c, bool enable_pum)
   n = ins_compl_next(true, ins_compl_key2count(c), insert_match, false);
 
   /* may undisplay the popup menu */
-  ins_compl_upd_pum();
+  // TODO: assume this is only for pum redraws
+  // pum is cleared anyway i e on interrupt
+  //ins_compl_upd_pum();
 
   if (n > 1)            /* all matches have been found */
     compl_matches = n;
@@ -7939,7 +7951,6 @@ static void ins_mouse(int c)
 static void ins_mousescroll(int dir)
 {
   win_T *const old_curwin = curwin;
-  bool did_scroll = false;
   pos_T tpos = curwin->w_cursor;
 
   if (mouse_row >= 0 && mouse_col >= 0) {
@@ -7970,21 +7981,12 @@ static void ins_mousescroll(int dir)
     } else {
         mouse_scroll_horiz(dir);
     }
-    did_scroll = true;
   }
 
   curwin->w_redr_status = TRUE;
 
   curwin = old_curwin;
   curbuf = curwin->w_buffer;
-
-  /* The popup menu may overlay the window, need to redraw it.
-   * TODO: Would be more efficient to only redraw the windows that are
-   * overlapped by the popup menu. */
-  if (pum_visible() && did_scroll) {
-    redraw_all_later(NOT_VALID);
-    ins_compl_show_pum();
-  }
 
   if (!equalpos(curwin->w_cursor, tpos)) {
     start_arrow(&tpos);
@@ -8765,9 +8767,10 @@ static void show_pum(int prev_w_wrow, int prev_w_leftcol)
   // If the cursor moved or the display scrolled we need to remove the pum
   // first.
   setcursor();
-  if (prev_w_wrow != curwin->w_wrow || prev_w_leftcol != curwin->w_leftcol) {
-    ins_compl_del_pum();
-  }
+  // TODO: check coverage, redraw should be correct anyway
+  //if (prev_w_wrow != curwin->w_wrow || prev_w_leftcol != curwin->w_leftcol) {
+  //  ins_compl_del_pum();
+  //}
 
   ins_compl_show_pum();
   setcursor();
