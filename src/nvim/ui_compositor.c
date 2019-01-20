@@ -15,6 +15,7 @@
 #include "nvim/ascii.h"
 #include "nvim/vim.h"
 #include "nvim/ui.h"
+#include "nvim/highlight.h"
 #include "nvim/memory.h"
 #include "nvim/ui_compositor.h"
 #include "nvim/ugrid.h"
@@ -229,6 +230,10 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
 
   int col = (int)startcol;
   ScreenGrid *grid = NULL;
+  schar_T *bg_line = &default_grid.chars[default_grid.line_offset[row]
+                                         +(size_t)startcol];
+  sattr_T *bg_attrs = &default_grid.attrs[default_grid.line_offset[row]
+                                          +(size_t)startcol];
 
   while (col < endcol) {
     int until = 0;
@@ -256,6 +261,16 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
     memcpy(linebuf+(col-startcol), grid->chars+off, n * sizeof(*linebuf));
     memcpy(attrbuf+(col-startcol), grid->attrs+off, n * sizeof(*attrbuf));
 
+    if (grid != &default_grid && p_pb) {
+      for (int i = col-(int)startcol; i < until-startcol; i++) {
+        bool thru = strequal((char *)linebuf[i], " ");
+        attrbuf[i] = (sattr_T)hl_blend_attrs(bg_attrs[i], attrbuf[i], thru);
+        if (thru) {
+          memcpy(linebuf[i], bg_line[i], sizeof(linebuf[i]));
+        }
+      }
+    }
+
     // Tricky: if overlap caused a doublewidth char to get cut-off, must
     // replace the visible half with a space.
     if (linebuf[col-startcol][0] == NUL) {
@@ -272,6 +287,7 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
         skip = 0;
       }
     }
+
     col = until;
   }
   assert(endcol <= chk_width);
@@ -317,7 +333,8 @@ static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
     flags = flags & ~kLineFlagWrap;
   }
   assert(clearcol <= default_grid.Columns);
-  if (flags & kLineFlagInvalid || kv_size(layers) > curgrid->comp_index+1) {
+  if (flags & kLineFlagInvalid
+      || kv_size(layers) > (p_pb ? 1 : curgrid->comp_index+1)) {
     compose_line(row, startcol, clearcol, flags);
   } else {
     ui_composed_call_raw_line(1, row, startcol, endcol, clearcol, clearattr,
