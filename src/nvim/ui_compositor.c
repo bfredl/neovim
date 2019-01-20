@@ -15,6 +15,7 @@
 #include "nvim/ascii.h"
 #include "nvim/vim.h"
 #include "nvim/ui.h"
+#include "nvim/highlight.h"
 #include "nvim/memory.h"
 #include "nvim/ui_compositor.h"
 #include "nvim/ugrid.h"
@@ -241,6 +242,8 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
 
   int col = (int)startcol;
   ScreenGrid *grid = NULL;
+  schar_T *bg_line = &default_grid.chars[default_grid.line_offset[row]+(size_t)startcol];
+  sattr_T *bg_attrs = &default_grid.attrs[default_grid.line_offset[row]+(size_t)startcol];
 
   while (col < endcol) {
     int until = 0;
@@ -268,6 +271,18 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
     memcpy(linebuf+(col-startcol), grid->chars+off, n * sizeof(*linebuf));
     memcpy(attrbuf+(col-startcol), grid->attrs+off, n * sizeof(*attrbuf));
 
+    if (grid != &default_grid && p_pmt > 0) {
+      float ratio = (float)MAX(MIN(p_pmt/100.0,1.0),0.0);
+
+      for (int i = col-startcol; i < until-startcol; i++) {
+        bool thru = strequal((char *)linebuf[i], " ");
+        attrbuf[i] = attr_mix(ratio, attrbuf[i], bg_attrs[i],thru);
+        if (thru) {
+          memcpy(linebuf[i], bg_line[i], sizeof(linebuf[i]));
+        }
+      }
+    }
+
     // Tricky: if overlap caused a doublewidth char to get cut-off, must
     // replace the visible half with a space.
     if (linebuf[col-startcol][0] == NUL) {
@@ -284,6 +299,7 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
         skip = 0;
       }
     }
+
     col = until;
   }
   assert(endcol <= chk_width);
@@ -298,6 +314,49 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
   ui_composed_call_raw_line(1, row, startcol+skip, endcol, endcol, 0, flags,
                             (const schar_T *)linebuf+skip,
                             (const sattr_T *)attrbuf+skip);
+}
+
+static HlAttrs get_attr(int attr) {
+  HlAttrs attrs = syn_attr2entry(attr);
+  if (attrs.rgb_bg_color == -1) {
+    attrs.rgb_bg_color = normal_bg;
+  }
+
+  if (attrs.rgb_fg_color == -1) {
+    attrs.rgb_fg_color = normal_fg;
+   }
+  return attrs;
+}
+
+static sattr_T attr_mix(float ratio, sattr_T front, sattr_T back, bool empty)
+{
+  HlAttrs gattrs = get_attr(front);
+  HlAttrs mattrs = get_attr(back);
+  HlAttrs cattrs;
+  if (empty) {
+    cattrs = mattrs;
+    cattrs.rgb_fg_color = mix(ratio, mattrs.rgb_fg_color, gattrs.rgb_bg_color);
+  } else {
+    cattrs = gattrs;
+    cattrs.rgb_fg_color = mix(ratio, mattrs.rgb_fg_color, gattrs.rgb_fg_color);
+  }
+  cattrs.rgb_bg_color = mix(ratio, mattrs.rgb_bg_color, gattrs.rgb_bg_color);
+
+  return hl_get_term_attr(&cattrs);
+}
+
+static int mix(float a, int front, int back) {
+  float b = 1.0f-a;
+  int fr = (front & 0xFF0000) >> 16;
+  int fg = (front & 0x00FF00) >> 8;
+  int fb = (front & 0x0000FF) >> 0;
+  int br = (back & 0xFF0000) >> 16;
+  int bg = (back & 0x00FF00) >> 8;
+  int bb = (back & 0x0000FF) >> 0;
+  int mr = (int)(a*fr+b*br);
+  int mg = (int)(a*fg+b*bg);
+  int mb = (int)(a*fb+b*bb);
+  return (mr << 16) + (mg << 8) + mb;
 }
 
 static void compose_area(Integer startrow, Integer endrow,
@@ -329,7 +388,7 @@ static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
     flags = flags & ~kLineFlagWrap;
   }
   assert(clearcol <= default_grid.Columns);
-  if (flags & kLineFlagInvalid || kv_size(layers) > curgrid->comp_index+1) {
+  if (flags & kLineFlagInvalid || kv_size(layers) > curgrid->comp_index+1 || p_pmt > 0) {
     compose_line(row, startcol, clearcol, flags);
   } else {
     ui_composed_call_raw_line(1, row, startcol, endcol, clearcol, clearattr,

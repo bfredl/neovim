@@ -1810,6 +1810,14 @@ return {
       defaults={if_true={vi=0}}
     },
     {
+      full_name='pumtrans', abbreviation='pmt',
+      type='number', scope={'global'},
+      vi_def=true,
+      redraw={'everything'},
+      varname='p_pmt',
+      defaults={if_true={vi=0}}
+    },
+    {
       full_name='pyxversion', abbreviation='pyx',
       type='number', scope={'global'},
       secure=true,
