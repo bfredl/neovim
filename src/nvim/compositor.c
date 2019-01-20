@@ -206,7 +206,9 @@ static void compositor_grid_cursor_goto(UI *ui, Integer grid_handle,
   int cursor_col = curgrid->comp_col+(int)c;
 
   if (cursor_col >= default_grid.Columns || cursor_row >= default_grid.Rows) {
-    abort();
+    // this happens with 'writedelay', refactor?
+    //abort();
+    return;
   }
   ui_composed_call_grid_cursor_goto(1, cursor_row, cursor_col);
 }
