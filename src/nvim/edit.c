@@ -473,6 +473,8 @@ static void insert_enter(InsertState *s)
     o_lnum = curwin->w_cursor.lnum;
   }
 
+  pum_check_clear();
+
   foldUpdateAfterInsert();
   // When CTRL-C was typed got_int will be set, with the result
   // that the autocommands won't be executed. When mapped got_int
@@ -1447,6 +1449,7 @@ ins_redraw (
     redrawWinline(curwin, curwin->w_cursor.lnum);
   }
 
+  pum_check_clear();
   if (must_redraw) {
     update_screen(0);
   } else if (clear_cmdline || redraw_cmdline) {
@@ -2224,7 +2227,7 @@ static int ins_compl_add(char_u *const str, int len,
   }
 
   /* Remove any popup menu before changing the list of matches. */
-  ins_compl_del_pum(false);
+  ins_compl_del_pum();
 
   /*
    * Allocate a new match structure.
@@ -2494,29 +2497,14 @@ static int compl_match_arraysize;
 /*
  * Update the screen and when there is any scrolling remove the popup menu.
  */
-/*
-static void ins_compl_upd_pum(void)
-{
-  int h;
-
-  if (compl_match_array != NULL) {
-    h = curwin->w_cline_height;
-    update_screen(0);
-    if (h != curwin->w_cline_height)
-      ins_compl_del_pum();
-  }
-}
-*/
 
 /*
  * Remove any popup menu.
  */
-static void ins_compl_del_pum(bool undisplay)
+static void ins_compl_del_pum(void)
 {
   if (compl_match_array != NULL) {
-    if (undisplay) {
-      pum_undisplay();
-    }
+    pum_undisplay(false);
     xfree(compl_match_array);
     compl_match_array = NULL;
   }
@@ -2946,7 +2934,7 @@ static void ins_compl_free(void)
   if (compl_first_match == NULL)
     return;
 
-  ins_compl_del_pum(true);
+  ins_compl_del_pum();
   pum_clear();
 
   compl_curr_match = compl_first_match;
@@ -3051,7 +3039,7 @@ static bool ins_compl_need_restart(void)
  */
 static void ins_compl_new_leader(void)
 {
-  ins_compl_del_pum(false);
+  ins_compl_del_pum();
   ins_compl_delete();
   ins_bytes(compl_leader + ins_compl_len());
   compl_used_match = FALSE;
@@ -4310,16 +4298,8 @@ ins_compl_next (
   }
 
   if (!allow_get_expansion) {
-    /* may undisplay the popup menu first */
-    // TODO: check coverage for this.
-    // Does it still look correct, and is done efficiently (pum->pum redraw)?
-    //ins_compl_upd_pum();
-
     /* redraw to show the user what was inserted */
-    // TODO: what if ins_compl_show_pum return early?
-    // can we just defer all pum redraws to ordinary event loop redraw,
-    // with a flag to draw the pum also (the horror!)
-    //update_screen(0);
+    update_screen(0);
 
     /* display the updated popup menu */
     ins_compl_show_pum();
@@ -4872,10 +4852,6 @@ static int ins_complete(int c, bool enable_pum)
   save_w_leftcol = curwin->w_leftcol;
   n = ins_compl_next(true, ins_compl_key2count(c), insert_match, false);
 
-  /* may undisplay the popup menu */
-  // TODO: assume this is only for pum redraws
-  // pum is cleared anyway i e on interrupt
-  //ins_compl_upd_pum();
 
   if (n > 1)            /* all matches have been found */
     compl_matches = n;
@@ -8767,10 +8743,9 @@ static void show_pum(int prev_w_wrow, int prev_w_leftcol)
   // If the cursor moved or the display scrolled we need to remove the pum
   // first.
   setcursor();
-  // TODO: check coverage, redraw should be correct anyway
-  //if (prev_w_wrow != curwin->w_wrow || prev_w_leftcol != curwin->w_leftcol) {
-  //  ins_compl_del_pum();
-  //}
+  if (prev_w_wrow != curwin->w_wrow || prev_w_leftcol != curwin->w_leftcol) {
+    ins_compl_del_pum();
+  }
 
   ins_compl_show_pum();
   setcursor();
