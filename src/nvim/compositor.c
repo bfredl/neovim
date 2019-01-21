@@ -49,6 +49,8 @@ static int chk_width = 0, chk_height = 0;
 #endif
 
 static bool valid_screen = true;
+static bool msg_scroll_mode = false;
+static int msg_first_invalid = 0;
 
 void compositor_init(void)
 {
@@ -63,6 +65,8 @@ void compositor_init(void)
   compositor->grid_scroll = compositor_grid_scroll;
   compositor->grid_cursor_goto = compositor_grid_cursor_goto;
   compositor->raw_line = compositor_raw_line;
+  compositor->win_scroll_over_start = compositor_win_scroll_over_start;
+  compositor->win_scroll_over_reset = compositor_win_scroll_over_reset;
   compositor->flush = compositor_flush;
 
   // Be unoptionated: will be attached together with a "real" ui anyway
@@ -322,6 +326,23 @@ static void compositor_grid_clear(UI *ui, Integer grid)
   }
 }
 
+static void compositor_win_scroll_over_start(UI *ui)
+{
+  msg_scroll_mode = true;
+  msg_first_invalid = ui->height;
+}
+
+static void compositor_win_scroll_over_reset(UI *ui)
+{
+  msg_scroll_mode = false;
+  for (size_t i = 1; i < kv_size(layers); i++) {
+    ScreenGrid *grid = kv_A(layers, i);
+    if (grid->comp_row+grid->Rows > msg_first_invalid) {
+      compose_area(msg_first_invalid, grid->comp_row+grid->Rows, grid->comp_col, grid->comp_col+grid->Columns);
+    }
+  }
+}
+
 static void compositor_grid_scroll(UI *ui, Integer grid, Integer top,
                                    Integer bot, Integer left, Integer right,
                                    Integer rows, Integer cols)
@@ -333,7 +354,7 @@ static void compositor_grid_scroll(UI *ui, Integer grid, Integer top,
   bot += curgrid->comp_row;
   left += curgrid->comp_col;
   right += curgrid->comp_col;
-  if (kv_size(layers) > curgrid->comp_index+1) {
+  if (!msg_scroll_mode && kv_size(layers) > curgrid->comp_index+1) {
     // TODO(bfredl):
     // 1. check if rectangles actually overlap
     // 2. calulate subareas that can scroll.
@@ -344,6 +365,7 @@ static void compositor_grid_scroll(UI *ui, Integer grid, Integer top,
     }
     compose_area(top, bot, left, right);
   } else {
+    msg_first_invalid = MIN(msg_first_invalid, (int)top);
     ui_composed_call_grid_scroll(1, top, bot, left, right, rows, cols);
   }
 }
