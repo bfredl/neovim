@@ -5347,10 +5347,10 @@ void grid_puts_len(ScreenGrid *grid, char_u *text, int textlen, int row,
     schar_from_ascii(grid->chars[off - 1], ' ');
     grid->attrs[off - 1] = 0;
     // redraw the previous cell, make it empty
-    if (put_dirty_first == -1) {
+    if (put_dirty_first == -1 || col-1 < put_dirty_first) {
       put_dirty_first = col-1;
     }
-    put_dirty_last = col+1;
+    put_dirty_last = MAX(put_dirty_last, col+1);
     // force the cell at "col" to be redrawn
     force_redraw_next = true;
   }
