@@ -340,10 +340,16 @@ void ui_set_ext_option(UI *ui, UIExtension ext, bool active)
 void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol,
              int clearattr, bool wrap)
 {
+  LineFlags flags = wrap ? kLineFlagWrap : 0;
+  if (startcol == -1) {
+    startcol = 0;
+    flags |= kLineFlagInvalid;
+  }
+
   size_t off = grid->line_offset[row] + (size_t)startcol;
 
   UI_CALL_IF(!ui->composed, raw_line, grid->handle, row, startcol, endcol,
-             clearcol, clearattr, wrap, (const schar_T *)grid->chars + off,
+             clearcol, clearattr, flags, (const schar_T *)grid->chars + off,
              (const sattr_T *)grid->attrs + off);
 
   if (p_wd) {  // 'writedelay': flush & delay each time.
@@ -360,14 +366,15 @@ void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol,
 
 void ui_composed_call_raw_line(Integer draw_grid, Integer row,
                                Integer startcol, Integer endcol,
-                               Integer clearcol, Integer clearattr, bool wrap,
-                               const schar_T *chunk, const sattr_T *attrs)
+                               Integer clearcol, Integer clearattr,
+                               LineFlags flags, const schar_T *chunk,
+                               const sattr_T *attrs)
 {
   for (int i = 0; i < endcol-startcol; i++) {
     assert(attrs[i] >= 0);
   }
   UI_CALL_IF(ui->composed, raw_line, draw_grid, row, startcol, endcol,
-             clearcol, clearattr, wrap, chunk, attrs);
+             clearcol, clearattr, flags, chunk, attrs);
 }
 
 void ui_cursor_goto(int new_row, int new_col)

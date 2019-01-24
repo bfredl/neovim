@@ -34,6 +34,13 @@ EXTERN const char *ui_ext_names[] INIT(= {
 
 typedef struct ui_t UI;
 
+enum {
+  kLineFlagWrap = 1,
+  kLineFlagInvalid = 2,
+};
+
+typedef int LineFlags;
+
 struct ui_t {
   bool rgb;
   bool composed;
@@ -50,7 +57,7 @@ struct ui_t {
   // in to the public grid_line format.
   void (*raw_line)(UI *ui, Integer grid, Integer row, Integer startcol,
                    Integer endcol, Integer clearcol, Integer clearattr,
-                   Boolean wrap, const schar_T *chunk, const sattr_T *attrs);
+                   LineFlags flags, const schar_T *chunk, const sattr_T *attrs);
   void (*event)(UI *ui, char *name, Array args, bool *args_consumed);
   void (*stop)(UI *ui);
   void (*inspect)(UI *ui, Dictionary *info);
