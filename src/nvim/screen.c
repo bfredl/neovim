@@ -6226,7 +6226,7 @@ void setcursor(void)
     if (curwin->w_p_rl) {
       // With 'rightleft' set and the cursor on a double-wide character,
       // position it on the leftmost column.
-      col = curwin->w_grid.Columns - curwin->w_wcol
+      col = curwin->w_width_inner - curwin->w_wcol
                     - ((utf_ptr2cells(get_cursor_pos_ptr()) == 2
                         && vim_isprintc(gchar_cursor())) ? 2 : 1);
     }
@@ -7079,7 +7079,7 @@ int number_width(win_T *wp)
 
   if (wp->w_p_rnu && !wp->w_p_nu) {
     // cursor line shows "0"
-    lnum = wp->w_grid.Rows;
+    lnum = wp->w_height_inner;
   } else {
     // cursor line shows absolute line number
     lnum = wp->w_buffer->b_ml.ml_line_count;

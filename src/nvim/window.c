@@ -4125,8 +4125,10 @@ static void frame_remove(frame_T *frp)
 void win_alloc_lines(win_T *wp)
 {
   wp->w_lines_valid = 0;
-  assert(wp->w_grid.Rows >= 0);
-  wp->w_lines = xcalloc(MAX(wp->w_grid.Rows + 1, Rows), sizeof(wline_T));
+  assert(wp->w_height_inner >= 0);
+  // this should work, add call to win_set_inner_size ???
+  //wp->w_lines = xcalloc(wp->w_height_inner+1, sizeof(wline_T));
+  wp->w_lines = xcalloc(MAX(wp->w_height_inner + 1, Rows), sizeof(wline_T));
 }
 
 /*
@@ -4891,14 +4893,14 @@ void set_fraction(win_T *wp)
  */
 void win_new_height(win_T *wp, int height)
 {
-  int prev_height = wp->w_height;
-
-  /* Don't want a negative height.  Happens when splitting a tiny window.
-   * Will equalize heights soon to fix it. */
-  if (height < 0)
+  // Don't want a negative height.  Happens when splitting a tiny window.
+  // Will equalize heights soon to fix it.
+  if (height < 0) {
     height = 0;
-  if (wp->w_height == height)
-    return;         /* nothing to do */
+  }
+  if (wp->w_height == height) {
+    return;  // nothing to do
+  }
 
   wp->w_height = height;
   wp->w_pos_changed = true;
