@@ -336,6 +336,7 @@ void terminal_close(Terminal *term, char *msg)
 
 void terminal_check_size(Terminal *term)
 {
+  //fprintf(stderr, "SIZE\n");
   if (term->closed) {
     // TODO: WTF does this mean:
     // If two windows display the same terminal and one is closed by keypress.
@@ -348,8 +349,10 @@ void terminal_check_size(Terminal *term)
   bool window_seen = false;
 
   FOR_ALL_TAB_WINDOWS(tp, wp) {
+    //fprintf(stderr, "WINDOW\n");
     if (wp->w_buffer && wp->w_buffer->terminal == term) {
       window_seen = true;
+      //fprintf(stderr, "siz %d %d\n", wp->w_width_inner, win_col_off(wp));
       const uint16_t win_width =
         (uint16_t)(MAX(0, wp->w_width_inner - win_col_off(wp)));
       width = MAX(width, win_width);
@@ -359,6 +362,11 @@ void terminal_check_size(Terminal *term)
 
   if ((curheight == height && curwidth == width) || height == 0 || width == 0) {
     return;
+  }
+
+  if (width == 24) {
+    //int *x = xmalloc(4);
+    //x[1] = 2;
   }
 
   vterm_set_size(term->vt, height, width);
