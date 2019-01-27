@@ -1835,6 +1835,13 @@ return {
       defaults={if_true={vi=false}}
     },
     {
+      full_name='redrawdebug', abbreviation='rdb',
+      type='bool', scope={'global'},
+      vi_def=true,
+      varname='p_rdb',
+      defaults={if_true={vi=false}}
+    },
+    {
       full_name='redrawtime', abbreviation='rdt',
       type='number', scope={'global'},
       vi_def=true,

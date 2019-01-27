@@ -45,6 +45,8 @@ static bool valid_screen = true;
 static bool msg_scroll_mode = false;
 static int msg_first_invalid = 0;
 
+static int dbghl_normal, dbghl_clear, dbghl_composed, dbghl_resend;
+
 void ui_comp_init(void)
 {
   if (compositor != NULL) {
@@ -76,6 +78,11 @@ void ui_comp_init(void)
   curgrid = &default_grid;
 
   ui_attach_impl(compositor);
+
+  dbghl_normal = syn_check_group((char_u *)S_LEN("RedrawDebugNormal"));
+  dbghl_clear = syn_check_group((char_u *)S_LEN("RedrawDebugClear"));
+  dbghl_composed = syn_check_group((char_u *)S_LEN("RedrawDebugComposed"));
+  dbghl_resend = syn_check_group((char_u *)S_LEN("RedrawDebugResend"));
 }
 
 
@@ -288,9 +295,33 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
                             (const sattr_T *)attrbuf+skip);
 }
 
+static void compose_debug(Integer startrow, Integer endrow,
+                          Integer startcol, Integer endcol, int syn_id)
+{
+  if (!p_rdb) {
+    return;
+  }
+
+  endrow = MIN(endrow, default_grid.Rows);
+  endcol = MIN(endcol, default_grid.Columns);
+  int attr = syn_id2attr(syn_id);
+
+  for (int row = (int)startrow; row < endrow; row++) {
+    ui_composed_call_raw_line(1, row, startcol, startcol, endcol, attr, false,
+                              (const schar_T *)linebuf,
+                              (const sattr_T *)attrbuf);
+  }
+
+  ui_flush();
+  uint64_t wd = (uint64_t)labs(p_wd);
+  os_microdelay(wd * 1000u, true);
+}
+
+
 static void compose_area(Integer startrow, Integer endrow,
                          Integer startcol, Integer endcol)
 {
+  compose_debug(startrow, endrow, startcol, endcol, dbghl_resend);
   endrow = MIN(endrow, default_grid.Rows);
   endcol = MIN(endcol, default_grid.Columns);
   for (int r = (int)startrow; r < endrow; r++) {
@@ -318,8 +349,11 @@ static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
   }
   assert(clearcol <= default_grid.Columns);
   if (flags & kLineFlagInvalid || kv_size(layers) > curgrid->comp_index+1) {
+    compose_debug(row, row+1, startcol, clearcol, dbghl_composed);
     compose_line(row, startcol, clearcol, flags);
   } else {
+    compose_debug(row, row+1, startcol, endcol, dbghl_normal);
+    compose_debug(row, row+1, endcol, clearcol, dbghl_clear);
     ui_composed_call_raw_line(1, row, startcol, endcol, clearcol, clearattr,
                               flags, chunk, attrs);
   }

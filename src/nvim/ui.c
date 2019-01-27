@@ -327,7 +327,7 @@ void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol,
                    flags, (const schar_T *)grid->chars + off,
                    (const sattr_T *)grid->attrs + off);
 
-  if (p_wd) {  // 'writedelay': flush & delay each time.
+  if (p_wd && !p_rdb) {  // 'writedelay': flush & delay each time.
     int old_row = cursor_row, old_col = cursor_col;
     handle_T old_grid = cursor_grid_handle;
     // If 'writedelay' is active, set the cursor to indicate what was drawn.
