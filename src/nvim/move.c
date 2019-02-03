@@ -531,19 +531,20 @@ void validate_cursor(void)
     curs_columns(true);
 }
 
-/*
- * Compute wp->w_cline_row and wp->w_cline_height, based on the current value
- * of wp->w_topline.
- */
-static void curs_rows(win_T *wp)
+int win_find_row(win_T *wp, lnum_T lnum_target)
 {
-  /* Check if wp->w_lines[].wl_size is invalid */
-  int all_invalid = (!redrawing()
-                     || wp->w_lines_valid == 0
-                     || wp->w_lines[0].wl_lnum > wp->w_topline);
+  // Check if wp->w_lines[].wl_size is invalid
+  bool all_invalid = (!redrawing()
+                      || wp->w_lines_valid == 0
+                      || wp->w_lines[0].wl_lnum > wp->w_topline);
+
   int i = 0;
-  wp->w_cline_row = 0;
-  for (linenr_T lnum = wp->w_topline; lnum < wp->w_cursor.lnum; ++i) {
+  int row = 0;
+  if (lnum < wp->w_topline) {
+    // TODO: if botline is valid also use it to bail out.
+    return -1;
+  }
+  for (linenr_T lnum = wp->w_topline; lnum < lnum_target; ++i) {
     bool valid = false;
     if (!all_invalid && i < wp->w_lines_valid) {
       if (wp->w_lines[i].wl_lnum < lnum || !wp->w_lines[i].wl_valid)
@@ -552,7 +553,7 @@ static void curs_rows(win_T *wp)
         /* Check for newly inserted lines below this row, in which
          * case we need to check for folded lines. */
         if (!wp->w_buffer->b_mod_set
-            || wp->w_lines[i].wl_lastlnum < wp->w_cursor.lnum
+            || wp->w_lines[i].wl_lastlnum < lnum_target
                                             || wp->w_buffer->b_mod_top
                                             > wp->w_lines[i].wl_lastlnum + 1)
           valid = true;
@@ -565,26 +566,45 @@ static void curs_rows(win_T *wp)
         ) {
       lnum = wp->w_lines[i].wl_lastlnum + 1;
       /* Cursor inside folded lines, don't count this row */
-      if (lnum > wp->w_cursor.lnum)
+      if (lnum > lnum_target)
         break;
-      wp->w_cline_row += wp->w_lines[i].wl_size;
+      row += wp->w_lines[i].wl_size;
     } else {
       long fold_count = foldedCount(wp, lnum, NULL);
       if (fold_count) {
         lnum += fold_count;
-        if (lnum > wp->w_cursor.lnum)
+        if (lnum > lnum_target)
           break;
-        ++wp->w_cline_row;
+        ++row;
       } else if (lnum == wp->w_topline) {
-        wp->w_cline_row += plines_win_nofill(wp, lnum++, true)
+        row += plines_win_nofill(wp, lnum++, true)
                            + wp->w_topfill;
       } else {
-        wp->w_cline_row += plines_win(wp, lnum++, true);
+        row += plines_win(wp, lnum++, true);
       }
     }
+    if (row >= wp->w_height_inner) {
+      // outside of window
+      return wp->w_height_inner;
+    }
   }
+}
+
+/*
+ * Compute wp->w_cline_row and wp->w_cline_height, based on the current value
+ * of wp->w_topline.
+ */
+static void curs_rows(win_T *wp)
+{
+  int i = 0;
+  wp->w_cline_row = win_find_row(wp,  wp->w_cursor.lnum);
 
   check_cursor_moved(wp);
+
+  // Check if wp->w_lines[].wl_size is invalid
+  bool all_invalid = (!redrawing()
+                      || wp->w_lines_valid == 0
+                      || wp->w_lines[0].wl_lnum > wp->w_topline);
   if (!(wp->w_valid & VALID_CHEIGHT)) {
     if (all_invalid
         || i == wp->w_lines_valid
@@ -715,6 +735,13 @@ int win_col_off2(win_T *wp)
 int curwin_col_off2(void)
 {
   return win_col_off2(curwin);
+}
+
+/// @param row should be set to the first window row of the line, will be
+/// adjusted down on linebreak.
+int win_find_column(win_T *wp, int *row, int vvcol)
+{
+
 }
 
 /*

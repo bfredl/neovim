@@ -676,6 +676,10 @@ static bool parse_float_relative(String relative, FloatRelative *out)
     *out = kFloatRelativeEditor;
   } else if (!STRICMP(str, "cursor")) {
     *out = kFloatRelativeCursor;
+  } else if (!STRICMP(str, "window")) {
+    *out = kFloatRelativeWindow;
+  } else if (!STRICMP(str, "text")) {
+    *out = kFloatRelativeText;
   } else {
     return false;
   }
@@ -706,7 +710,7 @@ bool parse_float_config(Dictionary config, FloatConfig *out, bool reconf)
   for (size_t i = 0; i < config.size; i++) {
     char *key = config.items[i].key.data;
     Object val = config.items[i].value;
-    if (!strcmp(key, "x")) {
+    if (!strcmp(key, "col")) {
       if (val.type == kObjectTypeInteger) {
         out->x = val.data.integer;
       } else if (val.type == kObjectTypeFloat) {
@@ -714,7 +718,7 @@ bool parse_float_config(Dictionary config, FloatConfig *out, bool reconf)
       } else {
         return false;
       }
-    } else if (!strcmp(key, "y")) {
+    } else if (!strcmp(key, "row")) {
       if (val.type == kObjectTypeInteger) {
         out->y = val.data.integer;
       } else if (val.type == kObjectTypeFloat) {
