@@ -68,7 +68,8 @@ void scroll(Integer count)
 
 // Second revison of the grid protocol, used with ext_linegrid ui option
 void default_colors_set(Integer rgb_fg, Integer rgb_bg, Integer rgb_sp,
-                        Integer cterm_fg, Integer cterm_bg)
+                        Integer cterm_fg, Integer cterm_bg, Boolean rgb_fg_set,
+                        Boolean rgb_bg_set, Boolean rgb_sp_set)
   FUNC_API_SINCE(4) FUNC_API_REMOTE_IMPL;
 void hl_attr_define(Integer id, HlAttrs rgb_attrs, HlAttrs cterm_attrs,
                     Array info)

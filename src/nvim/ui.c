@@ -222,8 +222,12 @@ void ui_resize(int width, int height)
 
 void ui_default_colors_set(void)
 {
-  ui_call_default_colors_set(normal_fg, normal_bg, normal_sp,
-                             cterm_normal_fg_color, cterm_normal_bg_color);
+  int rgb_fg = normal_fg != -1 ? normal_fg : (dark ? 0xFFFFFF : 0x000000);
+  int rgb_bg = normal_bg != -1 ? normal_bg : (dark ? 0x000000 : 0xFFFFFF);
+  int rgb_sp = normal_sp != -1 ? normal_sp : 0xFF0000;
+  ui_call_default_colors_set(rgb_fg, rgb_bg, rgb_sp,
+                             cterm_normal_fg_color, cterm_normal_bg_color,
+                             normal_fg != -1, normal_bg != -1, normal_sp != -1);
 }
 
 void ui_busy_start(void)

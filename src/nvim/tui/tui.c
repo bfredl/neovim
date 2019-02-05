@@ -1127,12 +1127,13 @@ static void tui_visual_bell(UI *ui)
 }
 
 static void tui_default_colors_set(UI *ui, Integer rgb_fg, Integer rgb_bg,
-                                   Integer rgb_sp,
-                                   Integer cterm_fg, Integer cterm_bg)
+                                   Integer rgb_sp, Integer cterm_fg,
+                                   Integer cterm_bg, Boolean rgb_fg_set,
+                                   Boolean rgb_bg_set, Boolean rgb_sp_set)
 {
   TUIData *data = ui->data;
 
-  data->clear_attrs.rgb_fg_color = (int)rgb_fg;
+  data->clear_attrs.rgb_fg_color = rgb_fg_set ? (int)rgb_fg;
   data->clear_attrs.rgb_bg_color = (int)rgb_bg;
   data->clear_attrs.rgb_sp_color = (int)rgb_sp;
   data->clear_attrs.cterm_fg_color = (int)cterm_fg;

@@ -353,7 +353,9 @@ static void remote_ui_grid_scroll(UI *ui, Integer grid, Integer top,
 
 static void remote_ui_default_colors_set(UI *ui, Integer rgb_fg,
                                          Integer rgb_bg, Integer rgb_sp,
-                                         Integer cterm_fg, Integer cterm_bg)
+                                         Integer cterm_fg, Integer cterm_bg,
+                                         Boolean rgb_fg_set, Boolean rgb_bg_set,
+                                         Boolean rgb_sp_set)
 {
   Array args = ARRAY_DICT_INIT;
   ADD(args, INTEGER_OBJ(rgb_fg));
@@ -361,6 +363,10 @@ static void remote_ui_default_colors_set(UI *ui, Integer rgb_fg,
   ADD(args, INTEGER_OBJ(rgb_sp));
   ADD(args, INTEGER_OBJ(cterm_fg));
   ADD(args, INTEGER_OBJ(cterm_bg));
+  ADD(args, INTEGER_OBJ(rgb_fg_set));
+  ADD(args, INTEGER_OBJ(rgb_bg_set));
+  ADD(args, INTEGER_OBJ(rgb_sp_set));
+
   push_call(ui, "default_colors_set", args);
 
   // Deprecated
