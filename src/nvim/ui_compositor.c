@@ -170,11 +170,9 @@ void ui_comp_remove_grid(ScreenGrid *grid)
   (void)kv_pop(layers);
   grid->comp_index = 0;
 
-  if (ui_comp_should_draw()) {
-    // inefficent: only draw up to grid->comp_index
-    compose_area(grid->comp_row, grid->comp_row+grid->Rows,
-                 grid->comp_col, grid->comp_col+grid->Columns);
-  }
+  // recompase the area under the grid
+  // inefficent when being overlapped: only draw up to grid->comp_index
+  ui_comp_compose_grid(grid);
 }
 
 bool ui_comp_set_grid(handle_T handle)
@@ -314,6 +312,15 @@ static void compose_area(Integer startrow, Integer endrow,
   }
 }
 
+void ui_comp_compose_grid(ScreenGrid *grid)
+{
+  if (ui_comp_should_draw()) {
+  compose_area(grid->comp_row, grid->comp_row+grid->Rows,
+               grid->comp_col, grid->comp_col+grid->Columns);
+  }
+}
+
+
 
 static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
                              Integer startcol, Integer endcol,
@@ -333,6 +340,14 @@ static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
     flags = flags & ~kLineFlagWrap;
   }
   assert(clearcol <= default_grid.Columns);
+  // TODO(bfredl): when screen is resized, the popupmenu can be redrawn
+  // both before and after its new position is calculated. We should
+  // inhibit the former.
+  if (row > default_grid.Rows || startcol >= default_grid.Columns) {
+    return;
+  }
+  endcol = MIN(endcol,default_grid.Columns);
+  clearcol = MIN(clearcol,default_grid.Columns);
   if (flags & kLineFlagInvalid
       || kv_size(layers) > (p_pb ? 1 : curgrid->comp_index+1)) {
     compose_line(row, startcol, clearcol, flags);

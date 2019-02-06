@@ -4344,6 +4344,9 @@ static char *set_num_option(int opt_idx, char_u *varp, long value,
     if (old_value != 0) {
       hl_invalidate_blends();
     }
+    if (pum_drawn()) {
+      pum_recompose();
+    }
   } else if (pp == &p_pyx) {
     if (p_pyx != 0 && p_pyx != 2 && p_pyx != 3) {
       errmsg = e_invarg;

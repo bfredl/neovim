@@ -1001,7 +1001,7 @@ describe('builtin popupmenu', function()
     ]])
   end)
 
-  it('can be moved due to wrap or resize', function()
+  it('works with rightleft window', function()
     command("set rl")
     feed('isome rightleft ')
     screen:expect([[
@@ -1228,6 +1228,40 @@ describe('builtin popupmenu', function()
       {1:~                                       }|
                                               |
     ]])
+  end)
+
+  it('works with pumblend', function()
+    screen:try_resize(60,14)
+    screen:set_default_attr_ids({})
+    command('syntax on')
+    command('set pumblend=10')
+    insert([[
+      Lorem ipsum dolor sit amet, consectetur
+      adipisicing elit, sed do eiusmod tempor
+      incididunt ut labore et dolore magna aliqua.
+      Ut enim ad minim veniam, quis nostrud
+      exercitation ullamco laboris nisi ut aliquip ex
+      ea commodo consequat. Duis aute irure dolor in
+      reprehenderit in voluptate velit esse cillum
+      dolore eu fugiat nulla pariatur. Excepteur sint
+      occaecat cupidatat non proident, sunt in culpa
+      qui officia deserunt mollit anim id est
+      laborum.]])
+    command('match Statement /ut/')
+    command('2match Comment /el/')
+    command('1')
+    command('split')
+    command('/ol')
+    screen:snapshot_util()
+
+    feed('Obla bla <c-x><c-n>')
+    screen:snapshot_util()
+
+    command('set pumblend=0')
+    screen:snapshot_util()
+
+
+
   end)
 
 end)
