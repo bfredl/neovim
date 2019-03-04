@@ -6605,6 +6605,8 @@ A jump table for the options with a short description can be found at |Q_op|.
 			is displayed per line.  Often used tag kinds are:
 				d	#define
 				f	function
+	  pum		Display the completion matches using the popupmenu
+			in the same style as the |ins-completion-menu|.
 	Also see |cmdline-completion|.
 
 						*'winaltkeys'* *'wak'*
