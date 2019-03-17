@@ -32,6 +32,7 @@
 static UI *compositor = NULL;
 static int composed_uis = 0;
 kvec_t(ScreenGrid *) layers = KV_INITIAL_VALUE;
+static handle_T current_grid = 0;
 
 static size_t bufsize = 0;
 static schar_T *linebuf;
@@ -108,11 +109,12 @@ bool ui_comp_should_draw(void)
 /// though that will require slight event order adjustment: emit the win_pos
 /// events in the beginning of  update_screen(0), rather than in ui_flush()
 bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width,
-                      bool valid, bool on_top)
+                      bool valid, handle_T parent_handle, bool enter)
 {
-  bool moved;
+  bool should_draw;
+  grid->comp_parent_handle = parent_handle;
   if (grid->comp_index != 0) {
-    moved = (row != grid->comp_row) || (col != grid->comp_col);
+    should_draw = (row != grid->comp_row) || (col != grid->comp_col);
     if (ui_comp_should_draw()) {
       // Redraw the area covered by the old position, and is not covered
       // by the new position. Disable the grid so that compose_area() will not
@@ -136,8 +138,14 @@ bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width,
     }
     grid->comp_row = row;
     grid->comp_col = col;
+    if (enter) {
+      if (ui_comp_enter_grid(grid, valid)) {
+        should_draw = false;
+      }
+    }
   } else {
-    moved = true;
+    // new grid:
+    should_draw = true;
 #ifndef NDEBUG
     for (size_t i = 0; i < kv_size(layers); i++) {
       if (kv_A(layers, i) == grid) {
@@ -150,10 +158,20 @@ bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width,
     if (kv_A(layers, insert_at-1) == &pum_grid) {
       insert_at--;
     }
-    if (insert_at > 1 && !on_top) {
-      insert_at--;
+
+    if (!enter && grid != &pum_grid
+        && grid->parent_handle != current_grid) {
+      for (size_t i = 1; i < insert_at; i++) {
+        if (kv_A(layers, i)->handle == current_grid) {
+          insert_at = i;
+          break;
+        }
+      }
+    } else if (enter) {
+      current_grid = grid->handle;
     }
-    // not found: new grid
+
+
     kv_push(layers, grid);
     if (insert_at < kv_size(layers)-1) {
       for (size_t i = kv_size(layers)-1; i > insert_at; i--) {
@@ -167,7 +185,7 @@ bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width,
     grid->comp_col = col;
     grid->comp_index = insert_at;
   }
-  if (moved && valid && ui_comp_should_draw()) {
+  if (should_draw && valid && ui_comp_should_draw()) {
     compose_area(grid->comp_row, grid->comp_row+grid->Rows,
                  grid->comp_col, grid->comp_col+grid->Columns);
   }
@@ -217,6 +235,31 @@ bool ui_comp_set_grid(handle_T handle)
   return false;
 }
 
+bool ui_comp_enter_grid(ScreenGrid *grid)
+{
+  bool did_raise false;
+  current_grid = grid->handle;
+  if (grid == &default_grid) {
+    // cannot raise default_grid, mark it as current only
+    return false;
+  }
+  size_t top_index = kv_size(layers);
+  for (size_t i = kv_size(layers); i >= 1; i--) {
+    ScreenGrid g = kv_A(layers,i);
+    bool raised = (g == &pum_grid || g == grid || g->parent_handle == current_grid);
+    if (raised) {
+      if (i != top_index) {
+        ui_comp_raise_grid(grid, top_index);
+        if (g == grid) {
+          did_raise = true;
+        }
+      }
+      top_index--;
+    }
+  }
+  return did_raise;
+}
+
 static void ui_comp_raise_grid(ScreenGrid *grid, size_t new_index)
 {
   size_t old_index = grid->comp_index;
@@ -248,14 +291,8 @@ static void ui_comp_grid_cursor_goto(UI *ui, Integer grid_handle,
 
   // TODO(bfredl): maybe not the best time to do this, for efficiency we
   // should configure all grids before entering win_update()
-  if (curgrid != &default_grid) {
-    size_t new_index = kv_size(layers)-1;
-    if (kv_A(layers, new_index) == &pum_grid) {
-      new_index--;
-    }
-    if (curgrid->comp_index < new_index) {
-      ui_comp_raise_grid(curgrid, new_index);
-    }
+  if (curgrid->handle != current_grid) {
+    ui_comp_enter_grid(curgrid);
   }
 
   if (cursor_col >= default_grid.Columns || cursor_row >= default_grid.Rows) {

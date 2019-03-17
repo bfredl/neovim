@@ -373,7 +373,8 @@ void pum_redraw(void)
 
   grid_assign_handle(&pum_grid);
   bool moved = ui_comp_put_grid(&pum_grid, pum_row, pum_col-col_off,
-                                pum_height, grid_width, false, true);
+                                pum_height, grid_width, false,
+                                DEFAULT_GRID_HANDLE, false);
   bool invalid_grid = moved || pum_invalid;
   pum_invalid = false;
 

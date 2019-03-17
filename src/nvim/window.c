@@ -644,9 +644,9 @@ static void ui_ext_win_position(win_T *wp)
       wp->w_winrow = row;
       wp->w_wincol = col;
       bool valid = (wp->w_redr_type == 0);
-      bool on_top = (curwin == wp) || !curwin->w_floating;
+      bool enter = (curwin == wp);
       ui_comp_put_grid(&wp->w_grid, row, col, wp->w_height, wp->w_width,
-                       valid, on_top);
+                       valid, enter);
       if (!valid) {
         wp->w_grid.valid = false;
         redraw_win_later(wp, NOT_VALID);

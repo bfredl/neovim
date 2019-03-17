@@ -59,6 +59,7 @@ typedef struct {
   int comp_col;
   size_t comp_index;
   bool comp_disabled;
+  handle_T comp_parent_handle;
 } ScreenGrid;
 
 #define SCREEN_GRID_INIT { 0, NULL, NULL, NULL, NULL, 0, 0, false, 0, 0, 0, \
