@@ -134,7 +134,7 @@ Boolean nvim_buf_attach(uint64_t channel_id,
         api_set_error(err, kErrorTypeValidation, "callback is not a function");
         return false;
       }
-      ref = v->data.integer;
+      ref = (int)v->data.integer;
       v->data.integer = LUA_NOREF;
     } else {
       api_set_error(err, kErrorTypeValidation, "unexpected key: %s", k.data);
