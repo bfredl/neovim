@@ -22,9 +22,27 @@
 #include "nvim/buffer.h" // for nvim_ts_read_cb
 
 typedef struct {
-    TSParser *parser;
-    TSTree *tree;
+  TSParser *parser;
+  TSTree *tree;
 } Tslua_parser;
+
+typedef struct {
+  int kind;
+  int next_id;
+  int child_index;
+  int regex_index;
+} KindTransition;
+
+typedef struct  {
+  int default_next_state_id;
+  int property_set_id;
+  kvec_t(KindTransition) kind_trans;
+  kvec_t(int) kind_first_trans;
+} PropertyState;
+
+typedef struct {
+    kvec_t(PropertyState) states;
+} Tslua_propertysheet;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "lua/tree_sitter.c.generated.h"
@@ -36,6 +54,7 @@ static struct luaL_Reg parser_meta[] = {
   {"parse_buf", parser_parse_buf},
   {"edit", parser_edit},
   {"tree", parser_tree},
+  {"symbols", parser_symbols},
   {NULL, NULL}
 };
 
@@ -68,6 +87,15 @@ static struct luaL_Reg cursor_meta[] = {
   {"forward", cursor_forward},
   {NULL, NULL}
 };
+
+static struct luaL_Reg propertysheet_meta[] = {
+  {"__gc", propertysheet_gc},
+  {"__tostring", propertysheet_tostring},
+  {"add_state", Propertysheet_add_state},
+  {"add_transition", propertysheet_add_transition},
+  {NULL, NULL}
+};
+
 
 void build_meta(lua_State *L, const luaL_Reg *meta)
 {
@@ -108,6 +136,10 @@ void tslua_init(lua_State *L)
   lua_createtable(L, 0, 0);
   build_meta(L, cursor_meta);
   lua_setfield(L, -2, "cursor-meta");
+
+  lua_createtable(L, 0, 0);
+  build_meta(L, propertysheet_meta);
+  lua_setfield(L, -2, "propertysheet-meta");
 
   lua_setfield(L, LUA_REGISTRYINDEX, REG_KEY);
 }
@@ -198,8 +230,7 @@ static int parser_edit(lua_State *L)
 {
   if(lua_gettop(L) < 10) {
     lua_pushstring(L, "not enough args to parser:edit()");
-    lua_error(L);
-    return 0; // unreachable
+    return lua_error(L);
   }
 
   Tslua_parser *p = parser_check(L);
@@ -224,6 +255,33 @@ static int parser_edit(lua_State *L)
   ts_tree_edit(p->tree, &edit);
 
   return 0;
+}
+
+static int parser_symbols(lua_State *L)
+{
+  Tslua_parser *p = parser_check(L);  // [parser]
+  if (!p) {
+    return 0;
+  }
+
+  const TSLanguage *lang = ts_parser_language(p->parser);
+
+  size_t nsymb = (size_t)ts_language_symbol_count(lang);
+
+  lua_createtable(L, nsymb-1, 1);  // [parser, result]
+  for (size_t i = 0; i < nsymb; i++) {
+    lua_createtable(L, 2, 0);  // [parser, result, elem]
+    lua_pushstring(L, ts_language_symbol_name(lang, i));
+    lua_rawseti(L, -2, 1);
+    TSSymbolType t= ts_language_symbol_type(lang, i);
+    lua_pushstring(L, (t == TSSymbolTypeRegular
+                       ? "named" : (t == TSSymbolTypeAnonymous
+                                    ? "anonymous" : "auxiliary")));
+    lua_rawseti(L, -2, 2); // [parser, result, elem]
+    lua_rawseti(L, -2, i); // [parser, result]
+  }
+
+  return 1;
 }
 
 
@@ -558,5 +616,95 @@ ret:
   } else {
     return 0;
   }
+}
+
+// Propertysheet functions
+void tslua_push_propertysheet(lua_State *L)
+{
+  TSParser *parser = ts_parser_new();
+  ts_parser_set_language(parser, lang);
+  Tslua_propertysheet *sheet = lua_newuserdata(L, sizeof(Tslua_propertysheet));  // [udata]
+  kv_init(sheet->states);
+
+  lua_getfield(L, LUA_REGISTRYINDEX, REG_KEY);  // [udata, env]
+  lua_getfield(L, -1, "propertysheet-meta");  // [udata, env, meta]
+  lua_setmetatable(L, -3);  // [udata, env]
+  lua_pop(L, 1);  // [udata]
+}
+
+static Tslua_propertysheet *propertysheet_check(lua_State *L)
+{
+  if (!lua_gettop(L)) {
+    return 0;
+  }
+  if (!lua_isuserdata(L, 1)) {
+    return 0;
+  }
+  // TODO: typecheck!
+  return lua_touserdata(L, 1);
+}
+
+static int propertysheet_gc(lua_State *L)
+{
+  Tslua_propertysheet *sheet = propertysheet_check(L);
+  if (!sheet) {
+    return 0;
+  }
+
+  // TODO
+  return 0;
+}
+
+static int Propertysheet_add_state(lua_State *L)
+{
+  Tslua_propertysheet *sheet = propertysheet_check(L);
+  if (!sheet) {
+    return 0;
+  }
+
+  int state_id = lua_tointeger(L, 2);
+  int default_next_id = lua_tointeger(L, 3);
+  int property_set_id = lua_tointeger(L, 4);
+
+  if ((size_t)state_id != kv_size(sheet->states)) {
+    lua_pushstring(L, "NOT IMPLEMENTED");
+    return lua_error(L);
+  }
+
+  kv_push(sheet->states, ((PropertyState){
+    .default_next_state_id = default_next_id,
+    .property_set_id = property_set_id,
+    .kind_trans = KV_INITIAL_VALUE,
+    .kind_first_trans = KV_INITIAL_VALUE
+  }));
+
+  return 0;
+}
+
+static int Propertysheet_add_transition(lua_State *L)
+{
+  Tslua_propertysheet *sheet = propertysheet_check(L);
+  if (!sheet) {
+    return 0;
+  }
+
+  int state_id = lua_tointeger(L, 2);
+  int kind_id = lua_tointeger(L, 3);
+  int next_state_id = lua_tointeger(L, 4);
+  int child_id = lua_tointeger(L, 5);
+
+  if ((size_t)state_id != kv_size(sheet->states)) {
+    lua_pushstring(L, "NOT IMPLEMENTED");
+    return lua_error(L);
+  }
+
+  kv_push(sheet->states, ((PropertyState){
+    .default_next_state_id = default_next_id,
+    .property_set_id = property_set_id,
+    .kind_trans = KV_INITIAL_VALUE,
+    .kind_first_trans = KV_INITIAL_VALUE
+  }));
+
+  return 0;
 }
 

@@ -11,6 +11,25 @@ local path = '.deps/build/src/treesitter-javascript/src/highlights.json'
 a.nvim_set_var("_ts_path", path)
 obj = a.nvim_eval("json_decode(readfile(g:_ts_path,'b'))")
 
+states = obj.states
+s = states[1]
+for k in pairs(s) do print(k) end
+
+t = s.transitions[2]
+for k in pairs(t) do print(k) end
+
+symbs = theparser.parser:symbols()
+named = {}
+anonymous = {}
+for i, symb in pairs(symbs) do
+  if symb[2] == "named" then
+    named[symb[1]] = i
+  elseif symb[2] == "anonymous" then
+    anonymous[symb[1]] = i
+  end
+end
+--anonymous
+
 
 --luadev = require'luadev'
 --i = require'inspect'
