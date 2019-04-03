@@ -18,6 +18,7 @@
 
 #define REG_KEY "tree_sitter-private"
 
+#include "nvim/lib/kvec.h"
 #include "nvim/lua/tree_sitter.h"
 #include "nvim/buffer.h" // for nvim_ts_read_cb
 
@@ -27,8 +28,8 @@ typedef struct {
 } Tslua_parser;
 
 typedef struct {
-  int kind;
-  int next_id;
+  int kind_id;
+  int next_state_id;
   int child_index;
   int regex_index;
 } KindTransition;
@@ -37,11 +38,13 @@ typedef struct  {
   int default_next_state_id;
   int property_set_id;
   kvec_t(KindTransition) kind_trans;
-  kvec_t(int) kind_first_trans;
+  int *kind_first_trans;
 } PropertyState;
 
 typedef struct {
-    kvec_t(PropertyState) states;
+  PropertyState *states;
+  int n_states;
+  int n_kinds;
 } Tslua_propertysheet;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -619,12 +622,19 @@ ret:
 }
 
 // Propertysheet functions
-void tslua_push_propertysheet(lua_State *L)
+void tslua_push_propertysheet(lua_State *L, int n_states, int n_kinds)
 {
   TSParser *parser = ts_parser_new();
   ts_parser_set_language(parser, lang);
   Tslua_propertysheet *sheet = lua_newuserdata(L, sizeof(Tslua_propertysheet));  // [udata]
-  kv_init(sheet->states);
+  sheet->states = xcalloc(n_states, sizeof(*sheet->states));
+  for (int i = 0; i < n_states; i++) {
+    PropertyState *s = &kv_A(sheet->states, (size_t)state_id);
+    s->kind_first_trans = xmalloc(n_kinds * sizeof(*s->kind_first_trans));
+    memset(s->kind_first_trans.items, -1,
+           sheet->n_kinds * sizeof(*s->kind_first_trans.items));
+    kv_init(s->kind_trans);
+  }
 
   lua_getfield(L, LUA_REGISTRYINDEX, REG_KEY);  // [udata, env]
   lua_getfield(L, -1, "propertysheet-meta");  // [udata, env, meta]
@@ -666,17 +676,20 @@ static int Propertysheet_add_state(lua_State *L)
   int default_next_id = lua_tointeger(L, 3);
   int property_set_id = lua_tointeger(L, 4);
 
-  if ((size_t)state_id != kv_size(sheet->states)) {
-    lua_pushstring(L, "NOT IMPLEMENTED");
+  if ((size_t)state_id >= kv_size(sheet->states)) {
+    lua_pushstring(L, "out of bounds");
     return lua_error(L);
   }
 
-  kv_push(sheet->states, ((PropertyState){
-    .default_next_state_id = default_next_id,
-    .property_set_id = property_set_id,
-    .kind_trans = KV_INITIAL_VALUE,
+  PropertyState *state = &kv_A(sheet->states, (size_t)state_id);
+
+  state->default_next_state_id = default_next_id;
+  state->property_set_id = property_set_id;
+    state->kind_trans = KV_INITIAL_VALUE,
     .kind_first_trans = KV_INITIAL_VALUE
   }));
+
+  kv_resize(state->kind_first_trans, sheet->n_kinds);
 
   return 0;
 }
@@ -693,16 +706,26 @@ static int Propertysheet_add_transition(lua_State *L)
   int next_state_id = lua_tointeger(L, 4);
   int child_id = lua_tointeger(L, 5);
 
-  if ((size_t)state_id != kv_size(sheet->states)) {
-    lua_pushstring(L, "NOT IMPLEMENTED");
+  if ((size_t)state_id > kv_size(sheet->states)) {
+    lua_pushstring(L, "out of bounds!!");
     return lua_error(L);
   }
 
-  kv_push(sheet->states, ((PropertyState){
-    .default_next_state_id = default_next_id,
-    .property_set_id = property_set_id,
-    .kind_trans = KV_INITIAL_VALUE,
-    .kind_first_trans = KV_INITIAL_VALUE
+  PropertyState *state = &kv_A(sheet->states, (size_t)state_id);
+  if (state->kind_first_trans[kind_id] == -1) {
+    state->kind_first_trans[kind_id] = kv_size(state->kind_trans);
+  } else {
+    if (kv_Z(state->kind_trans, a0).kind_id != kind_id) {
+      lua_pushstring(L, "disorder!!");
+      return lua_error(L);
+    }
+  }
+
+  kv_push(state->kind_trans, ((KindTransition){
+    .kind_id = kind_id,
+    .next_state_id = next_state_id,
+    .child_index = child_index,
+    .regex_index = -1,
   }));
 
   return 0;
