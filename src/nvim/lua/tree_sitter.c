@@ -47,6 +47,13 @@ typedef struct {
   int n_kinds;
 } Tslua_propertysheet;
 
+typedef struct {
+  TSTreeCursor cursor;
+  Tslua_propertysheet *sheet;
+  int state_id[32];
+  int child_index[32];
+} Tslua_cursor;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "lua/tree_sitter.c.generated.h"
 #endif
@@ -537,16 +544,16 @@ static void push_cursor(lua_State *L, TSNode node)
 
 static int cursor_gc(lua_State *L)
 {
-  TSTreeCursor *cursor = cursor_check(L);
+  Tslua_cursor *cursor = cursor_check(L);
   if (!cursor) {
     return 0;
   }
 
-  ts_tree_cursor_delete(cursor);
+  ts_tree_cursor_delete(&cursor->cursor);
   return 0;
 }
 
-static TSTreeCursor *cursor_check(lua_State *L)
+static Tslua_cursor *cursor_check(lua_State *L)
 {
   if (!lua_gettop(L)) {
     return NULL;
@@ -555,18 +562,18 @@ static TSTreeCursor *cursor_check(lua_State *L)
     return NULL;
   }
   // TODO: typecheck!
-  TSTreeCursor *ud = lua_touserdata(L, 1);
+  Tslua_cursor *ud = lua_touserdata(L, 1);
   return ud;
 }
 
 
 static int cursor_tostring(lua_State *L)
 {
-  TSTreeCursor *cursor = cursor_check(L);
-  if (!cursor) {
+  Tslua_cursor *c = cursor_check(L);
+  if (!c) {
     return 0;
   }
-  TSNode node = ts_tree_cursor_current_node(cursor);
+  TSNode node = ts_tree_cursor_current_node(&c->cursor);
   if (ts_node_is_null(node)) {
     lua_pushstring(L, "<cursor nil>");
     return 1;
@@ -580,10 +587,11 @@ static int cursor_tostring(lua_State *L)
 
 static int cursor_forward(lua_State *L)
 {
-  TSTreeCursor *cursor = cursor_check(L);
-  if (!cursor) {
+  Tslua_cursor *c = cursor_check(L);
+  if (!c) {
     return 0;
   }
+  TSTreeCursor *cursor = &c->cursor;
 
   bool status = false;
 
@@ -624,15 +632,13 @@ ret:
 // Propertysheet functions
 void tslua_push_propertysheet(lua_State *L, int n_states, int n_kinds)
 {
-  TSParser *parser = ts_parser_new();
-  ts_parser_set_language(parser, lang);
-  Tslua_propertysheet *sheet = lua_newuserdata(L, sizeof(Tslua_propertysheet));  // [udata]
+  Tslua_propertysheet *sheet = lua_newuserdata(L, sizeof(Tslua_propertysheet));
   sheet->states = xcalloc(n_states, sizeof(*sheet->states));
   for (int i = 0; i < n_states; i++) {
-    PropertyState *s = &kv_A(sheet->states, (size_t)state_id);
+    PropertyState *s = &sheet->states[i];
     s->kind_first_trans = xmalloc(n_kinds * sizeof(*s->kind_first_trans));
-    memset(s->kind_first_trans.items, -1,
-           sheet->n_kinds * sizeof(*s->kind_first_trans.items));
+    memset(s->kind_first_trans, -1,
+           sheet->n_kinds * sizeof(*s->kind_first_trans));
     kv_init(s->kind_trans);
   }
 
@@ -676,20 +682,15 @@ static int Propertysheet_add_state(lua_State *L)
   int default_next_id = lua_tointeger(L, 3);
   int property_set_id = lua_tointeger(L, 4);
 
-  if ((size_t)state_id >= kv_size(sheet->states)) {
+  if (state_id >= sheet->n_states) {
     lua_pushstring(L, "out of bounds");
     return lua_error(L);
   }
 
-  PropertyState *state = &kv_A(sheet->states, (size_t)state_id);
+  PropertyState *state = &sheet->states[state_id];
 
   state->default_next_state_id = default_next_id;
   state->property_set_id = property_set_id;
-    state->kind_trans = KV_INITIAL_VALUE,
-    .kind_first_trans = KV_INITIAL_VALUE
-  }));
-
-  kv_resize(state->kind_first_trans, sheet->n_kinds);
 
   return 0;
 }
@@ -704,18 +705,18 @@ static int Propertysheet_add_transition(lua_State *L)
   int state_id = lua_tointeger(L, 2);
   int kind_id = lua_tointeger(L, 3);
   int next_state_id = lua_tointeger(L, 4);
-  int child_id = lua_tointeger(L, 5);
+  int child_index = lua_tointeger(L, 5);
 
-  if ((size_t)state_id > kv_size(sheet->states)) {
+  if (state_id > sheet->n_states) {
     lua_pushstring(L, "out of bounds!!");
     return lua_error(L);
   }
 
-  PropertyState *state = &kv_A(sheet->states, (size_t)state_id);
+  PropertyState *state = &sheet->states[state_id];
   if (state->kind_first_trans[kind_id] == -1) {
     state->kind_first_trans[kind_id] = kv_size(state->kind_trans);
   } else {
-    if (kv_Z(state->kind_trans, a0).kind_id != kind_id) {
+    if (kv_Z(state->kind_trans, 0).kind_id != kind_id) {
       lua_pushstring(L, "disorder!!");
       return lua_error(L);
     }
