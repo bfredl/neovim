@@ -103,7 +103,7 @@ static struct luaL_Reg cursor_meta[] = {
 static struct luaL_Reg propertysheet_meta[] = {
   {"__gc", propertysheet_gc},
   {"__tostring", propertysheet_tostring},
-  {"add_state", Propertysheet_add_state},
+  {"add_state", propertysheet_add_state},
   {"add_transition", propertysheet_add_transition},
   {NULL, NULL}
 };
@@ -538,6 +538,7 @@ static int node_to_cursor(lua_State *L)
   lua_setmetatable(L, -2);  // [src, udata]
   lua_getfenv(L, 1);  // [src, udata, reftable]
   lua_setfenv(L, -2);  // [src, udata]
+  return 1;
 }
 
 
@@ -638,6 +639,7 @@ static bool cursor_goto_next_sibling(Tslua_cursor *c)
     c->state_id[c->level] = next_state;
     c->child_index[c->level]++;
   }
+  return true;
 }
 
 static bool cursor_goto_parent(Tslua_cursor *c)
@@ -648,6 +650,7 @@ static bool cursor_goto_parent(Tslua_cursor *c)
   if (c->sheet) {
     c->level--;
   }
+  return true;
 }
 
 static int cursor_forward(lua_State *L)
@@ -723,6 +726,8 @@ ret:
 void tslua_push_propertysheet(lua_State *L, int n_states, int n_kinds)
 {
   Tslua_propertysheet *sheet = lua_newuserdata(L, sizeof(Tslua_propertysheet));
+  sheet->n_states = n_states;
+  sheet->n_kinds = n_kinds;
   sheet->states = xcalloc(n_states, sizeof(*sheet->states));
   for (int i = 0; i < n_states; i++) {
     PropertyState *s = &sheet->states[i];
@@ -761,7 +766,18 @@ static int propertysheet_gc(lua_State *L)
   return 0;
 }
 
-static int Propertysheet_add_state(lua_State *L)
+static int propertysheet_tostring(lua_State *L)
+{
+  Tslua_propertysheet *c = propertysheet_check(L);
+  if (!c) {
+    return 0;
+  }
+
+  lua_pushstring(L, "<propertysheet>");
+  return 1;
+}
+
+static int propertysheet_add_state(lua_State *L)
 {
   Tslua_propertysheet *sheet = propertysheet_check(L);
   if (!sheet) {
@@ -785,7 +801,7 @@ static int Propertysheet_add_state(lua_State *L)
   return 0;
 }
 
-static int Propertysheet_add_transition(lua_State *L)
+static int propertysheet_add_transition(lua_State *L)
 {
   Tslua_propertysheet *sheet = propertysheet_check(L);
   if (!sheet) {
@@ -795,9 +811,9 @@ static int Propertysheet_add_transition(lua_State *L)
   int state_id = lua_tointeger(L, 2);
   int kind_id = lua_tointeger(L, 3);
   int next_state_id = lua_tointeger(L, 4);
-  int child_index = lua_tointeger(L, 5);
+  int child_index = lua_isnil(L, 5) ? -1 : lua_tointeger(L, 5);
 
-  if (state_id > sheet->n_states) {
+  if (state_id >= sheet->n_states || kind_id >= sheet->n_kinds) {
     lua_pushstring(L, "out of bounds!!");
     return lua_error(L);
   }

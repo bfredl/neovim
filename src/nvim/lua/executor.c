@@ -642,20 +642,13 @@ static int create_tslua_parser(lua_State *L)
 
 static int create_tslua_propertysheet(lua_State *L)
 {
-  TSLanguage *tree_sitter_c(void), *tree_sitter_javascript(void);
-
   if (lua_gettop(L) < 2) {
     return 0;
   }
   int n_states = lua_tointeger(L,1);
   int n_kinds = lua_tointeger(L,2);
-  char *str = lua_tostring(L,1);
 
-  TSLanguage *lang = tree_sitter_c();
-  if (str && striequal(str, "javascript")) {
-    lang = tree_sitter_javascript();
-  }
-  tslua_push_parser(L, lang);
+  tslua_push_propertysheet(L, n_states, n_kinds);
   return 1;
 }
 static void nlua_add_treesitter(lua_State *const lstate) FUNC_ATTR_NONNULL_ALL
@@ -664,4 +657,7 @@ static void nlua_add_treesitter(lua_State *const lstate) FUNC_ATTR_NONNULL_ALL
 
   lua_pushcfunction(lstate, create_tslua_parser);
   lua_setfield(lstate, -2, "ts_parser");
+
+  lua_pushcfunction(lstate, create_tslua_propertysheet);
+  lua_setfield(lstate, -2, "ts_propertysheet");
 }

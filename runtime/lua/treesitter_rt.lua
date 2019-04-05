@@ -7,9 +7,13 @@ end
 local my_ns = __treesitter_rt_ns
 local my_syn_ns = __treesitter_rt_syn_ns
 
+if false then
+a = vim.api
 local path = '.deps/build/src/treesitter-javascript/src/highlights.json'
 a.nvim_set_var("_ts_path", path)
 obj = a.nvim_eval("json_decode(readfile(g:_ts_path,'b'))")
+for k in pairs(obj) do print(k) end
+obj.property_sets[2]
 
 states = obj.states
 s = states[1]
@@ -18,7 +22,8 @@ for k in pairs(s) do print(k) end
 t = s.transitions[2]
 for k in pairs(t) do print(k) end
 
-symbs = theparser.parser:symbols()
+parser = vim.ts_parser("javascript")
+symbs = parser:symbols()
 named = {}
 anonymous = {}
 for i, symb in pairs(symbs) do
@@ -28,8 +33,27 @@ for i, symb in pairs(symbs) do
     anonymous[symb[1]] = i
   end
 end
---anonymous
+lut = {[true]=named, [false]=anonymous}
 
+sheet = vim.ts_propertysheet(#states, #symbs)
+for _, s in pairs(states) do
+    local id = s.id
+    sheet:add_state(id, s.default_next_state_id, s.property_set_id)
+    for _,t in pairs(s.transitions) do
+      if t.text == nil then
+          local kind = lut[t.named][t.type]
+          sheet:add_transition(id, kind, t.state_id, t.index)
+      end
+    end
+end
+sheet
+
+scopes = {}
+for i,prop in ipairs(obj.property_sets) do
+  scopes[i-1] = prop.scope
+end
+
+end
 
 --luadev = require'luadev'
 --i = require'inspect'
