@@ -36,7 +36,7 @@ typedef struct {
 
 typedef struct  {
   int default_next_state_id;
-  int property_set_id;
+  int property_id;
   kvec_t(KindTransition) kind_trans;
   int *kind_first_trans;
 } PropertyState;
@@ -52,6 +52,8 @@ typedef struct {
   Tslua_propertysheet *sheet;
   int state_id[32];
   int child_index[32];
+  int level;
+  //Buffer source;
 } Tslua_cursor;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -514,30 +516,27 @@ static int node_to_cursor(lua_State *L)
   if (!node_check(L, &node)) {
     return 0;
   }
-  push_cursor(L, node);
-  return 1;
-}
+  Tslua_propertysheet *sheet = NULL;
+
+  if (lua_gettop(L) >= 2) {
+    if (!lua_isuserdata(L, 2)) {
+      return 0;
+    }
+    // TODO: typecheck!
+    sheet = lua_touserdata(L, 2);
+  }
 
 
-
-// Cursor functions
-
-/// push cursor interface on lua stack, with node as starting point
-///
-/// top of stack must either be the this node or tree this node belongs to,
-/// or another node of the same tree! This value is not popped.
-/// Can only be called inside a cfunction with the tslua environment.
-static void push_cursor(lua_State *L, TSNode node)
-{
   if (ts_node_is_null(node)) {
     lua_pushnil(L); // [src, nil]
-    return;
+    return 1;
   }
-  TSTreeCursor *ud = lua_newuserdata(L, sizeof(TSTreeCursor));  // [src, udata]
-  *ud = ts_tree_cursor_new(node);
+  Tslua_cursor *ud = lua_newuserdata(L, sizeof(Tslua_cursor));  // [src, udata]
+  ud->cursor = ts_tree_cursor_new(node);
+  ud->sheet = sheet; // TODO: GC ref for sheet!
   lua_getfield(L, LUA_ENVIRONINDEX, "cursor-meta");  // [src, udata, meta]
   lua_setmetatable(L, -2);  // [src, udata]
-  lua_getfenv(L, -2);  // [src, udata, reftable]
+  lua_getfenv(L, 1);  // [src, udata, reftable]
   lua_setfenv(L, -2);  // [src, udata]
 }
 
@@ -585,6 +584,72 @@ static int cursor_tostring(lua_State *L)
   return 1;
 }
 
+static int cursor_next_state(Tslua_cursor *c, int child_index)
+{
+  int state_id = c->state_id[c->level];
+  PropertyState *s = &c->sheet->states[state_id];
+  TSNode current = ts_tree_cursor_current_node(&c->cursor);
+  int kind_id = (int)ts_node_symbol(current);
+
+  int i = s->kind_first_trans[kind_id];
+  if (i == -1) {
+    return s->default_next_state_id;
+  }
+
+  for (; i < (int)kv_size(s->kind_trans); i++) {
+    KindTransition *t = &kv_A(s->kind_trans, i);
+    if (t->kind_id != kind_id) {
+      break;
+    }
+
+    //if (t->regex_id) {
+    //}
+
+    if (t->child_index >= 0 && t->child_index != child_index) {
+      continue;
+    }
+    return t->next_state_id;
+  }
+
+  return s->default_next_state_id;
+}
+
+static bool cursor_goto_first_child(Tslua_cursor *c)
+{
+  if (!ts_tree_cursor_goto_first_child(&c->cursor)) {
+    return false;
+  }
+  if (c->sheet) {
+    int next_state = cursor_next_state(c, 0);
+    c->level++;
+    c->state_id[c->level] = next_state;
+    c->child_index[c->level] = 0;
+  }
+  return true;
+}
+
+static bool cursor_goto_next_sibling(Tslua_cursor *c)
+{
+  if (!ts_tree_cursor_goto_next_sibling(&c->cursor)) {
+    return false;
+  }
+  if (c->sheet) {
+    int next_state = cursor_next_state(c, c->child_index[c->level]);
+    c->state_id[c->level] = next_state;
+    c->child_index[c->level]++;
+  }
+}
+
+static bool cursor_goto_parent(Tslua_cursor *c)
+{
+  if (!ts_tree_cursor_goto_parent(&c->cursor)) {
+    return false;
+  }
+  if (c->sheet) {
+    c->level--;
+  }
+}
+
 static int cursor_forward(lua_State *L)
 {
   Tslua_cursor *c = cursor_check(L);
@@ -596,25 +661,45 @@ static int cursor_forward(lua_State *L)
   bool status = false;
 
   int narg = lua_gettop(L);
+  uint32_t byte_index = 0;
   if (narg >= 1) {
-    uint32_t byte_index = (uint32_t)lua_tointeger(L, 2);
-    status = ts_tree_cursor_goto_first_child_for_byte(cursor, byte_index) != -1;
-  } else {
-    status = ts_tree_cursor_goto_first_child(cursor);
+    byte_index = (uint32_t)lua_tointeger(L, 2);
   }
+
+  //status = ts_tree_cursor_goto_first_child_for_byte(cursor, byte_index) != -1;
+  status = cursor_goto_first_child(c);
+
   if (status) {
+    if (byte_index > 0) {
+      while (true) {
+        TSNode node = ts_tree_cursor_current_node(cursor);
+        if (ts_node_end_byte(node) >= byte_index) {
+          break;
+        }
+        // TODO: for a compound node like statement-list, where highlighting
+        // of each element doesn't depend on previous siblins, this is inefficient
+        // internal ts_tree_cursor_goto_first_child_for_byte uses binary search.
+        if(!cursor_goto_next_sibling(c)) {
+          // if the parent node was in range, we expect some child node to be
+          lua_pushstring(L, "UNEXPECTED STATE");
+          return lua_error(L);
+        }
+      }
+
+    }
+
     goto ret;
   }
 
   while (true) {
-    status = ts_tree_cursor_goto_next_sibling(cursor);
+    status = cursor_goto_next_sibling(c);
     if (status) {
       break;
     }
 
     // Current node was last a child, look for sibling on higher
     // level
-    status = ts_tree_cursor_goto_parent(cursor);
+    status = cursor_goto_parent(c);
     if (!status) { // past end of root node
       break;
     }
@@ -623,7 +708,12 @@ static int cursor_forward(lua_State *L)
 ret:
   if (status) {
     push_node(L, ts_tree_cursor_current_node(cursor));
-    return 1;
+    if (c->sheet) {
+      lua_pushnumber(L, c->sheet->states[c->state_id[c->level]].property_id);
+      return 2;
+    } else {
+      return 1;
+    }
   } else {
     return 0;
   }
@@ -680,7 +770,7 @@ static int Propertysheet_add_state(lua_State *L)
 
   int state_id = lua_tointeger(L, 2);
   int default_next_id = lua_tointeger(L, 3);
-  int property_set_id = lua_tointeger(L, 4);
+  int property_id = lua_tointeger(L, 4);
 
   if (state_id >= sheet->n_states) {
     lua_pushstring(L, "out of bounds");
@@ -690,7 +780,7 @@ static int Propertysheet_add_state(lua_State *L)
   PropertyState *state = &sheet->states[state_id];
 
   state->default_next_state_id = default_next_id;
-  state->property_set_id = property_set_id;
+  state->property_id = property_id;
 
   return 0;
 }
