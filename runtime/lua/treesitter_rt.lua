@@ -13,7 +13,7 @@ local path = '.deps/build/src/treesitter-javascript/src/highlights.json'
 a.nvim_set_var("_ts_path", path)
 obj = a.nvim_eval("json_decode(readfile(g:_ts_path,'b'))")
 for k in pairs(obj) do print(k) end
-obj.property_sets[2]
+--obj.property_sets[2]
 
 states = obj.states
 s = states[1]
@@ -46,12 +46,12 @@ for _, s in pairs(states) do
       end
     end
 end
-sheet
 
-scopes = {}
+scope = {}
 for i,prop in ipairs(obj.property_sets) do
-  scopes[i-1] = prop.scope
+  scope[i-1] = prop.scope
 end
+
 
 end
 
@@ -132,13 +132,36 @@ function ts_inspect_pos(row,col)
   show_node(node)
 end
 
-function show_node(node)
+function ts_inspect2(row,col)
+  local tree = parse_tree(theparser)
+  icursor = tree:root():to_cursor(sheet)
+  local startbyte = a.nvim_buf_get_offset(theparser.bufnr, row)
+  ipos = startbyte+col+1
+  ii = 0
+  repeat
+    node, propid = icursor:forward(ipos)
+    r,c, start_byte = node:start()
+    ii = ii + 1
+  until propid > 0 or start_byte > ipos
+  show_node(node,true)
+  print(ii, scope[propid], node:type())
+end
+
+function ts_iforward()
+  node, propid = icursor:forward(ipos)
+  show_node(node,true)
+  print(node:type(), scope[propid])
+end
+
+function show_node(node,subtle)
   if node == nil then
     return
   end
   a.nvim_buf_clear_highlight(0, my_ns, 0, -1)
   shown_node = node
-  print(node:type())
+  if not subtle then
+    print(node:type())
+  end
   local start_row, start_col, end_row, end_col = node:range()
 
   a.nvim_buf_add_highlight(0, my_ns, "ErrorMsg", start_row, start_col, start_col+1)
@@ -159,7 +182,8 @@ end
 
 function ts_cursor()
   local row, col = unpack(a.nvim_win_get_cursor(0))
-  ts_inspect_pos(row-1, col)
+  --ts_inspect_pos(row-1, col)
+  ts_inspect2(row-1, col)
 end
 
 hl_map = {

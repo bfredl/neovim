@@ -82,6 +82,7 @@ static struct luaL_Reg node_meta[] = {
   {"__len", node_child_count},
   {"range", node_range},
   {"start", node_start},
+  {"end_byte", node_end_byte},
   {"type", node_type},
   {"symbol", node_symbol},
   {"child_count", node_child_count},
@@ -440,6 +441,17 @@ static int node_start(lua_State *L)
   return 3;
 }
 
+static int node_end_byte(lua_State *L)
+{
+  TSNode node;
+  if (!node_check(L, &node)) {
+    return 0;
+  }
+  uint32_t end_byte = ts_node_end_byte(node);
+  lua_pushnumber(L, end_byte);
+  return 1;
+}
+
 static int node_child_count(lua_State *L)
 {
   TSNode node;
@@ -585,9 +597,10 @@ static int cursor_tostring(lua_State *L)
   return 1;
 }
 
-static int cursor_next_state(Tslua_cursor *c, int child_index)
+static int cursor_next_state(Tslua_cursor *c)
 {
-  int state_id = c->state_id[c->level];
+  int state_id = c->state_id[c->level-1];
+  int child_index = c->child_index[c->level];
   PropertyState *s = &c->sheet->states[state_id];
   TSNode current = ts_tree_cursor_current_node(&c->cursor);
   int kind_id = (int)ts_node_symbol(current);
@@ -621,10 +634,9 @@ static bool cursor_goto_first_child(Tslua_cursor *c)
     return false;
   }
   if (c->sheet) {
-    int next_state = cursor_next_state(c, 0);
     c->level++;
-    c->state_id[c->level] = next_state;
     c->child_index[c->level] = 0;
+    c->state_id[c->level] = cursor_next_state(c);
   }
   return true;
 }
@@ -635,9 +647,9 @@ static bool cursor_goto_next_sibling(Tslua_cursor *c)
     return false;
   }
   if (c->sheet) {
-    int next_state = cursor_next_state(c, c->child_index[c->level]);
-    c->state_id[c->level] = next_state;
     c->child_index[c->level]++;
+    int next_state = cursor_next_state(c);
+    c->state_id[c->level] = next_state;
   }
   return true;
 }
@@ -669,6 +681,12 @@ static int cursor_forward(lua_State *L)
     byte_index = (uint32_t)lua_tointeger(L, 2);
   }
 
+  if (c->sheet && c->level >= 31) {
+    lua_pushstring(L,"DEPTH EXCEEDED");
+    return lua_error(L);
+  }
+
+  // TODO: use this and use child index from cursor
   //status = ts_tree_cursor_goto_first_child_for_byte(cursor, byte_index) != -1;
   status = cursor_goto_first_child(c);
 
