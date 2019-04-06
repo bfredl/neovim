@@ -704,8 +704,9 @@ static int cursor_forward(lua_State *L)
           break;
         }
         // TODO: for a compound node like statement-list, where highlighting
-        // of each element doesn't depend on previous siblins, this is inefficient
+        // of each element doesn't depend on previous siblings, this is inefficient
         // internal ts_tree_cursor_goto_first_child_for_byte uses binary search.
+        // we could check what states doesn't have child_index rules.
         if(!cursor_goto_next_sibling(c)) {
           // if the parent node was in range, we expect some child node to be
           lua_pushstring(L, "UNEXPECTED STATE");

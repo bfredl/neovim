@@ -27,11 +27,21 @@ function js_sheet()
   named = {}
   anonymous = {}
   for i, symb in pairs(symbs) do
+    local dict
     if symb[2] == "named" then
-      named[symb[1]] = i
+      dict = named
+      --named[symb[1]] = i
     elseif symb[2] == "anonymous" then
-      anonymous[symb[1]] = i
+      dict = anonymous
+      --anonymous[symb[1]] = i
+    else
+      dict = {} -- SKRAPET
     end
+    -- TODO: duplicate symbols might be a bug
+    if dict[symb[1]] == nil then
+      dict[symb[1]] = {}
+    end
+    table.insert(dict[symb[1]], i)
   end
   lut = {[true]=named, [false]=anonymous}
 
@@ -41,8 +51,10 @@ function js_sheet()
       sheet:add_state(id, s.default_next_state_id, s.property_set_id)
       for _,t in pairs(s.transitions) do
         if t.text == nil then
-            local kind = lut[t.named][t.type]
-            sheet:add_transition(id, kind, t.state_id, t.index)
+            local kinds = lut[t.named][t.type]
+            for _,kind in ipairs(kinds) do
+              sheet:add_transition(id, kind, t.state_id, t.index)
+            end
         end
       end
   end
@@ -223,6 +235,16 @@ for k,v in pairs(hl_map) do
   id_map[k] = a.nvim__syn_attr(v)
 end
 
+scope_map = {}
+id_scope_map = {}
+for i,s in pairs(scope) do
+  if hl_scope_map[s] then
+    scope_map[i] = hl_scope_map[s]
+    id_scope_map[i] = a.nvim__syn_attr(hl_scope_map[s])
+  end
+end
+
+
 function ts_line(line,endl,drawing)
   if endl == nil then endl = line+1 end
   if not drawing then
@@ -230,16 +252,24 @@ function ts_line(line,endl,drawing)
   end
   tree = parse_tree(theparser)
   local root = tree:root()
-  local cursor = root:to_cursor()
+  local cursor = root:to_cursor(sheet)
+  print(cursor)
   local startbyte = a.nvim_buf_get_offset(theparser.bufnr, line)
   local node = root
   local continue = true
-  local i = 500
+  local i = 800
+  local nscope = 0
   while continue do
     --print(inspect_node(node))
-    local name = node:type()
-    local map = (drawing and id_map) or hl_map
-    local hl = map[name]
+    if true then
+      print(nscope)
+      local map = (drawing and id_scope_map) or scope_map
+      hl = map[nscope]
+    else
+      local name = node:type()
+      local map = (drawing and id_map) or hl_map
+      local hl = map[name]
+    end
     local start_row, start_col, end_row, end_col = node:range()
     if hl then
       if not drawing then
@@ -259,7 +289,7 @@ function ts_line(line,endl,drawing)
     if start_row >= endl then
       continue = false
     end
-    node = cursor:forward(startbyte)
+    node, nscope = cursor:forward(startbyte)
     if node == nil then
       continue = false
     end
@@ -272,7 +302,7 @@ function ts_line(line,endl,drawing)
 end
 
 if false then
-  ts_line(0,500)
+  ts_line(0,800)
 end
 
 
