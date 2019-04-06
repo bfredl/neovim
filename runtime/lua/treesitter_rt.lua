@@ -1,3 +1,4 @@
+_G.a = vim.api
 local a = vim.api
 
 if __treesitter_rt_ns == nil then
@@ -7,53 +8,52 @@ end
 local my_ns = __treesitter_rt_ns
 local my_syn_ns = __treesitter_rt_syn_ns
 
-if false then
-a = vim.api
-local path = '.deps/build/src/treesitter-javascript/src/highlights.json'
-a.nvim_set_var("_ts_path", path)
-obj = a.nvim_eval("json_decode(readfile(g:_ts_path,'b'))")
-for k in pairs(obj) do print(k) end
---obj.property_sets[2]
+function js_sheet()
+  local path = '.deps/build/src/treesitter-javascript/src/highlights.json'
+  a.nvim_set_var("_ts_path", path)
+  local obj = a.nvim_eval("json_decode(readfile(g:_ts_path,'b'))")
+  for k in pairs(obj) do print(k) end
+  --obj.property_sets[2]
 
-states = obj.states
-s = states[1]
-for k in pairs(s) do print(k) end
+  states = obj.states
+  s = states[1]
+  for k in pairs(s) do print(k) end
 
-t = s.transitions[2]
-for k in pairs(t) do print(k) end
+  t = s.transitions[2]
+  for k in pairs(t) do print(k) end
 
-parser = vim.ts_parser("javascript")
-symbs = parser:symbols()
-named = {}
-anonymous = {}
-for i, symb in pairs(symbs) do
-  if symb[2] == "named" then
-    named[symb[1]] = i
-  elseif symb[2] == "anonymous" then
-    anonymous[symb[1]] = i
-  end
-end
-lut = {[true]=named, [false]=anonymous}
-
-sheet = vim.ts_propertysheet(#states, #symbs)
-for _, s in pairs(states) do
-    local id = s.id
-    sheet:add_state(id, s.default_next_state_id, s.property_set_id)
-    for _,t in pairs(s.transitions) do
-      if t.text == nil then
-          local kind = lut[t.named][t.type]
-          sheet:add_transition(id, kind, t.state_id, t.index)
-      end
+  parser = vim.ts_parser("javascript")
+  symbs = parser:symbols()
+  named = {}
+  anonymous = {}
+  for i, symb in pairs(symbs) do
+    if symb[2] == "named" then
+      named[symb[1]] = i
+    elseif symb[2] == "anonymous" then
+      anonymous[symb[1]] = i
     end
-end
+  end
+  lut = {[true]=named, [false]=anonymous}
 
-scope = {}
-for i,prop in ipairs(obj.property_sets) do
-  scope[i-1] = prop.scope
-end
+  local sheet = vim.ts_propertysheet(#states, #symbs)
+  for _, s in pairs(states) do
+      local id = s.id
+      sheet:add_state(id, s.default_next_state_id, s.property_set_id)
+      for _,t in pairs(s.transitions) do
+        if t.text == nil then
+            local kind = lut[t.named][t.type]
+            sheet:add_transition(id, kind, t.state_id, t.index)
+        end
+      end
+  end
 
-
+  scope = {}
+  for i,prop in ipairs(obj.property_sets) do
+    scope[i-1] = prop.scope
+  end
+  return sheet
 end
+print(lut[true]['identifier'])
 
 --luadev = require'luadev'
 --i = require'inspect'
@@ -132,6 +132,7 @@ function ts_inspect_pos(row,col)
   show_node(node)
 end
 
+sheet = js_sheet()
 function ts_inspect2(row,col)
   local tree = parse_tree(theparser)
   icursor = tree:root():to_cursor(sheet)
@@ -206,6 +207,15 @@ hl_map = {
   ["#ifdef"]="PreProc",
   ["#else"]="PreProc",
   ["#endif"]="PreProc",
+}
+
+hl_scope_map = {
+  constant='Constant',
+  number='Number',
+  keyword='Statement',
+  string='String',
+  escape='Special',
+  ['function']='Identifier',
 }
 
 id_map = {}

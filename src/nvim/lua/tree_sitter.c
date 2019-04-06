@@ -98,6 +98,7 @@ static struct luaL_Reg cursor_meta[] = {
   {"__tostring", cursor_tostring},
   //{"node", cursor_node},
   {"forward", cursor_forward},
+  {"debug", cursor_debug},
   {NULL, NULL}
 };
 
@@ -543,9 +544,15 @@ static int node_to_cursor(lua_State *L)
     lua_pushnil(L); // [src, nil]
     return 1;
   }
-  Tslua_cursor *ud = lua_newuserdata(L, sizeof(Tslua_cursor));  // [src, udata]
-  ud->cursor = ts_tree_cursor_new(node);
-  ud->sheet = sheet; // TODO: GC ref for sheet!
+  Tslua_cursor *c = lua_newuserdata(L, sizeof(Tslua_cursor));  // [src, udata]
+  c->cursor = ts_tree_cursor_new(node);
+  c->sheet = sheet; // TODO: GC ref for sheet!
+  if (c->sheet) {
+    c->state_id[0] = 0;
+    c->level = 1;
+    c->child_index[c->level] = 0;
+    c->state_id[c->level] = cursor_next_state(c);
+  }
   lua_getfield(L, LUA_ENVIRONINDEX, "cursor-meta");  // [src, udata, meta]
   lua_setmetatable(L, -2);  // [src, udata]
   lua_getfenv(L, 1);  // [src, udata, reftable]
@@ -648,8 +655,7 @@ static bool cursor_goto_next_sibling(Tslua_cursor *c)
   }
   if (c->sheet) {
     c->child_index[c->level]++;
-    int next_state = cursor_next_state(c);
-    c->state_id[c->level] = next_state;
+    c->state_id[c->level] = cursor_next_state(c);
   }
   return true;
 }
@@ -723,7 +729,7 @@ static int cursor_forward(lua_State *L)
     status = cursor_goto_parent(c);
     if (!status) { // past end of root node
       break;
-    }
+    } 
   }
 
 ret:
@@ -738,6 +744,21 @@ ret:
   } else {
     return 0;
   }
+}
+
+static int cursor_debug(lua_State *L)
+{
+  Tslua_cursor *c = cursor_check(L);
+  if (!c) {
+    return 0;
+  }
+
+  lua_createtable(L, 0, 0);
+  for (int i = 0; i <= c->level; i++) {
+    lua_pushinteger(L, c->state_id[i]);
+    lua_rawseti(L, -2, i);
+  }
+  return 1;
 }
 
 // Propertysheet functions
