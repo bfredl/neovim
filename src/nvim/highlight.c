@@ -145,6 +145,11 @@ int hl_get_ui_attr(int idx, int final_id, bool optional)
     attrs = syn_attr2entry(syn_attr);
     available = true;
   }
+
+  if (attrs.hl_blend == -1 && HLF_PNI <= idx && idx <= HLF_PST && p_pb > 0) {
+    attrs.hl_blend = (int)p_pb;
+  }
+
   if (optional && !available) {
     return 0;
   }
@@ -240,6 +245,7 @@ void hl_invalidate_blends(void)
 {
   map_clear(int, int)(blend_attr_entries);
   map_clear(int, int)(blendthrough_attr_entries);
+  highlight_changed();
 }
 
 // Combine special attributes (e.g., for spelling) with other attributes
@@ -292,6 +298,10 @@ int hl_combine_attr(int char_attr, int prim_attr)
     new_en.rgb_sp_color = spell_aep.rgb_sp_color;
   }
 
+  if (spell_aep.hl_blend >= 0) {
+    new_en.hl_blend = spell_aep.hl_blend;
+  }
+
   id = get_attr_entry((HlEntry){ .attr = new_en, .kind = kHlCombine,
                                  .id1 = char_attr, .id2 = prim_attr });
   if (id > 0) {
@@ -336,50 +346,57 @@ static HlAttrs get_colors_force(int attr)
 /// This is called per-cell, so cache the result.
 ///
 /// @return the resulting attributes.
-int hl_blend_attrs(int back_attr, int front_attr, bool through)
+int hl_blend_attrs(int back_attr, int front_attr, bool *through)
 {
+  HlAttrs fattrs = get_colors_force(front_attr);
+  int ratio = fattrs.hl_blend;
+  if (ratio <= 0) {
+    *through = false;
+    return front_attr;
+  }
+
   int combine_tag = (back_attr << 16) + front_attr;
-  Map(int, int) *map = through ? blendthrough_attr_entries : blend_attr_entries;
+  Map(int, int) *map = *through ? blendthrough_attr_entries : blend_attr_entries;
   int id = map_get(int, int)(map, combine_tag);
   if (id > 0) {
     return id;
   }
 
   HlAttrs battrs = get_colors_force(back_attr);
-  HlAttrs fattrs = get_colors_force(front_attr);
   HlAttrs cattrs;
-  if (through) {
+
+  if (*through) {
     cattrs = battrs;
-    cattrs.rgb_fg_color = rgb_blend((int)p_pb, battrs.rgb_fg_color,
+    cattrs.rgb_fg_color = rgb_blend(ratio, battrs.rgb_fg_color,
                                     fattrs.rgb_bg_color);
     if (cattrs.rgb_ae_attr & (HL_UNDERLINE|HL_UNDERCURL)) {
-      cattrs.rgb_sp_color = rgb_blend((int)p_pb, battrs.rgb_sp_color,
+      cattrs.rgb_sp_color = rgb_blend(ratio, battrs.rgb_sp_color,
                                       fattrs.rgb_bg_color);
     } else {
       cattrs.rgb_sp_color = -1;
     }
 
     cattrs.cterm_bg_color = fattrs.cterm_bg_color;
-    cattrs.cterm_fg_color = cterm_blend((int)p_pb, battrs.cterm_fg_color,
+    cattrs.cterm_fg_color = cterm_blend(ratio, battrs.cterm_fg_color,
                                         fattrs.cterm_bg_color);
   } else {
     cattrs = fattrs;
-    if (p_pb >= 50) {
+    if (ratio >= 50) {
       cattrs.rgb_ae_attr |= battrs.rgb_ae_attr;
     }
-    cattrs.rgb_fg_color = rgb_blend((int)p_pb/2, battrs.rgb_fg_color,
+    cattrs.rgb_fg_color = rgb_blend(ratio/2, battrs.rgb_fg_color,
                                     fattrs.rgb_fg_color);
     if (cattrs.rgb_ae_attr & (HL_UNDERLINE|HL_UNDERCURL)) {
-      cattrs.rgb_sp_color = rgb_blend((int)p_pb/2, battrs.rgb_bg_color,
+      cattrs.rgb_sp_color = rgb_blend(ratio/2, battrs.rgb_bg_color,
                                       fattrs.rgb_sp_color);
     } else {
       cattrs.rgb_sp_color = -1;
     }
   }
-  cattrs.rgb_bg_color = rgb_blend((int)p_pb, battrs.rgb_bg_color,
+  cattrs.rgb_bg_color = rgb_blend(ratio, battrs.rgb_bg_color,
                                   fattrs.rgb_bg_color);
 
-  HlKind kind = through ? kHlBlendThrough : kHlBlend;
+  HlKind kind = *through ? kHlBlendThrough : kHlBlend;
   id = get_attr_entry((HlEntry){ .attr = cattrs, .kind = kind,
                                  .id1 = back_attr, .id2 = front_attr });
   if (id > 0) {

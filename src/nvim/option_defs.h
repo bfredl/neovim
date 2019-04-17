@@ -813,6 +813,7 @@ enum {
   , WV_WINHL
   , WV_FCS
   , WV_LCS
+  , WV_FB
   , WV_COUNT        // must be the last one
 };
 

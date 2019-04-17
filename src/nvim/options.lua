@@ -820,6 +820,12 @@ return {
       defaults={if_true={vi=true}}
     },
     {
+      full_name='floatblend', abbreviation='fb',
+      type='bool', scope={'window'},
+      vi_def=true,
+      defaults={if_true={vi=false}}
+    },
+    {
       full_name='foldclose', abbreviation='fcl',
       type='string', list='onecomma', scope={'global'},
       deny_duplicates=true,
