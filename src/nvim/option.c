@@ -3833,12 +3833,6 @@ static char *set_bool_option(const int opt_idx, char_u *const varp,
   } else if ((int *)varp == &curwin->w_p_cul && !value && old_value) {
     // 'cursorline'
     reset_cursorline();
-  } else if ((int *)varp == &curwin->w_p_fb && value != old_value) {
-    curwin->w_grid.blending = value;
-    if (curwin->w_grid.comp_index != 0) {
-      ui_comp_compose_grid(&curwin->w_grid);
-    }
-
   // 'undofile'
   } else if ((int *)varp == &curbuf->b_p_udf || (int *)varp == &p_udf) {
     // Only take action when the option was set. When reset we do not
@@ -4398,6 +4392,11 @@ static char *set_num_option(int opt_idx, char_u *varp, long value,
     }
   } else if (pp == &curwin->w_p_nuw) {
     curwin->w_nrwidth_line_count = 0;
+  } else if (pp == &curwin->w_p_fb && value != old_value) {
+    // 'floatblend'
+    curwin->w_p_fb = MAX(MIN(curwin->w_p_fb, 100), 0);
+    curwin->w_hl_needs_update = true;
+    curwin->w_grid.blending = curwin->w_p_fb > 0;
   }
 
 
@@ -5835,8 +5834,8 @@ void didset_window_options(win_T *wp)
   briopt_check(wp);
   set_chars_option(wp, &wp->w_p_fcs);
   set_chars_option(wp, &wp->w_p_lcs);
-  parse_winhl_opt(wp);
-  wp->w_grid.blending = wp->w_p_fb;
+  parse_winhl_opt(wp);  // sets w_hl_needs_update also for w_p_fb
+  wp->w_grid.blending = wp->w_p_fb > 0;
 }
 
 

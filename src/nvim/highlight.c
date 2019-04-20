@@ -164,18 +164,32 @@ void update_window_hl(win_T *wp, bool invalid)
   }
   wp->w_hl_needs_update = false;
 
+  // If a floating window is blending it always have a named
+  // wp->w_hl_attr_normal group. HL_ATTR(HLF_NFLOAT) is always named.
+  bool has_blend = wp->w_floating && wp->w_p_fb != 0;
+
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
   if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] > 0) {
     wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE,
-                                          wp->w_hl_ids[HLF_INACTIVE], true);
+                                          wp->w_hl_ids[HLF_INACTIVE], !has_blend);
   } else if (float_win && wp->w_hl_ids[HLF_NFLOAT] > 0) {
     wp->w_hl_attr_normal = hl_get_ui_attr(HLF_NFLOAT,
-                                          wp->w_hl_ids[HLF_NFLOAT], true);
+    // 'cursorline'
+                                          wp->w_hl_ids[HLF_NFLOAT], !has_blend);
   } else if (wp->w_hl_id_normal > 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, true);
+    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, !has_blend);
   } else {
     wp->w_hl_attr_normal = float_win ? HL_ATTR(HLF_NFLOAT) : 0;
+  }
+
+  // if blend= attribute is not set, 'floatblend' value overrides it.
+  if (wp->w_floating && wp->w_p_fb > 0) {
+    HlEntry entry = kv_A(attr_entries, wp->w_hl_attr_normal);
+    if (entry.attr.hl_blend == -1) {
+      entry.attr.hl_blend = (int)wp->w_p_fb;
+      wp->w_hl_attr_normal = get_attr_entry(entry);
+    }
   }
 
   if (wp != curwin) {

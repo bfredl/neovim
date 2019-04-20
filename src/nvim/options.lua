@@ -821,8 +821,9 @@ return {
     },
     {
       full_name='floatblend', abbreviation='fb',
-      type='bool', scope={'window'},
+      type='number', scope={'window'},
       vi_def=true,
+      redraw={'current_window'},
       defaults={if_true={vi=false}}
     },
     {

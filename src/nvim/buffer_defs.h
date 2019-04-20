@@ -252,7 +252,7 @@ typedef struct {
 # define w_p_fcs w_onebuf_opt.wo_fcs    // 'fillchars'
   char_u *wo_lcs;
 # define w_p_lcs w_onebuf_opt.wo_lcs    // 'listchars'
-  int wo_fb;
+  long wo_fb;
 # define w_p_fb w_onebuf_opt.wo_fb    // 'floatblend'
 
   LastSet wo_scriptID[WV_COUNT];        // SIDs for window-local options
