@@ -1941,8 +1941,8 @@ static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T
     }
   }
 
-  grid_put_linebuf(&wp->w_grid, row, 0, wp->w_grid.Columns, wp->w_grid.Columns,
-                   false, wp, wp->w_hl_attr_normal, false);
+  win_put_linebuf(wp, row, 0, wp->w_grid.Columns, wp->w_grid.Columns,
+                  false, false);
 
   /*
    * Update w_cline_height and w_cline_folded if the cursor line was
@@ -2131,6 +2131,7 @@ win_line (
   int need_showbreak = false;           // overlong line, skip first x chars
   int line_attr = 0;                    // attribute for the whole line
   int line_attr_lowprio = 0;            // low-priority attribute for the line
+  bool cul_blend = false;        // cursorline is implemented by blending
   matchitem_T *cur;                     // points to the match list
   match_T     *shl;                     // points to search_hl or a match
   int shl_flag;                         // flag to indicate whether search_hl
@@ -2375,7 +2376,9 @@ win_line (
       // We make a compromise here (#7383):
       //  * low-priority CursorLine if fg is not set
       //  * high-priority ("same as Vim" priority) CursorLine if fg is set
-      if (ae.rgb_fg_color == -1 && ae.cterm_fg_color == 0) {
+      if (ae.hl_blend > 0) {
+        cul_blend = true;
+      } else if (ae.rgb_fg_color == -1 && ae.cterm_fg_color == 0) {
         line_attr_lowprio = cul_attr;
       } else {
         if (!(State & INSERT) && bt_quickfix(wp->w_buffer)
@@ -2806,7 +2809,7 @@ win_line (
 
           if (diff_hlf != (hlf_T)0) {
             char_attr = win_hl_attr(wp, diff_hlf);
-            if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+            if (wp->w_p_cul && lnum == wp->w_cursor.lnum && !cul_blend) {
               char_attr = hl_combine_attr(char_attr, win_hl_attr(wp, HLF_CUL));
             }
           }
@@ -2852,7 +2855,7 @@ win_line (
           if (tocol == vcol)
             tocol += n_extra;
           /* combine 'showbreak' with 'cursorline' */
-          if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+          if (wp->w_p_cul && lnum == wp->w_cursor.lnum && !cul_blend) {
             char_attr = hl_combine_attr(char_attr, win_hl_attr(wp, HLF_CUL));
           }
         }
@@ -2879,8 +2882,7 @@ win_line (
          && lnum == wp->w_cursor.lnum && vcol >= (long)wp->w_virtcol
          && filler_todo <= 0)
         || (number_only && draw_state > WL_NR)) {
-      grid_put_linebuf(grid, row, 0, col, -grid->Columns, wp->w_p_rl, wp,
-                       wp->w_hl_attr_normal, false);
+      win_put_linebuf(wp, row, 0, col, -grid->Columns, false, cul_blend);
       // Pretend we have finished updating the window.  Except when
       // 'cursorcolumn' is set.
       if (wp->w_p_cuc) {
@@ -3028,7 +3030,7 @@ win_line (
         }
         line_attr = win_hl_attr(wp, diff_hlf);
         // Overlay CursorLine onto diff-mode highlight.
-        if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+        if (wp->w_p_cul && lnum == wp->w_cursor.lnum && !cul_blend) {
           line_attr = 0 != line_attr_lowprio  // Low-priority CursorLine
             ? hl_combine_attr(hl_combine_attr(win_hl_attr(wp, HLF_CUL),
                                               line_attr),
@@ -3810,7 +3812,7 @@ win_line (
         }
 
         int eol_attr = char_attr;
-        if (wp->w_p_cul && lnum == wp->w_cursor.lnum) {
+        if (wp->w_p_cul && lnum == wp->w_cursor.lnum && !cul_blend) {
           eol_attr = hl_combine_attr(win_hl_attr(wp, HLF_CUL), eol_attr);
         }
         linebuf_attr[off] = eol_attr;
@@ -3962,8 +3964,8 @@ win_line (
           col++;
         }
       }
-      grid_put_linebuf(grid, row, 0, col, grid->Columns, wp->w_p_rl, wp,
-                       wp->w_hl_attr_normal, false);
+
+      win_put_linebuf(wp, row, 0, col, grid->Columns, false, cul_blend);
       row++;
 
       /*
@@ -4178,8 +4180,8 @@ win_line (
         && (grid->Columns == Columns  // Window spans the width of the screen,
             || ui_has(kUIMultigrid))  // or has dedicated grid.
         && !wp->w_p_rl;              // Not right-to-left.
-      grid_put_linebuf(grid, row, 0, col - boguscols, grid->Columns, wp->w_p_rl,
-                       wp, wp->w_hl_attr_normal, wrap);
+      win_put_linebuf(wp, row, 0, col - boguscols, grid->Columns,
+                      wrap, cul_blend);
       if (wrap) {
         ScreenGrid *current_grid = grid;
         int current_row = row, dummy_col = 0;  // dummy_col unused
@@ -4272,6 +4274,43 @@ void screen_adjust_grid(ScreenGrid **grid, int *row_off, int *col_off)
   }
 }
 
+/// redraw a grid line inside a window, taking care of window-level effects
+/// such like 'winhl' background and CursorLine blending
+static void win_put_linebuf(win_T *wp, int row, int coloff, int endcol,
+                            int clear_width, int wrap, bool cul_blend)
+{
+  int bg_attr = wp->w_hl_attr_normal;
+  int clear_attr = bg_attr;
+  if (bg_attr) {
+    for (int c = 0; c < endcol-coloff; c++) {
+      linebuf_attr[c] =
+        hl_combine_attr(bg_attr, linebuf_attr[c]);
+    }
+  }
+
+  int cul_attr = win_hl_attr(wp, HLF_CUL);
+  if (cul_blend) {
+    for (int c = win_col_off(wp) - coloff; c < endcol-coloff; c++) {
+      bool through = true;
+      linebuf_attr[c] =
+        hl_blend_attrs(linebuf_attr[c], cul_attr, &through);
+    }
+
+    bool through = true;
+    clear_attr = hl_blend_attrs(bg_attr, cul_attr, &through);
+  }
+
+  grid_put_linebuf(&wp->w_grid, row, coloff, endcol, clear_width,
+                   clear_attr, wp->w_p_rl, wrap);
+
+  if (clear_width > 0 || (wp->w_grid.chars == NULL && wp->w_width != Columns)) {
+    // If we cleared after the end of the line, it did not wrap.
+    // For vsplit, line wrapping is not possible.
+    default_grid.line_wraps[row] = false;
+  }
+
+}
+
 
 /*
  * Check whether the given character needs redrawing:
@@ -4304,8 +4343,8 @@ static int grid_char_needs_redraw(ScreenGrid *grid, int off_from, int off_to,
 /// If "wrap" is true, then hint to the UI that "row" contains a line
 /// which has wrapped into the next row.
 static void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol,
-                             int clear_width, int rlflag, win_T *wp,
-                             int bg_attr, bool wrap)
+                             int clear_width, int clear_attr, int rlflag,
+                             bool wrap)
 {
   unsigned off_from;
   unsigned off_to;
@@ -4340,27 +4379,20 @@ static void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol,
     if (clear_width > 0) {
       while (col <= endcol && grid->chars[off_to][0] == ' '
              && grid->chars[off_to][1] == NUL
-             && grid->attrs[off_to] == bg_attr
+             && grid->attrs[off_to] == clear_attr
              ) {
         ++off_to;
         ++col;
       }
       if (col <= endcol) {
         grid_fill(grid, row, row + 1, col + coloff, endcol + coloff + 1,
-                  ' ', ' ', bg_attr);
+                  ' ', ' ', clear_attr);
       }
     }
     col = endcol + 1;
     off_to = grid->line_offset[row] + col + coloff;
     off_from += col;
     endcol = (clear_width > 0 ? clear_width : -clear_width);
-  }
-
-  if (bg_attr) {
-    for (int c = col; c < endcol; c++) {
-      linebuf_attr[off_from+c] =
-        hl_combine_attr(bg_attr, linebuf_attr[off_from+c]);
-    }
   }
 
   redraw_next = grid_char_needs_redraw(grid, off_from, off_to, endcol - col);
@@ -4426,10 +4458,10 @@ static void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol,
     while (col < clear_width) {
       if (grid->chars[off_to][0] != ' '
           || grid->chars[off_to][1] != NUL
-          || grid->attrs[off_to] != bg_attr) {
+          || grid->attrs[off_to] != clear_attr) {
         grid->chars[off_to][0] = ' ';
         grid->chars[off_to][1] = NUL;
-        grid->attrs[off_to] = bg_attr;
+        grid->attrs[off_to] = clear_attr;
         if (start_dirty == -1) {
           start_dirty = col;
           end_dirty = col;
@@ -4443,12 +4475,6 @@ static void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol,
     }
   }
 
-  if (clear_width > 0 || wp->w_width != grid->Columns) {
-    // If we cleared after the end of the line, it did not wrap.
-    // For vsplit, line wrapping is not possible.
-    grid->line_wraps[row] = false;
-  }
-
   if (clear_end < end_dirty) {
     clear_end = end_dirty;
   }
@@ -4457,7 +4483,7 @@ static void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol,
   }
   if (clear_end > start_dirty) {
     ui_line(grid, row, coloff+start_dirty, coloff+end_dirty, coloff+clear_end,
-            bg_attr, wrap);
+            clear_attr, wrap);
   }
 }
 
