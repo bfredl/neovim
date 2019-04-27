@@ -20,6 +20,7 @@
 
 #include "nvim/lib/kvec.h"
 #include "nvim/lua/tree_sitter.h"
+#include "nvim/regexp.h"
 #include "nvim/buffer.h" // for nvim_ts_read_cb
 
 typedef struct {
@@ -45,6 +46,8 @@ typedef struct {
   PropertyState *states;
   int n_states;
   int n_kinds;
+  kvec_t(regprog_T *) regexes;
+  Map(cstr_t, int) *regex_defs;
 } Tslua_propertysheet;
 
 typedef struct {
@@ -776,6 +779,9 @@ void tslua_push_propertysheet(lua_State *L, int n_states, int n_kinds)
            sheet->n_kinds * sizeof(*s->kind_first_trans));
     kv_init(s->kind_trans);
   }
+  kv_init(sheet->regexes);
+  kv_push(sheet->regexes, NULL); // use zero index for no regex
+  sheet->regex_defs = map_new(cstr_t, int)();
 
   lua_getfield(L, LUA_REGISTRYINDEX, REG_KEY);  // [udata, env]
   lua_getfield(L, -1, "propertysheet-meta");  // [udata, env, meta]
@@ -853,6 +859,9 @@ static int propertysheet_add_transition(lua_State *L)
   int next_state_id = lua_tointeger(L, 4);
   int child_index = lua_isnil(L, 5) ? -1 : lua_tointeger(L, 5);
 
+  size_t len = 0;
+  const char *regex = lua_isstring(L, 6) ? lua_tolstring(L, 6, &len) : NULL;
+
   if (state_id >= sheet->n_states || kind_id >= sheet->n_kinds) {
     lua_pushstring(L, "out of bounds!!");
     return lua_error(L);
@@ -866,6 +875,33 @@ static int propertysheet_add_transition(lua_State *L)
       lua_pushstring(L, "disorder!!");
       return lua_error(L);
     }
+  }
+
+  int regex_index = 0;
+  if (regex != NULL) {
+    int *slot = map_ref_alloc(cstr_t, int)(sheet->regex_defs, regex);
+    if (*slot == 0) {
+      char *buffer = xmallocz(len+2);
+      // There is no RE_VERYMAGIC flag. So fake it.
+      buffer[0] = '\\';
+      buffer[1] = 'v';
+      xstrlcpy(buffer+2, regex, len);
+      regprog_T *prog = vim_regcomp(buffer, RE_AUTO);
+      if (prog) {
+        *slot = kv_size(sheet->regexes);
+        kv_push(sheet->regexes, prog);
+      } else {
+        // mark the failure, no need to try the same string again later
+        // TODO: log the error somehow
+        *slot = -1;
+      }
+    }
+    regex_index = *slot;
+  }
+
+  if (regex_index == -1) {
+    // behave as if regex never matches
+    return;
   }
 
   kv_push(state->kind_trans, ((KindTransition){

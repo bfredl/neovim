@@ -122,6 +122,19 @@
     return &kh_val(map->table, k); \
   } \
   \
+  U *map_##T##_##U##_ref_alloc(Map(T, U) *map, T key) \
+  { \
+    int ret; \
+    khiter_t k; \
+    k = kh_put(T##_##U##_map, map->table, key, &ret); \
+    if (ret) { \
+      kh_key(map->table, k) = xstrdup(key); \
+      kh_val(map->table, k) = INITIALIZER(T, U); \
+    } \
+    \
+    return &kh_val(map->table, k); \
+  } \
+  \
   U map_##T##_##U##_del(Map(T, U) *map, T key) \
   { \
     U rv = INITIALIZER(T, U); \
@@ -176,6 +189,7 @@ static inline bool HlEntry_eq(HlEntry ae1, HlEntry ae2)
 
 MAP_IMPL(int, int, DEFAULT_INITIALIZER)
 MAP_IMPL(cstr_t, ptr_t, DEFAULT_INITIALIZER)
+MAP_IMPL(cstr_t, int, DEFAULT_INITIALIZER)
 MAP_IMPL(ptr_t, ptr_t, DEFAULT_INITIALIZER)
 MAP_IMPL(uint64_t, ptr_t, DEFAULT_INITIALIZER)
 MAP_IMPL(handle_T, ptr_t, DEFAULT_INITIALIZER)
@@ -199,3 +213,4 @@ void pmap_del2(PMap(cstr_t) *map, const char *key)
     xfree(v);
   }
 }
+

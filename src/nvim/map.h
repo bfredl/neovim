@@ -28,6 +28,7 @@
   T map_##T##_##U##_key(Map(T, U) *map, T key); \
   U map_##T##_##U##_put(Map(T, U) *map, T key, U value); \
   U *map_##T##_##U##_ref(Map(T, U) *map, T key, bool put); \
+  U *map_##T##_##U##_ref_alloc(Map(T, U) *map, T key); \
   U map_##T##_##U##_del(Map(T, U) *map, T key); \
   void map_##T##_##U##_clear(Map(T, U) *map);
 
@@ -36,6 +37,7 @@
 //
 MAP_DECLS(int, int)
 MAP_DECLS(cstr_t, ptr_t)
+MAP_DECLS(cstr_t, int)
 MAP_DECLS(ptr_t, ptr_t)
 MAP_DECLS(uint64_t, ptr_t)
 MAP_DECLS(handle_T, ptr_t)
@@ -50,6 +52,7 @@ MAP_DECLS(String, handle_T)
 #define map_key(T, U) map_##T##_##U##_key
 #define map_put(T, U) map_##T##_##U##_put
 #define map_ref(T, U) map_##T##_##U##_ref
+#define map_ref_alloc(T, U) map_##T##_##U##_ref_alloc
 #define map_del(T, U) map_##T##_##U##_del
 #define map_clear(T, U) map_##T##_##U##_clear
 
