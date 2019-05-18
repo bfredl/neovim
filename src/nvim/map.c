@@ -122,19 +122,6 @@
     return &kh_val(map->table, k); \
   } \
   \
-  U *map_##T##_##U##_ref_alloc(Map(T, U) *map, T key) \
-  { \
-    int ret; \
-    khiter_t k; \
-    k = kh_put(T##_##U##_map, map->table, key, &ret); \
-    if (ret) { \
-      kh_key(map->table, k) = xstrdup(key); \
-      kh_val(map->table, k) = INITIALIZER(T, U); \
-    } \
-    \
-    return &kh_val(map->table, k); \
-  } \
-  \
   U map_##T##_##U##_del(Map(T, U) *map, T key) \
   { \
     U rv = INITIALIZER(T, U); \
@@ -152,6 +139,8 @@
   { \
     kh_clear(T##_##U##_map, map->table); \
   }
+
+
 
 static inline khint_t String_hash(String s)
 {
@@ -199,6 +188,19 @@ MAP_IMPL(String, MsgpackRpcRequestHandler, MSGPACK_HANDLER_INITIALIZER)
 MAP_IMPL(HlEntry, int, DEFAULT_INITIALIZER)
 MAP_IMPL(String, handle_T, 0)
 
+// lol no SFINAE
+int *map_cstr_t_int_ref_alloc(Map(cstr_t, int) *map, cstr_t key)
+{
+  int ret;
+  khiter_t k;
+  k = kh_put(cstr_t_int_map, map->table, key, &ret);
+  if (ret) {
+    kh_key(map->table, k) = xstrdup(key);
+    kh_val(map->table, k) = INITIALIZER(cstr_t, int);
+  }
+
+  return &kh_val(map->table, k);
+}
 
 /// Deletes a key:value pair from a string:pointer map, and frees the
 /// storage of both key and value.
