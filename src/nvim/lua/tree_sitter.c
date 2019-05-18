@@ -20,6 +20,8 @@
 
 #include "nvim/lib/kvec.h"
 #include "nvim/lua/tree_sitter.h"
+#include "nvim/api/private/handle.h"
+#include "nvim/memline.h"
 #include "nvim/regexp.h"
 #include "nvim/buffer.h" // for nvim_ts_read_cb
 
@@ -56,7 +58,8 @@ typedef struct {
   int state_id[32];
   int child_index[32];
   int level;
-  //Buffer source;
+  // TODO: ensure no dangling pointer:
+  buf_T *buf;
 } Tslua_cursor;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -542,6 +545,14 @@ static int node_to_cursor(lua_State *L)
     sheet = lua_touserdata(L, 2);
   }
 
+  buf_T *buf = NULL;
+  if (lua_gettop(L) >= 3) {
+    if (!lua_isnumber(L, 3)) {
+      return 0;
+    }
+    int num = lua_tointeger(L, 3);
+    buf = num ? handle_get_buffer(num) : curbuf;
+  }
 
   if (ts_node_is_null(node)) {
     lua_pushnil(L); // [src, nil]
@@ -556,6 +567,7 @@ static int node_to_cursor(lua_State *L)
     c->child_index[c->level] = 0;
     c->state_id[c->level] = cursor_next_state(c);
   }
+  c->buf = NULL;
   lua_getfield(L, LUA_ENVIRONINDEX, "cursor-meta");  // [src, udata, meta]
   lua_setmetatable(L, -2);  // [src, udata]
   lua_getfenv(L, 1);  // [src, udata, reftable]
@@ -626,12 +638,33 @@ static int cursor_next_state(Tslua_cursor *c)
       break;
     }
 
-    //if (t->regex_id) {
-    //}
-
     if (t->child_index >= 0 && t->child_index != child_index) {
       continue;
     }
+
+    if (t->regex_index == -1) {
+      continue;
+    } else if (t->regex_index > 0) {
+      if (!c->buf) {
+        continue;
+      }
+      regmatch_T match = { .regprog = kv_A(c->sheet->regexes, t->regex_index),
+                           .rm_ic = false };
+
+      TSPoint pos = ts_node_start_point(current);
+      char_u *line = ml_get_buf(c->buf, pos.row, false);
+      if (!line) {
+        continue;
+      }
+      bool status = vim_regexec(&match, line, pos.column);
+
+      // engine could be switched or regex disabled:
+      kv_A(c->sheet->regexes, t->regex_index) = match.regprog;
+      if (!status || match.startp[0] != line) {
+       continue;
+      }
+    }
+
     return t->next_state_id;
   }
 
@@ -886,7 +919,7 @@ static int propertysheet_add_transition(lua_State *L)
       buffer[0] = '\\';
       buffer[1] = 'v';
       xstrlcpy(buffer+2, regex, len);
-      regprog_T *prog = vim_regcomp(buffer, RE_AUTO);
+      regprog_T *prog = vim_regcomp((char_u *)buffer, RE_AUTO);
       if (prog) {
         *slot = kv_size(sheet->regexes);
         kv_push(sheet->regexes, prog);
@@ -895,20 +928,21 @@ static int propertysheet_add_transition(lua_State *L)
         // TODO: log the error somehow
         *slot = -1;
       }
+      xfree(buffer);
     }
     regex_index = *slot;
   }
 
   if (regex_index == -1) {
     // behave as if regex never matches
-    return;
+    return 0;
   }
 
   kv_push(state->kind_trans, ((KindTransition){
     .kind_id = kind_id,
     .next_state_id = next_state_id,
     .child_index = child_index,
-    .regex_index = -1,
+    .regex_index = regex_index,
   }));
 
   return 0;

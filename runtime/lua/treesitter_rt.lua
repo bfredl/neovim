@@ -50,11 +50,9 @@ function js_sheet()
       local id = s.id
       sheet:add_state(id, s.default_next_state_id, s.property_set_id)
       for _,t in pairs(s.transitions) do
-        if t.text == nil then
-            local kinds = lut[t.named][t.type]
-            for _,kind in ipairs(kinds) do
-              sheet:add_transition(id, kind, t.state_id, t.index)
-            end
+        local kinds = lut[t.named][t.type]
+        for _,kind in ipairs(kinds) do
+          sheet:add_transition(id, kind, t.state_id, t.index, t.text)
         end
       end
   end
