@@ -52,7 +52,11 @@ function js_sheet()
       for _,t in pairs(s.transitions) do
         local kinds = lut[t.named][t.type]
         for _,kind in ipairs(kinds) do
-          sheet:add_transition(id, kind, t.state_id, t.index, t.text)
+          local status, res = pcall(function() sheet:add_transition(id, kind, t.state_id, t.index, t.text) end)
+          if t.text then
+            print(status, t.text)
+            if not status then print(res) end
+          end
         end
       end
   end
@@ -135,7 +139,9 @@ function ts_inspect_pos(row,col)
   show_node(node)
 end
 
+print("presheet")
 sheet = js_sheet()
+print("postsheet")
 function ts_inspect2(row,col)
   local tree = parse_tree(theparser)
   icursor = tree:root():to_cursor(sheet)
@@ -186,8 +192,8 @@ end
 
 function ts_cursor()
   local row, col = unpack(a.nvim_win_get_cursor(0))
-  ts_inspect_pos(row-1, col)
-  --ts_inspect2(row-1, col)
+  --ts_inspect_pos(row-1, col)
+  ts_inspect2(row-1, col)
 end
 
 hl_map = {
@@ -245,7 +251,7 @@ function ts_line(line,endl,drawing)
   tree = parse_tree(theparser)
   local root = tree:root()
   local cursor = root:to_cursor(sheet)
-  print(cursor)
+  --print(cursor)
   local startbyte = a.nvim_buf_get_offset(theparser.bufnr, line)
   local node = root
   local continue = true

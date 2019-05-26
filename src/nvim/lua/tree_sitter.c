@@ -901,14 +901,6 @@ static int propertysheet_add_transition(lua_State *L)
   }
 
   PropertyState *state = &sheet->states[state_id];
-  if (state->kind_first_trans[kind_id] == -1) {
-    state->kind_first_trans[kind_id] = kv_size(state->kind_trans);
-  } else {
-    if (kv_Z(state->kind_trans, 0).kind_id != kind_id) {
-      lua_pushstring(L, "disorder!!");
-      return lua_error(L);
-    }
-  }
 
   int regex_index = 0;
   if (regex != NULL) {
@@ -926,6 +918,8 @@ static int propertysheet_add_transition(lua_State *L)
       } else {
         // mark the failure, no need to try the same string again later
         // TODO: log the error somehow
+        msg(buffer);
+        did_emsg = false;
         *slot = -1;
       }
       xfree(buffer);
@@ -936,6 +930,15 @@ static int propertysheet_add_transition(lua_State *L)
   if (regex_index == -1) {
     // behave as if regex never matches
     return 0;
+  }
+
+  if (state->kind_first_trans[kind_id] == -1) {
+    state->kind_first_trans[kind_id] = kv_size(state->kind_trans);
+  } else {
+    if (kv_Z(state->kind_trans, 0).kind_id != kind_id) {
+      lua_pushstring(L, "disorder!");
+      return lua_error(L);
+    }
   }
 
   kv_push(state->kind_trans, ((KindTransition){
