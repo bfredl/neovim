@@ -122,6 +122,13 @@ typedef struct {
     msg_list = saved_msg_list;  /* Restore the exception context. */ \
   } while (0)
 
+/// Helper structure for used for returning raw_line
+typedef struct {
+  Array int_values;
+  const schar_T *chunk;
+  const sattr_T *attrs;
+} RawLineReturn;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/private/helpers.h.generated.h"
 #endif

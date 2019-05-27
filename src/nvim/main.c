@@ -78,6 +78,8 @@
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/private/handle.h"
 #include "nvim/api/private/dispatch.h"
+#include "nvim/redraw.h"
+#include "nvim/tui/tui.h"
 #ifndef WIN32
 # include "nvim/os/pty_process_unix.h"
 #endif
@@ -119,6 +121,7 @@ typedef struct {
   int diff_mode;                        // start with 'diff' set
 
   char *listen_addr;                    // --listen {address}
+  char *server_name;                    // --servername {address}
 } mparm_T;
 
 // Values for edit_type.
@@ -153,6 +156,9 @@ void event_init(void)
   // early msgpack-rpc initialization
   msgpack_rpc_init_method_table();
   msgpack_rpc_helpers_init();
+  // early initialisation of redraw_handlers table
+  redraw_methods_table_init();
+  // Initialize input events
   input_init();
   signal_init();
   // finish mspgack-rpc initialization
@@ -351,10 +357,12 @@ int main(int argc, char **argv)
     p_lpl = false;
   }
 
-  // Wait for UIs to set up Nvim or show early messages
-  // and prompts (--cmd, swapfile dialog, …).
+  // give embedders a chance to set up nvim, by processing a request before
+  // startup. This allows an external UI to show messages and prompts from
+  // --cmd and buffer loading (e.g. swap files)
   bool use_remote_ui = (embedded_mode && !headless_mode);
   bool use_builtin_ui = (!headless_mode && !embedded_mode && !silent_mode);
+  is_remote_client = params.server_name != NULL;
   if (use_remote_ui || use_builtin_ui) {
     TIME_MSG("waiting for UI");
     if (use_remote_ui) {
@@ -368,6 +376,21 @@ int main(int argc, char **argv)
     starting = NO_BUFFERS;
     screenclear();
     TIME_MSG("initialized screen early for UI");
+  }
+
+  // Setting up the remote connection.
+  // This has to be always after ui_builtin_start or
+  // after the start of atleast one GUI
+  // as size of "uis[]" must be greater than 1
+  if (is_remote_client) {
+    input_stop();  // Stop reading input, let the UI take over.
+    uint64_t rv = ui_client_start(params.server_name);
+    if (!rv) {
+        // cannot continue without a channel
+        tui_exit_safe(get_ui_by_index(1));
+        mch_msg("Could not establish connection with remote server\n");
+        getout(1);
+    }
   }
 
   // Execute --cmd arguments.
@@ -577,7 +600,11 @@ int main(int argc, char **argv)
   /*
    * Call the main command loop.  This never returns.
    */
-  normal_enter(false, false);
+  if (!is_remote_client) {
+    normal_enter(false, false);
+  } else {  
+    tui_client_execute();
+  }
 
 #if defined(WIN32) && !defined(MAKE_LIB)
   xfree(argv);
@@ -837,6 +864,9 @@ static void command_line_scan(mparm_T *parmp)
             // Do nothing: file args are always literal. #7679
           } else if (STRNICMP(argv[0] + argv_idx, "noplugin", 8) == 0) {
             p_lpl = false;
+          } else if (STRNICMP(argv[0] + argv_idx, "servername", 10) == 0) {
+            want_argument = true;
+            argv_idx += 10;
           } else if (STRNICMP(argv[0] + argv_idx, "cmd", 3) == 0) {
             want_argument = true;
             argv_idx += 3;
@@ -1094,6 +1124,9 @@ static void command_line_scan(mparm_T *parmp)
             } else if (strequal(argv[-1], "--listen")) {
               // "--listen {address}"
               parmp->listen_addr = argv[0];
+            } else if (strequal(argv[-1], "--servername")) {
+              // "--servername {address}"
+              parmp->server_name = argv[0];
             }
             // "--startuptime <file>" already handled
             break;
@@ -1255,6 +1288,7 @@ static void init_params(mparm_T *paramp, int argc, char **argv)
   paramp->use_debug_break_level = -1;
   paramp->window_count = -1;
   paramp->listen_addr = NULL;
+  paramp->server_name = NULL;
 }
 
 /// Initialize global startuptime file if "--startuptime" passed as an argument.
@@ -1996,6 +2030,7 @@ static void usage(void)
   mch_msg(_("  --embed               Use stdin/stdout as a msgpack-rpc channel\n"));
   mch_msg(_("  --headless            Don't start a user interface\n"));
   mch_msg(_("  --listen <address>    Serve RPC API from this address\n"));
+  mch_msg(_("  --servername <address>    Specify Nvim server to connect to\n"));
   mch_msg(_("  --noplugin            Don't load plugins\n"));
   mch_msg(_("  --startuptime <file>  Write startup timing messages to <file>\n"));
   mch_msg(_("\nSee \":help startup-options\" for all options.\n"));

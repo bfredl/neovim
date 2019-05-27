@@ -19,6 +19,7 @@
 #include "nvim/highlight.h"
 #include "nvim/screen.h"
 #include "nvim/window.h"
+#include "nvim/redraw.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/ui.c.generated.h"
@@ -728,4 +729,37 @@ static void remote_ui_inspect(UI *ui, Dictionary *info)
 {
   UIData *data = ui->data;
   PUT(*info, "chan", INTEGER_OBJ((Integer)data->channel_id));
+}
+
+void redraw(uint64_t channel_id, Array uidata, Error *error)
+FUNC_API_FAST
+{
+  Array call = ARRAY_DICT_INIT;
+  char *method_name;
+  size_t size;
+
+  Array uidata_copy = copy_array(uidata);
+
+  for (size_t i = 0; i < uidata_copy.size; i++) {
+    call = uidata_copy.items[i].data.array;
+    method_name = call.items[0].data.string.data;
+    size = call.items[0].data.string.size;
+
+    ApiRedrawWrapper handler_method = get_redraw_event_handler(method_name,
+                                                               size,
+                                                               error);
+    if (ERROR_SET(error)) {
+      logmsg(ERROR_LOG_LEVEL, "RPC: ", NULL, -1, true,
+             "No redraw handler by name: %s", method_name);
+    } else {
+      for (size_t j = 1; j < call.size; j++) {
+        Array internal_call_args = call.items[j].data.array;
+        logmsg(DEBUG_LOG_LEVEL, "RPC: ", NULL, -1, true,
+               "Invoke redraw handler by name: %s", method_name);
+        handler_method(internal_call_args);
+      }
+    }
+    api_clear_error(error);
+  }
+  api_free_array(call);
 }

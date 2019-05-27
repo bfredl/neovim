@@ -18,6 +18,7 @@
 # include "nvim/os/os_win_console.h"
 #endif
 #include "nvim/event/rstream.h"
+#include "nvim/msgpack_rpc/channel.h"
 
 #define KEY_BUFFER_SIZE 0xfff
 
@@ -101,10 +102,12 @@ static void tinput_done_event(void **argv)
 static void tinput_wait_enqueue(void **argv)
 {
   TermInput *input = argv[0];
+  size_t consumed = 0;
   RBUFFER_UNTIL_EMPTY(input->key_buffer, buf, len) {
     const String keys = { .data = buf, .size = len };
     if (input->paste) {
       String copy = copy_string(keys);
+      // TODO: is_remote_client!
       multiqueue_put(main_loop.events, tinput_paste_event, 3,
                      copy.data, copy.size, (intptr_t)input->paste);
       if (input->paste == 1) {
@@ -114,7 +117,16 @@ static void tinput_wait_enqueue(void **argv)
       rbuffer_consumed(input->key_buffer, len);
       rbuffer_reset(input->key_buffer);
     } else {
-      const size_t consumed = input_enqueue(keys);
+      if (is_remote_client) {
+        Array args = ARRAY_DICT_INIT;
+        ADD(args, STRING_OBJ(((String){
+            .data = xstrdup(buf), 
+            .size = len})));
+        bool result = rpc_send_event(channel_get_id(true, true), "nvim_input", args);
+        consumed = result ? len : 0;
+      } else {
+        consumed = input_enqueue((String){.data = buf, .size = len});
+      }
       if (consumed) {
         rbuffer_consumed(input->key_buffer, consumed);
       }
@@ -124,10 +136,12 @@ static void tinput_wait_enqueue(void **argv)
       }
     }
   }
-  uv_mutex_lock(&input->key_buffer_mutex);
-  input->waiting = false;
-  uv_cond_signal(&input->key_buffer_cond);
-  uv_mutex_unlock(&input->key_buffer_mutex);
+  if (!is_remote_client) {
+    uv_mutex_lock(&input->key_buffer_mutex);
+    input->waiting = false;
+    uv_cond_signal(&input->key_buffer_cond);
+    uv_mutex_unlock(&input->key_buffer_mutex);
+  }
 }
 
 static void tinput_paste_event(void **argv)
@@ -149,13 +163,17 @@ static void tinput_flush(TermInput *input, bool wait_until_empty)
 {
   size_t drain_boundary = wait_until_empty ? 0 : 0xff;
   do {
-    uv_mutex_lock(&input->key_buffer_mutex);
-    loop_schedule_fast(&main_loop, event_create(tinput_wait_enqueue, 1, input));
-    input->waiting = true;
-    while (input->waiting) {
-      uv_cond_wait(&input->key_buffer_cond, &input->key_buffer_mutex);
+    if (!is_remote_client) {
+      uv_mutex_lock(&input->key_buffer_mutex);
+      loop_schedule_fast(&main_loop, event_create(tinput_wait_enqueue, 1, input));
+      input->waiting = true;
+      while (input->waiting) {
+        uv_cond_wait(&input->key_buffer_cond, &input->key_buffer_mutex);
+      }
+      uv_mutex_unlock(&input->key_buffer_mutex);
+    } else {
+      tinput_wait_enqueue((void**)&input);
     }
-    uv_mutex_unlock(&input->key_buffer_mutex);
   } while (rbuffer_size(input->key_buffer) > drain_boundary);
 }
 

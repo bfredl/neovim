@@ -37,6 +37,7 @@
 #include "nvim/ui_compositor.h"
 #include "nvim/window.h"
 #include "nvim/cursor_shape.h"
+#include "nvim/msgpack_rpc/channel.h"
 #ifdef FEAT_TUI
 # include "nvim/tui/tui.h"
 #else
@@ -129,6 +130,19 @@ void ui_builtin_start(void)
 #endif
 }
 
+uint64_t ui_client_start(char *server_name)
+{
+  ui_comp_detach(uis[1]);  // Bypassing compositor in client
+  uint64_t rv = tui_ui_client_init(server_name);
+  return rv;
+}
+
+UI* get_ui_by_index(int idx)
+{
+  assert(idx < 16);
+  return uis[idx];
+}
+
 bool ui_rgb_attached(void)
 {
   if (!headless_mode && p_tgc) {
@@ -210,7 +224,14 @@ void ui_refresh(void)
 
   int save_p_lz = p_lz;
   p_lz = false;  // convince redrawing() to return true ...
-  screen_resize(width, height);
+  if (!is_remote_client) {
+    screen_resize(width, height);
+  } else {
+    Array args = ARRAY_DICT_INIT;
+    ADD(args, INTEGER_OBJ((int)width));
+    ADD(args, INTEGER_OBJ((int)height));
+    rpc_send_event(channel_get_id(true, true), "nvim_ui_try_resize", args);
+  }
   p_lz = save_p_lz;
 
   if (ext_widgets[kUIMessages]) {
@@ -247,6 +268,11 @@ void ui_schedule_refresh(void)
 static void deferred_refresh_event(void **argv)
 {
   multiqueue_put(resize_events, ui_refresh_event, 0);
+}
+
+void ui_stop_event(void **argv) 
+{
+  ui_call_stop();
 }
 
 void ui_default_colors_set(void)

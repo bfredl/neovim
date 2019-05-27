@@ -191,6 +191,7 @@ MAP_IMPL(handle_T, ptr_t, DEFAULT_INITIALIZER)
 MAP_IMPL(String, MsgpackRpcRequestHandler, MSGPACK_HANDLER_INITIALIZER)
 MAP_IMPL(HlEntry, int, DEFAULT_INITIALIZER)
 MAP_IMPL(String, handle_T, 0)
+MAP_IMPL(String, ApiRedrawWrapper, NULL)
 
 
 /// Deletes a key:value pair from a string:pointer map, and frees the
