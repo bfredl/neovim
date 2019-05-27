@@ -97,6 +97,10 @@
 #include "nvim/msgpack_rpc/helpers.h"
 #include "nvim/msgpack_rpc/server.h"
 #include "nvim/os/signal.h"
+#ifndef MSWIN
+# include "nvim/os/pty_process_unix.h"
+#endif
+#include "nvim/tui/tui.h"
 
 // values for "window_layout"
 enum {
@@ -137,6 +141,7 @@ void event_init(void)
 
   // early msgpack-rpc initialization
   msgpack_rpc_helpers_init();
+  // Initialize input events
   input_init();
   signal_init();
   // finish mspgack-rpc initialization
@@ -289,7 +294,13 @@ int main(int argc, char **argv)
     }
   }
 
-  server_init(params.listen_addr);
+  bool use_builtin_ui = (!headless_mode && !embedded_mode && !silent_mode);
+  // bool is_remote_client = false; // TODO: rename to specifically for --remote-ui
+                                 //
+  if (!(is_remote_client || use_builtin_ui)) {
+    server_init(params.listen_addr);
+  }
+
   if (params.remote) {
     remote_request(&params, params.remote, params.server_addr, argc, argv);
   }
@@ -350,7 +361,7 @@ int main(int argc, char **argv)
   // Wait for UIs to set up Nvim or show early messages
   // and prompts (--cmd, swapfile dialog, …).
   bool use_remote_ui = (embedded_mode && !headless_mode);
-  bool use_builtin_ui = (!headless_mode && !embedded_mode && !silent_mode);
+  TUI_process = is_remote_client || use_builtin_ui;
   if (use_remote_ui || use_builtin_ui) {
     TIME_MSG("waiting for UI");
     if (use_remote_ui) {
@@ -374,6 +385,31 @@ int main(int argc, char **argv)
     abort();  // unreachable
   }
 
+  // Setting up the remote connection.
+  // This has to be always after ui_builtin_start or
+  // after the start of atleast one GUI
+  // as size of "uis[]" must be greater than 1
+  if (TUI_process) {
+    input_stop();  // Stop reading input, let the UI take over.
+    uint64_t rv = ui_client_start(params.argc, params.argv, 
+                                  (params.edit_type == EDIT_STDIN 
+                                  && !recoverymode));
+    if (!rv) {
+        // cannot continue without a channel
+        // TODO: use ui_call_stop() ?
+        tui_exit_safe(ui_get_by_index(1));
+        ELOG("RPC: ", NULL, -1, true,
+             "Could not establish connection with address : %s", params.server_addr);
+        mch_msg("Could not establish connection with remote server\n");
+        getout(1);
+    }
+    // TODO: fuuu, deduplicate with ui_client_channel_id block above
+    ui_client_channel_id = rv;
+    ui_client_execute(ui_client_channel_id);
+    abort();  // unreachable
+  }
+
+
   // Default mappings (incl. menus)
   Error err = ERROR_INIT;
   Object o = NLUA_EXEC_STATIC("return vim._init_default_mappings()",
@@ -382,6 +418,7 @@ int main(int argc, char **argv)
   api_clear_error(&err);
   assert(o.type == kObjectTypeNil);
   api_free_object(o);
+
   TIME_MSG("init default mappings");
 
   init_default_autocmds();
@@ -622,6 +659,9 @@ void os_exit(int r)
   free_all_mem();
 #endif
 
+  if (TUI_process && !is_remote_client) {
+    r = (int)server_process_exit_status;
+  }
   exit(r);
 }
 
@@ -1400,6 +1440,13 @@ scripterror:
   // Handle "foo | nvim". EDIT_FILE may be overwritten now. #6299
   if (edit_stdin(had_stdin_file, parmp)) {
     parmp->edit_type = EDIT_STDIN;
+    // TODO: copy
+    bool use_builtin_ui = (!headless_mode && !embedded_mode && !silent_mode);
+    if (use_builtin_ui && !is_remote_client) {
+      // must be set only in builtin TUI
+      // TODO
+      //implicit_readstdin = true;
+    }
   }
 
   TIME_MSG("parsing arguments");
@@ -2115,6 +2162,7 @@ static void usage(void)
   mch_msg(_("  --embed               Use stdin/stdout as a msgpack-rpc channel\n"));
   mch_msg(_("  --headless            Don't start a user interface\n"));
   mch_msg(_("  --listen <address>    Serve RPC API from this address\n"));
+  mch_msg(_("  --connect <address>   Specify Nvim server to connect to\n"));
   mch_msg(_("  --noplugin            Don't load plugins\n"));
   mch_msg(_("  --remote[-subcommand] Execute commands remotely on a server\n"));
   mch_msg(_("  --server <address>    Specify RPC server to send commands to\n"));
