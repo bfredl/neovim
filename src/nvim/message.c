@@ -132,7 +132,6 @@ static void validate_msg_grid(void)
   if (msg_grid.Rows != Rows || msg_grid.Columns != Columns) {
     grid_alloc(&msg_grid, Rows, Columns, false, false);
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
-    msg_grid.blending = true;
     msg_grid.comp_firstrow = Rows-1;
     ui_comp_put_grid(&msg_grid, 0, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
