@@ -19,6 +19,7 @@
 #include "nvim/ui.h"
 #include "nvim/highlight.h"
 #include "nvim/memory.h"
+#include "nvim/message.h"
 #include "nvim/popupmnu.h"
 #include "nvim/ui_compositor.h"
 #include "nvim/ugrid.h"
@@ -159,7 +160,10 @@ bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width,
 #endif
 
     size_t insert_at = kv_size(layers);
-    if (kv_A(layers, insert_at-1) == &pum_grid) {
+    if (kv_A(layers, insert_at-1) == &msg_grid) {
+      insert_at--;
+    }
+    if (kv_A(layers, insert_at-1) == &pum_grid && grid != &msg_grid) {
       insert_at--;
     }
     if (insert_at > 1 && !on_top) {
@@ -321,7 +325,7 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
     for (size_t i = 0; i < kv_size(layers); i++) {
       ScreenGrid *g = kv_A(layers, i);
       if (g->comp_row > row || row >= g->comp_row + g->Rows
-          || g->comp_disabled) {
+          || g->comp_disabled || g->comp_firstrow > row) {
         continue;
       }
       if (g->comp_col <= col && col < g->comp_col+g->Columns) {
@@ -482,6 +486,9 @@ static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
   }
   assert(row < default_grid.Rows);
   assert(clearcol <= default_grid.Columns);
+  // TODO: msg_grid will always cause this branch
+  // but maybe we should just fix compose_line to respect clearing and
+  // call it a day.
   if (flags & kLineFlagInvalid
       || kv_size(layers) > curgrid->comp_index+1
       || curgrid->blending) {
@@ -536,7 +543,7 @@ static void ui_comp_grid_scroll(UI *ui, Integer grid, Integer top,
   left += curgrid->comp_col;
   right += curgrid->comp_col;
   bool covered = kv_size(layers) > curgrid->comp_index+1 || curgrid->blending;
-  if (!msg_scroll_mode && covered) {
+  if (covered) {
     // TODO(bfredl):
     // 1. check if rectangles actually overlap
     // 2. calulate subareas that can scroll.
@@ -547,11 +554,14 @@ static void ui_comp_grid_scroll(UI *ui, Integer grid, Integer top,
     }
     compose_area(top, bot, left, right);
   } else {
-    msg_first_invalid = MIN(msg_first_invalid, (int)top);
     ui_composed_call_grid_scroll(1, top, bot, left, right, rows, cols);
     if (rdb_flags & RDB_COMPOSITOR) {
       debug_delay(2);
     }
+  }
+  // TODO: maybe this is bullshit?
+  if (msg_scroll_mode) {
+    msg_first_invalid = MIN(msg_first_invalid, (int)top);
   }
 }
 

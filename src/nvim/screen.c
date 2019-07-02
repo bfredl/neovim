@@ -323,8 +323,16 @@ int update_screen(int type)
   // if the screen was scrolled up when displaying a message, scroll it down
   if (msg_scrolled) {
     clear_cmdline = true;
+    int valid = MAX(Rows - msg_scrollsize(), 0);
+    for (int i = valid; i < Rows-1; i++) {
+      grid_clear_line(&msg_grid, msg_grid.line_offset[i],
+                      (int)msg_grid.Columns, false);
+      // TODO: this is bullshit
+      grid_clear_line(&default_grid, default_grid.line_offset[i],
+                      (int)default_grid.Columns, false);
+    }
+    msg_grid.comp_firstrow = Rows-1;
     if (dy_flags & DY_MSGSEP) {
-      int valid = MAX(Rows - msg_scrollsize(), 0);
       if (valid == 0) {
         redraw_tabline = true;
       }

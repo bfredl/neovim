@@ -35,7 +35,9 @@
 #include "nvim/screen.h"
 #include "nvim/strings.h"
 #include "nvim/syntax.h"
+#include "nvim/highlight.h"
 #include "nvim/ui.h"
+#include "nvim/ui_compositor.h"
 #include "nvim/mouse.h"
 #include "nvim/os/os.h"
 #include "nvim/os/input.h"
@@ -123,6 +125,19 @@ static int msg_ext_visible = 0;  ///< number of messages currently visible
 
 /// Shouldn't clear message after leaving cmdline
 static bool msg_ext_keep_after_cmdline = false;
+
+static void validate_msg_grid(void)
+{
+  grid_assign_handle(&msg_grid);
+  if (msg_grid.Rows != Rows || msg_grid.Columns != Columns) {
+    grid_alloc(&msg_grid, Rows, Columns, false, false);
+    ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
+    msg_grid.blending = true;
+    msg_grid.comp_firstrow = Rows-1;
+    ui_comp_put_grid(&msg_grid, 0, 0, msg_grid.Rows, msg_grid.Columns,
+                     false, true);
+  }
+}
 
 /*
  * msg(s) - displays the string 's' on the status line
@@ -1685,6 +1700,8 @@ void msg_prt_line(char_u *s, int list)
 static char_u *screen_puts_mbyte(char_u *s, int l, int attr)
 {
   int cw;
+  // TODO: memoize
+  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
 
   msg_didout = true;            // remember that line is not empty
   cw = utf_ptr2cells(s);
@@ -1695,7 +1712,7 @@ static char_u *screen_puts_mbyte(char_u *s, int l, int attr)
     return s;
   }
 
-  grid_puts_len(&default_grid, s, l, msg_row, msg_col, attr);
+  grid_puts_len(&msg_grid, s, l, msg_row, msg_col, attr);
   if (cmdmsg_rl) {
     msg_col -= cw;
     if (msg_col == 0) {
@@ -1884,6 +1901,8 @@ static void msg_puts_display(const char_u *str, int maxlen, int attr,
     return;
   }
 
+  validate_msg_grid();
+
   cmdline_was_last_drawn = redrawing_cmdline;
 
   while ((maxlen < 0 || (int)(s - str) < maxlen) && *s != NUL) {
@@ -2069,18 +2088,24 @@ void msg_scroll_up(void)
   }
   if (dy_flags & DY_MSGSEP) {
     if (msg_scrolled == 0) {
-      grid_fill(&default_grid, Rows-p_ch-1, Rows-p_ch, 0, (int)Columns,
+      msg_grid.comp_firstrow--;
+      grid_fill(&msg_grid, Rows-p_ch-1, Rows-p_ch, 0, (int)Columns,
                 curwin->w_p_fcs_chars.msgsep, curwin->w_p_fcs_chars.msgsep,
                 HL_ATTR(HLF_MSGSEP));
     }
     int nscroll = MIN(msg_scrollsize()+1, Rows);
-    grid_del_lines(&default_grid, Rows-nscroll, 1, Rows, 0, Columns);
+    // TODO: this is slightly bullshit
+    if (msg_grid.comp_firstrow > 0) {
+      msg_grid.comp_firstrow--;
+    }
+    grid_del_lines(&msg_grid, Rows-nscroll, 1, Rows, 0, Columns);
   } else {
-    grid_del_lines(&default_grid, 0, 1, (int)Rows, 0, Columns);
+    grid_del_lines(&msg_grid, 0, 1, (int)Rows, 0, Columns);
   }
+
   // TODO(bfredl): when msgsep display is properly batched, this fill should be
   // eliminated.
-  grid_fill(&default_grid, Rows-1, Rows, 0, (int)Columns, ' ', ' ', 0);
+  grid_fill(&msg_grid, Rows-1, Rows, 0, (int)Columns, ' ', ' ', HL_ATTR(HLF_MSG));
 }
 
 /*
@@ -2277,9 +2302,11 @@ static msgchunk_T *disp_sb_line(int row, msgchunk_T *smp)
  */
 static void t_puts(int *t_col, const char_u *t_s, const char_u *s, int attr)
 {
+  // TODO: memoize
+  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
   // Output postponed text.
   msg_didout = true;  // Remember that line is not empty.
-  grid_puts_len(&default_grid, (char_u *)t_s, (int)(s - t_s), msg_row, msg_col,
+  grid_puts_len(&msg_grid, (char_u *)t_s, (int)(s - t_s), msg_row, msg_col,
                 attr);
   msg_col += *t_col;
   *t_col = 0;
@@ -2496,12 +2523,13 @@ static int do_more_prompt(int typed_char)
           }
 
           if (toscroll == -1) {
-            grid_ins_lines(&default_grid, 0, 1, (int)Rows, 0, (int)Columns);
-            grid_fill(&default_grid, 0, 1, 0, (int)Columns, ' ', ' ', 0);
+            grid_ins_lines(&msg_grid, 0, 1, (int)Rows, 0, (int)Columns);
+            grid_fill(&msg_grid, 0, 1, 0, (int)Columns, ' ', ' ', 0);
             // display line at top
             (void)disp_sb_line(0, mp);
           } else {
             /* redisplay all lines */
+            // TODO:
             screenclear();
             for (i = 0; mp != NULL && i < Rows - 1; ++i) {
               mp = disp_sb_line(i, mp);
@@ -2516,7 +2544,7 @@ static int do_more_prompt(int typed_char)
           /* scroll up, display line at bottom */
           msg_scroll_up();
           inc_msg_scrolled();
-          grid_fill(&default_grid, (int)Rows - 2, (int)Rows - 1, 0,
+          grid_fill(&msg_grid, (int)Rows - 2, (int)Rows - 1, 0,
                     (int)Columns, ' ', ' ', 0);
           mp_last = disp_sb_line((int)Rows - 2, mp_last);
           --toscroll;
@@ -2525,7 +2553,7 @@ static int do_more_prompt(int typed_char)
 
       if (toscroll <= 0) {
         // displayed the requested text, more prompt again
-        grid_fill(&default_grid, (int)Rows - 1, (int)Rows, 0,
+        grid_fill(&msg_grid, (int)Rows - 1, (int)Rows, 0,
                   (int)Columns, ' ', ' ', 0);
         msg_moremsg(false);
         continue;
@@ -2539,7 +2567,7 @@ static int do_more_prompt(int typed_char)
   }
 
   // clear the --more-- message
-  grid_fill(&default_grid, (int)Rows - 1, (int)Rows, 0, (int)Columns, ' ', ' ',
+  grid_fill(&msg_grid, (int)Rows - 1, (int)Rows, 0, (int)Columns, ' ', ' ',
             0);
   State = oldState;
   setmouse();
@@ -2636,8 +2664,10 @@ void mch_msg(char *str)
  */
 static void msg_screen_putchar(int c, int attr)
 {
+  // TODO: memoize
+  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
   msg_didout = true;            // remember that line is not empty
-  grid_putchar(&default_grid, c, msg_row, msg_col, attr);
+  grid_putchar(&msg_grid, c, msg_row, msg_col, attr);
   if (cmdmsg_rl) {
     if (--msg_col == 0) {
       msg_col = Columns;
@@ -2657,9 +2687,9 @@ void msg_moremsg(int full)
   char_u      *s = (char_u *)_("-- More --");
 
   attr = HL_ATTR(HLF_M);
-  grid_puts(&default_grid, s, (int)Rows - 1, 0, attr);
+  grid_puts(&msg_grid, s, (int)Rows - 1, 0, attr);
   if (full) {
-    grid_puts(&default_grid, (char_u *)
+    grid_puts(&msg_grid, (char_u *)
               _(" SPACE/d/j: screen/page/line down, b/u/k: up, q: quit "),
               (int)Rows - 1, vim_strsize(s), attr);
   }
@@ -2716,10 +2746,10 @@ void msg_clr_eos_force(void)
   int msg_startcol = (cmdmsg_rl) ? 0 : msg_col;
   int msg_endcol = (cmdmsg_rl) ? msg_col + 1 : (int)Columns;
 
-  grid_fill(&default_grid, msg_row, msg_row + 1, msg_startcol, msg_endcol, ' ',
-            ' ', 0);
-  grid_fill(&default_grid, msg_row + 1, (int)Rows, 0, (int)Columns, ' ', ' ',
-            0);
+  grid_fill(&msg_grid, msg_row, msg_row + 1, msg_startcol, msg_endcol, ' ',
+            ' ', HL_ATTR(HLF_MSG));
+  grid_fill(&msg_grid, msg_row + 1, (int)Rows, 0, (int)Columns, ' ', ' ',
+            HL_ATTR(HLF_MSG));
 }
 
 /*

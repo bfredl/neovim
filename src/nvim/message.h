@@ -7,6 +7,7 @@
 
 #include "nvim/macros.h"
 #include "nvim/types.h"
+#include "nvim/grid_defs.h"
 
 /*
  * Types of dialogs passed to do_dialog().
@@ -89,6 +90,8 @@ extern MessageHistoryEntry *first_msg_hist;
 extern MessageHistoryEntry *last_msg_hist;
 
 EXTERN bool msg_ext_need_clear INIT(= false);
+
+EXTERN ScreenGrid msg_grid INIT(= SCREEN_GRID_INIT);
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "message.h.generated.h"

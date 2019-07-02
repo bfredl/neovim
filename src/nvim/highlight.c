@@ -371,6 +371,13 @@ static HlAttrs get_colors_force(int attr)
 /// @return the resulting attributes.
 int hl_blend_attrs(int back_attr, int front_attr, bool *through)
 {
+  // TODO: not sure we will use this finally
+  // probably better with a dedicated possitive attr
+  if (front_attr < 0) {
+    *through = true;
+    return back_attr;
+  }
+
   HlAttrs fattrs = get_colors_force(front_attr);
   int ratio = fattrs.hl_blend;
   if (ratio <= 0) {
