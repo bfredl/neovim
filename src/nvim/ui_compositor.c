@@ -47,7 +47,7 @@ static int chk_width = 0, chk_height = 0;
 static ScreenGrid *curgrid;
 
 static bool valid_screen = true;
-static int msg_first_invalid = 0;
+static int msg_first_invalid = INT_MAX;
 
 static int dbghl_normal, dbghl_clear, dbghl_composed, dbghl_recompose;
 
@@ -511,7 +511,7 @@ void ui_comp_set_screen_valid(bool valid)
 static void ui_comp_msg_set_pos(UI *ui, Integer row)
 {
   msg_grid.comp_firstrow = (int)row;
-  if (row > msg_first_invalid) {
+  if (row > msg_first_invalid && ui_comp_should_draw()) {
     compose_area(msg_first_invalid, row, 0, default_grid.Columns);
   }
   msg_first_invalid = (int)row;
