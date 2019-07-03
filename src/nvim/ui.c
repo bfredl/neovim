@@ -329,6 +329,7 @@ void ui_set_ext_option(UI *ui, UIExtension ext, bool active)
 void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol,
              int clearattr, bool wrap)
 {
+  assert(0 <= row && row < grid->Rows);
   LineFlags flags = wrap ? kLineFlagWrap : 0;
   if (startcol == -1) {
     startcol = 0;

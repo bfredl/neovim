@@ -2124,7 +2124,7 @@ void msg_scroll_flush(void)
     ui_call_grid_scroll(msg_grid.handle, area_start, Rows, 0, Columns, delta, 0);
   }
   // TODO: when we have reached the top of the screen, pager should take over.
-  for (int i = MIN(Rows-MAX(delta, 1),0); i < Rows; i++) {
+  for (int i = MAX(Rows-MAX(delta, 1),0); i < Rows; i++) {
     // TODO: remember the dirty column per line!
     ui_line(&msg_grid, i, 0, msg_grid.Columns, msg_grid.Columns, 0, false);
   }
