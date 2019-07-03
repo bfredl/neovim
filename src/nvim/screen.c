@@ -318,6 +318,7 @@ int update_screen(int type)
   if (msg_did_scroll) {
     ui_call_win_scroll_over_reset();
     msg_did_scroll = false;
+    msg_scroll_at_flush = 0;
   }
 
   // if the screen was scrolled up when displaying a message, scroll it down
@@ -331,7 +332,7 @@ int update_screen(int type)
       grid_clear_line(&default_grid, default_grid.line_offset[i],
                       (int)default_grid.Columns, false);
     }
-    msg_grid.comp_firstrow = Rows-1;
+    msg_grid.comp_firstrow = Rows-p_ch;
     if (dy_flags & DY_MSGSEP) {
       if (valid == 0) {
         redraw_tabline = true;

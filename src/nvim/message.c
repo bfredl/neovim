@@ -126,8 +126,6 @@ static int msg_ext_visible = 0;  ///< number of messages currently visible
 /// Shouldn't clear message after leaving cmdline
 static bool msg_ext_keep_after_cmdline = false;
 
-static int msg_scroll_at_flush = 0;
-
 static void validate_msg_grid(void)
 {
   grid_assign_handle(&msg_grid);
