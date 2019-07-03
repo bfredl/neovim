@@ -510,11 +510,11 @@ void ui_comp_set_screen_valid(bool valid)
 
 static void ui_comp_msg_set_pos(UI *ui, Integer row)
 {
-  msg_grid.comp_firstrow = row;
+  msg_grid.comp_firstrow = (int)row;
   if (row > msg_first_invalid) {
     compose_area(msg_first_invalid, row, 0, default_grid.Columns);
   }
-  msg_first_invalid = row;
+  msg_first_invalid = (int)row;
 }
 
 static void ui_comp_grid_scroll(UI *ui, Integer grid, Integer top,
