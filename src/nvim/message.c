@@ -126,15 +126,18 @@ static int msg_ext_visible = 0;  ///< number of messages currently visible
 /// Shouldn't clear message after leaving cmdline
 static bool msg_ext_keep_after_cmdline = false;
 
+static int msg_scroll_at_flush = 0;
+
 static void validate_msg_grid(void)
 {
   grid_assign_handle(&msg_grid);
   if (msg_grid.Rows != Rows || msg_grid.Columns != Columns) {
     grid_alloc(&msg_grid, Rows, Columns, false, false);
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
-    msg_grid.comp_firstrow = Rows-1;
+    msg_grid.comp_firstrow = Rows-p_ch;
     ui_comp_put_grid(&msg_grid, 0, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
+    msg_grid.comp_disabled = false;  // TODO: bullshit!
   }
 }
 
@@ -2081,6 +2084,7 @@ int msg_scrollsize(void)
  */
 void msg_scroll_up(void)
 {
+  msg_grid.comp_disabled = true;  // TODO: bullshit
   if (!msg_did_scroll) {
     ui_call_win_scroll_over_start();
     msg_did_scroll = true;
@@ -2105,6 +2109,26 @@ void msg_scroll_up(void)
   // TODO(bfredl): when msgsep display is properly batched, this fill should be
   // eliminated.
   grid_fill(&msg_grid, Rows-1, Rows, 0, (int)Columns, ' ', ' ', HL_ATTR(HLF_MSG));
+}
+
+void msg_scroll_flush(void)
+{
+  if (!msg_grid.comp_disabled) {
+    return;
+  }
+  msg_grid.comp_disabled = false;
+  int delta = msg_scrolled - msg_scroll_at_flush;
+  int area_start = MAX(Rows - msg_scrollsize(), 0);
+  // TODO: don't bother scrolling at first scroll when p_ch = 1?
+  if (delta > 0) {
+    ui_call_grid_scroll(msg_grid.handle, area_start, Rows, 0, Columns, delta, 0);
+  }
+  // TODO: when we have reached the top of the screen, pager should take over.
+  for (int i = MIN(Rows-MAX(delta, 1),0); i < Rows; i++) {
+    // TODO: remember the dirty column per line!
+    ui_line(&msg_grid, i, 0, msg_grid.Columns, msg_grid.Columns, 0, false);
+  }
+  msg_scroll_at_flush = msg_scrolled;
 }
 
 /*
@@ -2782,7 +2806,8 @@ int msg_end(void)
   // @TODO(bfredl): calling flush here inhibits substantial performance
   // improvements. Caller should call ui_flush before waiting on user input or
   // CPU busywork.
-  ui_flush();  // calls msg_ext_ui_flush
+  // ui_flush();  // calls msg_ext_ui_flush
+  msg_ext_ui_flush();
   return true;
 }
 
