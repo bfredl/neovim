@@ -5519,8 +5519,11 @@ void grid_puts_line_flush(bool set_cursor)
       ui_grid_cursor_goto(put_dirty_grid->handle, put_dirty_row,
                           MIN(put_dirty_last, put_dirty_grid->Columns-1));
     }
-    ui_line(put_dirty_grid, put_dirty_row, put_dirty_first, put_dirty_last,
-            put_dirty_last, 0, false);
+    if (!put_dirty_grid->throttled) {
+      // TODO: when throttled, store the dirty column somewhere
+      ui_line(put_dirty_grid, put_dirty_row, put_dirty_first, put_dirty_last,
+              put_dirty_last, 0, false);
+    }
     put_dirty_first = INT_MAX;
     put_dirty_last = 0;
   }
@@ -6369,7 +6372,9 @@ void grid_ins_lines(ScreenGrid *grid, int row, int line_count, int end, int col,
     }
   }
 
-  ui_call_grid_scroll(grid->handle, row, end, col, col+width, -line_count, 0);
+  if (!grid->throttled) {
+    ui_call_grid_scroll(grid->handle, row, end, col, col+width, -line_count, 0);
+  }
 
   return;
 }
@@ -6420,7 +6425,9 @@ void grid_del_lines(ScreenGrid *grid, int row, int line_count, int end, int col,
     }
   }
 
-  ui_call_grid_scroll(grid->handle, row, end, col, col+width, line_count, 0);
+  if (!grid->throttled) {
+    ui_call_grid_scroll(grid->handle, row, end, col, col+width, line_count, 0);
+  }
 
   return;
 }
