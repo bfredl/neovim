@@ -137,7 +137,7 @@ static void validate_msg_grid(void)
     msg_grid.comp_firstrow = Rows-p_ch;
     ui_comp_put_grid(&msg_grid, 0, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
-    msg_grid.comp_disabled = false;  // TODO: bullshit!
+    msg_grid.throttled = false; // don't throttle in 'cmdheight' area
   }
 }
 
@@ -2084,7 +2084,7 @@ int msg_scrollsize(void)
  */
 void msg_scroll_up(void)
 {
-  msg_grid.comp_disabled = true;  // TODO: bullshit
+  msg_grid.throttled = true;
   if (!msg_did_scroll) {
     ui_call_win_scroll_over_start();
     msg_did_scroll = true;
@@ -2113,10 +2113,10 @@ void msg_scroll_up(void)
 
 void msg_scroll_flush(void)
 {
-  if (!msg_grid.comp_disabled) {
+  if (!msg_grid.throttled) {
     return;
   }
-  msg_grid.comp_disabled = false;
+  msg_grid.throttled = false;
   int delta = msg_scrolled - msg_scroll_at_flush;
   int area_start = MAX(Rows - msg_scrollsize(), 0);
   // TODO: don't bother scrolling at first scroll when p_ch = 1?

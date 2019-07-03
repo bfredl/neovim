@@ -473,8 +473,7 @@ static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
                              LineFlags flags, const schar_T *chunk,
                              const sattr_T *attrs)
 {
-  if (!ui_comp_should_draw() || !ui_comp_set_grid((int)grid)
-      || curgrid->comp_disabled) { // TODO: not here!!
+  if (!ui_comp_should_draw() || !ui_comp_set_grid((int)grid)) {
     return;
   }
 
@@ -536,8 +535,7 @@ static void ui_comp_grid_scroll(UI *ui, Integer grid, Integer top,
                                 Integer bot, Integer left, Integer right,
                                 Integer rows, Integer cols)
 {
-  if (!ui_comp_should_draw() || !ui_comp_set_grid((int)grid)
-      || curgrid->comp_disabled) { // TODO: not here!!
+  if (!ui_comp_should_draw() || !ui_comp_set_grid((int)grid)) {
     return;
   }
   top += curgrid->comp_row;
