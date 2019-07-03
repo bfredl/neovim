@@ -316,7 +316,6 @@ int update_screen(int type)
   // Tricky: vim code can reset msg_scrolled behind our back, so need
   // separate bookkeeping for now.
   if (msg_did_scroll) {
-    ui_call_win_scroll_over_reset();
     msg_did_scroll = false;
     msg_scroll_at_flush = 0;
   }
@@ -328,11 +327,8 @@ int update_screen(int type)
     for (int i = valid; i < Rows-1; i++) {
       grid_clear_line(&msg_grid, msg_grid.line_offset[i],
                       (int)msg_grid.Columns, false);
-      // TODO: this is bullshit
-      grid_clear_line(&default_grid, default_grid.line_offset[i],
-                      (int)default_grid.Columns, false);
     }
-    msg_grid.comp_firstrow = Rows-p_ch;
+    ui_call_msg_set_pos(Rows-p_ch);
     if (dy_flags & DY_MSGSEP) {
       if (valid == 0) {
         redraw_tabline = true;

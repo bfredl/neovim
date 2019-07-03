@@ -132,9 +132,9 @@ static void validate_msg_grid(void)
   if (msg_grid.Rows != Rows || msg_grid.Columns != Columns) {
     grid_alloc(&msg_grid, Rows, Columns, false, false);
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
-    msg_grid.comp_firstrow = Rows-p_ch;
     ui_comp_put_grid(&msg_grid, 0, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
+    ui_call_msg_set_pos(Rows-p_ch);
     msg_grid.throttled = false; // don't throttle in 'cmdheight' area
   }
 }
@@ -2083,30 +2083,21 @@ int msg_scrollsize(void)
 void msg_scroll_up(void)
 {
   msg_grid.throttled = true;
-  if (!msg_did_scroll) {
-    ui_call_win_scroll_over_start();
-    msg_did_scroll = true;
-  }
+  msg_did_scroll = true;
   if (dy_flags & DY_MSGSEP) {
     if (msg_scrolled == 0) {
-      msg_grid.comp_firstrow--;
       grid_fill(&msg_grid, Rows-p_ch-1, Rows-p_ch, 0, (int)Columns,
                 curwin->w_p_fcs_chars.msgsep, curwin->w_p_fcs_chars.msgsep,
                 HL_ATTR(HLF_MSGSEP));
     }
     int nscroll = MIN(msg_scrollsize()+1, Rows);
-    // TODO: this is slightly bullshit
-    if (msg_grid.comp_firstrow > 0) {
-      msg_grid.comp_firstrow--;
-    }
     grid_del_lines(&msg_grid, Rows-nscroll, 1, Rows, 0, Columns);
   } else {
     grid_del_lines(&msg_grid, 0, 1, (int)Rows, 0, Columns);
   }
 
-  // TODO(bfredl): when msgsep display is properly batched, this fill should be
-  // eliminated.
-  grid_fill(&msg_grid, Rows-1, Rows, 0, (int)Columns, ' ', ' ', HL_ATTR(HLF_MSG));
+  grid_fill(&msg_grid, Rows-1, Rows, 0, (int)Columns, ' ', ' ',
+            HL_ATTR(HLF_MSG));
 }
 
 void msg_scroll_flush(void)
@@ -2117,6 +2108,7 @@ void msg_scroll_flush(void)
   msg_grid.throttled = false;
   int delta = msg_scrolled - msg_scroll_at_flush;
   int area_start = MAX(Rows - msg_scrollsize(), 0);
+  ui_call_msg_set_pos(area_start);
   // TODO: don't bother scrolling at first scroll when p_ch = 1?
   if (delta > 0) {
     ui_call_grid_scroll(msg_grid.handle, area_start, Rows, 0, Columns, delta, 0);

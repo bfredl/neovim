@@ -110,9 +110,7 @@ void win_hide(Integer grid)
   FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
 void win_close(Integer grid)
   FUNC_API_SINCE(6) FUNC_API_REMOTE_ONLY;
-void win_scroll_over_start(void)
-  FUNC_API_SINCE(6) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
-void win_scroll_over_reset(void)
+void msg_set_pos(Integer row)
   FUNC_API_SINCE(6) FUNC_API_BRIDGE_IMPL FUNC_API_COMPOSITOR_IMPL;
 
 void popupmenu_show(Array items, Integer selected,

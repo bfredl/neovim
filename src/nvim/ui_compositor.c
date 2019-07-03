@@ -47,7 +47,6 @@ static int chk_width = 0, chk_height = 0;
 static ScreenGrid *curgrid;
 
 static bool valid_screen = true;
-static bool msg_scroll_mode = false;
 static int msg_first_invalid = 0;
 
 static int dbghl_normal, dbghl_clear, dbghl_composed, dbghl_recompose;
@@ -64,8 +63,7 @@ void ui_comp_init(void)
   compositor->grid_scroll = ui_comp_grid_scroll;
   compositor->grid_cursor_goto = ui_comp_grid_cursor_goto;
   compositor->raw_line = ui_comp_raw_line;
-  compositor->win_scroll_over_start = ui_comp_win_scroll_over_start;
-  compositor->win_scroll_over_reset = ui_comp_win_scroll_over_reset;
+  compositor->msg_set_pos = ui_comp_msg_set_pos;
 
   // Be unopinionated: will be attached together with a "real" ui anyway
   compositor->width = INT_MAX;
@@ -510,25 +508,13 @@ void ui_comp_set_screen_valid(bool valid)
   valid_screen = valid;
 }
 
-// TODO(bfredl): These events are somewhat of a hack. multiline messages
-// should later on be a separate grid, then this would just be ordinary
-// ui_comp_put_grid and ui_comp_remove_grid calls.
-static void ui_comp_win_scroll_over_start(UI *ui)
+static void ui_comp_msg_set_pos(UI *ui, Integer row)
 {
-  msg_scroll_mode = true;
-  msg_first_invalid = ui->height;
-}
-
-static void ui_comp_win_scroll_over_reset(UI *ui)
-{
-  msg_scroll_mode = false;
-  for (size_t i = 1; i < kv_size(layers); i++) {
-    ScreenGrid *grid = kv_A(layers, i);
-    if (grid->comp_row+grid->Rows > msg_first_invalid) {
-      compose_area(msg_first_invalid, grid->comp_row+grid->Rows,
-                   grid->comp_col, grid->comp_col+grid->Columns);
-    }
+  msg_grid.comp_firstrow = row;
+  if (row > msg_first_invalid) {
+    compose_area(msg_first_invalid, row, 0, default_grid.Columns);
   }
+  msg_first_invalid = row;
 }
 
 static void ui_comp_grid_scroll(UI *ui, Integer grid, Integer top,
@@ -558,10 +544,6 @@ static void ui_comp_grid_scroll(UI *ui, Integer grid, Integer top,
     if (rdb_flags & RDB_COMPOSITOR) {
       debug_delay(2);
     }
-  }
-  // TODO: maybe this is bullshit?
-  if (msg_scroll_mode) {
-    msg_first_invalid = MIN(msg_first_invalid, (int)top);
   }
 }
 
