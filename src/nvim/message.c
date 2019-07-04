@@ -129,13 +129,20 @@ static bool msg_ext_keep_after_cmdline = false;
 static void validate_msg_grid(void)
 {
   grid_assign_handle(&msg_grid);
-  if (msg_grid.Rows != Rows || msg_grid.Columns != Columns) {
+  bool should_alloc = msg_dothrottle();
+  if (msg_grid.Rows != Rows || msg_grid.Columns != Columns
+      || (should_alloc && !msg_grid.chars)) {
     grid_alloc(&msg_grid, Rows, Columns, false, false);
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
     ui_comp_put_grid(&msg_grid, 0, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
     ui_call_msg_set_pos(Rows-p_ch);
     msg_grid.throttled = false; // don't throttle in 'cmdheight' area
+  } else if (!should_alloc && msg_grid.chars) {
+    // TODO: might cause unnecessary redraw
+    ui_comp_remove_grid(&msg_grid);
+    grid_free(&msg_grid);
+    redraw_cmdline = true;
   }
 }
 
@@ -2077,12 +2084,19 @@ int msg_scrollsize(void)
   return msg_scrolled + p_ch + 1;
 }
 
+bool msg_dothrottle(void)
+{
+  return default_grid.chars && ((dy_flags & DY_MSGSEP) || ui_has(kUIMultigrid));
+}
+
 /*
  * Scroll the screen up one line for displaying the next message line.
  */
 void msg_scroll_up(void)
 {
-  msg_grid.throttled = true;
+  if (msg_dothrottle()) {
+    msg_grid.throttled = true;
+  }
   msg_did_scroll = true;
   if (dy_flags & DY_MSGSEP) {
     if (msg_scrolled == 0) {

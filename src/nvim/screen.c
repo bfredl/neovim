@@ -324,22 +324,31 @@ int update_screen(int type)
   if (msg_scrolled) {
     clear_cmdline = true;
     int valid = MAX(Rows - msg_scrollsize(), 0);
-    for (int i = valid; i < Rows-1; i++) {
-      grid_clear_line(&msg_grid, msg_grid.line_offset[i],
-                      (int)msg_grid.Columns, false);
-    }
-    ui_call_msg_set_pos(Rows-p_ch);
-    if (dy_flags & DY_MSGSEP) {
-      if (valid == 0) {
-        redraw_tabline = true;
+    if (msg_grid.chars) {
+      // non-displayed part of msg_grid is considered invalid.
+      for (int i = valid; i < MIN(Rows-p_ch,msg_grid.Rows); i++) {
+        grid_clear_line(&msg_grid, msg_grid.line_offset[i],
+                        (int)msg_grid.Columns, false);
       }
-      FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-        if (W_ENDROW(wp) > valid) {
-          wp->w_redr_type = NOT_VALID;
-          wp->w_lines_valid = 0;
+    }
+    // TODO: this causes a compositor redraw. If we already are NOT_VALID
+    // should coalesce with the internal redraw.
+    ui_call_msg_set_pos(Rows-p_ch);
+    if ((dy_flags & DY_MSGSEP)) {
+      // TODO: maybe assume always throttle when msgsep? Though
+      // it is useful for debugging to disable it.
+      if (!msg_dothrottle()) {
+        if (valid == 0) {
+          redraw_tabline = true;
         }
-        if (W_ENDROW(wp) + wp->w_status_height > valid) {
-          wp->w_redr_status = true;
+        FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
+          if (W_ENDROW(wp) > valid) {
+            wp->w_redr_type = NOT_VALID;
+            wp->w_lines_valid = 0;
+          }
+          if (W_ENDROW(wp) + wp->w_status_height > valid) {
+            wp->w_redr_status = true;
+          }
         }
       }
     } else if (msg_scrolled > Rows - 5) {  // clearing is faster
