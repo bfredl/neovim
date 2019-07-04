@@ -136,7 +136,7 @@ static void validate_msg_grid(void)
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
     ui_comp_put_grid(&msg_grid, 0, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
-    ui_call_msg_set_pos(Rows-p_ch);
+    ui_call_msg_set_pos(msg_grid.handle, Rows-p_ch);
     msg_grid.throttled = false; // don't throttle in 'cmdheight' area
   } else if (!should_alloc && msg_grid.chars) {
     // TODO: might cause unnecessary redraw
@@ -2122,7 +2122,7 @@ void msg_scroll_flush(void)
   msg_grid.throttled = false;
   int delta = msg_scrolled - msg_scroll_at_flush;
   int area_start = MAX(Rows - msg_scrollsize(), 0);
-  ui_call_msg_set_pos(area_start);
+  ui_call_msg_set_pos(msg_grid.handle, area_start);
   // TODO: don't bother scrolling at first scroll when p_ch = 1?
   if (delta > 0) {
     ui_call_grid_scroll(msg_grid.handle, area_start, Rows, 0, Columns, delta, 0);

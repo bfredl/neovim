@@ -508,7 +508,7 @@ void ui_comp_set_screen_valid(bool valid)
   valid_screen = valid;
 }
 
-static void ui_comp_msg_set_pos(UI *ui, Integer row)
+static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row)
 {
   msg_grid.comp_firstrow = (int)row;
   if (row > msg_first_invalid && ui_comp_should_draw()) {

@@ -333,7 +333,7 @@ int update_screen(int type)
     }
     // TODO: this causes a compositor redraw. If we already are NOT_VALID
     // should coalesce with the internal redraw.
-    ui_call_msg_set_pos(Rows-p_ch);
+    ui_call_msg_set_pos(msg_grid.handle, Rows-p_ch);
     if ((dy_flags & DY_MSGSEP)) {
       // TODO: maybe assume always throttle when msgsep? Though
       // it is useful for debugging to disable it.
