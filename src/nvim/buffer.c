@@ -2646,7 +2646,6 @@ void buflist_list(exarg_T *eap)
     msg_outtrans(IObuff);
     line_breakcheck();
   }
-  ui_flush();
 }
 
 /*

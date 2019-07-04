@@ -517,7 +517,7 @@ static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row)
   } else if (row < msg_first_invalid && ui_comp_should_draw() && msg_first_invalid < Rows) {
     int delta = msg_first_invalid - row;
     if (msg_grid.blending) {
-      compose_area(row, Rows, 0, Columns);
+      compose_area(row, Rows-delta, 0, Columns);
     } else {
       ui_composed_call_grid_scroll(1, row, Rows, 0, Columns, delta, 0);
     }
