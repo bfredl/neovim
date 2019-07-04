@@ -681,6 +681,11 @@ function Screen:_handle_win_scroll_over_reset()
    self.scroll_over = false
 end
 
+function Screen:_handle_msg_set_pos(grid, row)
+  self.msg_grid = grid
+  self.msg_pos = pos
+end
+
 function Screen:_handle_flush()
 end
 
