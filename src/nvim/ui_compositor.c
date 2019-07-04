@@ -282,10 +282,9 @@ static void ui_comp_grid_cursor_goto(UI *ui, Integer grid_handle,
 
 ScreenGrid *ui_comp_mouse_focus(int row, int col)
 {
-  // TODO(bfredl): click "through" unfocusable grids?
   for (ssize_t i = (ssize_t)kv_size(layers)-1; i > 0; i--) {
     ScreenGrid *grid = kv_A(layers, i);
-    if (row >= grid->comp_row && row < grid->comp_row+grid->Rows
+    if (grid->focusable && row >= grid->comp_row && row < grid->comp_row+grid->Rows
         && col >= grid->comp_col && col < grid->comp_col+grid->Columns) {
       return grid;
     }

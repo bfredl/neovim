@@ -60,6 +60,7 @@ typedef struct {
 
   // whether the compositor should blend the grid with the background grid
   bool blending;
+  bool focusable;
 
   // state owned by the compositor.
   int comp_row;
@@ -70,6 +71,6 @@ typedef struct {
 } ScreenGrid;
 
 #define SCREEN_GRID_INIT { 0, NULL, NULL, NULL, NULL, 0, 0, false, false, 0, \
-                           0, false, 0, 0, 0, 0,  false }
+                           0, false, true, 0, 0, 0, 0,  false }
 
 #endif  // NVIM_GRID_DEFS_H

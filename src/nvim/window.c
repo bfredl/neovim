@@ -695,6 +695,7 @@ static void ui_ext_win_position(win_T *wp)
       ui_comp_put_grid(&wp->w_grid, comp_row, comp_col, wp->w_height,
                        wp->w_width, valid, on_top);
       ui_check_cursor_grid(wp->w_grid.handle);
+      wp->w_grid.focusable = wp->w_float_config.focusable;
       if (!valid) {
         wp->w_grid.valid = false;
         redraw_win_later(wp, NOT_VALID);

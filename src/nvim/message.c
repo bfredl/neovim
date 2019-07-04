@@ -138,6 +138,7 @@ static void validate_msg_grid(void)
                      false, true);
     ui_call_msg_set_pos(msg_grid.handle, Rows-p_ch);
     msg_grid.throttled = false; // don't throttle in 'cmdheight' area
+    msg_grid.focusable = false;
   } else if (!should_alloc && msg_grid.chars) {
     // TODO: might cause unnecessary redraw
     ui_comp_remove_grid(&msg_grid);
