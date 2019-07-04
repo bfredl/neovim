@@ -311,6 +311,8 @@ static uint8_t *command_line_enter(int firstc, long count, int indent)
     cmdmsg_rl = false;
   }
 
+  msg_grid_validate();
+
   redir_off = true;             // don't redirect the typed command
   if (!cmd_silent) {
     gotocmdline(true);

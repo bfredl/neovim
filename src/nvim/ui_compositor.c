@@ -161,6 +161,7 @@ bool ui_comp_put_grid(ScreenGrid *grid, int row, int col, int height, int width,
     if (kv_A(layers, insert_at-1) == &msg_grid) {
       insert_at--;
     }
+    // TODO: when wop=pum, pum should go over messages
     if (kv_A(layers, insert_at-1) == &pum_grid && grid != &msg_grid) {
       insert_at--;
     }
@@ -322,7 +323,7 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
     for (size_t i = 0; i < kv_size(layers); i++) {
       ScreenGrid *g = kv_A(layers, i);
       if (g->comp_row > row || row >= g->comp_row + g->Rows
-          || g->comp_disabled || g->comp_firstrow > row) {
+          || g->comp_disabled) {
         continue;
       }
       if (g->comp_col <= col && col < g->comp_col+g->Columns) {
@@ -509,10 +510,19 @@ void ui_comp_set_screen_valid(bool valid)
 
 static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row)
 {
-  msg_grid.comp_firstrow = (int)row;
+  msg_grid.comp_row = (int)row;
+  // TODO: don't bother scrolling at first scroll when p_ch = 1?
   if (row > msg_first_invalid && ui_comp_should_draw()) {
     compose_area(msg_first_invalid, row, 0, default_grid.Columns);
+  } else if (row < msg_first_invalid && ui_comp_should_draw() && msg_first_invalid < Rows) {
+    int delta = msg_first_invalid - row;
+    if (msg_grid.blending) {
+      compose_area(row, Rows, 0, Columns);
+    } else {
+      ui_composed_call_grid_scroll(1, row, Rows, 0, Columns, delta, 0);
+    }
   }
+
   msg_first_invalid = (int)row;
 }
 

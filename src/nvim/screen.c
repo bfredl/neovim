@@ -326,14 +326,15 @@ int update_screen(int type)
     int valid = MAX(Rows - msg_scrollsize(), 0);
     if (msg_grid.chars) {
       // non-displayed part of msg_grid is considered invalid.
-      for (int i = valid; i < MIN(Rows-p_ch,msg_grid.Rows); i++) {
+      for (int i = 0; i < MIN(msg_scrollsize(), msg_grid.Rows); i++) {
         grid_clear_line(&msg_grid, msg_grid.line_offset[i],
                         (int)msg_grid.Columns, false);
       }
     }
     // TODO: this causes a compositor redraw. If we already are NOT_VALID
     // should coalesce with the internal redraw.
-    ui_call_msg_set_pos(msg_grid.handle, Rows-p_ch);
+    msg_grid.throttled = false;
+    msg_grid_set_pos(Rows-p_ch);
     if ((dy_flags & DY_MSGSEP)) {
       // TODO: maybe assume always throttle when msgsep? Though
       // it is useful for debugging to disable it.
@@ -516,6 +517,12 @@ int update_screen(int type)
   }
 
   updating_screen = FALSE;
+
+  if (type == NOT_VALID && msg_dothrottle()) {
+    // TODO: less often: only when default_grid.valid was false
+    // also when changing p_ch
+    grid_fill(&default_grid, Rows-p_ch, Rows, 0, Columns, ' ', ' ', 0);
+  }
 
   /* Clear or redraw the command line.  Done last, because scrolling may
    * mess up the command line. */
@@ -4326,9 +4333,13 @@ win_line (
 void screen_adjust_grid(ScreenGrid **grid, int *row_off, int *col_off)
 {
   if (!(*grid)->chars && *grid != &default_grid) {
-    *row_off += (*grid)->row_offset;
-    *col_off += (*grid)->col_offset;
-    *grid = &default_grid;
+      *row_off += (*grid)->row_offset;
+      *col_off += (*grid)->col_offset;
+    if (*grid == &msg_grid_adj && msg_grid.chars) {
+      *grid = &msg_grid;
+    } else {
+      *grid = &default_grid;
+    }
   }
 }
 
@@ -5356,6 +5367,8 @@ static int put_dirty_last = 0;
 /// another line.
 void grid_puts_line_start(ScreenGrid *grid, int row)
 {
+  int col = 0; // unused
+  screen_adjust_grid(&grid, &row, &col);
   assert(put_dirty_row == -1);
   put_dirty_row = row;
   put_dirty_grid = grid;
@@ -5892,6 +5905,8 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
       if (put_dirty_row == row) {
         put_dirty_first = MIN(put_dirty_first, dirty_first);
         put_dirty_last = MAX(put_dirty_last, dirty_last);
+      } else if (grid->throttled) {
+        // TODO: save column!
       } else {
         int last = c2 != ' ' ? dirty_last : dirty_first + (c1 != ' ');
         ui_line(grid, row, dirty_first, last, dirty_last, attr, false);

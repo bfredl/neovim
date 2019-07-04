@@ -92,6 +92,7 @@ extern MessageHistoryEntry *last_msg_hist;
 EXTERN bool msg_ext_need_clear INIT(= false);
 
 EXTERN ScreenGrid msg_grid INIT(= SCREEN_GRID_INIT);
+EXTERN ScreenGrid msg_grid_adj INIT(= SCREEN_GRID_INIT);
 
 EXTERN int msg_scroll_at_flush INIT(= 0);
 
