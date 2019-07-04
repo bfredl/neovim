@@ -136,7 +136,9 @@ void msg_grid_set_pos(int row)
     msg_grid_pos_at_flush = row;
   }
   msg_grid_pos = row;
-  msg_grid_adj.row_offset = -row;
+  if (msg_grid.chars) {
+    msg_grid_adj.row_offset = -row;
+  }
 }
 
 void msg_grid_validate(void)
