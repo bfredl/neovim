@@ -486,7 +486,7 @@ static win_T *mouse_find_grid_win(int *gridp, int *rowp, int *colp)
   } else if (*gridp == 0) {
     ScreenGrid *grid = ui_comp_mouse_focus(*rowp, *colp);
     FOR_ALL_WINDOWS_IN_TAB(wp, curtab) {
-      if (&wp->w_grid != grid || !wp->w_float_config.focusable) {
+      if (&wp->w_grid != grid) {
         continue;
       }
       *gridp = grid->handle;
