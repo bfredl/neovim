@@ -654,6 +654,11 @@ function Screen:_handle_win_scroll_over_reset()
    self.scroll_over = false
 end
 
+function Screen:_handle_msg_set_pos(grid, row)
+  self.msg_grid = grid
+  self.msg_pos = pos
+end
+
 function Screen:_handle_flush()
 end
 
@@ -1181,13 +1186,18 @@ function Screen:render(headers, attr_state, preview)
   headers = headers and (self._options.ext_multigrid or self._options._debug_float)
   local rv = {}
   for igrid,grid in pairs(self._grids) do
-    if headers then
-      table.insert(rv, "## grid "..igrid)
-    end
-    for i = 1, grid.height do
-      local cursor = self._cursor.grid == igrid and self._cursor.row == i
-      local prefix = (headers or preview) and "  " or ""
-      table.insert(rv, prefix..self:_row_repr(igrid, i, attr_state, cursor).."|")
+    -- TODO FIXME
+    -- "Expected screen state's row count(11) differs from configured height(0) of Screen"
+    -- should not inhibit showing the expected/actual state
+    if igrid ~= self.msg_grid then
+      if headers then
+        table.insert(rv, "## grid "..igrid)
+      end
+      for i = 1, grid.height do
+        local cursor = self._cursor.grid == igrid and self._cursor.row == i
+        local prefix = (headers or preview) and "  " or ""
+        table.insert(rv, prefix..self:_row_repr(igrid, i, attr_state, cursor).."|")
+      end
     end
   end
   return rv
