@@ -126,7 +126,7 @@ static int msg_ext_visible = 0;  ///< number of messages currently visible
 /// Shouldn't clear message after leaving cmdline
 static bool msg_ext_keep_after_cmdline = false;
 
-static void validate_msg_grid(void)
+void msg_grid_validate(void)
 {
   grid_assign_handle(&msg_grid);
   bool should_alloc = msg_dothrottle();
@@ -1909,7 +1909,7 @@ static void msg_puts_display(const char_u *str, int maxlen, int attr,
     return;
   }
 
-  validate_msg_grid();
+  msg_grid_validate();
 
   cmdline_was_last_drawn = redrawing_cmdline;
 
@@ -2087,7 +2087,8 @@ int msg_scrollsize(void)
 
 bool msg_dothrottle(void)
 {
-  return default_grid.chars && ((dy_flags & DY_MSGSEP) || ui_has(kUIMultigrid));
+  return default_grid.chars && ((dy_flags & DY_MSGSEP) || ui_has(kUIMultigrid))
+         && !ui_has(kUIMessages);
 }
 
 /*
