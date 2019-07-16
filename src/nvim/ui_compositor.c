@@ -526,7 +526,8 @@ void ui_comp_set_screen_valid(bool valid)
   valid_screen = valid;
 }
 
-static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row)
+static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row,
+                                Boolean scrolled)
 {
   msg_grid.comp_row = (int)row;
   // TODO: don't bother scrolling at first scroll when p_ch = 1?
