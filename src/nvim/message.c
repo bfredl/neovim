@@ -129,10 +129,11 @@ static bool msg_ext_keep_after_cmdline = false;
 static int msg_grid_pos = 0;
 static int msg_grid_pos_at_flush = 0;
 
-void msg_grid_set_pos(int row)
+void msg_grid_set_pos(int row, bool scrolled)
 {
   if (!msg_grid.throttled) {
-    ui_call_msg_set_pos(msg_grid.handle, row);
+    ui_call_msg_set_pos(msg_grid.handle, row, scrolled,
+                        cchar_to_string(curwin->w_p_fcs_chars.msgsep));
     msg_grid_pos_at_flush = row;
   }
   msg_grid_pos = row;
@@ -151,7 +152,7 @@ void msg_grid_validate(void)
     ui_comp_put_grid(&msg_grid, Rows - p_ch, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
-    msg_grid.throttled = false; // don't throttle in 'cmdheight' area
+    msg_grid.throttled = false;  // don't throttle in 'cmdheight' area
     msg_grid.focusable = false;
     msg_grid_set_pos(Rows - p_ch);
   } else if (!should_alloc && msg_grid.chars) {
@@ -2146,7 +2147,8 @@ void msg_scroll_flush(void)
   int delta = MIN(msg_scrolled - msg_scroll_at_flush, msg_grid.Rows);
 
   if (pos_delta > 0) {
-    ui_call_msg_set_pos(msg_grid.handle, msg_grid_pos);
+    ui_call_msg_set_pos(msg_grid.handle, msg_grid_pos, true,
+                        cchar_to_string(curwin->w_p_fcs_chars.msgsep));
     msg_grid_pos_at_flush = msg_grid_pos;
   }
 

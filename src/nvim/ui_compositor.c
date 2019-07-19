@@ -509,14 +509,15 @@ void ui_comp_set_screen_valid(bool valid)
 }
 
 static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row,
-                                Boolean scrolled)
+                                Boolean scrolled, String sep_char)
 {
   msg_grid.comp_row = (int)row;
   // TODO: don't bother scrolling at first scroll when p_ch = 1?
   if (row > msg_first_invalid && ui_comp_should_draw()) {
-    compose_area(msg_first_invalid, row, 0, default_grid.Columns);
-  } else if (row < msg_first_invalid && ui_comp_should_draw() && msg_first_invalid < Rows) {
-    int delta = msg_first_invalid - row;
+    compose_area(MAX(msg_first_invalid-1, 0), row, 0, default_grid.Columns);
+  } else if (row < msg_first_invalid && ui_comp_should_draw()
+             && msg_first_invalid < Rows) {
+    int delta = msg_first_invalid - (int)row;
     if (msg_grid.blending) {
       compose_area(row, Rows-delta, 0, Columns);
     } else {
