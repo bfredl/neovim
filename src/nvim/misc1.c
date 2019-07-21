@@ -59,6 +59,7 @@
 #include "nvim/os/time.h"
 #include "nvim/event/stream.h"
 #include "nvim/buffer.h"
+#include "nvim/api/private/defs.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "misc1.c.generated.h"
@@ -2849,7 +2850,21 @@ void ex_modal(exarg_T *eap)
   cmdmod.noswapfile = 1;
 
   /* Create a window for the command-line buffer. */
-  if (win_split((int)p_cwh, WSP_BOT) == FAIL) {
+  if (true) {
+    Error err = ERROR_INIT;
+    FloatConfig fconfig = FLOAT_CONFIG_INIT;
+    fconfig.width = Columns;
+    fconfig.height = Rows/2;
+    fconfig.row = Rows - fconfig.height-1;
+    fconfig.style = kWinStyleMinimal;
+    wp = win_new_float(NULL, fconfig, &err);
+    if (ERROR_SET(&err)) {
+      EMSG(err.msg);
+      EMSG(err.msg);
+    }
+    win_enter(wp, false);
+    RESET_BINDING(wp);
+  } else if (win_split((int)p_cwh, WSP_BOT) == FAIL) {
     beep_flush();
     unblock_autocmds();
     return;
@@ -2949,7 +2964,9 @@ void ex_modal(exarg_T *eap)
     }
 
     /* Restore window sizes. */
-    win_size_restore(&winsizes);
+    if (false) {
+      win_size_restore(&winsizes);
+    }
 
     unblock_autocmds();
   }
