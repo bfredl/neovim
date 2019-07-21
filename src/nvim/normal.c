@@ -1357,6 +1357,10 @@ static int normal_check(VimState *state)
     return 0;
   }
 
+  if (modal_active && modal_result) {
+    return 0;
+  }
+
   normal_prepare(s);
   return 1;
 }
@@ -2374,7 +2378,7 @@ do_mouse (
 
     /* click in a tab selects that tab page */
     if (is_click
-        && cmdwin_type == 0
+        && !check_modal(false)
         && mouse_col < Columns) {
       in_tab_line = true;
       c1 = tab_page_click_defs[mouse_col].tabnr;

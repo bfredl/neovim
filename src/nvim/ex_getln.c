@@ -2060,6 +2060,9 @@ char *getcmdline_prompt(const char firstc, const char *const prompt,
 int text_locked(void) {
   if (cmdwin_type != 0)
     return TRUE;
+  if (modal_active) {
+    return true;
+  }
   return textlock != 0;
 }
 
@@ -2075,6 +2078,8 @@ void text_locked_msg(void)
 char_u * get_text_locked_msg(void) {
   if (cmdwin_type != 0) {
     return e_cmdwin;
+  } else if (modal_active) {
+    return "fyyyyy";
   } else {
     return e_secure;
   }

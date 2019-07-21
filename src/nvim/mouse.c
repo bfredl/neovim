@@ -172,7 +172,7 @@ retnomove:
       end_visual_mode();
       redraw_curbuf_later(INVERTED);            // delete the inversion
     }
-    if (cmdwin_type != 0 && wp != curwin) {
+    if (check_modal(false) && wp != curwin) {
       // A click outside the command-line window: Use modeless
       // selection if possible.  Allow dragging the status lines.
       on_sep_line = 0;

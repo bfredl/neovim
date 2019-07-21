@@ -857,6 +857,9 @@ EXTERN int cmdwin_type INIT(= 0);    ///< type of cmdline window or 0
 EXTERN int cmdwin_result INIT(= 0);  ///< result of cmdline window or 0
 EXTERN int cmdwin_level INIT(= 0);   ///< cmdline recursion level
 
+EXTERN bool modal_active INIT(= false);
+EXTERN bool modal_result INIT(= false);
+
 EXTERN char_u no_lines_msg[] INIT(= N_("--No lines in buffer--"));
 
 /*

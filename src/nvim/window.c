@@ -67,6 +67,24 @@
 
 static char *m_onlyone = N_("Already only one window");
 
+/// @return true if modal window (like cmdline window) is active
+bool check_modal(bool show_err) {
+  if (cmdwin_type != 0) {
+    if (show_err) {
+      EMSG(_(e_cmdwin));
+    }
+    return true;
+  }
+  if (modal_active) {
+    if (show_err) {
+      EMSG("nöööö!");
+    }
+    return true;
+  }
+
+  return false;
+}
+
 /*
  * all CTRL-W window commands are handled here, called from normal_cmd().
  */
@@ -92,8 +110,7 @@ do_window (
 
 # define CHECK_CMDWIN \
   do { \
-    if (cmdwin_type != 0) { \
-      EMSG(_(e_cmdwin)); \
+    if (check_modal(true)) { \
       return; \
     } \
   } while (0)

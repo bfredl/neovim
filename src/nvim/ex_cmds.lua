@@ -1599,6 +1599,18 @@ return {
     func='buflist_list',
   },
   {
+    command='modal',
+    flags=bit.bor(EXTRA, TRLBAR, CMDWIN),
+    addr_type=ADDR_LINES,
+    func='ex_modal',
+  },
+  {
+    command='unmodal',
+    flags=bit.bor(EXTRA, TRLBAR, CMDWIN),
+    addr_type=ADDR_LINES,
+    func='ex_unmodal',
+  },
+  {
     command='move',
     flags=bit.bor(RANGE, WHOLEFOLD, EXTRA, TRLBAR, CMDWIN, MODIFY),
     addr_type=ADDR_LINES,

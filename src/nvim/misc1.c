@@ -39,7 +39,9 @@
 #include "nvim/move.h"
 #include "nvim/mouse.h"
 #include "nvim/option.h"
+#include "nvim/ops.h"
 #include "nvim/os_unix.h"
+#include "nvim/popupmnu.h"
 #include "nvim/quickfix.h"
 #include "nvim/regexp.h"
 #include "nvim/screen.h"
@@ -2795,6 +2797,166 @@ int call_shell(char_u *cmd, ShellOpts opts, char_u *extra_shell_arg)
   }
 
   return retval;
+}
+
+void ex_modal(exarg_T *eap)
+{
+  modal_window();
+}
+
+void ex_unmodal(exarg_T *eap)
+{
+  modal_result = true;
+}
+
+/// Open a window on the current command line and history.  Allow editing in
+/// the window.  Returns when the window is closed.
+/// Returns:
+///     CR       if the command is to be executed
+///     Ctrl_C   if it is to be abandoned
+///     K_IGNORE if editing continues
+static bool modal_window(void)
+{
+  bufref_T            old_curbuf;
+  bufref_T            bufref;
+  win_T               *old_curwin = curwin;
+  win_T               *wp;
+  garray_T winsizes;
+  int save_restart_edit = restart_edit;
+  int save_State = State;
+  int save_exmode = exmode_active;
+
+  /* Can't do this recursively.  Can't do it when typing a password. */
+  if (check_modal(true)) {
+    return K_IGNORE;
+  }
+
+  set_bufref(&old_curbuf, curbuf);
+
+  /* Save current window sizes. */
+  win_size_save(&winsizes);
+
+  /* Don't execute autocommands while creating the window. */
+  block_autocmds();
+
+  // TODO: with z-index stuff just be on top
+  pum_undisplay(true);
+
+  // don't use a new tab page
+  cmdmod.tab = 0;
+  cmdmod.noswapfile = 1;
+
+  /* Create a window for the command-line buffer. */
+  if (win_split((int)p_cwh, WSP_BOT) == FAIL) {
+    beep_flush();
+    unblock_autocmds();
+    return K_IGNORE;
+  }
+
+  modal_active = true;
+
+  // Create empty command-line buffer.
+  buf_open_scratch(0, "[modal!!]");
+  // TODO: wanna?
+  set_option_value("bh", 0L, "wipe", OPT_LOCAL);
+  curbuf->b_p_ma = true;
+  curwin->w_p_fen = false;
+
+  // Do execute autocommands for setting the filetype (load syntax).
+  unblock_autocmds();
+  // But don't allow switching to another buffer.
+  curbuf_lock++;
+
+  /* Showing the prompt may have set need_wait_return, reset it. */
+  need_wait_return = FALSE;
+
+  //set_option_value("ft", 0L, "vim", OPT_LOCAL);
+  curbuf_lock--;
+
+  /* Reset 'textwidth' after setting 'filetype' (the Vim filetype plugin
+   * sets 'textwidth' to 78). */
+  curbuf->b_p_tw = 0;
+
+  /* Replace the empty last line with the current command-line and put the
+   * cursor there. */
+  ml_replace(curbuf->b_ml.ml_line_count, "bork!", true);
+  curwin->w_cursor.lnum = curbuf->b_ml.ml_line_count;
+  curwin->w_cursor.col = 2;
+  changed_line_abv_curs();
+  invalidate_botline();
+  redraw_later(SOME_VALID);
+
+
+  /* No Ex mode here! */
+  exmode_active = 0;
+
+  State = NORMAL;
+  setmouse();
+
+  // Trigger CmdwinEnter autocommands.
+  //apply_autocmds(EVENT_SOMESTUFF, typestr, typestr, FALSE, curbuf);
+  //if (restart_edit != 0)        /* autocmd with ":startinsert" */
+  //  stuffcharReadbuff(K_NOP);
+
+  int i = RedrawingDisabled;
+  RedrawingDisabled = 0;
+  int save_count = save_batch_count();
+
+  modal_result = false;
+  bool status = true;
+  normal_enter(true, false);
+
+  RedrawingDisabled = i;
+  restore_batch_count(save_count);
+
+  const bool save_KeyTyped = KeyTyped;
+
+  /* Trigger CmdwinLeave autocommands. */
+  //apply_autocmds(EVENT_SOMEEXIT, typestr, typestr, FALSE, curbuf);
+
+  /* Restore KeyTyped in case it is modified by autocommands */
+  KeyTyped = save_KeyTyped;
+
+  modal_active = false;
+
+  exmode_active = save_exmode;
+
+  /* Safety check: The old window or buffer was deleted: It's a bug when
+   * this happens! */
+  if (!win_valid(old_curwin) || !bufref_valid(&old_curbuf)) {
+    status = false;
+    EMSG(_("E199: Active window or buffer deleted"));
+  } else {
+    /* autocmds may abort script processing */
+    if (aborting())
+      status = false;
+
+    /* Don't execute autocommands while deleting the window. */
+    block_autocmds();
+    wp = curwin;
+    set_bufref(&bufref, curbuf);
+    win_goto(old_curwin);
+    win_close(wp, true);
+
+    // win_close() may have already wiped the buffer when 'bh' is
+    // set to 'wipe'.
+    if (bufref_valid(&bufref)) {
+      close_buffer(NULL, bufref.br_buf, DOBUF_WIPE, false);
+    }
+
+    /* Restore window sizes. */
+    win_size_restore(&winsizes);
+
+    unblock_autocmds();
+  }
+
+  ga_clear(&winsizes);
+  restart_edit = save_restart_edit;
+
+  State = save_State;
+  setmouse();
+
+  return status;
 }
 
 /// Get the stdout of an external command.
