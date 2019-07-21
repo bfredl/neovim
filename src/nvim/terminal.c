@@ -424,7 +424,9 @@ void terminal_enter(void)
   if (s->close) {
     bool wipe = s->term->buf_handle != 0;
     s->term->opts.close_cb(s->term->opts.data);
-    if (wipe) {
+    if (modal_active) {
+      modal_result = true;
+    } else if (wipe) {
       do_cmdline_cmd("bwipeout!");
     }
   }

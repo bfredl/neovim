@@ -2853,14 +2853,12 @@ static bool modal_window(void)
     return K_IGNORE;
   }
 
-  modal_active = true;
 
   // Create empty command-line buffer.
   buf_open_scratch(0, "[modal!!]");
   // TODO: wanna?
-  set_option_value("bh", 0L, "wipe", OPT_LOCAL);
-  curbuf->b_p_ma = true;
-  curwin->w_p_fen = false;
+  //set_option_value("bh", 0L, "wipe", OPT_LOCAL);
+  //curbuf->b_p_ma = true;
 
   // Do execute autocommands for setting the filetype (load syntax).
   unblock_autocmds();
@@ -2879,13 +2877,14 @@ static bool modal_window(void)
 
   /* Replace the empty last line with the current command-line and put the
    * cursor there. */
-  ml_replace(curbuf->b_ml.ml_line_count, "bork!", true);
-  curwin->w_cursor.lnum = curbuf->b_ml.ml_line_count;
-  curwin->w_cursor.col = 2;
-  changed_line_abv_curs();
+  // TODO: direct call
+  do_cmdline_cmd("call termopen(['zsh'])");
+
+  //restart_edit = 'i'; // terminal mode!
   invalidate_botline();
   redraw_later(SOME_VALID);
 
+  modal_active = true;
 
   /* No Ex mode here! */
   exmode_active = 0;
@@ -2904,6 +2903,7 @@ static bool modal_window(void)
 
   modal_result = false;
   bool status = true;
+  stuffReadbuff("i");
   normal_enter(true, false);
 
   RedrawingDisabled = i;
