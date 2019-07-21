@@ -1600,7 +1600,7 @@ return {
   },
   {
     command='modal',
-    flags=bit.bor(EXTRA, TRLBAR, CMDWIN),
+    flags=bit.bor(RANGE, WHOLEFOLD, BANG, FILES, CMDWIN),
     addr_type=ADDR_LINES,
     func='ex_modal',
   },
@@ -3223,7 +3223,7 @@ return {
     enum='CMD_bang',
     flags=bit.bor(RANGE, WHOLEFOLD, BANG, FILES, CMDWIN),
     addr_type=ADDR_LINES,
-    func='ex_bang',
+    func='ex_modal',
   },
   {
     command='#',

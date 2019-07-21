@@ -2799,10 +2799,12 @@ int call_shell(char_u *cmd, ShellOpts opts, char_u *extra_shell_arg)
   return retval;
 }
 
+/*
 void ex_modal(exarg_T *eap)
 {
   modal_window();
 }
+*/
 
 void ex_unmodal(exarg_T *eap)
 {
@@ -2815,7 +2817,7 @@ void ex_unmodal(exarg_T *eap)
 ///     CR       if the command is to be executed
 ///     Ctrl_C   if it is to be abandoned
 ///     K_IGNORE if editing continues
-static bool modal_window(void)
+void ex_modal(exarg_T *eap)
 {
   bufref_T            old_curbuf;
   bufref_T            bufref;
@@ -2828,7 +2830,7 @@ static bool modal_window(void)
 
   /* Can't do this recursively.  Can't do it when typing a password. */
   if (check_modal(true)) {
-    return K_IGNORE;
+    return;
   }
 
   set_bufref(&old_curbuf, curbuf);
@@ -2850,26 +2852,28 @@ static bool modal_window(void)
   if (win_split((int)p_cwh, WSP_BOT) == FAIL) {
     beep_flush();
     unblock_autocmds();
-    return K_IGNORE;
+    return;
   }
 
 
   // Create empty command-line buffer.
-  buf_open_scratch(0, "[modal!!]");
+  //buf_open_scratch(0, "[modal!!]");
   // TODO: wanna?
   //set_option_value("bh", 0L, "wipe", OPT_LOCAL);
   //curbuf->b_p_ma = true;
 
   // Do execute autocommands for setting the filetype (load syntax).
   unblock_autocmds();
+
+  ex_terminal(eap);
   // But don't allow switching to another buffer.
-  curbuf_lock++;
+  //curbuf_lock++;
 
   /* Showing the prompt may have set need_wait_return, reset it. */
   need_wait_return = FALSE;
 
   //set_option_value("ft", 0L, "vim", OPT_LOCAL);
-  curbuf_lock--;
+  //curbuf_lock--;
 
   /* Reset 'textwidth' after setting 'filetype' (the Vim filetype plugin
    * sets 'textwidth' to 78). */
@@ -2878,7 +2882,7 @@ static bool modal_window(void)
   /* Replace the empty last line with the current command-line and put the
    * cursor there. */
   // TODO: direct call
-  do_cmdline_cmd("call termopen(['zsh'])");
+  //do_cmdline_cmd("call termopen(['zsh'])");
 
   //restart_edit = 'i'; // terminal mode!
   invalidate_botline();
@@ -2956,7 +2960,7 @@ static bool modal_window(void)
   State = save_State;
   setmouse();
 
-  return status;
+  return;
 }
 
 /// Get the stdout of an external command.

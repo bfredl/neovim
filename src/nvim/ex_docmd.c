@@ -10083,7 +10083,7 @@ static void ex_folddo(exarg_T *eap)
   ml_clearmarked();      // clear rest of the marks
 }
 
-static void ex_terminal(exarg_T *eap)
+void ex_terminal(exarg_T *eap)
 {
   char ex_cmd[1024];
 
