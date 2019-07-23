@@ -6784,7 +6784,7 @@ win_T *lastwin_nofloating(void) {
   return res;
 }
 
-int do_modal(ModalType type, bool use_float) {
+int do_modal(ModalType type, FloatConfig *float_config) {
   bufref_T            old_curbuf;
   win_T               *old_curwin = curwin;
   win_T               *wp;
@@ -6818,8 +6818,14 @@ int do_modal(ModalType type, bool use_float) {
   cmdmod.noswapfile = 1;
 
   // Create modal window
-  if (use_float) {
-    abort();
+  if (float_config) {
+    Error err = ERROR_INIT;
+    wp = win_new_float(NULL, fconfig, &err);
+    if (ERROR_SET(&err)) {
+      EMSG(err.msg); // TODO: context!!
+    }
+    win_enter(wp, false);
+    RESET_BINDING(wp);
   } else if (win_split((int)p_cwh, WSP_BOT) == FAIL) {
     beep_flush();
     unblock_autocmds();
@@ -6829,6 +6835,8 @@ int do_modal(ModalType type, bool use_float) {
 
   if (type == kModalCmdwin) {
     cmdwin_init();
+  } else if (type == kModalCmdwin) {
+    modal_terminal_init();
   } else {
     abort();
   }
@@ -6905,7 +6913,7 @@ int do_modal(ModalType type, bool use_float) {
     win_close(wp, true);
 
 
-    if (!use_float) {
+    if (!float_config) {
       /* Restore window sizes. */
       win_size_restore(&winsizes);
     }
