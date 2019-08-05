@@ -852,6 +852,24 @@ void nvim_err_writeln(String str)
   nvim_err_write((String) { .data = "\n", .size = 1 });
 }
 
+void nvim_show_message(String message, String kind, Error *err)
+  FUNC_API_SINCE(6)
+{
+  if (strequal(kind.data, "error")) {
+    emsg_multiline(message.data, true);
+  } else if (strequal(kind.data, "")) {
+    msg_attr_keep(message.data, 0, false, true);
+  } else if (strequal(kind.data, "echo")) {
+    msg_start();
+    msg_ext_set_kind("echo");
+    msg_multiline_attr(message.data, 0);
+    msg_clr_eos();
+    msg_end();
+  } else {
+   api_set_error(err, kErrorTypeValidation, "invalid 'kind' value");
+  }
+}
+
 /// Gets the current list of buffer handles
 ///
 /// Includes unlisted (unloaded/deleted) buffers, like `:ls!`.

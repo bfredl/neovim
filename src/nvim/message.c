@@ -523,7 +523,7 @@ int emsg_not_now(void)
   return FALSE;
 }
 
-static bool emsg_multiline(const char *s, bool multiline)
+bool emsg_multiline(const char *s, bool multiline)
 {
   int attr;
   int ignore = false;
