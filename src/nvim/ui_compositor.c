@@ -48,6 +48,10 @@ static ScreenGrid *curgrid;
 
 static bool valid_screen = true;
 static int msg_first_invalid = INT_MAX;
+static bool msg_was_scrolled = false;
+
+static int msg_sep_row = -1;
+static schar_T msg_sep_char = { ' ', NUL };
 
 static int dbghl_normal, dbghl_clear, dbghl_composed, dbghl_recompose;
 
@@ -339,10 +343,28 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
     assert(until > col);
     assert(until <= default_grid.Columns);
     size_t n = (size_t)(until-col);
-    size_t off = grid->line_offset[row-grid->comp_row]
-                 + (size_t)(col-grid->comp_col);
-    memcpy(linebuf+(col-startcol), grid->chars+off, n * sizeof(*linebuf));
-    memcpy(attrbuf+(col-startcol), grid->attrs+off, n * sizeof(*attrbuf));
+
+    if (row == msg_sep_row) {
+      grid = &msg_grid;
+      sattr_T msg_sep_attr = (sattr_T)HL_ATTR(HLF_MSGSEP);
+      for (int i = col; i < until; i++) {
+        memcpy(linebuf[i-startcol], msg_sep_char, sizeof(*linebuf));
+        attrbuf[i-startcol] = msg_sep_attr;
+      }
+    } else {
+      size_t off = grid->line_offset[row-grid->comp_row]
+                   + (size_t)(col-grid->comp_col);
+      memcpy(linebuf+(col-startcol), grid->chars+off, n * sizeof(*linebuf));
+      memcpy(attrbuf+(col-startcol), grid->attrs+off, n * sizeof(*attrbuf));
+      if (grid->comp_col+grid->Columns > until
+          && grid->chars[off+n][0] == NUL) {
+        linebuf[until-1-startcol][0] = ' ';
+        linebuf[until-1-startcol][1] = '\0';
+        if (col == startcol && n == 1) {
+          skipstart = 0;
+        }
+      }
+    }
 
     // 'pumblend' and 'winblend'
     if (grid->blending) {
@@ -376,14 +398,6 @@ static void compose_line(Integer row, Integer startcol, Integer endcol,
       }
     } else if (n > 1 && linebuf[col-startcol+1][0] == NUL) {
       skipstart = 0;
-    }
-    if (grid->comp_col+grid->Columns > until
-        && grid->chars[off+n][0] == NUL) {
-      linebuf[until-1-startcol][0] = ' ';
-      linebuf[until-1-startcol][1] = '\0';
-      if (col == startcol && n == 1) {
-        skipstart = 0;
-      }
     }
 
     col = until;
@@ -524,12 +538,24 @@ static void ui_comp_raw_line(UI *ui, Integer grid, Integer row,
 void ui_comp_set_screen_valid(bool valid)
 {
   valid_screen = valid;
+  if (!valid) {
+    msg_sep_row = -1;
+  }
 }
 
 static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row,
                                 Boolean scrolled, String sep_char)
 {
   msg_grid.comp_row = (int)row;
+  if (scrolled && row > 0) {
+    msg_sep_row = (int)row-1;
+    if (sep_char.data) {
+      STRLCPY(msg_sep_char, sep_char.data, sizeof(msg_sep_char));
+    }
+  } else {
+    msg_sep_row = -1;
+  }
+
   // TODO: don't bother scrolling at first scroll when p_ch = 1?
   if (row > msg_first_invalid && ui_comp_should_draw()) {
     compose_area(MAX(msg_first_invalid-1, 0), row, 0, default_grid.Columns);
@@ -537,13 +563,22 @@ static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row,
              && msg_first_invalid < Rows) {
     int delta = msg_first_invalid - (int)row;
     if (msg_grid.blending) {
+      row = MAX(row-(scrolled?1:0), 0);
       compose_area(row, Rows-delta, 0, Columns);
     } else {
+      if (msg_was_scrolled) {
+        row = MAX(row-(scrolled?1:0), 0);
+      }
       ui_composed_call_grid_scroll(1, row, Rows, 0, Columns, delta, 0);
+      if (!msg_was_scrolled) {
+        compose_area(row-1, row, 0, Columns);
+        row = MAX(row-(scrolled?1:0), 0);
+      }
     }
   }
 
   msg_first_invalid = (int)row;
+  msg_was_scrolled = scrolled;
 }
 
 static void ui_comp_grid_scroll(UI *ui, Integer grid, Integer top,

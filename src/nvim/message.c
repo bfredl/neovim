@@ -154,7 +154,7 @@ void msg_grid_validate(void)
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);
     msg_grid.throttled = false;  // don't throttle in 'cmdheight' area
     msg_grid.focusable = false;
-    msg_grid_set_pos(Rows - p_ch);
+    msg_grid_set_pos(Rows - p_ch, false);
   } else if (!should_alloc && msg_grid.chars) {
     // TODO: might cause unnecessary redraw
     ui_comp_remove_grid(&msg_grid);
@@ -2140,7 +2140,7 @@ void msg_scroll_up(void)
                 HL_ATTR(HLF_MSGSEP));
     }
     if (msg_grid_pos > 0) {
-      msg_grid_set_pos(msg_grid_pos-1);
+      msg_grid_set_pos(msg_grid_pos-1, true);
     } else {
       grid_del_lines(&msg_grid, 0, 1, Rows, 0, Columns);
     }
