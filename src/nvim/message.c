@@ -159,6 +159,7 @@ void msg_grid_validate(void)
     // TODO: might cause unnecessary redraw
     ui_comp_remove_grid(&msg_grid);
     grid_free(&msg_grid);
+    // TODO: grid_destroy
     msg_grid_adj.row_offset = 0;
     redraw_cmdline = true;
   }

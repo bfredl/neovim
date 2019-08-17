@@ -152,6 +152,7 @@ static bool send_grid_resize = false;
 static bool conceal_cursor_used = false;
 
 static bool redraw_popupmenu = false;
+static bool msg_grid_invalid = false;
 
 static bool resizing = false;
 
@@ -323,7 +324,7 @@ int update_screen(int type)
   }
 
   // if the screen was scrolled up when displaying a message, scroll it down
-  if (msg_scrolled) {
+  if (msg_scrolled || msg_grid_invalid) {
     clear_cmdline = true;
     int valid = MAX(Rows - msg_scrollsize(), 0);
     if (msg_grid.chars) {
@@ -337,6 +338,7 @@ int update_screen(int type)
     // should coalesce with the internal redraw.
     msg_grid.throttled = false;
     msg_grid_set_pos(Rows-p_ch, false);
+    msg_grid_invalid = false;
     if ((dy_flags & DY_MSGSEP)) {
       // TODO: maybe assume always throttle when msgsep? Though
       // it is useful for debugging to disable it.
@@ -6071,6 +6073,9 @@ retry:
   // win_new_shellsize will recompute floats position, but tell the
   // compositor to not redraw them yet
   ui_comp_set_screen_valid(false);
+  if (msg_grid.chars) {
+    msg_grid_invalid = true;
+  }
 
   win_new_shellsize();      /* fit the windows in the new sized shell */
 
