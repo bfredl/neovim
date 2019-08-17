@@ -563,16 +563,14 @@ static void ui_comp_msg_set_pos(UI *ui, Integer grid, Integer row,
              && msg_first_invalid < Rows) {
     int delta = msg_first_invalid - (int)row;
     if (msg_grid.blending) {
-      row = MAX(row-(scrolled?1:0), 0);
-      compose_area(row, Rows-delta, 0, Columns);
+      int first_row = MAX((int)row-(scrolled?1:0), 0);
+      compose_area(first_row, Rows-delta, 0, Columns);
     } else {
-      if (msg_was_scrolled) {
-        row = MAX(row-(scrolled?1:0), 0);
-      }
-      ui_composed_call_grid_scroll(1, row, Rows, 0, Columns, delta, 0);
-      if (!msg_was_scrolled) {
+      // scroll separator togheter with message text
+      int first_row = MAX((int)row-(msg_was_scrolled?1:0), 0);
+      ui_composed_call_grid_scroll(1, first_row, Rows, 0, Columns, delta, 0);
+      if (scrolled && !msg_was_scrolled) {
         compose_area(row-1, row, 0, Columns);
-        row = MAX(row-(scrolled?1:0), 0);
       }
     }
   }
