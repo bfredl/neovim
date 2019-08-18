@@ -5931,7 +5931,7 @@ void grid_fill(ScreenGrid *grid, int start_row, int end_row, int start_col,
     }
 
     // TODO(bfredl): The relevant caller should do this
-    if (row == Rows - 1 && !ui_has(kUIMessages)) {
+    if (row == Rows - 1 && !ui_has(kUIMessages) && !msg_dothrottle()) {
       // overwritten the command line
       redraw_cmdline = true;
       if (start_col == 0 && end_col == Columns
@@ -6254,6 +6254,10 @@ void screenclear(void)
   msg_scrolled = 0;  // can't scroll back
   msg_didany = false;
   msg_didout = false;
+  if (HL_ATTR(HLF_MSG) > 0 && msg_dothrottle()) {
+    msg_grid_validate();
+    clear_cmdline = false;
+  }
 }
 
 /// clear a line in the grid starting at "off" until "width" characters
@@ -6480,6 +6484,8 @@ int showmode(void)
 
   // don't make non-flushed message part of the showmode
   msg_ext_ui_flush();
+
+  msg_grid_validate();
 
   do_mode = ((p_smd && msg_silent == 0)
              && ((State & TERM_FOCUS)

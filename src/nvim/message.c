@@ -162,6 +162,8 @@ void msg_grid_validate(void)
     // TODO: grid_destroy
     msg_grid_adj.row_offset = 0;
     redraw_cmdline = true;
+  } else if (msg_grid.chars && !msg_scrolled && msg_grid_pos != Rows - p_ch) {
+    msg_grid_set_pos(Rows - p_ch, false);
   }
 }
 

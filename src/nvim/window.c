@@ -5357,6 +5357,9 @@ void win_drag_status_line(win_T *dragwin, int offset)
   }
   row = win_comp_pos();
   grid_fill(&default_grid, row, cmdline_row, 0, Columns, ' ', ' ', 0);
+  if (msg_grid.chars) {
+    clear_cmdline = true;
+  }
   cmdline_row = row;
   p_ch = Rows - cmdline_row;
   if (p_ch < 1)
