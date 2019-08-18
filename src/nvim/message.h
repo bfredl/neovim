@@ -96,6 +96,8 @@ EXTERN ScreenGrid msg_grid_adj INIT(= SCREEN_GRID_INIT);
 
 EXTERN int msg_scroll_at_flush INIT(= 0);
 
+EXTERN int msg_grid_pos INIT(= 0);
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "message.h.generated.h"
 #endif

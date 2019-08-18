@@ -126,7 +126,6 @@ static int msg_ext_visible = 0;  ///< number of messages currently visible
 /// Shouldn't clear message after leaving cmdline
 static bool msg_ext_keep_after_cmdline = false;
 
-static int msg_grid_pos = 0;
 static int msg_grid_pos_at_flush = 0;
 
 static void ui_ext_msg_set_pos(int row, bool scrolled)
