@@ -129,11 +129,19 @@ static bool msg_ext_keep_after_cmdline = false;
 static int msg_grid_pos = 0;
 static int msg_grid_pos_at_flush = 0;
 
+static void ui_ext_msg_set_pos(int row, bool scrolled)
+{
+  char buf[MAX_MCO];
+  size_t size = utf_char2bytes(curwin->w_p_fcs_chars.msgsep, (char_u *)buf);
+  buf[size] = '\0';
+  ui_call_msg_set_pos(msg_grid.handle, row, scrolled,
+                      (String){ .data=buf, .size=size });
+}
+
 void msg_grid_set_pos(int row, bool scrolled)
 {
   if (!msg_grid.throttled) {
-    ui_call_msg_set_pos(msg_grid.handle, row, scrolled,
-                        cchar_to_string(curwin->w_p_fcs_chars.msgsep));
+    ui_ext_msg_set_pos(row, scrolled);
     msg_grid_pos_at_flush = row;
   }
   msg_grid_pos = row;
@@ -2166,8 +2174,7 @@ void msg_scroll_flush(void)
   int delta = MIN(msg_scrolled - msg_scroll_at_flush, msg_grid.Rows);
 
   if (pos_delta > 0) {
-    ui_call_msg_set_pos(msg_grid.handle, msg_grid_pos, true,
-                        cchar_to_string(curwin->w_p_fcs_chars.msgsep));
+    ui_ext_msg_set_pos(msg_grid_pos, true);
     msg_grid_pos_at_flush = msg_grid_pos;
   }
 
