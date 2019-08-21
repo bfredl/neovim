@@ -155,7 +155,9 @@ void msg_grid_validate(void)
   bool should_alloc = msg_dothrottle();
   if (msg_grid.Rows != Rows || msg_grid.Columns != Columns
       || (should_alloc && !msg_grid.chars)) {
-    grid_alloc(&msg_grid, Rows, Columns, false, false);
+    // TODO(bfredl): eventually should be set to "invalid". I e all callers
+    // will use the grid including clear to EOS if necessary.
+    grid_alloc(&msg_grid, Rows, Columns, false, true);
     ui_comp_put_grid(&msg_grid, Rows - p_ch, 0, msg_grid.Rows, msg_grid.Columns,
                      false, true);
     ui_call_grid_resize(msg_grid.handle, msg_grid.Columns, msg_grid.Rows);

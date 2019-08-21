@@ -6254,7 +6254,7 @@ void screenclear(void)
   msg_scrolled = 0;  // can't scroll back
   msg_didany = false;
   msg_didout = false;
-  if (HL_ATTR(HLF_MSG) > 0 && msg_dothrottle()) {
+  if (HL_ATTR(HLF_MSG) > 0 && msg_dothrottle() && msg_grid.chars) {
     msg_grid_validate();
     clear_cmdline = false;
   }
