@@ -31,6 +31,8 @@
 #include "nvim/memory.h"
 #include "nvim/message.h"
 #include "nvim/misc1.h"
+#include "nvim/ops.h"
+#include "nvim/popupmnu.h"
 #include "nvim/file_search.h"
 #include "nvim/garray.h"
 #include "nvim/move.h"
@@ -6789,7 +6791,6 @@ int do_modal(ModalType type, FloatConfig *float_config) {
   win_T               *old_curwin = curwin;
   win_T               *wp;
   int i;
-  linenr_T lnum;
   garray_T winsizes;
   char_u typestr[2];
   int save_restart_edit = restart_edit;
@@ -6820,7 +6821,7 @@ int do_modal(ModalType type, FloatConfig *float_config) {
   // Create modal window
   if (float_config) {
     Error err = ERROR_INIT;
-    wp = win_new_float(NULL, fconfig, &err);
+    wp = win_new_float(NULL, *float_config, &err);
     if (ERROR_SET(&err)) {
       EMSG(err.msg); // TODO: context!!
     }
@@ -6835,7 +6836,7 @@ int do_modal(ModalType type, FloatConfig *float_config) {
 
   if (type == kModalCmdwin) {
     cmdwin_init();
-  } else if (type == kModalCmdwin) {
+  } else if (type == kModalTerminal) {
     modal_terminal_init();
   } else {
     abort();
@@ -6900,6 +6901,8 @@ int do_modal(ModalType type, FloatConfig *float_config) {
   } else {
     if (type == kModalCmdwin) {
       cmdwin_finish();
+    } else if (type == kModalTerminal) {
+      // ...
     } else {
       abort();
     }

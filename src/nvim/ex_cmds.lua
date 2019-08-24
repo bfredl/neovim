@@ -3211,7 +3211,7 @@ return {
     enum='CMD_bang',
     flags=bit.bor(RANGE, WHOLEFOLD, BANG, FILES, CMDWIN),
     addr_type=ADDR_LINES,
-    func='ex_bang',
+    func='ex_modal',
   },
   {
     command='#',

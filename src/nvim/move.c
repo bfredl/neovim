@@ -22,6 +22,7 @@
 #include "nvim/cursor.h"
 #include "nvim/diff.h"
 #include "nvim/edit.h"
+#include "nvim/ex_getln.h"
 #include "nvim/fold.h"
 #include "nvim/mbyte.h"
 #include "nvim/memline.h"

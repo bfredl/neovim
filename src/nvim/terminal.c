@@ -1357,28 +1357,4 @@ static char *get_config_string(char *key)
 }
 
 // }}}
-// modal terminal window {{{
-
-static exarg_T *modal_eap = NULL;
-void ex_modal(exarg_T *eap)
-{
-  // TODO: this is ugly. We should be able to launch the pty first
-  // and only if that worked, open the modal window
-  modal_eap = eap;
-
-  FloatConfig fconfig = FLOAT_CONFIG_INIT;
-  fconfig.width = Columns;
-  fconfig.height = Rows/2;
-  fconfig.row = Rows - fconfig.height-1;
-  fconfig.style = kWinStyleMinimal;
-  do_modal(kModalTerminal, &fconfig);
-}
-
-void modal_terminal_init()
-{
-  ex_terminal(modal_eap);
-  modal_eap = NULL;
-}
-
-// }}}
 // vim: foldmethod=marker
