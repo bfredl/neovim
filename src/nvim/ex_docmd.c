@@ -7406,6 +7406,10 @@ static void ex_sleep(exarg_T *eap)
   do_sleep(len);
 }
 
+static void ex_spameggs(exarg_T *eap)
+{
+  multiqueue_process_events(main_loop.events);
+}
 /*
  * Sleep for "msec" milliseconds, but keep checking for a CTRL-C every second.
  */

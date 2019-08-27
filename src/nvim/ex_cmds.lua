@@ -2475,6 +2475,12 @@ return {
     func='ex_sort',
   },
   {
+    command='xxspameggs',
+    flags=bit.bor(RANGE, NOTADR, COUNT, EXTRA, TRLBAR, CMDWIN),
+    addr_type=ADDR_LINES,
+    func='ex_spameggs',
+  },
+  {
     command='split',
     flags=bit.bor(BANG, FILE1, RANGE, NOTADR, EDITCMD, ARGOPT, TRLBAR),
     addr_type=ADDR_LINES,

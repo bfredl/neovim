@@ -169,3 +169,9 @@ char *get_mode(void)
 
   return buf;
 }
+
+void toplevel_process_events(void)
+{
+  // TODO: rewrite without eggsapm
+  do_cmdline("xxspameggs", NULL, NULL, DOCMD_NOWAIT);
+}
