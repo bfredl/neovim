@@ -294,6 +294,9 @@ static int nlua_state_init(lua_State *const lstate) FUNC_ATTR_NONNULL_ALL
   // in_fast_event
   lua_pushcfunction(lstate, &nlua_in_fast_event);
   lua_setfield(lstate, -2, "in_fast_event");
+  // call
+  lua_pushcfunction(lstate, &nlua_call);
+  lua_setfield(lstate, -2, "call");
 
   // vim.loop
   luv_set_loop(lstate, &main_loop.uv);
@@ -531,6 +534,52 @@ int nlua_debug(lua_State *lstate)
 int nlua_in_fast_event(lua_State *lstate)
 {
   lua_pushboolean(lstate, in_fast_callback > 0);
+  return 1;
+}
+
+int nlua_call(lua_State *lstate)
+{
+  Error err = ERROR_INIT;
+  size_t name_len;
+  const char_u *name = (const char_u *)luaL_checklstring(lstate, 1, &name_len);
+  int nargs = lua_gettop(lstate)-1;
+  if (nargs > MAX_FUNC_ARGS) {
+    return luaL_error(lstate, "FAIL");
+  }
+
+  typval_T vim_args[MAX_FUNC_ARGS + 1];
+  int i = 0;  // also used for freeing the variables
+  for (; i < nargs; i++) {
+    lua_pushvalue(lstate, (int)i+2);
+    // TODO: refactor to give Error *err return?
+    if (!nlua_pop_typval(lstate, &vim_args[i])) {
+      api_set_error(&err, kErrorTypeException, "fääl");
+      goto free_vim_args;
+    }
+  }
+
+  try_start();
+  typval_T rettv;
+  int dummy;
+  // call_func() retval is deceptive, ignore it.  Instead we set `msg_list`
+  // (see above) to capture abort-causing non-exception errors.
+  (void)call_func(name, (int)name_len, &rettv, nargs,
+                  vim_args, NULL, curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+                  &dummy, true, NULL, NULL);
+  if (!try_end(&err)) {
+    nlua_push_typval(lstate, &rettv);
+  }
+  tv_clear(&rettv);
+
+free_vim_args:
+  while (i > 0) {
+    tv_clear(&vim_args[--i]);
+  }
+  if (ERROR_SET(&err)) {
+    lua_pushstring(lstate, err.msg);
+    return lua_error(lstate);
+  }
+  // luaL_error(lstate, "the error);
   return 1;
 }
 

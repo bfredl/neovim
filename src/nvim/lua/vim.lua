@@ -224,6 +224,18 @@ local function schedule_wrap(cb)
   end)
 end
 
+local function funcs_index(t, key)
+  -- if has_func[key] == nil then
+  --   error(...)
+  -- end
+  local function func(...)
+    return vim.call(key, ...)
+  end
+  t[key] = func
+  return func
+end
+local funcs = setmetatable({}, {__index=funcs_index})
+
 local function __index(t, key)
   if key == 'inspect' then
     t.inspect = require('vim.inspect')
@@ -242,6 +254,7 @@ local module = {
   _system = _system,
   paste = paste,
   schedule_wrap = schedule_wrap,
+  funcs=funcs,
 }
 
 setmetatable(module, {
