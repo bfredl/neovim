@@ -53,20 +53,6 @@
 # include "api/vim.c.generated.h"
 #endif
 
-// `msg_list` controls the collection of abort-causing non-exception errors,
-// which would otherwise be ignored.  This pattern is from do_cmdline().
-//
-// TODO(bfredl): prepare error-handling at "top level" (nv_event).
-#define TRY_WRAP(code) \
-  do { \
-    struct msglist **saved_msg_list = msg_list; \
-    struct msglist *private_msg_list; \
-    msg_list = &private_msg_list; \
-    private_msg_list = NULL; \
-    code \
-    msg_list = saved_msg_list;  /* Restore the exception context. */ \
-  } while (0)
-
 void api_vim_init(void)
   FUNC_API_NOEXPORT
 {
@@ -402,19 +388,13 @@ theend:
 Object nvim_eval(String expr, Error *err)
   FUNC_API_SINCE(1)
 {
-  static int recursive = 0;  // recursion depth
   Object rv = OBJECT_INIT;
 
-  TRY_WRAP({
   // Initialize `force_abort`  and `suppress_errthrow` at the top level.
-  if (!recursive) {
-    force_abort = false;
-    suppress_errthrow = false;
-    current_exception = NULL;
-    // `did_emsg` is set by emsg(), which cancels execution.
-    did_emsg = false;
-  }
-  recursive++;
+  assert(!force_abort);
+  assert(!suppress_errthrow);
+  assert(!current_exception);
+  assert(!did_emsg);
   try_start();
 
   typval_T rettv;
@@ -430,8 +410,6 @@ Object nvim_eval(String expr, Error *err)
   }
 
   tv_clear(&rettv);
-  recursive--;
-  });
 
   return rv;
 }
@@ -463,7 +441,6 @@ Object nvim_execute_lua(String code, Array args, Error *err)
 /// @return Result of the function call
 static Object _call_function(String fn, Array args, dict_T *self, Error *err)
 {
-  static int recursive = 0;  // recursion depth
   Object rv = OBJECT_INIT;
 
   if (args.size > MAX_FUNC_ARGS) {
@@ -481,16 +458,11 @@ static Object _call_function(String fn, Array args, dict_T *self, Error *err)
     }
   }
 
-  TRY_WRAP({
   // Initialize `force_abort`  and `suppress_errthrow` at the top level.
-  if (!recursive) {
-    force_abort = false;
-    suppress_errthrow = false;
-    current_exception = NULL;
-    // `did_emsg` is set by emsg(), which cancels execution.
-    did_emsg = false;
-  }
-  recursive++;
+  assert(!force_abort);
+  assert(!suppress_errthrow);
+  assert(!current_exception);
+  assert(!did_emsg);
   try_start();
   typval_T rettv;
   int dummy;
@@ -503,8 +475,6 @@ static Object _call_function(String fn, Array args, dict_T *self, Error *err)
     rv = vim_to_object(&rettv);
   }
   tv_clear(&rettv);
-  recursive--;
-  });
 
 free_vim_args:
   while (i > 0) {
@@ -547,11 +517,13 @@ Object nvim_call_dict_function(Object dict, String fn, Array args, Error *err)
   switch (dict.type) {
     case kObjectTypeString: {
       try_start();
-      if (eval0((char_u *)dict.data.string.data, &rettv, NULL, true) == FAIL) {
+      int status = eval0((char_u *)dict.data.string.data, &rettv, NULL, true);
+      if (try_end(err)) {
+        return rv;
+      } else if (status == FAIL) {
+        // failed but didn't set an exception, use fallback message
         api_set_error(err, kErrorTypeException,
                       "Failed to evaluate dict expression");
-      }
-      if (try_end(err)) {
         return rv;
       }
       // Evaluation of the string arg created a new dict or increased the
@@ -1336,15 +1308,13 @@ void nvim_put(ArrayOf(String) lines, String type, Boolean after,
 
   finish_yankreg_from_object(reg, false);
 
-  TRY_WRAP({
-    try_start();
-    bool VIsual_was_active = VIsual_active;
-    msg_silent++;  // Avoid "N more lines" message.
-    do_put(0, reg, after ? FORWARD : BACKWARD, 1, follow ? PUT_CURSEND : 0);
-    msg_silent--;
-    VIsual_active = VIsual_was_active;
-    try_end(err);
-  });
+  try_start();
+  bool VIsual_was_active = VIsual_active;
+  msg_silent++;  // Avoid "N more lines" message.
+  do_put(0, reg, after ? FORWARD : BACKWARD, 1, follow ? PUT_CURSEND : 0);
+  msg_silent--;
+  VIsual_active = VIsual_was_active;
+  try_end(err);
 
 cleanup:
   free_register(reg);
