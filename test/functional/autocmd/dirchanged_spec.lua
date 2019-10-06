@@ -6,6 +6,7 @@ local command = h.command
 local eq = h.eq
 local eval = h.eval
 local request = h.request
+local pcall_err = h.pcall_err
 
 describe('autocmd DirChanged', function()
   local curdir = string.gsub(lfs.currentdir(), '\\', '/')
@@ -147,11 +148,8 @@ describe('autocmd DirChanged', function()
     request('nvim_set_current_dir', dirs[2])
     eq({cwd=dirs[2], scope='global'}, eval('g:ev'))
 
-    local status, err = pcall(function()
-      request('nvim_set_current_dir', '/doesnotexist')
-    end)
-    eq(false, status)
-    eq('Failed to change directory', string.match(err, ': (.*)'))
+    eq('Vim:E344: Can\'t find directory "/doesnotexist" in cdpath',
+       pcall_err(request, 'nvim_set_current_dir', '/doesnotexist'))
     eq({cwd=dirs[2], scope='global'}, eval('g:ev'))
   end)
 

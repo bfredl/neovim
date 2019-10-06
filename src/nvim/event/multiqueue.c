@@ -149,8 +149,8 @@ void multiqueue_put_event(MultiQueue *this, Event event)
 }
 
 void multiqueue_process_events(MultiQueue *this)
+  FUNC_ATTR_NONNULL_ALL
 {
-  assert(this);
   while (!multiqueue_empty(this)) {
     Event event = multiqueue_remove(this);
     if (event.handler) {

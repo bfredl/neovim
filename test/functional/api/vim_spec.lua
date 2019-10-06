@@ -304,7 +304,7 @@ describe('API', function()
         pcall_err(request, 'nvim_call_dict_function', "{ 'f': '' }", 'f', {1,2}))
       eq('dict argument type must be String or Dictionary',
         pcall_err(request, 'nvim_call_dict_function', 42, 'f', {1,2}))
-      eq('Failed to evaluate dict expression',
+      eq('Vim:E121: Undefined variable: foo',
         pcall_err(request, 'nvim_call_dict_function', 'foo', 'f', {1,2}))
       eq('dict not found',
         pcall_err(request, 'nvim_call_dict_function', '42', 'f', {1,2}))

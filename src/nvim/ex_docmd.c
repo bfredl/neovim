@@ -805,59 +805,7 @@ int do_cmdline(char_u *cmdline, LineGetter fgetline,
     // of interrupts or errors to exceptions, and ensure that no more
     // commands are executed.
     if (current_exception) {
-      void *p = NULL;
-      char_u *saved_sourcing_name;
-      int saved_sourcing_lnum;
-      struct msglist *messages = NULL;
-      struct msglist *next;
-
-      /*
-       * If the uncaught exception is a user exception, report it as an
-       * error.  If it is an error exception, display the saved error
-       * message now.  For an interrupt exception, do nothing; the
-       * interrupt message is given elsewhere.
-       */
-      switch (current_exception->type) {
-      case ET_USER:
-        vim_snprintf((char *)IObuff, IOSIZE,
-            _("E605: Exception not caught: %s"),
-            current_exception->value);
-        p = vim_strsave(IObuff);
-        break;
-      case ET_ERROR:
-        messages = current_exception->messages;
-        current_exception->messages = NULL;
-        break;
-      case ET_INTERRUPT:
-        break;
-      }
-
-      saved_sourcing_name = sourcing_name;
-      saved_sourcing_lnum = sourcing_lnum;
-      sourcing_name = current_exception->throw_name;
-      sourcing_lnum = current_exception->throw_lnum;
-      current_exception->throw_name = NULL;
-
-      discard_current_exception();              // uses IObuff if 'verbose'
-      suppress_errthrow = true;
-      force_abort = true;
-      msg_ext_set_kind("emsg");  // kind=emsg for :throw, exceptions. #9993
-
-      if (messages != NULL) {
-        do {
-          next = messages->next;
-          emsg(messages->msg);
-          xfree(messages->msg);
-          xfree(messages);
-          messages = next;
-        } while (messages != NULL);
-      } else if (p != NULL) {
-        emsg(p);
-        xfree(p);
-      }
-      xfree(sourcing_name);
-      sourcing_name = saved_sourcing_name;
-      sourcing_lnum = saved_sourcing_lnum;
+      display_uncaught_exception();
     }
     /*
      * On an interrupt or an aborting error not converted to an exception,
@@ -946,6 +894,64 @@ int do_cmdline(char_u *cmdline, LineGetter fgetline,
   call_depth--;
   end_batch_changes();
   return retval;
+}
+
+void display_uncaught_exception(void)
+{
+  assert(current_exception);
+  void *p = NULL;
+  char_u *saved_sourcing_name;
+  int saved_sourcing_lnum;
+  struct msglist *messages = NULL;
+  struct msglist *next;
+
+  /*
+   * If the uncaught exception is a user exception, report it as an
+   * error.  If it is an error exception, display the saved error
+   * message now.  For an interrupt exception, do nothing; the
+   * interrupt message is given elsewhere.
+   */
+  switch (current_exception->type) {
+  case ET_USER:
+    vim_snprintf((char *)IObuff, IOSIZE,
+        _("E605: Exception not caught: %s"),
+        current_exception->value);
+    p = vim_strsave(IObuff);
+    break;
+  case ET_ERROR:
+    messages = current_exception->messages;
+    current_exception->messages = NULL;
+    break;
+  case ET_INTERRUPT:
+    break;
+  }
+
+  saved_sourcing_name = sourcing_name;
+  saved_sourcing_lnum = sourcing_lnum;
+  sourcing_name = current_exception->throw_name;
+  sourcing_lnum = current_exception->throw_lnum;
+  current_exception->throw_name = NULL;
+
+  discard_current_exception();              // uses IObuff if 'verbose'
+  suppress_errthrow = true;
+  force_abort = true;
+  msg_ext_set_kind("emsg");  // kind=emsg for :throw, exceptions. #9993
+
+  if (messages != NULL) {
+    do {
+      next = messages->next;
+      emsg(messages->msg);
+      xfree(messages->msg);
+      xfree(messages);
+      messages = next;
+    } while (messages != NULL);
+  } else if (p != NULL) {
+    emsg(p);
+    xfree(p);
+  }
+  xfree(sourcing_name);
+  sourcing_name = saved_sourcing_name;
+  sourcing_lnum = saved_sourcing_lnum;
 }
 
 /*
