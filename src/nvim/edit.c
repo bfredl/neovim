@@ -1003,7 +1003,7 @@ static int insert_handle_key(InsertState *s)
     break;
 
   case K_EVENT:       // some event
-    toplevel_process_events();
+    multiqueue_process_events(main_loop.events);
     goto check_pum;
 
   case K_COMMAND:       // some command

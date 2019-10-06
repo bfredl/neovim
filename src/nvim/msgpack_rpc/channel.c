@@ -32,6 +32,7 @@
 #include "nvim/lib/kvec.h"
 #include "nvim/os/input.h"
 #include "nvim/ui.h"
+#include "nvim/ex_docmd.h"
 
 #if MIN_LOG_LEVEL > DEBUG_LOG_LEVEL
 #define log_client_msg(...)
@@ -379,7 +380,28 @@ static void request_event(void **argv)
   Channel *channel = e->channel;
   MsgpackRpcRequestHandler handler = e->handler;
   Error error = ERROR_INIT;
+
+  // `msg_list` controls the collection of abort-causing non-exception errors,
+  // which would otherwise be ignored.  This pattern is from do_cmdline().
+  struct msglist **saved_msg_list = msg_list;
+  struct msglist *private_msg_list = NULL;
+  msg_list = &private_msg_list;
+
+  force_abort = false;
+  suppress_errthrow = false;
+  current_exception = NULL;
+  did_emsg = false;
+
   Object result = handler.fn(channel->id, e->args, &error);
+
+  // This is supposed to never happen, as every API function should do its
+  // own error handling already
+  if (!handler.fast && trylevel == 0 && current_exception) {
+    display_uncaught_exception();
+  }
+
+  msg_list = saved_msg_list;
+
   if (e->type == kMessageTypeRequest || ERROR_SET(&error)) {
     // Send the response.
     msgpack_packer response;

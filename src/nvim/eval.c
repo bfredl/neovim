@@ -10039,7 +10039,7 @@ static void f_getchar(typval_T *argvars, typval_T *rettv, FunPtr fptr)
       if (!(char_avail() || using_script() || input_available())) {
         (void)os_inchar(NULL, 0, -1, 0, main_loop.events);
         if (!multiqueue_empty(main_loop.events)) {
-          toplevel_process_events();
+          multiqueue_process_events(main_loop.events);
           continue;
         }
       }

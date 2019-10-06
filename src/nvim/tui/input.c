@@ -139,7 +139,17 @@ static void tinput_paste_event(void **argv)
   intptr_t phase = (intptr_t)argv[2];
 
   Error err = ERROR_INIT;
+
+  // TODO(bfredl): special case true to TUI using its own async "entry point"
+  // soon the TUI will use the normal msgpack API entry point
+  struct msglist **saved_msg_list = msg_list;
+  struct msglist *private_msg_list = NULL;
+  msg_list = &private_msg_list;
+
   nvim_paste(keys, true, phase, &err);
+
+  msg_list = saved_msg_list;
+
   if (ERROR_SET(&err)) {
     emsgf("paste: %s", err.msg);
     api_clear_error(&err);

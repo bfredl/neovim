@@ -159,17 +159,6 @@ void multiqueue_process_events(MultiQueue *this)
   }
 }
 
-void multiqueue_process_one_event(MultiQueue *this)
-  FUNC_ATTR_NONNULL_ALL
-{
-  if (!multiqueue_empty(this)) {
-    Event event = multiqueue_remove(this);
-    if (event.handler) {
-      event.handler(event.argv);
-    }
-  }
-}
-
 /// Removes all events without processing them.
 void multiqueue_purge_events(MultiQueue *this)
 {

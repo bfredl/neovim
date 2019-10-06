@@ -8007,37 +8007,13 @@ static void nv_event(cmdarg_T *cap)
   // lists or dicts being used.
   may_garbage_collect = false;
   bool may_restart = (restart_edit != 0);
-  toplevel_process_events();
+  multiqueue_process_events(main_loop.events);
   finish_op = false;
   if (may_restart) {
     // Tricky: if restart_edit was set before the handler we are in ctrl-o mode,
     // but if not, the event should be allowed to trigger :startinsert.
     cap->retval |= CA_COMMAND_BUSY;  // don't call edit() now
   }
-}
-
-void toplevel_process_events(void)
-{
-  struct msglist **saved_msg_list = msg_list;
-  struct msglist *private_msg_list = NULL;
-  msg_list = &private_msg_list;
-
-  while (!multiqueue_empty(main_loop.events)) {
-    force_abort = false;
-    suppress_errthrow = false;
-    current_exception = NULL;
-    did_emsg = false;
-
-    multiqueue_process_one_event(main_loop.events);
-
-    // This is supposed to never happen, as anything that is scheduled as an
-    // async callback should do its own error handling already
-    if (trylevel == 0 && current_exception) {
-      display_uncaught_exception();
-    }
-  }
-
-  msg_list = saved_msg_list;
 }
 
 /*
