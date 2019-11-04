@@ -19,6 +19,7 @@
 #include "nvim/message.h"
 #include "nvim/memline.h"
 #include "nvim/buffer_defs.h"
+#include "nvim/regexp.h"
 #include "nvim/macros.h"
 #include "nvim/screen.h"
 #include "nvim/cursor.h"
@@ -244,6 +245,12 @@ static int nlua_schedule(lua_State *const lstate)
   return 0;
 }
 
+static struct luaL_Reg regex_meta[] = {
+  { "__gc", regex_gc },
+  { "__tostring", regex_tostring },
+  { NULL, NULL }
+};
+
 /// Initialize lua interpreter state
 ///
 /// Called by lua interpreter itself to initialize state.
@@ -291,6 +298,13 @@ static int nlua_state_init(lua_State *const lstate) FUNC_ATTR_NONNULL_ALL
   // call
   lua_pushcfunction(lstate, &nlua_call);
   lua_setfield(lstate, -2, "call");
+  // regex
+  lua_pushcfunction(lstate, &nlua_regex);
+  lua_setfield(lstate, -2, "regex");
+
+  luaL_newmetatable(lstate, "nvim_regex");
+  luaL_register(lstate, NULL, regex_meta);
+  lua_pop(lstate, 1);  // don't use metatable now
 
   // rpcrequest
   lua_pushcfunction(lstate, &nlua_rpcrequest);
@@ -1033,4 +1047,42 @@ static void nlua_add_treesitter(lua_State *const lstate) FUNC_ATTR_NONNULL_ALL
 
   lua_pushcfunction(lstate, ts_lua_parse_query);
   lua_setfield(lstate, -2, "_ts_parse_query");
+}
+
+static int nlua_regex(lua_State *lstate)
+{
+  Error err = ERROR_INIT;
+  char *text = luaL_checkstring(lstate, 1);
+  regprog_T *prog = NULL;
+  // NB: a second prog is needed to match strings if it contains \n
+  TRY_WRAP({
+  try_start();
+  prog = vim_regcomp(text, RE_AUTO | RE_MAGIC | RE_STRICT);
+  if (try_end(&err)) {
+    goto error;
+  }
+
+  });
+
+  assert(prog);
+  regprog_T **p = lua_newuserdata(lstate, sizeof(regprog_T *));
+  *p = prog;
+
+  lua_getfield(lstate, LUA_REGISTRYINDEX, "nvim_regex");  // [udata, meta]
+  lua_setmetatable(lstate, -2);  // [udata]
+  return 1;
+
+error:
+  return luaL_error(lstate, "failed regex: %s", err.msg);
+}
+
+static int regex_gc(lua_State *lstate)
+{
+  return 0;
+}
+
+static int regex_tostring(lua_State *lstate)
+{
+  lua_pushstring(lstate, "<regex>");
+  return 1;
 }
