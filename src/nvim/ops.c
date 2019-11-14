@@ -1644,8 +1644,8 @@ int op_delete(oparg_T *oap)
       curwin->w_cursor.col = 0;
       (void)del_bytes((colnr_T)n, !virtual_op,
                       oap->op_type == OP_DELETE && !oap->is_VIsual);
-      extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
-                         (colnr_T)0, 0L, (long)-n, kExtmarkUndo);
+      //extmark_col_adjust(curbuf, curwin->w_cursor.lnum,
+      //                   (colnr_T)0, 0L, (long)-n, kExtmarkUndo);
       curwin->w_cursor = curpos;  // restore curwin->w_cursor
       (void)do_join(2, false, false, false, false);
     }
@@ -1685,7 +1685,8 @@ setmarks:
     if (oap->is_VIsual == false) {
       endcol = MAX(endcol - 1, mincol);
     }
-    extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo, 0);
+    // TODO: check already??
+    //extmark_col_adjust_delete(curbuf, lnum, mincol, endcol, kExtmarkUndo, 0);
   }
   return OK;
 }
@@ -2277,6 +2278,7 @@ void op_insert(oparg_T *oap, long count1)
     }
   }
   colnr_T col = oap->start.col;
+  // TODO: check
   for (linenr_T lnum = oap->start.lnum; lnum <= oap->end.lnum; lnum++) {
     extmark_col_adjust(curbuf, lnum, col, 0, 1, kExtmarkUndo);
     }
@@ -2756,6 +2758,7 @@ static void extmarks_do_put(int dir,
                             linenr_T lnum,
                             colnr_T col)
 {
+  // TODO: I think always
   // adjust extmarks
   colnr_T col_amount = (colnr_T)(dir == FORWARD ? totlen-1 : totlen);
   // Move extmark with char put
