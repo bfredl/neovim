@@ -1,8 +1,23 @@
-#include "nvim/map.h"
+
 
 #include "nvim/marktree.h"
 #define T MT_BRANCH_FACTOR
 #define ILEN (sizeof(mtnode_t)+(2*T)*sizeof(void *))
+
+struct mtnode_s {
+  int32_t n;
+  bool is_internal;
+  mtkey_t key[2 * T - 1];
+  mtnode_t *parent;
+  mtnode_t *ptr[];
+};
+
+struct mttree_s {
+  mtnode_t *root;
+  int n_keys, n_nodes;
+  // TODO(bfredl): the pointer to node could be part of a larger Map(uint64_t, MarkState);
+  PMap(uint64_t) *id2node;
+};
 
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -57,6 +72,8 @@ static inline void refkey(MarkTree *b, mtnode_t *x, int i)
 {
   pmap_put(uint64_t)(b->id2node, x->key[i].id, x);
 }
+
+// put functions
 
 // x must be an internal node, which is not full
 // x->ptr[i] should be a full node, i e x->ptr[i]->n == 2*T-1
@@ -119,7 +136,7 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
 void marktree_put(MarkTree *b, mtkey_t k)
 {
   if (!b->root) {
-    b->root = (mtnode_t*)xcalloc(1, ILEN);
+    b->root = (mtnode_t *)xcalloc(1, ILEN);
     b->id2node = pmap_new(uint64_t)();
     b->n_nodes++;
   }
@@ -138,4 +155,87 @@ void marktree_put(MarkTree *b, mtkey_t k)
   marktree_putp_aux(b, r, k);
 }
 
+void marktree_put_pos(MarkTree *b, int row, int col, uint64_t id)
+{
+  marktree_put(b, (mtkey_t){ .row = row, .col = col, .id = id });
+}
+
+// itr functions
+
+int marktree_itr_get(MarkTree *b, mtkey_t k, MarkTreeIter *itr)
+{
+  if (b->n_keys == 0) {
+    itr->p = NULL;
+    return 0;
+  }
+  int i, r = 0;
+  itr->p = itr->stack;
+  itr->p->x = b->root;
+  while (itr->p->x) {
+    i = marktree_getp_aux(itr->p->x, k, &r);
+    itr->p->i = i;
+    if (i >= 0 && r == 0) {
+      // TODO(bfredl): as a simplification we
+      // could always be in the "before" state?
+      return 1;
+    }
+    itr->p->i++;
+    itr->p[1].x = itr->p->x->is_internal ? itr->p->x->ptr[i + 1] : 0;
+    itr->p++;
+  }
+  return 0;
+}
+
+int marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
+{
+  if (itr->p < itr->stack) {
+    return 0;
+  }
+  for (;;) {
+    itr->p->i++;
+    while (itr->p->x && itr->p->i <= itr->p->x->n) {
+      itr->p[1].i = 0;
+      itr->p[1].x = itr->p->x->is_internal? itr->p->x->ptr[itr->p->i] : 0;
+      itr->p++;
+    }
+
+    itr->p--;
+    if (itr->p < itr->stack) {
+      return 0;
+    }
+    if (itr->p->x && itr->p->i < itr->p->x->n) {
+      return 1;
+    }
+  }
+}
+
+int marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
+{
+  if (itr->p < itr->stack) {
+    return 0;
+  }
+  for (;;) {
+    while (itr->p->x && itr->p->i >= 0) {
+      itr->p[1].x = itr->p->x->is_internal ? itr->p->x->ptr[itr->p->i] : 0;
+      itr->p[1].i = itr->p[1].x ? itr->p[1].x->n : -1;
+      itr->p++;
+    }
+    itr->p--;
+    if (itr->p < itr->stack) {
+      return 0;
+    }
+    itr->p->i--;
+    if (itr->p->x && itr->p->i >= 0) {
+      return 1;
+    }
+  }
+}
+
+mtkey_t marktree_itr_test(MarkTreeIter *itr)
+{
+  if ((itr)->p >= (itr)->stack) {
+    return ((itr)->p->x->key[(itr)->p->i]);
+  }
+  return (mtkey_t){ -1, -1, 0 };
+}
 
