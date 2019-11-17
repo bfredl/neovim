@@ -17,16 +17,42 @@ struct mttree_s {
   int n_keys, n_nodes;
   // TODO(bfredl): the pointer to node could be part of a larger Map(uint64_t, MarkState);
   PMap(uint64_t) *id2node;
+  bool rel;
 };
 
+static bool pos_leq(mtkey_t a, mtkey_t b)
+{
+  return a.row < b.row || (a.row == b.row && a.col <= b.row);
+}
+
+static void relative(mtkey_t base, mtkey_t *val) {
+  assert(pos_leq(base, *val));
+  if (val->row == base.row) {
+    val->row = 0;
+    val->col -= base.col;
+  } else {
+    val->row -= base.row;
+  }
+}
+
+static void unrelative(mtkey_t base, mtkey_t *val)
+{
+  if (val->row == 0) {
+    val->row = base.row;
+    val->col += base.col;
+  } else {
+    val->row += base.row;
+  }
+}
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "marktree.c.generated.h"
 #endif
 
 // DELET, only for luajit test
-MarkTree *marktree_new(void) {
+MarkTree *marktree_new(bool rel) {
   MarkTree *ret = xcalloc(1,sizeof(*ret));
+  ret->rel = rel;
   return ret;
 }
 
@@ -46,7 +72,7 @@ static int key_cmp(mtkey_t a, mtkey_t b)
   return mt_generic_cmp(a.id, b.id);
 }
 
-static inline int marktree_getp_aux(const mtnode_t *x, mtkey_t  k, int *r)
+static inline int marktree_getp_aux(const mtnode_t *x, mtkey_t k, int *r)
 {
   int tr, *rr, begin = 0, end = x->n;
   if (x->n == 0) {
@@ -77,7 +103,7 @@ static inline void refkey(MarkTree *b, mtnode_t *x, int i)
 
 // x must be an internal node, which is not full
 // x->ptr[i] should be a full node, i e x->ptr[i]->n == 2*T-1
-static inline void marktree_split(MarkTree *b, mtnode_t *x, int i)
+static inline void marktree_split(MarkTree *b, mtnode_t *x, const int i)
 {
   mtnode_t *y = x->ptr[i];
   mtnode_t *z;
@@ -106,6 +132,15 @@ static inline void marktree_split(MarkTree *b, mtnode_t *x, int i)
   x->key[i] = y->key[T - 1];
   refkey(b, x, i);
   x->n++;
+
+  if (b->rel) {
+    for (int j = 0; j < T-1; j++) {
+      relative(x->key[i], &z->key[j]);
+    }
+    if (i > 0) {
+      unrelative(x->key[0], &x->key[i]);
+    }
+  }
 }
 
 // x must not be a full node (even if there might be internal space)
@@ -128,6 +163,9 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
       if (key_cmp(k, x->key[i]) > 0) {
         i++;
       }
+    }
+    if (b->rel && i > 0) {
+      relative(x->key[i-1], &k);
     }
     marktree_putp_aux(b, x->ptr[i], k);
   }
@@ -171,6 +209,8 @@ int marktree_itr_get(MarkTree *b, mtkey_t k, MarkTreeIter *itr)
   int i, r = 0;
   itr->p = itr->stack;
   itr->p->x = b->root;
+  itr->pos.row = 0;
+  itr->pos.col = 0;
   while (itr->p->x) {
     i = marktree_getp_aux(itr->p->x, k, &r);
     itr->p->i = i;
@@ -181,6 +221,10 @@ int marktree_itr_get(MarkTree *b, mtkey_t k, MarkTreeIter *itr)
     }
     itr->p->i++;
     itr->p[1].x = itr->p->x->is_internal ? itr->p->x->ptr[i + 1] : 0;
+    if (b->rel && i >= 0) {
+      unrelative(itr->p->x->key[i], &itr->pos);
+    }
+
     itr->p++;
   }
   return 0;
@@ -195,13 +239,24 @@ int marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
     itr->p->i++;
     while (itr->p->x && itr->p->i <= itr->p->x->n) {
       itr->p[1].i = 0;
-      itr->p[1].x = itr->p->x->is_internal? itr->p->x->ptr[itr->p->i] : 0;
+      if (itr->p->x->is_internal) {
+        itr->p[1].x = itr->p->x->ptr[itr->p->i];
+        if (b->rel && itr->p->i > 0) {
+          unrelative(itr->p->x->key[itr->p->i-1], &itr->pos);
+        }
+      } else {
+        itr->p[1].x = 0;
+      }
+
       itr->p++;
     }
 
     itr->p--;
     if (itr->p < itr->stack) {
       return 0;
+    }
+    if (b->rel && itr->p->x->is_internal && itr->p->i > 0) {
+      relative(itr->p->x->key[itr->p->i-1], &itr->pos);
     }
     if (itr->p->x && itr->p->i < itr->p->x->n) {
       return 1;
@@ -211,6 +266,9 @@ int marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
 
 int marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
 {
+  if (b->rel) {
+    abort();  // häää
+  }
   if (itr->p < itr->stack) {
     return 0;
   }
