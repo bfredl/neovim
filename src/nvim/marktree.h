@@ -25,8 +25,7 @@ typedef struct {
 } mtpos_t;
 
 typedef struct {
-  int row;
-  int col;
+  mtkey_t pos;
   mtpos_t stack[MT_MAX_DEPTH], *p;
 } MarkTreeIter;
 
