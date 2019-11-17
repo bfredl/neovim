@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "nvim/map.h"
+#include "nvim/garray.h"
 
 #define MT_MAX_DEPTH 64
 #define MT_BRANCH_FACTOR 10

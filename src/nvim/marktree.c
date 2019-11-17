@@ -1,6 +1,7 @@
 
-
 #include "nvim/marktree.h"
+#include "nvim/garray.h"
+
 #define T MT_BRANCH_FACTOR
 #define ILEN (sizeof(mtnode_t)+(2*T)*sizeof(void *))
 #define key_t SKRAPET
@@ -298,5 +299,74 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
     return key;
   }
   return (mtkey_t){ -1, -1, 0 };
+}
+
+String mt_inspect_iter(MarkTree *b)
+{
+  static char buf[1024];
+  garray_T ga;
+  ga_init(&ga, (int)sizeof(char), 80);
+#define GA_PUT(x) ga_concat(&ga, (char_u *)(x))
+  MarkTreeIter itr[1];
+  mtkey_t k = { 0, 0, 0 };
+  marktree_itr_get(b, k, itr);
+  mtpos_t *lastp = itr->stack;
+  for (; marktree_itr_next(b, itr); ) {
+    while (itr->p < lastp) {
+      GA_PUT(")");
+      lastp--;
+    }
+    while (itr->p > lastp) {
+      GA_PUT("(");
+      lastp++;
+    }
+    mtkey_t inner = marktree_itr_test(itr);
+    snprintf((char *)buf, sizeof(buf), "%d", inner.col);
+    GA_PUT(buf);
+    if (!itr->p->x->is_internal) {
+      GA_PUT(",");
+    }
+    lastp = itr->p;
+  }
+  while (itr->stack < lastp) {
+    GA_PUT(")");
+    lastp--;
+  }
+#undef GA_PUT
+  return (String){ .data = ga.ga_data, .size = (size_t)ga.ga_len };
+}
+
+char *mt_inspect_rec(MarkTree *b)
+{
+  garray_T ga;
+  ga_init(&ga, (int)sizeof(char), 80);
+  mtkey_t k = { 0, 0, 0 };
+  mt_inspect_node(b, &ga, b->root, k);
+  return ga.ga_data;
+}
+
+void mt_inspect_node(MarkTree *b, garray_T *ga, mtnode_t *n, mtkey_t off)
+{
+  static char buf[1024];
+#define GA_PUT(x) ga_concat(ga, (char_u *)(x))
+  GA_PUT("[");
+  if (n->is_internal) {
+    mt_inspect_node(b, ga, n->ptr[0], off);
+  }
+  for (int i = 0; i < n->n; i++) {
+    mtkey_t k = n->key[i];
+    if (b->rel) {
+      unrelative(off, &k);
+    }
+    snprintf((char *)buf, sizeof(buf), "%d", k.col);
+    GA_PUT(buf);
+    if (n->is_internal) {
+      mt_inspect_node(b, ga, n->ptr[i+1], k);
+    } else {
+      GA_PUT(",");
+    }
+  }
+  GA_PUT("]");
+#undef GA_PUT
 }
 
