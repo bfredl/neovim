@@ -3,6 +3,7 @@
 #include "nvim/marktree.h"
 #define T MT_BRANCH_FACTOR
 #define ILEN (sizeof(mtnode_t)+(2*T)*sizeof(void *))
+#define key_t SKRAPET
 
 struct mtnode_s {
   int32_t n;
@@ -22,7 +23,7 @@ struct mttree_s {
 
 static bool pos_leq(mtkey_t a, mtkey_t b)
 {
-  return a.row < b.row || (a.row == b.row && a.col <= b.row);
+  return a.row < b.row || (a.row == b.row && a.col <= b.col);
 }
 
 static void relative(mtkey_t base, mtkey_t *val) {
@@ -111,7 +112,7 @@ static inline void marktree_split(MarkTree *b, mtnode_t *x, const int i)
   b->n_nodes++;
   z->is_internal = y->is_internal;
   z->n = T - 1;
-  memcpy(z->key, &y->key[T], sizeof(key_t) * (T - 1));
+  memcpy(z->key, &y->key[T], sizeof(mtkey_t) * (T - 1));
   for (int j = 0; j < T-1; j++) {
     refkey(b, z, j);
   }
@@ -138,7 +139,7 @@ static inline void marktree_split(MarkTree *b, mtnode_t *x, const int i)
       relative(x->key[i], &z->key[j]);
     }
     if (i > 0) {
-      unrelative(x->key[0], &x->key[i]);
+      unrelative(x->key[i-1], &x->key[i]);
     }
   }
 }
@@ -292,7 +293,9 @@ int marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
 mtkey_t marktree_itr_test(MarkTreeIter *itr)
 {
   if ((itr)->p >= (itr)->stack) {
-    return ((itr)->p->x->key[(itr)->p->i]);
+    mtkey_t key = ((itr)->p->x->key[(itr)->p->i]);
+    unrelative(itr->pos, &key);
+    return key;
   }
   return (mtkey_t){ -1, -1, 0 };
 }
