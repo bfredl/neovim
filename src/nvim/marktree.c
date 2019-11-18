@@ -27,26 +27,24 @@ static bool pos_leq(mtkey_t a, mtkey_t b)
   return a.row < b.row || (a.row == b.row && a.col <= b.col);
 }
 
-static mtkey_t relative(mtkey_t base, mtkey_t val) {
-  assert(pos_leq(base, val));
-  if (val.row == base.row) {
-    val.row = 0;
-    val.col -= base.col;
+static void relative(mtkey_t base, mtkey_t *val) {
+  assert(pos_leq(base, *val));
+  if (val->row == base.row) {
+    val->row = 0;
+    val->col -= base.col;
   } else {
-    val.row -= base.row;
+    val->row -= base.row;
   }
-  return val;
 }
 
-static mtkey_t unrelative(mtkey_t base, mtkey_t val)
+static void unrelative(mtkey_t base, mtkey_t *val)
 {
-  if (val.row == 0) {
-    val.row = base.row;
-    val.col += base.col;
+  if (val->row == 0) {
+    val->row = base.row;
+    val->col += base.col;
   } else {
-    val.row += base.row;
+    val->row += base.row;
   }
-  return val;
 }
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
@@ -139,10 +137,10 @@ static inline void marktree_split(MarkTree *b, mtnode_t *x, const int i)
 
   if (b->rel) {
     for (int j = 0; j < T-1; j++) {
-      z->key[j] = relative(x->key[i], z->key[j]);
+      relative(x->key[i], &z->key[j]);
     }
     if (i > 0) {
-      x->key[i] = unrelative(x->key[i-1], x->key[i]);
+      unrelative(x->key[i-1], &x->key[i]);
     }
   }
 }
@@ -169,7 +167,7 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
       }
     }
     if (b->rel && i > 0) {
-      k = relative(x->key[i-1], k);
+      relative(x->key[i-1], &k);
     }
     marktree_putp_aux(b, x->ptr[i], k);
   }
@@ -225,8 +223,8 @@ int marktree_failitr_get(MarkTree *b, mtkey_t k, MarkTreeIterFail *itr)
     }
     itr->p->i++;
     itr->p[1].x = itr->p->x->is_internal ? itr->p->x->ptr[i + 1] : 0;
-    if (b->rel && itr->p->x->is_internal && i >= 0) {
-      itr->pos = unrelative(itr->pos, itr->p->x->key[i]);
+    if (b->rel && i >= 0) {
+      unrelative(itr->p->x->key[i], &itr->pos);
     }
 
     itr->p++;
@@ -246,7 +244,7 @@ int marktree_failitr_next(MarkTree *b, MarkTreeIterFail *itr)
       if (itr->p->x->is_internal) {
         itr->p[1].x = itr->p->x->ptr[itr->p->i];
         if (b->rel && itr->p->i > 0) {
-          itr->pos = unrelative(itr->pos, itr->p->x->key[itr->p->i-1]);
+          unrelative(itr->p->x->key[itr->p->i-1], &itr->pos);
         }
       } else {
         itr->p[1].x = 0;
@@ -260,8 +258,7 @@ int marktree_failitr_next(MarkTree *b, MarkTreeIterFail *itr)
       return 0;
     }
     if (b->rel && itr->p->x->is_internal && itr->p->i > 0) {
-      // THIS IS NOT POSSIBLE, REDESIGN
-      itr->pos = relative(itr->pos, itr->p->x->key[itr->p->i-1]);
+      relative(itr->p->x->key[itr->p->i-1], &itr->pos);
     }
     if (itr->p->x && itr->p->i < itr->p->x->n) {
       return 1;
@@ -272,7 +269,7 @@ int marktree_failitr_next(MarkTree *b, MarkTreeIterFail *itr)
 int marktree_failitr_prev(MarkTree *b, MarkTreeIterFail *itr)
 {
   if (b->rel) {
-     abort();  // häää
+    abort();  // häää
   }
   if (itr->p < itr->stack) {
     return 0;
@@ -298,7 +295,8 @@ mtkey_t marktree_failitr_test(MarkTreeIterFail *itr)
 {
   if ((itr)->p >= (itr)->stack) {
     mtkey_t key = ((itr)->p->x->key[(itr)->p->i]);
-    return unrelative(itr->pos, key);
+    unrelative(itr->pos, &key);
+    return key;
   }
   return (mtkey_t){ -1, -1, 0 };
 }
@@ -427,7 +425,7 @@ void mt_inspect_node(MarkTree *b, garray_T *ga, mtnode_t *n, mtkey_t off)
   for (int i = 0; i < n->n; i++) {
     mtkey_t k = n->key[i];
     if (b->rel) {
-      k = unrelative(off, k);
+      unrelative(off, &k);
     }
     snprintf((char *)buf, sizeof(buf), "%d", k.col);
     GA_PUT(buf);
