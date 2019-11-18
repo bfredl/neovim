@@ -204,7 +204,7 @@ void marktree_put_pos(MarkTree *b, int row, int col, uint64_t id)
 
 // itr functions
 
-int marktree_itr_get(MarkTree *b, mtkey_t k, MarkTreeIter *itr)
+int marktree_failitr_get(MarkTree *b, mtkey_t k, MarkTreeIterFail *itr)
 {
   if (b->n_keys == 0) {
     itr->p = NULL;
@@ -234,7 +234,7 @@ int marktree_itr_get(MarkTree *b, mtkey_t k, MarkTreeIter *itr)
   return 0;
 }
 
-int marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
+int marktree_failitr_next(MarkTree *b, MarkTreeIterFail *itr)
 {
   if (itr->p < itr->stack) {
     return 0;
@@ -269,7 +269,7 @@ int marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
   }
 }
 
-int marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
+int marktree_failitr_prev(MarkTree *b, MarkTreeIterFail *itr)
 {
   if (b->rel) {
      abort();  // häää
@@ -294,7 +294,7 @@ int marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
   }
 }
 
-mtkey_t marktree_itr_test(MarkTreeIter *itr)
+mtkey_t marktree_failitr_test(MarkTreeIterFail *itr)
 {
   if ((itr)->p >= (itr)->stack) {
     mtkey_t key = ((itr)->p->x->key[(itr)->p->i]);
@@ -303,13 +303,33 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
   return (mtkey_t){ -1, -1, 0 };
 }
 
+/// TODO: set sentinel state for empty tree
+void marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
+{
+  itr->node = b->r;
+  itr->i = 0;
+  itr->lvl = 0;
+  while (itr->node->is_internal) {
+    itr->s[itr->lvl].i = 0;
+    itr->s[itr->lvl].oldcol = 0;
+    itr->lvl++;
+    itr->node = itr->node->ptr[0];
+  }
+}
+
+bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
+{
+
+}
+
+#if 0
 String mt_inspect_iter(MarkTree *b)
 {
   static char buf[1024];
   garray_T ga;
   ga_init(&ga, (int)sizeof(char), 80);
 #define GA_PUT(x) ga_concat(&ga, (char_u *)(x))
-  MarkTreeIter itr[1];
+  MarkTreeIterFail itr[1];
   mtkey_t k = { 0, 0, 0 };
   marktree_itr_get(b, k, itr);
   mtpos_t *lastp = itr->stack;
@@ -337,6 +357,7 @@ String mt_inspect_iter(MarkTree *b)
 #undef GA_PUT
   return (String){ .data = ga.ga_data, .size = (size_t)ga.ga_len };
 }
+#endif
 
 char *mt_inspect_rec(MarkTree *b)
 {

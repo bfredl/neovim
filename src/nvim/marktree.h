@@ -28,7 +28,21 @@ typedef struct {
 typedef struct {
   mtkey_t pos;
   mtpos_t stack[MT_MAX_DEPTH], *p;
+} MarkTreeIterFail;
+
+typedef struct {
+  int oldcol;
+  int i;
+} iterstate_t;
+
+typedef struct {
+  mtkey_t pos;
+  int lvl;
+  mtnode_t *node;
+  int i;
+  iterstate_t s[MT_MAX_DEPTH];
 } MarkTreeIter;
+
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "marktree.h.generated.h"
