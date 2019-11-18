@@ -120,7 +120,7 @@ static inline void marktree_split(MarkTree *b, mtnode_t *x, const int i)
   if (y->is_internal) {
     memcpy(z->ptr, &y->ptr[T], sizeof(mtnode_t *) * T);
     for (int j = 0; j < T; j++) {
-      z->ptr[i]->parent = z;
+      z->ptr[j]->parent = z;
     }
   }
   y->n = T - 1;
@@ -363,7 +363,8 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
 {
   if (itr->node) {
     mtkey_t key = itr->node->key[itr->i];
-    return unrelative(itr->pos, key);
+    unrelative(itr->pos, &key);
+    return key;
   }
   return (mtkey_t){ -1, -1, 0 };
 }
