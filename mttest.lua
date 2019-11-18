@@ -23,6 +23,15 @@ typedef struct {
 } MarkTreeIter;
 
 
+struct mtnode_s {
+  int32_t n;
+  bool is_internal;
+  mtkey_t key[19];
+  mtnode_t *parent;
+  mtnode_t *ptr[];
+};
+
+
 MarkTree *marktree_new(bool rel);
 void marktree_put(MarkTree *b, mtkey_t k);
 void marktree_put_pos(MarkTree *b, int row, int col, uint64_t id);
@@ -38,7 +47,7 @@ char *mt_inspect_rec(MarkTree *b);
 p = require'luadev'.print
 tree = ffi.C.marktree_new(0)
 iter = ffi.new("MarkTreeIter[1]")
-for i = 1,30 do
+for i = 1,300 do
   ffi.C.marktree_put_pos(tree, 1, i, i)
 end
 ss = ffi.C.mt_inspect_rec(tree)
@@ -53,14 +62,17 @@ ffi.C.marktree_itr_first(tree, iter)
 i = 1
 repeat
 
-  val = ffi.C.marktree_itr_test(iter) p(val.row, val.col, val.id) p(ffi.C.marktree_itr_next(tree, iter))
+  val = ffi.C.marktree_itr_test(iter) p(val.row, val.col, val.id)
+  p(ffi.C.marktree_itr_next(tree, iter))
+  --iter[0].lvl
+  --iter[0].node[0]
   --iter[0].lvl
 
   if false and val.col ~= i then
     error("x")
   end
   i = i +1
-until not ffi.C.marktree_itr_next(tree, iter)
+until not ffi.C.marktree_itr_next(tree, iter) -- i == 109 --
 
 ee()
 
