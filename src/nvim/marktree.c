@@ -303,10 +303,13 @@ mtkey_t marktree_failitr_test(MarkTreeIterFail *itr)
   return (mtkey_t){ -1, -1, 0 };
 }
 
-/// TODO: set sentinel state for empty tree
 void marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
 {
-  itr->node = b->r;
+  itr->node = b->root;
+  if (!itr->node) {
+    return;
+  }
+
   itr->i = 0;
   itr->lvl = 0;
   while (itr->node->is_internal) {
@@ -319,7 +322,52 @@ void marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
 
 bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
 {
+  if (!itr->node) {
+    return false;
+  }
+  itr->i++;
+  if (!itr->node->is_internal) {
+    if (itr->i < itr->node->n) {
+      // TODO: this is the common case, and should be handled by inline wrapper
+      return true;
+    }
+    // we ran out of non-internal keys. Go up until we find a non-internal key
+    while (itr->i >= itr->node->n) {
+      itr->node = itr->node->parent;
+      if (itr->node == NULL) {
+        return false;
+      }
+      itr->lvl--;
+      itr->i = itr->s[itr->lvl].i;
+      if (b->rel) {
+        abort();
+      }
+    }
+  } else {
+    // we stood at an "internal" key. Go down to the first non-internal
+    // key after it.
+    while (itr->node->is_internal) {
+      // internal key, there is always a child after
+      if (b->rel) {
+        abort();
+      }
+      itr->s[itr->lvl].i = itr->i;
+      assert(itr->node->ptr[itr->i]->parent == itr->node);
+      itr->node = itr->node->ptr[itr->i];
+      itr->i = 0;
+      itr->lvl++;
+    }
+  }
+  return true;
+}
 
+mtkey_t marktree_itr_test(MarkTreeIter *itr)
+{
+  if (itr->node) {
+    mtkey_t key = itr->node->key[itr->i];
+    return unrelative(itr->pos, key);
+  }
+  return (mtkey_t){ -1, -1, 0 };
 }
 
 #if 0
