@@ -337,8 +337,9 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
       }
       itr->lvl--;
       itr->i = itr->s[itr->lvl].i;
-      if (b->rel) {
-        abort();
+      if (b->rel && itr->i > 0) {
+        itr->pos.row -= itr->node->key[itr->i-1].row;
+        itr->pos.col = itr->s[itr->lvl].oldcol;
       }
     }
   } else {
@@ -346,8 +347,11 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
     // key after it.
     while (itr->node->is_internal) {
       // internal key, there is always a child after
-      if (b->rel) {
-        abort();
+      if (b->rel && itr->i > 0) {
+        itr->s[itr->lvl].oldcol = itr->pos.col;
+        mtkey_t k = itr->node->key[itr->i-1];
+        unrelative(itr->pos, &k);
+        itr->pos = k;
       }
       itr->s[itr->lvl].i = itr->i;
       assert(itr->node->ptr[itr->i]->parent == itr->node);
@@ -358,6 +362,7 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
   }
   return true;
 }
+
 
 mtkey_t marktree_itr_test(MarkTreeIter *itr)
 {
