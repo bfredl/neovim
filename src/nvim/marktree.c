@@ -376,6 +376,38 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
   return (mtkey_t){ { -1, -1 }, 0 };
 }
 
+// TODO: build up an interator as part of the process?
+mtpos_t marktree_lookup(MarkTree *b, uint64_t id)
+{
+  mtnode_t *n = pmap_get(uint64_t)(b->id2node, id);
+  if (n == NULL) {
+    return (mtpos_t){ -1, -1 };
+  }
+  int i = 0;
+  for (i = 0; i < n->n; i++) {
+    if (n->key[i].id == id) {
+      goto found;
+    }
+  }
+  abort();
+found: {}
+  mtpos_t pos = n->key[i].pos;
+  while (n->parent != NULL) {
+    mtnode_t *p = n->parent;
+    for (i = 0; i < p->n+1; i++) {
+      if (p->ptr[i] == n) {
+        goto found_node;
+      }
+    }
+    abort();
+found_node:
+    if (i > 0) {
+      unrelative(p->key[i-1].pos, &pos);
+    }
+    n = p;
+  }
+  return pos;
+}
 
 #if 0
 String mt_inspect_iter(MarkTree *b)
