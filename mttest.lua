@@ -3,8 +3,15 @@ ffi.cdef([[
 typedef struct {
   int32_t row;
   int32_t col;
+} mtpos_t;
+
+// NB actual marks MUST have id > 0, so we can use (row,col,0) pseudo-key for
+// "space before (row,col)"
+typedef struct {
+  mtpos_t pos;
   uint64_t id;
 } mtkey_t;
+
 
 typedef struct mttree_s MarkTree;
 typedef struct mtnode_s mtnode_t;
@@ -15,7 +22,7 @@ typedef struct {
 } iterstate_t;
 
 typedef struct {
-  mtkey_t pos;
+  mtpos_t pos;
   int lvl;
   mtnode_t *node;
   int i;
@@ -55,20 +62,18 @@ p(ffi.string(ss))
 
 raa()
 
-key = ffi.new("mtkey_t")
-key.row = -1
 --ffi.C.marktree_itr_get(tree, key, iter)
 ffi.C.marktree_itr_first(tree, iter)
 i = 1
 repeat
 
-  val = ffi.C.marktree_itr_test(iter) p(val.row, val.col, val.id)
-  p(ffi.C.marktree_itr_next(tree, iter))
+  val = ffi.C.marktree_itr_test(iter) p(val.pos.row, val.pos.col, val.id)
+  --p(ffi.C.marktree_itr_next(tree, iter))
   --iter[0].lvl
   --iter[0].node[0]
   --iter[0].lvl
 
-  if false and val.col ~= i then
+  if true and val.pos.col ~= i then
     error("x")
   end
   i = i +1
