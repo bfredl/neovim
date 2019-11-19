@@ -376,9 +376,20 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
   return (mtkey_t){ { -1, -1 }, 0 };
 }
 
+void marktree_splice(MarkTree *b, mtpos_t start,
+                     mtpos_t old_extent, mtpos_t new_extent)
+{
+  if (old_extent.row != 0 || old_extent.col != 0) {
+    abort(); // NI! needs "delete"
+  }
+}
+
 // TODO: build up an interator as part of the process?
 mtpos_t marktree_lookup(MarkTree *b, uint64_t id)
 {
+  if (!b->rel) {
+    abort(); // no u!
+  }
   mtnode_t *n = pmap_get(uint64_t)(b->id2node, id);
   if (n == NULL) {
     return (mtpos_t){ -1, -1 };
