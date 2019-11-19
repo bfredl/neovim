@@ -48,6 +48,7 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr);
 int marktree_itr_prev(MarkTree *b, MarkTreeIter *itr);
 mtkey_t marktree_itr_test(MarkTreeIter *itr);
 char *mt_inspect_rec(MarkTree *b);
+mtpos_t marktree_lookup(MarkTree *b, uint64_t id);
 ]])
 
 
@@ -61,6 +62,16 @@ ss = ffi.C.mt_inspect_rec(tree)
 p(ffi.string(ss))
 
 raa()
+
+for i = 1, 300 do
+  pos = ffi.C.marktree_lookup(tree, i)
+  if pos.col ~= i then
+    error("eee "..i)
+  end
+end
+
+p(pos.row, pos.col)
+
 
 --ffi.C.marktree_itr_get(tree, key, iter)
 ffi.C.marktree_itr_first(tree, iter)
