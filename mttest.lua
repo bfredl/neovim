@@ -45,7 +45,7 @@ char *mt_inspect_rec(MarkTree *b);
 
 
 p = require'luadev'.print
-tree = ffi.C.marktree_new(0)
+tree = ffi.C.marktree_new(1)
 iter = ffi.new("MarkTreeIter[1]")
 for i = 1,300 do
   ffi.C.marktree_put_pos(tree, 1, i, i)
