@@ -7,11 +7,16 @@
 
 #define MT_MAX_DEPTH 64
 #define MT_BRANCH_FACTOR 10
-// NB actual marks MUST have id > 0, so we can use (row,col,0) pseudo-key for
-// "space before (row,col)"
+
 typedef struct {
   int32_t row;
   int32_t col;
+} mtpos_t;
+
+// NB actual marks MUST have id > 0, so we can use (row,col,0) pseudo-key for
+// "space before (row,col)"
+typedef struct {
+  mtpos_t pos;
   uint64_t id;
 } mtkey_t;
 
@@ -23,11 +28,11 @@ typedef struct {
   // consistency check easily.
   mtnode_t *x;
   int i;
-} mtpos_t;
+} mtfailpos_t;
 
 typedef struct {
-  mtkey_t pos;
-  mtpos_t stack[MT_MAX_DEPTH], *p;
+  mtpos_t pos;
+  mtfailpos_t stack[MT_MAX_DEPTH], *p;
 } MarkTreeIterFail;
 
 typedef struct {
@@ -36,7 +41,7 @@ typedef struct {
 } iterstate_t;
 
 typedef struct {
-  mtkey_t pos;
+  mtpos_t pos;
   int lvl;
   mtnode_t *node;
   int i;
