@@ -202,6 +202,41 @@ void marktree_put_pos(MarkTree *b, int row, int col, uint64_t id)
                              .id = id });
 }
 
+/// INITIATING DELETION PROTOCOL:
+///
+/// 1. Construct a valid iterator to the node to delete (argument)
+/// 2. If an "internal" key. Iterate one step to the left or right,
+///     which gives an internal key "auxiliary key".
+/// 3. Now delete this internal key (intended or auxiliary).
+///    The leaf node might become undersized.
+/// 3. If step two was done: now replace the key that _should_ be
+///    deleted with the auxiliary key. Adjust relative
+/// 4. Now "repair" the tree as needed. We always start at a leaf node.
+///     - if the node is big enough, terminate
+///     - if we can steal from the left, steal
+///     - if we can steal from the right, steal
+///     - otherwise merge this node with a neighbour. This might make our
+///       parent undersized. So repeat 4 for the parent.
+/// 5. If 4 went all the way to the root node. The root node
+///    might have ended up with size 0. Delete it then.
+///
+/// NB: ideally keeps the iterator valid. Like point to the key after this
+/// if present.
+void marktree_del_itr(MarkTree *b, MarkTreeIter *itr)
+{
+  if (b->rel) {
+    abort();
+  }
+  int adjustment = 0;
+
+  if (itr->node->is_internal) {
+    abort(); // NI
+    // set adjustment to 1 or -1
+  }
+
+
+}
+
 // itr functions
 
 int marktree_failitr_get(MarkTree *b, mtkey_t k, MarkTreeIterFail *itr)
