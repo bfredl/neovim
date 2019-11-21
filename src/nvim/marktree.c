@@ -17,9 +17,11 @@ struct mtnode_s {
 struct mttree_s {
   mtnode_t *root;
   int n_keys, n_nodes;
+  int n_levels;
   // TODO(bfredl): the pointer to node could be part of a larger Map(uint64_t, MarkState);
   PMap(uint64_t) *id2node;
   bool rel;
+
 };
 
 static bool pos_leq(mtpos_t a, mtpos_t b)
@@ -186,6 +188,7 @@ void marktree_put(MarkTree *b, mtkey_t k)
   r = b->root;
   if (r->n == 2 * T - 1) {
     b->n_nodes++;
+    b->n_levels++;
     s = (mtnode_t *)xcalloc(1, ILEN);
     b->root = s; s->is_internal = 1; s->n = 0;
     s->ptr[0] = r;
@@ -208,30 +211,92 @@ void marktree_put_pos(MarkTree *b, int row, int col, uint64_t id)
 /// 2. If an "internal" key. Iterate one step to the left or right,
 ///     which gives an internal key "auxiliary key".
 /// 3. Now delete this internal key (intended or auxiliary).
-///    The leaf node might become undersized.
-/// 3. If step two was done: now replace the key that _should_ be
+///    The leaf node X might become undersized.
+/// 4. If step two was done: now replace the key that _should_ be
 ///    deleted with the auxiliary key. Adjust relative
-/// 4. Now "repair" the tree as needed. We always start at a leaf node.
+/// 5. Now "repair" the tree as needed. We always start at a leaf node X.
 ///     - if the node is big enough, terminate
 ///     - if we can steal from the left, steal
 ///     - if we can steal from the right, steal
 ///     - otherwise merge this node with a neighbour. This might make our
 ///       parent undersized. So repeat 4 for the parent.
-/// 5. If 4 went all the way to the root node. The root node
+/// 6. If 4 went all the way to the root node. The root node
 ///    might have ended up with size 0. Delete it then.
 ///
 /// NB: ideally keeps the iterator valid. Like point to the key after this
 /// if present.
-void marktree_del_itr(MarkTree *b, MarkTreeIter *itr)
+///
+/// @param rev should be true if we plan to iterate _backwards_ and delete
+///            stuff before this key. Most of the time this is false (the
+///            recommended strategy is to always iterate forward)
+void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 {
   if (b->rel) {
     abort();
   }
   int adjustment = 0;
+  
+  mtnode_t *cur = itr->node;
 
   if (itr->node->is_internal) {
     abort(); // NI
     // set adjustment to 1 or -1
+  }
+
+  // 3.
+  mtnode_t *x = itr->node;
+  mtkey_t intkey = x->key[itr->i];
+  if (x->n > itr->i+1) {
+    memmove(&x->key[itr->i], &x->key[itr->i+1],
+            sizeof(mtkey_t) * (size_t)(x->n - itr->i-1));
+  }
+  x->n--;
+
+  // 4.
+  if (adjustment) {
+    if (rev) {
+      abort();
+    } else {
+      abort();
+    }
+    // if adjustment == -1, need to unrelative from x up to cur
+    //refkey();
+  }
+
+  // 5.
+  int rlvl = itr->lvl;
+  while (x != b->root) {
+    mtnode_t *p = x->parent;
+    if (x->n >= T-1) {
+      // we are done, if this node is fine the rest of the tree will be
+      break;
+    }
+    int pi  = itr->s[rlvl-1].i;
+    assert(p->ptr[pi] == x);
+    if (pi > 0 && p->ptr[pi-1]->n > T-1) {
+      // steal one key from the left neighbour
+      pivot_right(b, p, pi-1);
+      break;
+    } else if (pi < p->n && p->ptr[pi+1]->n > T-1) {
+      // steal one key from right neighbour
+      pivot_left(b, p, pi);
+      break;
+    } else if (pi > 0) {
+      assert(p->ptr[pi-1]->n == T-1);
+      // merge with left neighbour
+      merge_next(b, pi-1);
+    } else {
+      assert(pi < p->n && p->ptr[pi+1]->n == T-1);
+      merge_next(b, pi);
+    }
+  }
+
+  // 6.
+  if (b->root->n == 0) {
+    abort();
+    b->n_levels--;
+    memmove(itr->s, itr->s+1, (size_t)itr->lvl * sizeof(*itr->s));
+    itr->lvl--;
   }
 
 
