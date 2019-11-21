@@ -55,19 +55,36 @@ mtpos_t marktree_lookup(MarkTree *b, uint64_t id);
 p = require'luadev'.print
 tree = ffi.C.marktree_new(1)
 iter = ffi.new("MarkTreeIter[1]")
-for i = 1,300 do
-  ffi.C.marktree_put_pos(tree, 1, i, i)
+dibbl = {}
+
+
+if false then
+  for i = 1,300 do
+    ffi.C.marktree_put_pos(tree, 1, i, i)
+  end
+else
+  g = 1
+  for i = 1,10 do
+    for j = 1,10 do
+      ffi.C.marktree_put_pos(tree, j, i, g)
+      dibbl[g] = {j,i}
+      g = g + 1
+    end
+  end
 end
+
 ss = ffi.C.mt_inspect_rec(tree)
 p(ffi.string(ss))
 
 raa()
 
-for i = 1, 300 do
+for i = 1, #dibbl do
   pos = ffi.C.marktree_lookup(tree, i)
-  if pos.col ~= i then
+  pos2 = dibbl[i]
+  if pos.row ~= pos2[1] or pos.col ~= pos2[2] then
     error("eee "..i)
   end
+  p(vim.inspect(pos2))
 end
 
 p(pos.row, pos.col)
@@ -77,18 +94,19 @@ p(pos.row, pos.col)
 ffi.C.marktree_itr_first(tree, iter)
 i = 1
 repeat
-
   val = ffi.C.marktree_itr_test(iter) p(val.pos.row, val.pos.col, val.id)
+  pos2 = dibbl[tonumber(val.id)]
   --p(ffi.C.marktree_itr_next(tree, iter))
   --iter[0].lvl
   --iter[0].node[0]
   --iter[0].lvl
 
-  if true and val.pos.col ~= i then
+  if true and (val.pos.row ~= pos2[1] or val.pos.col ~= pos2[2]) then
     error("x")
   end
   i = i +1
 until not ffi.C.marktree_itr_next(tree, iter) -- i == 109 --
+i
 
 ee()
 
