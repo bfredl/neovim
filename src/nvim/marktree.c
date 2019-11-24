@@ -108,7 +108,7 @@ static inline void refkey(MarkTree *b, mtnode_t *x, int i)
 
 // x must be an internal node, which is not full
 // x->ptr[i] should be a full node, i e x->ptr[i]->n == 2*T-1
-static inline void marktree_split(MarkTree *b, mtnode_t *x, const int i)
+static inline void split_node(MarkTree *b, mtnode_t *x, const int i)
 {
   mtnode_t *y = x->ptr[i];
   mtnode_t *z;
@@ -164,7 +164,7 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
   } else {
     i = marktree_getp_aux(x, k, 0) + 1;
     if (x->ptr[i]->n == 2 * T - 1) {
-      marktree_split(b, x, i);
+      split_node(b, x, i);
       if (key_cmp(k, x->key[i]) > 0) {
         i++;
       }
@@ -193,7 +193,7 @@ void marktree_put(MarkTree *b, mtkey_t k)
     b->root = s; s->is_internal = 1; s->n = 0;
     s->ptr[0] = r;
     r->parent = s;
-    marktree_split(b, s, 0);
+    split_node(b, s, 0);
     r = s;
   }
   marktree_putp_aux(b, r, k);
@@ -237,10 +237,16 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   int adjustment = 0;
   
   mtnode_t *cur = itr->node;
+  int curi = itr->i;
 
   if (itr->node->is_internal) {
-    abort(); // NI
-    // set adjustment to 1 or -1
+    if (rev) {
+      abort();
+    } else {
+      //steal previous node
+      marktree_itr_prev(b, itr);
+      adjustment = -1;
+    }
   }
 
   // 3.
@@ -254,9 +260,24 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 
   // 4.
   if (adjustment) {
-    if (rev) {
+    if (adjustment == 1) {
       abort();
-    } else {
+    } else { // adjustment == -1
+      int ilvl = itr->lvl-1;
+      mtnode_t *lnode = x;
+      do {
+        mtnode_t *p = lnode->parent;
+        if (ilvl < 0) {
+          abort();
+        }
+        int i = itr->s[ilvl].i;
+        assert(p->ptr[i] == lnode);
+        if (i > 0) {
+          unrelative(lnode->key[i-1].pos, &intkey.pos);
+        }
+        lnode = p;
+        ilvl--;
+      } while (lnode != cur);
       abort();
     }
     // if adjustment == -1, need to unrelative from x up to cur
@@ -284,10 +305,10 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     } else if (pi > 0) {
       assert(p->ptr[pi-1]->n == T-1);
       // merge with left neighbour
-      merge_next(b, pi-1);
+      merge_node(b, p, pi-1);
     } else {
       assert(pi < p->n && p->ptr[pi+1]->n == T-1);
-      merge_next(b, pi);
+      merge_node(b, p, pi);
     }
   }
 
@@ -295,11 +316,89 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   if (b->root->n == 0) {
     abort();
     b->n_levels--;
-    memmove(itr->s, itr->s+1, (size_t)itr->lvl * sizeof(*itr->s));
-    itr->lvl--;
+    // TODO: always the case right?
+    if (itr->lvl > 0) {
+      memmove(itr->s, itr->s+1, (size_t)itr->lvl * sizeof(*itr->s));
+      itr->lvl--;
+    }
+  }
+}
+
+// TODO: take in an iterator and "take care" of it? or caller should do that?
+static void merge_node(MarkTree *b, mtnode_t *p, int i)
+{
+  mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
+
+  x->key[x->n] = p->key[i];
+  if (b->rel && i > 0) {
+    relative(p->key[i-1].pos, &x->key[x->n].pos);
   }
 
+  memmove(&x->key[x->n+1], y->key, (size_t)y->n * sizeof(mtkey_t));
+  if (b->rel) {
+    for (int k = 0; k < y->n; k++) {
+      unrelative(x->key[x->n].pos, &x->key[x->n+1+k].pos);
+    }
+  }
+  if (x->is_internal) {
+    memmove(&x->ptr[x->n], y->ptr, (size_t)(y->n + 1) * sizeof(mtkey_t *));
+  }
+  x->n += y->n+1;
+  memmove(&p->key[i], &p->key[i + 1], (size_t)(p->n - i - 1) * sizeof(mtkey_t));
+  memmove(&p->ptr[i + 1], &p->ptr[i + 2],
+          (size_t)(p->n - i - 1) * sizeof(mtkey_t *));
+}
 
+static void pivot_right(MarkTree *b, mtnode_t *p, int i)
+{
+  mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
+  memmove(&y->key[1], y->key, (size_t)y->n * sizeof(mtkey_t));
+  if (y->is_internal) {
+    memmove(&y->ptr[1], y->ptr, (size_t)(y->n + 1) * sizeof(mtkey_t *));
+  }
+  y->key[0] = p->key[i];
+  p->key[i] = x->key[x->n - 1];
+  if (x->is_internal) {
+    y->ptr[0] = x->ptr[x->n];
+  }
+  x->n--;
+  y->n++;
+  if (b->rel) {
+    if (i > 0) {
+      unrelative(p->key[i-1].pos, &p->key[i].pos);
+    }
+    relative(p->key[i].pos, &y->key[0].pos);
+    for (int k = 1; k < y->n; k++) {
+      unrelative(y->key[0].pos, &y->key[k].pos);
+    }
+  }
+}
+
+static void pivot_left(MarkTree *b, mtnode_t *p, int i)
+{
+  mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
+  if (b->rel) {
+    // reverse from how we "always" do it. but pivot_left
+    // is just the inverse of pivot_right, so reverse it literally.
+    for (int k = 1; k < y->n; k++) {
+      relative(y->key[0].pos, &y->key[k].pos);
+    }
+    unrelative(p->key[i].pos, &y->key[0].pos);
+    if (i > 0) {
+      relative(p->key[i-1].pos, &p->key[i].pos);
+    }
+  }
+  x->key[x->n] = p->key[i];
+  p->key[i] = y->key[0];
+  if (x->is_internal) {
+    x->ptr[x->n+1] = y->ptr[0];
+  }
+  memmove(y->key, &y->key[1], (size_t)(y->n-1) * sizeof(mtkey_t));
+  if (y->is_internal) {
+    memmove(y->ptr, &y->ptr[1], (size_t)y->n * sizeof(mtkey_t *));
+  }
+  x->n++;
+  y->n--;
 }
 
 // itr functions
