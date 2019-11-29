@@ -24,18 +24,6 @@ typedef struct mttree_s MarkTree;
 typedef struct mtnode_s mtnode_t;
 
 typedef struct {
-  // TODO(bfredl): really redundant with "backlinks", but keep now so we can do
-  // consistency check easily.
-  mtnode_t *x;
-  int i;
-} mtfailpos_t;
-
-typedef struct {
-  mtpos_t pos;
-  mtfailpos_t stack[MT_MAX_DEPTH], *p;
-} MarkTreeIterFail;
-
-typedef struct {
   int oldcol;
   int i;
 } iterstate_t;
