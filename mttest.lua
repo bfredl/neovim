@@ -1,5 +1,5 @@
 ffi = require'ffi'
-cdefs = io.open('cdefs.dump.h', 'r'):read('*all')
+cdefs = io.open('build/cdefs.dump.h', 'r'):read('*all')
 string.len(cdefs)
 ffi.cdef(cdefs)
 
@@ -24,12 +24,18 @@ p(ffi.string(ss))
 
 raa()
 
-for i,ipos = pairs(dibbl) do
-  pos = ffi.C.marktree_lookup(tree, i)
+for i,ipos in pairs(dibbl) do
+  pos = ffi.C.marktree_lookup(tree, i, iter)
   if pos.row ~= ipos[1] or pos.col ~= ipos[2] then
     error("eee "..i)
   end
-  p(vim.inspect(ipos))
+  k = ffi.C.marktree_itr_test(iter)
+  if k.pos.row ~= ipos[1] or k.pos.col ~= ipos[2] then
+    error("itr eee "..i)
+  end
+  ffi.C.marktree_itr_next(tree, iter)
+  k = ffi.C.marktree_itr_test(iter)
+  p(vim.inspect(ipos), vim.inspect(k2.pos))
 end
 
 p(pos.row, pos.col)
