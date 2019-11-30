@@ -13,8 +13,8 @@ describe('marktree', function()
     shadow = {}
     iter = ffi.new("MarkTreeIter[1]")
 
-    for i = 1,10 do
-      for j = 1,10 do
+    for i = 1,100 do
+      for j = 1,100 do
         id = lib.marktree_put(tree, j, i)
         ok(id > 0)
         eq(nil, shadow[id])
