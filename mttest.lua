@@ -1,55 +1,8 @@
 ffi = require'ffi'
-ffi.cdef([[
-typedef struct {
-  int32_t row;
-  int32_t col;
-} mtpos_t;
+cdefs = io.open('cdefs.dump.h', 'r'):read('*all')
+string.len(cdefs)
+ffi.cdef(cdefs)
 
-// NB actual marks MUST have id > 0, so we can use (row,col,0) pseudo-key for
-// "space before (row,col)"
-typedef struct {
-  mtpos_t pos;
-  uint64_t id;
-} mtkey_t;
-
-
-typedef struct mttree_s MarkTree;
-typedef struct mtnode_s mtnode_t;
-
-typedef struct {
-  int oldcol;
-  int i;
-} iterstate_t;
-
-typedef struct {
-  mtpos_t pos;
-  int lvl;
-  mtnode_t *node;
-  int i;
-  iterstate_t s[64];
-} MarkTreeIter;
-
-
-struct mtnode_s {
-  int32_t n;
-  bool is_internal;
-  mtkey_t key[19];
-  mtnode_t *parent;
-  mtnode_t *ptr[];
-};
-
-
-MarkTree *marktree_new(bool rel);
-void marktree_put(MarkTree *b, mtkey_t k);
-void marktree_put_pos(MarkTree *b, int row, int col, uint64_t id);
-int marktree_itr_get(MarkTree *b, mtkey_t k, MarkTreeIter *itr);
-void marktree_itr_first(MarkTree *b, MarkTreeIter *itr);
-bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr);
-int marktree_itr_prev(MarkTree *b, MarkTreeIter *itr);
-mtkey_t marktree_itr_test(MarkTreeIter *itr);
-char *mt_inspect_rec(MarkTree *b);
-mtpos_t marktree_lookup(MarkTree *b, uint64_t id);
-]])
 
 
 p = require'luadev'.print
@@ -58,18 +11,11 @@ iter = ffi.new("MarkTreeIter[1]")
 dibbl = {}
 
 
-if false then
-  for i = 1,300 do
-    ffi.C.marktree_put_pos(tree, 1, i, i)
-  end
-else
-  g = 1
-  for i = 1,10 do
-    for j = 1,10 do
-      ffi.C.marktree_put_pos(tree, j, i, g)
-      dibbl[g] = {j,i}
-      g = g + 1
-    end
+for i = 1,10 do
+  for j = 1,10 do
+    id = ffi.C.marktree_put(tree, j, i)
+    if dibbl[id] then error("DIBBL!") end
+    dibbl[id] = {j,i}
   end
 end
 
@@ -78,13 +24,12 @@ p(ffi.string(ss))
 
 raa()
 
-for i = 1, #dibbl do
+for i,ipos = pairs(dibbl) do
   pos = ffi.C.marktree_lookup(tree, i)
-  pos2 = dibbl[i]
-  if pos.row ~= pos2[1] or pos.col ~= pos2[2] then
+  if pos.row ~= ipos[1] or pos.col ~= ipos[2] then
     error("eee "..i)
   end
-  p(vim.inspect(pos2))
+  p(vim.inspect(ipos))
 end
 
 p(pos.row, pos.col)
