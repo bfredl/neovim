@@ -520,11 +520,11 @@ int marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
   return true;
 }
 
-void marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
+bool marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
 {
   itr->node = b->root;
   if (!itr->node) {
-    return;
+    return false;
   }
 
   itr->i = 0;
@@ -535,6 +535,7 @@ void marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
     itr->lvl++;
     itr->node = itr->node->ptr[0];
   }
+  return true;
 }
 
 bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
