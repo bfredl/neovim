@@ -21,6 +21,13 @@ describe('marktree', function()
         shadow[id] = {j,i}
       end
     end
+    if false then
+      ss = lib.mt_inspect_rec(tree)
+      io.stdout:write(ffi.string(ss))
+      io.stdout:flush()
+    end
+
+    feils = {}
 
     for i,ipos in pairs(shadow) do
       local pos = lib.marktree_lookup(tree, i, iter)
@@ -28,7 +35,7 @@ describe('marktree', function()
       eq(ipos[2], pos.col)
       local k = lib.marktree_itr_test(iter)
       eq(ipos[1], k.pos.row)
-      eq(ipos[2], k.pos.col)
+      eq(ipos[2], k.pos.col, ipos[1])
       lib.marktree_itr_next(tree, iter)
       -- TODO
       --local k2 = lib.marktree_itr_test(iter)

@@ -52,6 +52,16 @@ static void unrelative(mtpos_t base, mtpos_t *val)
   }
 }
 
+static void compose(mtpos_t *base, mtpos_t val)
+{
+  if (val.row == 0) {
+    base->col += val.col;
+  } else {
+    base->row += val.row;
+    base->col = val.col;
+  }
+}
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "marktree.c.generated.h"
 #endif
@@ -558,9 +568,7 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
       // internal key, there is always a child after
       if (b->rel && itr->i > 0) {
         itr->s[itr->lvl].oldcol = itr->pos.col;
-        mtpos_t ppos = itr->pos;
-        itr->pos = itr->node->key[itr->i-1].pos;
-        unrelative(ppos, &itr->pos);
+        compose(&itr->pos, itr->node->key[itr->i-1].pos);
       }
       itr->s[itr->lvl].i = itr->i;
       assert(itr->node->ptr[itr->i]->parent == itr->node);
@@ -603,9 +611,7 @@ bool marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
       // internal key, there is always a child before
       if (b->rel && itr->i > 0) {
         itr->s[itr->lvl].oldcol = itr->pos.col;
-        mtpos_t ppos = itr->pos;
-        itr->pos = itr->node->key[itr->i-1].pos;
-        unrelative(ppos, &itr->pos);
+        compose(&itr->pos, itr->node->key[itr->i-1].pos);
       }
       itr->s[itr->lvl].i = itr->i;
       assert(itr->node->ptr[itr->i]->parent == itr->node);
@@ -686,7 +692,7 @@ found_node:
       itr->s[lvl].oldcol = itr->pos.col;
       i = itr->s[lvl].i;
       if (i > 0) {
-        unrelative(x->key[i-1].pos, &itr->pos);
+        compose(&itr->pos, x->key[i-1].pos);
       }
       assert(x->level);
       x = x->ptr[i];
@@ -755,7 +761,7 @@ void mt_inspect_node(MarkTree *b, garray_T *ga, mtnode_t *n, mtpos_t off)
     if (b->rel) {
       unrelative(off, &p);
     }
-    snprintf((char *)buf, sizeof(buf), "%d", p.col);
+    snprintf((char *)buf, sizeof(buf), "%d/%d", p.row, p.col);
     GA_PUT(buf);
     if (n->level) {
       mt_inspect_node(b, ga, n->ptr[i+1], p);
