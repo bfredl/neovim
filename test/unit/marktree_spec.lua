@@ -79,5 +79,12 @@ describe('marktree', function()
       local k2 = lib.marktree_itr_test(iter)
       -- TODO
     end
+
+    if true then
+      -- TODO: remove this one crash testing is fixed
+      io.stdout:write('\nDUN\n')
+      io.stdout:flush()
+      return
+    end
  end)
 end)

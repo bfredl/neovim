@@ -772,6 +772,7 @@ local function gen_itp(it)
       child_pid = sc.fork()
       if child_pid == 0 then
         sc.close(rd)
+        ffi.C.dup2(1,2)
         itp_child(wr, func)
       else
         sc.close(wr)
