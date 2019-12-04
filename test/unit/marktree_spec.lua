@@ -57,6 +57,8 @@ describe('marktree', function()
         eq(nil, shadow[id])
         shadow[id] = {j,i}
       end
+      -- checking every insert is too slow, but this is ok
+      lib.marktree_check(tree)
     end
 
     local id2pos, pos2id = shadoworder(tree, shadow, iter)
