@@ -444,7 +444,9 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
 {
   assert(x->n <= 2*T-1);
   //TODO: too strick if checking "in repair" post-delete tree.
-  assert(x->n >= T-1);
+  if (x != b->root) {
+    assert(x->n >= T-1);
+  }
   size_t n_keys = (size_t)x->n;
 
   for (int i = 0; i < x->n; i++) {
