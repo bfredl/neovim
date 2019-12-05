@@ -244,9 +244,6 @@ uint64_t marktree_put(MarkTree *b, int row, int col)
 ///            recommended strategy is to always iterate forward)
 void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 {
-  if (b->rel) {
-    abort();
-  }
   int adjustment = 0;
   
   mtnode_t *cur = itr->node;
@@ -270,6 +267,8 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
             sizeof(mtkey_t) * (size_t)(x->n - itr->i-1));
   }
   x->n--;
+  b->n_keys--;
+  pmap_del(uint64_t)(b->id2node, intkey.id);
 
   // 4.
   if (adjustment) {
@@ -285,7 +284,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
         }
         int i = itr->s[ilvl].i;
         assert(p->ptr[i] == lnode);
-        if (i > 0) {
+        if (b->rel && i > 0) {
           unrelative(lnode->key[i-1].pos, &intkey.pos);
         }
         lnode = p;
@@ -305,7 +304,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       // we are done, if this node is fine the rest of the tree will be
       break;
     }
-    int pi  = itr->s[rlvl-1].i;
+    int pi = itr->s[rlvl-1].i;
     assert(p->ptr[pi] == x);
     if (pi > 0 && p->ptr[pi-1]->n > T-1) {
       // steal one key from the left neighbour
@@ -364,6 +363,7 @@ static void merge_node(MarkTree *b, mtnode_t *p, int i)
   memmove(&p->key[i], &p->key[i + 1], (size_t)(p->n - i - 1) * sizeof(mtkey_t));
   memmove(&p->ptr[i + 1], &p->ptr[i + 2],
           (size_t)(p->n - i - 1) * sizeof(mtkey_t *));
+  p->n--;
   xfree(y);
   b->n_nodes--;
 }

@@ -22,6 +22,8 @@ end
 ss = ffi.C.mt_inspect_rec(tree)
 p(ffi.string(ss))
 
+local status = ffi.C.marktree_itr_first(tree, iter)
+ffi.C.marktree_del_itr(tree, iter, false)
 raa()
 
 for i,ipos in pairs(dibbl) do
@@ -57,7 +59,6 @@ repeat
   end
   i = i +1
 until not ffi.C.marktree_itr_next(tree, iter) -- i == 109 --
-i
 
 ee()
 
