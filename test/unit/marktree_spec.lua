@@ -79,8 +79,13 @@ describe('marktree', function()
       eq(ipos[2], k.pos.col, ipos[1])
       lib.marktree_itr_next(tree, iter)
       local k2 = lib.marktree_itr_test(iter)
-      -- TODO
+      -- TODO: use id2pos to chechk neighbour
     end
+
+    local status = lib.marktree_itr_first(tree, iter)
+    lib.marktree_check(tree)
+    lib.marktree_del_itr(tree, iter, false)
+    lib.marktree_check(tree)
 
     if true then
       -- TODO: remove this one crash testing is fixed
