@@ -481,7 +481,8 @@ else
     wait = function(pid)
       ffi.errno(0)
       while true do
-        local r = ffi.C.waitpid(pid, nil, ffi.C.kPOSIXWaitWUNTRACED)
+        local status = ffi.new('int[1]', {-1})
+        local r = ffi.C.waitpid(pid, status, ffi.C.kPOSIXWaitWUNTRACED)
         if r == -1 then
           local err = ffi.errno(0)
           if err == ffi.C.kPOSIXErrnoECHILD then
@@ -492,6 +493,7 @@ else
           end
         else
           assert(r == pid)
+          return tonumber(status[0])
         end
       end
     end,
@@ -741,7 +743,12 @@ end
 
 local function itp_parent(rd, pid, allow_failure)
   local err, emsg = pcall(check_child_err, rd)
-  sc.wait(pid)
+  local status = sc.wait(pid)
+  if status ~= 0 then
+     io.stdout:write(status..'\n')
+     io.stdout:flush()
+     if err then err, emsg = false, "KILLED "..status end
+   end
   sc.close(rd)
   if not err then
     if allow_failure then
