@@ -81,8 +81,8 @@ describe('marktree', function()
       -- TODO: use id2pos to chechk neighbour
     end
 
+    local setpos = ffi.new("mtpos_t")
     for i,ipos in pairs(shadow) do
-      setpos = ffi.new("mtpos_t")
       setpos.row = ipos[1]
       setpos.col = ipos[2]
       lib.marktree_itr_get(tree, setpos, iter)
@@ -98,6 +98,12 @@ describe('marktree', function()
     lib.marktree_check(tree)
 
     for i = 1,100 do
+      setpos.row = i
+      setpos.col = 50
+      -- TODO: kolla lookup!
+      lib.marktree_itr_get(tree, setpos, iter)
+      lib.marktree_del_itr(tree, iter, false)
+      lib.marktree_check(tree)
     end
 
     if true then

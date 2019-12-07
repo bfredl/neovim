@@ -13,14 +13,32 @@ dibbl = {}
 
 for i = 1,10 do
   for j = 1,10 do
-    id = ffi.C.marktree_put(tree, j, i)
+    id = ffi.C.marktree_put(tree, i, j)
     if dibbl[id] then error("DIBBL!") end
     dibbl[id] = {j,i}
   end
 end
 
-ss = ffi.C.mt_inspect_rec(tree)
-p(ffi.string(ss))
+aaa()
+
+ss = ffi.C.mt_inspect_rec(tree) p(ffi.string(ss))
+if false then
+  setpos = ffi.new("mtpos_t")
+  setpos.row = 3
+  setpos.col = 3
+  setpos.row = 4
+  setpos.col = 4
+  setpos.row = 1
+  setpos.col = 4
+  setpos.row = 5
+  setpos.col = 5
+  setpos.row = 3
+  setpos.col = 9
+  -- TODO: kolla lookup!
+  ffi.C.marktree_itr_get(tree, setpos, iter)
+  ffi.C.marktree_del_itr(tree, iter, false)
+
+end
 
 local status = ffi.C.marktree_itr_first(tree, iter)
 ffi.C.marktree_del_itr(tree, iter, false)
