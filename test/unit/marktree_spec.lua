@@ -42,6 +42,7 @@ local function shadoworder(tree, shadow, iter)
   if tablelength(shadow) ~= count then
     error("missed some keys?")
   end
+  return id2pos, pos2id
 end
 
 describe('marktree', function()
@@ -58,18 +59,16 @@ describe('marktree', function()
         shadow[id] = {j,i}
       end
       -- checking every insert is too slow, but this is ok
-      lib.marktree_check(tree)
+      --lib.marktree_check(tree)
     end
 
-    local id2pos, pos2id = shadoworder(tree, shadow, iter)
     if false then
       ss = lib.mt_inspect_rec(tree)
       io.stdout:write(ffi.string(ss))
       io.stdout:flush()
     end
 
-    feils = {}
-
+    local id2pos, pos2id = shadoworder(tree, shadow, iter)
     for i,ipos in pairs(shadow) do
       local pos = lib.marktree_lookup(tree, i, iter)
       eq(ipos[1], pos.row)
@@ -82,10 +81,33 @@ describe('marktree', function()
       -- TODO: use id2pos to chechk neighbour
     end
 
+    --for i,ipos in pairs(shadow) do
+    for ord,i in ipairs(pos2id) do
+      local ipos = shadow[i]
+      print("===")
+      print(i,ipos[1],ipos[2])
+      io.stdout:flush()
+
+      setpos = ffi.new("mtpos_t")
+      setpos.row = ipos[1]
+      setpos.col = ipos[2]
+      lib.marktree_itr_get(tree, setpos, iter)
+      local k = lib.marktree_itr_test(iter)
+      print(tonumber(k.id),k.pos.row,k.pos.col)
+      print(shadow[tonumber(k.id)][1], shadow[tonumber(k.id)][2])
+      io.stdout:flush()
+      eq(i, tonumber(k.id))
+      eq(ipos[1], k.pos.row)
+      eq(ipos[2], k.pos.col)
+    end
+
     local status = lib.marktree_itr_first(tree, iter)
     lib.marktree_check(tree)
     lib.marktree_del_itr(tree, iter, false)
     lib.marktree_check(tree)
+
+    for i = 1,100 do
+    end
 
     if true then
       -- TODO: remove this one crash testing is fixed
