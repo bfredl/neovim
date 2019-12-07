@@ -484,7 +484,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
   //TODO: too strict if checking "in repair" post-delete tree.
   assert(x->n >= (x != b->root ? T-1 : 1));
   size_t n_keys = (size_t)x->n;
-  fprintf(stderr, "[");
+  // fprintf(stderr, "[");
 
   for (int i = 0; i < x->n; i++) {
     // fprintf(stderr, "iiiii %d %d %d %d\n", i, x->level, x->key[i].pos.row, x->key[i].pos.col);
@@ -522,7 +522,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
   } else {
     *last = x->key[x->n-1].pos;
   }
-  fprintf(stderr, "]");
+  // fprintf(stderr, "]");
   return n_keys;
 }
 

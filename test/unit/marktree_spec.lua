@@ -81,21 +81,12 @@ describe('marktree', function()
       -- TODO: use id2pos to chechk neighbour
     end
 
-    --for i,ipos in pairs(shadow) do
-    for ord,i in ipairs(pos2id) do
-      local ipos = shadow[i]
-      print("===")
-      print(i,ipos[1],ipos[2])
-      io.stdout:flush()
-
+    for i,ipos in pairs(shadow) do
       setpos = ffi.new("mtpos_t")
       setpos.row = ipos[1]
       setpos.col = ipos[2]
       lib.marktree_itr_get(tree, setpos, iter)
       local k = lib.marktree_itr_test(iter)
-      print(tonumber(k.id),k.pos.row,k.pos.col)
-      print(shadow[tonumber(k.id)][1], shadow[tonumber(k.id)][2])
-      io.stdout:flush()
       eq(i, tonumber(k.id))
       eq(ipos[1], k.pos.row)
       eq(ipos[2], k.pos.col)
