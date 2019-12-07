@@ -249,7 +249,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   mtnode_t *cur = itr->node;
   int curi = itr->i;
   uint64_t id = cur->key[curi].id;
-  fprintf(stderr, "\nDELET\n");
+  fprintf(stderr, "\nDELET %lu\n", id);
 
   if (itr->node->level) {
     if (rev) {
@@ -287,7 +287,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
         int i = itr->s[ilvl].i;
         assert(p->ptr[i] == lnode);
         if (b->rel && i > 0) {
-          unrelative(lnode->key[i-1].pos, &intkey.pos);
+          unrelative(p->key[i-1].pos, &intkey.pos);
         }
         lnode = p;
         ilvl--;
@@ -295,9 +295,11 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 
       mtkey_t deleted = cur->key[curi];
       cur->key[curi] = intkey;
+      refkey(b, cur, curi);
       relative(intkey.pos, &deleted.pos);
       mtnode_t *y = cur->ptr[curi+1];
       if (b->rel && (deleted.pos.row || deleted.pos.col)) {
+        // TODO: might be seen as special case of "splice"?
         while (y) {
           for (int k = 0; k < y->n; k++) {
             unrelative(deleted.pos, &y->key[k].pos);
@@ -307,9 +309,6 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       }
 
     }
-
-    // if adjustment == -1, need to unrelative from x up to cur
-    //refkey();
   }
 
   b->n_keys--;
@@ -324,7 +323,6 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     mtnode_t *p = x->parent;
     if (x->n >= T-1) {
       // we are done, if this node is fine the rest of the tree will be
-      fprintf(stderr, "DUN\n");
       break;
     }
     int pi = itr->s[rlvl].i;
@@ -380,11 +378,9 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   fprintf(stderr, "UNADJ\n");
     marktree_itr_next(b, itr);
   }
-  fprintf(stderr, "HALF-DUN\n");
   if (itr->node && itr_dirty) {
     marktree_itr_fix_pos(b, itr);
   }
-  fprintf(stderr, "REALLY-DUN\n");
 }
 
 static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
@@ -618,6 +614,7 @@ bool marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
       itr->i = itr->node->n;
       itr->lvl++;
     }
+    itr->i--;
   }
   return true;
 }
