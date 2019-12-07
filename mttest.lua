@@ -24,16 +24,8 @@ aaa()
 ss = ffi.C.mt_inspect_rec(tree) p(ffi.string(ss))
 if false then
   setpos = ffi.new("mtpos_t")
-  setpos.row = 3
-  setpos.col = 3
-  setpos.row = 4
-  setpos.col = 4
-  setpos.row = 1
-  setpos.col = 4
-  setpos.row = 5
-  setpos.col = 5
-  setpos.row = 3
-  setpos.col = 9
+  setpos.row = 2
+  setpos.col = 10
   -- TODO: kolla lookup!
   ffi.C.marktree_itr_get(tree, setpos, iter)
   ffi.C.marktree_del_itr(tree, iter, false)
