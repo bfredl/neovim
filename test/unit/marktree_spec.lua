@@ -97,14 +97,24 @@ describe('marktree', function()
     lib.marktree_del_itr(tree, iter, false)
     lib.marktree_check(tree)
 
-    for i = 1,100 do
-      setpos.row = i
-      setpos.col = 50
-      -- TODO: kolla lookup!
-      lib.marktree_itr_get(tree, setpos, iter)
-      lib.marktree_del_itr(tree, iter, false)
-      lib.marktree_check(tree)
+    for _, ci in ipairs({0,-1,1,-2,2,-10,10}) do
+      for i = 1,100 do
+        setpos.row = i
+        setpos.col = 50+ci
+        -- TODO: kolla lookup!
+        lib.marktree_itr_get(tree, setpos, iter)
+        local k = lib.marktree_itr_test(iter)
+        local id = tonumber(k.id)
+        eq(shadow[id][1], k.pos.row)
+        eq(shadow[id][2], k.pos.col)
+        lib.marktree_del_itr(tree, iter, false)
+        lib.marktree_check(tree)
+        shadow[id] = nil
+        -- TODO: update the shadow and check!
+      end
     end
+    id2pos, pos2id = shadoworder(tree, shadow, iter)
+
 
     if true then
       -- TODO: remove this one crash testing is fixed
