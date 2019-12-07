@@ -484,8 +484,10 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
   //TODO: too strict if checking "in repair" post-delete tree.
   assert(x->n >= (x != b->root ? T-1 : 1));
   size_t n_keys = (size_t)x->n;
+  fprintf(stderr, "[");
 
   for (int i = 0; i < x->n; i++) {
+    // fprintf(stderr, "iiiii %d %d %d %d\n", i, x->level, x->key[i].pos.row, x->key[i].pos.col);
     if (x->level) {
       n_keys += check_node(b, x->ptr[i], last);
     } else {
@@ -494,6 +496,10 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
     if (b->rel && i > 0) {
       unrelative(x->key[i-1].pos, last);
     }
+    if (x->level) {
+      // fprintf(stderr, "iiiii %d %d %d %d\n", i, x->level, x->key[i].pos.row, x->key[i].pos.col);
+    }
+    // fprintf(stderr, "jjj %d %d\n", last->row, last->col);
     assert(pos_leq(*last, x->key[i].pos));
     assert(x->key[i].pos.col >= 0);
     assert(pmap_get(uint64_t)(b->id2node, x->key[i].id) == x);
@@ -516,6 +522,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
   } else {
     *last = x->key[x->n-1].pos;
   }
+  fprintf(stderr, "]");
   return n_keys;
 }
 
@@ -530,16 +537,11 @@ int marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
     itr->node = NULL;
     return false;
   }
-  int r = 0;
   itr->pos = (mtpos_t){ 0, 0 };
   itr->node = b->root;
   itr->lvl = 0;
   while (true) {
-    itr->i = marktree_getp_aux(itr->node, k, &r);
-    if (r > 0) {
-      // KOLLA KOLLA
-      itr->i++;
-    }
+    itr->i = marktree_getp_aux(itr->node, k, 0)+1;
 
     if (itr->node->level == 0) {
       break;
@@ -548,9 +550,12 @@ int marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
     itr->s[itr->lvl].i = itr->i;
     itr->s[itr->lvl].oldcol = itr->pos.col;
 
-    if (b->rel && itr->i >= 0) {
-      unrelative(itr->node->key[itr->i].pos, &itr->pos);
+    if (b->rel && itr->i > 0) {
+      compose(&itr->pos, itr->node->key[itr->i-1].pos);
+      relative(itr->node->key[itr->i-1].pos, &k.pos);
     }
+    itr->node = itr->node->ptr[itr->i];
+    itr->lvl++;
   }
   if (itr->i >= itr->node->n) {
     return marktree_itr_next(b, itr);
