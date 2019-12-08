@@ -232,7 +232,7 @@ uint64_t marktree_put(MarkTree *b, int row, int col)
 ///     - if we can steal from the left, steal
 ///     - if we can steal from the right, steal
 ///     - otherwise merge this node with a neighbour. This might make our
-///       parent undersized. So repeat 4 for the parent.
+///       parent undersized. So repeat 5 for the parent.
 /// 6. If 4 went all the way to the root node. The root node
 ///    might have ended up with size 0. Delete it then.
 ///
@@ -245,18 +245,18 @@ uint64_t marktree_put(MarkTree *b, int row, int col)
 void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 {
   int adjustment = 0;
-  
+
   mtnode_t *cur = itr->node;
   int curi = itr->i;
   uint64_t id = cur->key[curi].id;
-  fprintf(stderr, "\nDELET %lu\n", id);
+  // fprintf(stderr, "\nDELET %lu\n", id);
 
   if (itr->node->level) {
     if (rev) {
       abort();
     } else {
-      fprintf(stderr, "INTERNAL %d\n", cur->level);
-      //steal previous node
+      // fprintf(stderr, "INTERNAL %d\n", cur->level);
+      // steal previous node
       marktree_itr_prev(b, itr);
       adjustment = -1;
     }
@@ -338,7 +338,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       pivot_left(b, p, pi);
       break;
     } else if (pi > 0) {
-      fprintf(stderr, "LEFT ");
+      // fprintf(stderr, "LEFT ");
       assert(p->ptr[pi-1]->n == T-1);
       // merge with left neighbour
       *lasti += T;
@@ -350,7 +350,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       itr->s[rlvl].i--;
       itr_dirty = true;
     } else {
-      fprintf(stderr, "RIGHT ");
+      // fprintf(stderr, "RIGHT ");
       assert(pi < p->n && p->ptr[pi+1]->n == T-1);
       merge_node(b, p, pi);
       // no iter adjustment needed
@@ -375,7 +375,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   if (adjustment == 1) {
     abort();
   } else if (adjustment == -1) {
-  fprintf(stderr, "UNADJ\n");
+  // fprintf(stderr, "UNADJ\n");
     marktree_itr_next(b, itr);
   }
   if (itr->node && itr_dirty) {
@@ -385,7 +385,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 
 static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
 {
-  fprintf(stderr, "MERGE %d %d\n", i, p->level);
+  // fprintf(stderr, "MERGE %d %d\n", i, p->level);
   mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
 
   x->key[x->n] = p->key[i];
@@ -417,9 +417,11 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
   return x;
 }
 
+// TODO(bfredl): as a potential "micro" optimization, pivoting should balance
+// the two nodes instead of stealing just one key
 static void pivot_right(MarkTree *b, mtnode_t *p, int i)
 {
-  fprintf(stderr, "RIGHT_P\n");
+  // fprintf(stderr, "RIGHT_P\n");
   mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
   memmove(&y->key[1], y->key, (size_t)y->n * sizeof(mtkey_t));
   if (y->level) {
@@ -448,7 +450,7 @@ static void pivot_right(MarkTree *b, mtnode_t *p, int i)
 
 static void pivot_left(MarkTree *b, mtnode_t *p, int i)
 {
-  fprintf(stderr, "LEFT_P\n");
+  // fprintf(stderr, "LEFT_P\n");
   mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
   if (b->rel) {
     // reverse from how we "always" do it. but pivot_left
@@ -523,6 +525,7 @@ bool marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
 
   itr->i = 0;
   itr->lvl = 0;
+  itr->pos = (mtpos_t){ 0, 0 };
   while (itr->node->level > 0) {
     itr->s[itr->lvl].i = 0;
     itr->s[itr->lvl].oldcol = 0;

@@ -3,6 +3,7 @@ local itp = helpers.gen_itp(it)
 
 local ffi     = helpers.ffi
 local eq      = helpers.eq
+local neq     = helpers.neq
 local ok      = helpers.ok
 
 local lib = helpers.cimport("./src/nvim/marktree.h")
@@ -13,7 +14,7 @@ local function tablelength(t)
   return count
 end
 
-local function shadoworder(tree, shadow, iter)
+local function shadoworder(tree, shadow, iter, giveorder)
   ok(iter ~= nil)
   local status = lib.marktree_itr_first(tree, iter)
   local count = 0
@@ -27,7 +28,7 @@ local function shadoworder(tree, shadow, iter)
     local id = tonumber(key.id)
     local spos = shadow[id]
     if (key.pos.row ~= spos[1] or key.pos.col ~= spos[2]) then
-      error("invalid pos for "..id..": ("..spos[1]..", "..spos[2]..")")
+      error("invalid pos for "..id..":("..key.pos.row..", "..key.pos.col..") instead of ("..spos[1]..", "..spos[2]..")")
     end
     if count > 0 then
       if spos[1] < last[1] or (spos[1] == last[1] and spos[2] < last[2]) then
@@ -36,11 +37,14 @@ local function shadoworder(tree, shadow, iter)
     end
     count = count + 1
     last = spos
-    pos2id[count] = id
-    id2pos[id] = count
+    if giveorder then
+      pos2id[count] = id
+      id2pos[id] = count
+    end
   until not lib.marktree_itr_next(tree, iter)
-  if tablelength(shadow) ~= count then
-    error("missed some keys?")
+  local shadowlen = tablelength(shadow)
+  if shadowlen ~= count then
+    error("missed some keys? (shadow "..shadowlen..", tree "..count..")")
   end
   return id2pos, pos2id
 end
@@ -96,6 +100,9 @@ describe('marktree', function()
     lib.marktree_check(tree)
     lib.marktree_del_itr(tree, iter, false)
     lib.marktree_check(tree)
+    shadow[1] = nil
+    --ss = lib.mt_inspect_rec(tree) print(ffi.string(ss))
+    id2pos, pos2id = shadoworder(tree, shadow, iter)
 
     for _, ci in ipairs({0,-1,1,-2,2,-10,10}) do
       for i = 1,100 do
@@ -110,8 +117,10 @@ describe('marktree', function()
         lib.marktree_del_itr(tree, iter, false)
         lib.marktree_check(tree)
         shadow[id] = nil
+        --id2pos, pos2id = shadoworder(tree, shadow, iter)
         -- TODO: update the shadow and check!
       end
+      id2pos, pos2id = shadoworder(tree, shadow, iter)
     end
     id2pos, pos2id = shadoworder(tree, shadow, iter)
 
