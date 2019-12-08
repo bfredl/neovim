@@ -528,18 +528,25 @@ bool marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
   return true;
 }
 
+// TODO: static inline
 bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
+{
+  return marktree_itr_next_skip(b, itr, false, NULL);
+}
+
+bool marktree_itr_next_skip(MarkTree *b, MarkTreeIter *itr, bool skip,
+                            mtpos_t invdelta[])
 {
   if (!itr->node) {
     return false;
   }
   itr->i++;
-  if (itr->node->level == 0) {
+  if (itr->node->level == 0 || skip) {
     if (itr->i < itr->node->n) {
       // TODO: this is the common case, and should be handled by inline wrapper
       return true;
     }
-    // we ran out of non-internal keys. Go up until we find a non-internal key
+    // we ran out of non-internal keys. Go up until we find an internal key
     while (itr->i >= itr->node->n) {
       itr->node = itr->node->parent;
       if (itr->node == NULL) {
@@ -560,6 +567,9 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
       if (itr->i > 0) {
         itr->s[itr->lvl].oldcol = itr->pos.col;
         compose(&itr->pos, itr->node->key[itr->i-1].pos);
+      }
+      if (invdelta && itr->i == 0) {
+        invdelta[itr->lvl+1] = invdelta[itr->lvl];
       }
       itr->s[itr->lvl].i = itr->i;
       assert(itr->node->ptr[itr->i]->parent == itr->node);
@@ -626,10 +636,73 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
 }
 
 void marktree_splice(MarkTree *b, mtpos_t start,
-                     mtpos_t old_extent, mtpos_t new_extent)
+                     mtpos_t old_extent, mtpos_t new_extent,
+                     MarkTreeIter *itr)
 {
-  if (old_extent.row != 0 || old_extent.col != 0) {
-    abort(); // NI! needs "delete"
+  bool may_delete = (old_extent.row != 0 || old_extent.col != 0);
+  unrelative(start, &old_extent);
+  unrelative(start, &new_extent);
+
+  // should caller?
+  marktree_itr_get(b, start, itr);
+  if (!itr->node) {
+    // den e FÄRDIG
+    return;
+  }
+  mtpos_t delta = { new_extent.row - old_extent.row,
+                    new_extent.col-old_extent.col };
+#define rawkey(itr) (itr->node->key[itr->i])
+
+
+  mtpos_t invdelta[MT_MAX_DEPTH+1]; // TODO: really +1??
+  memset(invdelta,0,sizeof(invdelta));
+  
+  bool first = true;
+  mtpos_t loc_start, loc_old;
+  // TODO: skip old_extent.left_gravity ?
+  if (may_delete) {
+    while (itr->node) {
+      // TODO: or just write a leaf node loop already
+      loc_start = start;
+      loc_old = old_extent;
+      relative(itr->pos, &loc_start);
+      relative(itr->pos, &loc_old);
+      unrelative(invdelta[itr->lvl], &loc_old);
+
+      // TODO: as an opt we can leave the marks at
+      // old_extent.right_gravity untouched here
+      if (!pos_leq(rawkey(itr).pos, loc_old)) {
+        break;
+      }
+      if (itr->node->level) {
+        unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
+        invdelta[itr->lvl+1] = rawkey(itr).pos;
+        relative(loc_start, &invdelta[itr->lvl+1]);
+        rawkey(itr).pos = loc_start;
+        marktree_itr_next_skip(b, itr, false, invdelta);
+      } else {
+        // TODO: the right_gravity thing also here!
+        while (itr->node->level == 0 && pos_leq(rawkey(itr).pos, loc_old)) {
+          rawkey(itr).pos = loc_start;
+          marktree_itr_next(b, itr);
+        }
+      }
+    }
+  }
+
+  while (itr->node) {
+    int realrow = itr->pos.row+rawkey(itr).pos.row;
+    assert(realrow >= old_extent.row);
+    if (realrow == start.row) {
+      rawkey(itr).pos.col += delta.col;
+    } else {
+      if (delta.row == 0) {
+        // important opt: column only adjustment can skip remaining rows
+        return;
+      }
+    }
+    rawkey(itr).pos.row += delta.row;
+    marktree_itr_next_skip(b, itr, true, NULL);
   }
 }
 
