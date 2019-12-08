@@ -16,14 +16,14 @@ struct mtnode_s {
   mtnode_t *ptr[];
 };
 
+// TODO(bfredl): the iterator is pretty much everpresent, make it part of the
+// tree struct itself?
 struct mttree_s {
   mtnode_t *root;
   size_t n_keys, n_nodes;
   uint64_t next_id;
   // TODO(bfredl): the pointer to node could be part of a larger Map(uint64_t, MarkState);
   PMap(uint64_t) *id2node;
-  bool rel;
-
 };
 
 static bool pos_leq(mtpos_t a, mtpos_t b)
@@ -67,9 +67,8 @@ static void compose(mtpos_t *base, mtpos_t val)
 #endif
 
 // DELET, only for luajit test
-MarkTree *marktree_new(bool rel) {
+MarkTree *marktree_new(void) {
   MarkTree *ret = xcalloc(1,sizeof(*ret));
-  ret->rel = rel;
   return ret;
 }
 
@@ -150,13 +149,11 @@ static inline void split_node(MarkTree *b, mtnode_t *x, const int i)
   refkey(b, x, i);
   x->n++;
 
-  if (b->rel) {
-    for (int j = 0; j < T-1; j++) {
-      relative(x->key[i].pos, &z->key[j].pos);
-    }
-    if (i > 0) {
-      unrelative(x->key[i-1].pos, &x->key[i].pos);
-    }
+  for (int j = 0; j < T-1; j++) {
+    relative(x->key[i].pos, &z->key[j].pos);
+  }
+  if (i > 0) {
+    unrelative(x->key[i-1].pos, &x->key[i].pos);
   }
 }
 
@@ -181,7 +178,7 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
         i++;
       }
     }
-    if (b->rel && i > 0) {
+    if (i > 0) {
       relative(x->key[i-1].pos, &k.pos);
     }
     marktree_putp_aux(b, x->ptr[i], k);
@@ -286,7 +283,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
         }
         int i = itr->s[ilvl].i;
         assert(p->ptr[i] == lnode);
-        if (b->rel && i > 0) {
+        if (i > 0) {
           unrelative(p->key[i-1].pos, &intkey.pos);
         }
         lnode = p;
@@ -298,7 +295,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       refkey(b, cur, curi);
       relative(intkey.pos, &deleted.pos);
       mtnode_t *y = cur->ptr[curi+1];
-      if (b->rel && (deleted.pos.row || deleted.pos.col)) {
+      if (deleted.pos.row || deleted.pos.col) {
         // TODO: might be seen as special case of "splice"?
         while (y) {
           for (int k = 0; k < y->n; k++) {
@@ -390,16 +387,14 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
 
   x->key[x->n] = p->key[i];
   refkey(b, x, x->n);
-  if (b->rel && i > 0) {
+  if (i > 0) {
     relative(p->key[i-1].pos, &x->key[x->n].pos);
   }
 
   memmove(&x->key[x->n+1], y->key, (size_t)y->n * sizeof(mtkey_t));
   for (int k = 0; k < y->n; k++) {
     refkey(b, x, x->n+1+k);
-    if (b->rel) {
-      unrelative(x->key[x->n].pos, &x->key[x->n+1+k].pos);
-    }
+    unrelative(x->key[x->n].pos, &x->key[x->n+1+k].pos);
   }
   if (x->level) {
     memmove(&x->ptr[x->n], y->ptr, (size_t)(y->n + 1) * sizeof(mtnode_t *));
@@ -437,14 +432,12 @@ static void pivot_right(MarkTree *b, mtnode_t *p, int i)
   }
   x->n--;
   y->n++;
-  if (b->rel) {
-    if (i > 0) {
-      unrelative(p->key[i-1].pos, &p->key[i].pos);
-    }
-    relative(p->key[i].pos, &y->key[0].pos);
-    for (int k = 1; k < y->n; k++) {
-      unrelative(y->key[0].pos, &y->key[k].pos);
-    }
+  if (i > 0) {
+    unrelative(p->key[i-1].pos, &p->key[i].pos);
+  }
+  relative(p->key[i].pos, &y->key[0].pos);
+  for (int k = 1; k < y->n; k++) {
+    unrelative(y->key[0].pos, &y->key[k].pos);
   }
 }
 
@@ -452,17 +445,17 @@ static void pivot_left(MarkTree *b, mtnode_t *p, int i)
 {
   // fprintf(stderr, "LEFT_P\n");
   mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
-  if (b->rel) {
-    // reverse from how we "always" do it. but pivot_left
-    // is just the inverse of pivot_right, so reverse it literally.
-    for (int k = 1; k < y->n; k++) {
-      relative(y->key[0].pos, &y->key[k].pos);
-    }
-    unrelative(p->key[i].pos, &y->key[0].pos);
-    if (i > 0) {
-      relative(p->key[i-1].pos, &p->key[i].pos);
-    }
+
+  // reverse from how we "always" do it. but pivot_left
+  // is just the inverse of pivot_right, so reverse it literally.
+  for (int k = 1; k < y->n; k++) {
+    relative(y->key[0].pos, &y->key[k].pos);
   }
+  unrelative(p->key[i].pos, &y->key[0].pos);
+  if (i > 0) {
+    relative(p->key[i-1].pos, &p->key[i].pos);
+  }
+
   x->key[x->n] = p->key[i];
   refkey(b, x, x->n);
   p->key[i] = y->key[0];
@@ -503,7 +496,7 @@ int marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
     itr->s[itr->lvl].i = itr->i;
     itr->s[itr->lvl].oldcol = itr->pos.col;
 
-    if (b->rel && itr->i > 0) {
+    if (itr->i > 0) {
       compose(&itr->pos, itr->node->key[itr->i-1].pos);
       relative(itr->node->key[itr->i-1].pos, &k.pos);
     }
@@ -554,7 +547,7 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
       }
       itr->lvl--;
       itr->i = itr->s[itr->lvl].i;
-      if (b->rel && itr->i > 0) {
+      if (itr->i > 0) {
         itr->pos.row -= itr->node->key[itr->i-1].pos.row;
         itr->pos.col = itr->s[itr->lvl].oldcol;
       }
@@ -564,7 +557,7 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
     // key after it.
     while (itr->node->level > 0) {
       // internal key, there is always a child after
-      if (b->rel && itr->i > 0) {
+      if (itr->i > 0) {
         itr->s[itr->lvl].oldcol = itr->pos.col;
         compose(&itr->pos, itr->node->key[itr->i-1].pos);
       }
@@ -597,7 +590,7 @@ bool marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
       }
       itr->lvl--;
       itr->i = itr->s[itr->lvl].i-1;
-      if (b->rel && itr->i >= 0) {
+      if (itr->i >= 0) {
         itr->pos.row -= itr->node->key[itr->i].pos.row;
         itr->pos.col = itr->s[itr->lvl].oldcol;
       }
@@ -607,7 +600,7 @@ bool marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
     // key before it.
     while (itr->node->level > 0) {
       // internal key, there is always a child before
-      if (b->rel && itr->i > 0) {
+      if (itr->i > 0) {
         itr->s[itr->lvl].oldcol = itr->pos.col;
         compose(&itr->pos, itr->node->key[itr->i-1].pos);
       }
@@ -643,9 +636,6 @@ void marktree_splice(MarkTree *b, mtpos_t start,
 /// @param itr OPTIONAL. set itr to pos.
 mtpos_t marktree_lookup(MarkTree *b, uint64_t id, MarkTreeIter *itr)
 {
-  if (!b->rel) {
-    abort(); // no u!
-  }
   mtnode_t *n = pmap_get(uint64_t)(b->id2node, id);
   if (n == NULL) {
     if (itr) {
@@ -736,7 +726,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
     } else {
       *last = (mtpos_t) { 0, 0 };
     }
-    if (b->rel && i > 0) {
+    if (i > 0) {
       unrelative(x->key[i-1].pos, last);
     }
     if (x->level) {
@@ -750,9 +740,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
 
   if (x->level) {
     n_keys += check_node(b, x->ptr[x->n], last);
-    if (b->rel) {
-      unrelative(x->key[x->n-1].pos, last);
-    }
+    unrelative(x->key[x->n-1].pos, last);
 
     for (int i = 0; i < x->n+1; i++) {
       assert(x->ptr[i]->parent == x);
@@ -825,9 +813,7 @@ void mt_inspect_node(MarkTree *b, garray_T *ga, mtnode_t *n, mtpos_t off)
   }
   for (int i = 0; i < n->n; i++) {
     mtpos_t p = n->key[i].pos;
-    if (b->rel) {
-      unrelative(off, &p);
-    }
+    unrelative(off, &p);
     snprintf((char *)buf, sizeof(buf), "%d/%d", p.row, p.col);
     GA_PUT(buf);
     if (n->level) {

@@ -51,7 +51,7 @@ end
 
 describe('marktree', function()
  itp('works', function()
-    tree = lib.marktree_new(1)
+    tree = lib.marktree_new()
     local shadow = {}
     iter = ffi.new("MarkTreeIter[1]")
 
