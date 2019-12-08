@@ -660,6 +660,9 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   bool first = true;
   mtpos_t loc_start, loc_old;
   // TODO: skip old_extent.left_gravity ?
+
+  // Follow the general strategy of messing things up and fix them later
+  // "invdelta" carries the debt of having 
   if (may_delete) {
     while (itr->node) {
       // TODO: or just write a leaf node loop already
@@ -691,6 +694,7 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   }
 
   while (itr->node) {
+    unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
     int realrow = itr->pos.row+rawkey(itr).pos.row;
     assert(realrow >= old_extent.row);
     if (realrow == start.row) {
