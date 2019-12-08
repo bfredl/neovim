@@ -49,6 +49,14 @@ local function shadoworder(tree, shadow, iter, giveorder)
   return id2pos, pos2id
 end
 
+local function mtpos(row,col)
+  local setpos = ffi.new("mtpos_t")
+  setpos.row = row
+  setpos.col = col
+  return setpos
+end
+
+
 describe('marktree', function()
  itp('works', function()
     tree = lib.marktree_new()
@@ -85,11 +93,8 @@ describe('marktree', function()
       -- TODO: use id2pos to chechk neighbour
     end
 
-    local setpos = ffi.new("mtpos_t")
     for i,ipos in pairs(shadow) do
-      setpos.row = ipos[1]
-      setpos.col = ipos[2]
-      lib.marktree_itr_get(tree, setpos, iter)
+      lib.marktree_itr_get(tree, mtpos(unpack(ipos)), iter)
       local k = lib.marktree_itr_test(iter)
       eq(i, tonumber(k.id))
       eq(ipos[1], k.pos.row)
@@ -106,10 +111,8 @@ describe('marktree', function()
 
     for _, ci in ipairs({0,-1,1,-2,2,-10,10}) do
       for i = 1,100 do
-        setpos.row = i
-        setpos.col = 50+ci
         -- TODO: kolla lookup!
-        lib.marktree_itr_get(tree, setpos, iter)
+        lib.marktree_itr_get(tree, mtpos(i,50+ci), iter)
         local k = lib.marktree_itr_test(iter)
         local id = tonumber(k.id)
         eq(shadow[id][1], k.pos.row)

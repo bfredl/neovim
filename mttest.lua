@@ -3,25 +3,31 @@ cdefs = io.open('build/cdefs.dump.h', 'r'):read('*all')
 string.len(cdefs)
 ffi.cdef(cdefs)
 
-
+function mtpos(row,col)
+  local setpos = ffi.new("mtpos_t")
+  setpos.row = row
+  setpos.col = col
+  return setpos
+end
 
 p = require'luadev'.print
-tree = ffi.C.marktree_new(1)
+tree = ffi.C.marktree_new()
 iter = ffi.new("MarkTreeIter[1]")
 dibbl = {}
 
 
-for i = 1,10 do
-  for j = 1,10 do
+for i = 1,20 do
+  for j = 1,20 do
     id = ffi.C.marktree_put(tree, i, j)
     if dibbl[id] then error("DIBBL!") end
     dibbl[id] = {j,i}
   end
 end
 
-aaa()
 
+ffi.C.marktree_splice(tree, mtpos(2,2), mtpos(0,0), mtpos(1,0), iter)
 ss = ffi.C.mt_inspect_rec(tree) p(ffi.string(ss))
+aaa()
 if false then
   setpos = ffi.new("mtpos_t")
   setpos.row = 2
