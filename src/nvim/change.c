@@ -1589,6 +1589,7 @@ int open_line(
     end_comment_pending = NUL;  // turns out there was no leader
   }
 
+  curbuf_splice_pending++;
   old_cursor = curwin->w_cursor;
   if (dir == BACKWARD) {
     curwin->w_cursor.lnum--;
@@ -1699,6 +1700,8 @@ int open_line(
         // cursor is, the previous mark_adjust takes care of the lines after
         extmark_col_adjust(curbuf, lnum, mincol, 1L, (long)-less_cols,
                            kExtmarkUndo);
+        int cols_added = mincol-1+less_cols_off-less_cols;
+        extmark_splice_range(curbuf, lnum-1, mincol-1, 0, less_cols_off, 1, cols_added);
       } else {
         changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
       }
@@ -1710,7 +1713,9 @@ int open_line(
   }
   if (did_append) {
     changed_lines(curwin->w_cursor.lnum, 0, curwin->w_cursor.lnum, 1L, true);
+    extmark_splice_range(curbuf, curwin->w_cursor.lnum-1, 0, 0, 0, 1, 0);
   }
+  curbuf_splice_pending--;
 
   curwin->w_cursor.col = newcol;
   curwin->w_cursor.coladd = 0;
