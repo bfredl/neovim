@@ -916,6 +916,17 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum,
   if (undo == kExtmarkUndo && marks_moved) {
     u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
   }
+
+  if (!curbuf_splice_pending) {
+    if (lnum_amount || col_amount < 0) {
+      // abort();
+      return;
+    }
+    extmark_splice_range(buf,
+                         lnum-1, mincol-1,
+                         0, 0,
+                         0, (int)col_amount);
+  }
 }
 
 // Adjust marks after a delete on a line
@@ -959,6 +970,14 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   // Record the undo for the actual move
   if (marks_moved && undo == kExtmarkUndo) {
     u_extmark_col_adjust_delete(buf, lnum, mincol, endcol, eol);
+  }
+
+  if (!curbuf_splice_pending) {
+    int old_extent = endcol-mincol+1;
+    extmark_splice_range(buf,
+                         lnum-1, mincol-1,
+                         0, old_extent,
+                         0, 0);
   }
 }
 
@@ -1023,6 +1042,30 @@ void extmark_adjust(buf_T *buf,
   if (undo == kExtmarkUndo && marks_exist) {
     u_extmark_adjust(buf, line1, line2, amount, amount_after);
   }
+
+  if (!curbuf_splice_pending) {
+    linenr_T old_extent, new_extent;
+    if (amount == MAXLNUM) {
+      old_extent = line2 - line1+1;
+      new_extent = amount_after + old_extent;
+    } else {
+      assert(line2 == MAXLNUM);
+      old_extent = 0;
+      new_extent = amount;
+    }
+    extmark_splice_range(buf,
+                         line1-1, 0,
+                         old_extent, 0,
+                         new_extent, 0);
+  }
+}
+
+void extmark_splice_range(buf_T *buf,
+                          linenr_T start_line, colnr_T start_col,
+                          linenr_T oldextent_line, colnr_T oldextent_col,
+                          linenr_T newextent_line, colnr_T newextent_col)
+{
+  buf_updates_send_splice(buf, start_line, start_col, oldextent_line, oldextent_col, newextent_line, newextent_col);
 }
 
 /// Range points to copy

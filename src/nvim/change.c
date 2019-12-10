@@ -363,8 +363,12 @@ void changed_bytes(linenr_T lnum, colnr_T col)
 ///
 /// Like changed_bytes() but also adjust extmark for "added" bytes.
 /// When "added" is negative text was deleted.
-static void inserted_bytes(linenr_T lnum, colnr_T col, int added)
+static void inserted_bytes(linenr_T lnum, colnr_T col, int old, int new)
 {
+  extmark_splice_range(curbuf, lnum-1, col, 0, old, 0, new);
+  
+  curbuf_splice_pending++;
+  int added = new - old;
   if (added > 0) {
     extmark_col_adjust(curbuf, lnum, col+1, 0, added, kExtmarkUndo);
   } else if (added < 0) {
@@ -373,6 +377,7 @@ static void inserted_bytes(linenr_T lnum, colnr_T col, int added)
     extmark_col_adjust_delete(curbuf, lnum, col+2,
                               col+(-added)+1, kExtmarkUndo, 0);
   }
+  curbuf_splice_pending--;
 
   changed_bytes(lnum, col);
 }
@@ -648,7 +653,7 @@ void ins_char_bytes(char_u *buf, size_t charlen)
   ml_replace(lnum, newp, false);
 
   // mark the buffer as changed and prepare for displaying
-  inserted_bytes(lnum, (colnr_T)col, (int)(newlen - oldlen));
+  inserted_bytes(lnum, (colnr_T)col, (int)oldlen, (int)newlen);
 
   // If we're in Insert or Replace mode and 'showmatch' is set, then briefly
   // show the match for right parens and braces.
@@ -694,7 +699,7 @@ void ins_str(char_u *s)
   assert(bytes >= 0);
   memmove(newp + col + newlen, oldp + col, (size_t)bytes);
   ml_replace(lnum, newp, false);
-  inserted_bytes(lnum, col, newlen);
+  inserted_bytes(lnum, col, 0, newlen);
   curwin->w_cursor.col += newlen;
 }
 
@@ -815,7 +820,7 @@ int del_bytes(colnr_T count, bool fixpos_arg, bool use_delcombine)
   }
 
   // mark the buffer as changed and prepare for displaying
-  inserted_bytes(lnum, col, -count);
+  inserted_bytes(lnum, col, count, 0);
 
   return OK;
 }
