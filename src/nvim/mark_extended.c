@@ -923,7 +923,7 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum,
       return;
     }
     extmark_splice_range(buf,
-                         lnum-1, mincol-1,
+                         lnum-1, mincol,
                          0, 0,
                          0, (int)col_amount);
   }

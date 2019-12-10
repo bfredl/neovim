@@ -395,6 +395,7 @@ void appended_lines_mark(linenr_T lnum, long count)
 {
   // Skip mark_adjust when adding a line after the last one, there can't
   // be marks there. But it's still needed in diff mode.
+  // TODO: extmark_splice_range must do this always
   if (lnum + count < curbuf->b_ml.ml_line_count || curwin->w_p_diff) {
     mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L, false, kExtmarkUndo);
   }
