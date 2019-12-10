@@ -4,6 +4,7 @@
 #include "nvim/mark_extended_defs.h"
 #include "nvim/buffer_defs.h"  // for buf_T
 
+EXTERN int extmark_splice_pending INIT(= 0);
 
 // Macro Documentation: FOR_ALL_?
 // Search exclusively using the range values given.
