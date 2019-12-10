@@ -1049,7 +1049,8 @@ void extmark_adjust(buf_T *buf,
       old_extent = line2 - line1+1;
       new_extent = amount_after + old_extent;
     } else {
-      assert(line2 == MAXLNUM);
+      // TODO: handle :move separately
+      // assert(line2 == MAXLNUM);
       old_extent = 0;
       new_extent = amount;
     }
