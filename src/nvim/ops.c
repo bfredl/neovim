@@ -3779,6 +3779,14 @@ int do_join(size_t count,
         }
       }
     }
+
+    // TODO: assert nothing weird happens on t=0
+    if (t > 0) {
+      extmark_splice_range(curbuf,
+                           curwin->w_cursor.lnum-1, sumsize,
+                           1, (int)(curr- curr_start),
+                           0, spaces[t]);
+    }
     currsize = (int)STRLEN(curr);
     sumsize += currsize + spaces[t];
     endcurr1 = endcurr2 = NUL;
@@ -3813,6 +3821,8 @@ int do_join(size_t count,
    * column.  This is not Vi compatible, but Vi deletes the marks, thus that
    * should not really be a problem.
    */
+
+  curbuf_splice_pending++;
 
   for (t = (linenr_T)count - 1;; t--) {
     cend -= currsize;
@@ -3867,6 +3877,7 @@ int do_join(size_t count,
   curwin->w_cursor.lnum++;
   del_lines((long)count - 1, false);
   curwin->w_cursor.lnum = t;
+  curbuf_splice_pending--;
 
   /*
    * Set the cursor column:
