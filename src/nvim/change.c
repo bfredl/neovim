@@ -1713,6 +1713,9 @@ int open_line(
   }
   if (did_append) {
     changed_lines(curwin->w_cursor.lnum, 0, curwin->w_cursor.lnum, 1L, true);
+    // TODO: we might get into trouble with the extra dir == BACKWARDS
+    // adjustment for indent which is done later (check byte count change
+    // of both events!)
     extmark_splice_range(curbuf, curwin->w_cursor.lnum-1, 0, 0, 0, 1, 0);
   }
   curbuf_splice_pending--;
