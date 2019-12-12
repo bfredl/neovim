@@ -6,6 +6,9 @@
 #define ILEN (sizeof(mtnode_t)+(2*T)*sizeof(void *))
 #define key_t SKRAPET
 
+#define RIGHT_GRAVITY (((uint64_t)1)<<63)
+#define IS_RIGHT(id) ((id)&RIGHT_GRAVITY)
+
 struct mtnode_s {
   int32_t n;
   int32_t level;
@@ -207,9 +210,12 @@ static void marktree_put_key(MarkTree *b, mtkey_t k)
   marktree_putp_aux(b, r, k);
 }
 
-uint64_t marktree_put(MarkTree *b, int row, int col)
+uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
 {
   uint64_t id = ++b->next_id;
+  if (right_gravity) {
+    id &= RIGHT_GRAVITY;
+  }
   marktree_put_key(b, (mtkey_t){ .pos = (mtpos_t){ .row = row, .col = col },
                                  .id = id });
   return id;
@@ -474,11 +480,19 @@ static void pivot_left(MarkTree *b, mtnode_t *p, int i)
 
 // itr functions
 
+// TODO: static inline
+bool marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
+{
+  return marktree_itr_get_ext(b, p, itr, false, false);
+}
 
 // gives the first key that is greater or equal to p
-int marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
+bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, bool gravity)
 {
-  mtkey_t k = { .pos = p, .id = 0 };
+  mtkey_t k = { .pos = p, .id = gravity ? RIGHT_GRAVITY : 0 };
+  if (last && !gravity) {
+    k.id = UINT64_MAX;
+  }
   if (b->n_keys == 0) {
     itr->node = NULL;
     return false;
@@ -503,7 +517,10 @@ int marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
     itr->node = itr->node->ptr[itr->i];
     itr->lvl++;
   }
-  if (itr->i >= itr->node->n) {
+
+  if (last) {
+    return marktree_itr_prev(b, itr);
+  } else if (itr->i >= itr->node->n) {
     return marktree_itr_next(b, itr);
   }
   return true;
@@ -525,6 +542,36 @@ bool marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
     itr->lvl++;
     itr->node = itr->node->ptr[0];
   }
+  return true;
+}
+
+// gives the first key that is greater or equal to p
+int marktree_itr_last(MarkTree *b, MarkTreeIter *itr)
+{
+  if (b->n_keys == 0) {
+    itr->node = NULL;
+    return false;
+  }
+  itr->pos = (mtpos_t){ 0, 0 };
+  itr->node = b->root;
+  itr->lvl = 0;
+  while (true) {
+    itr->i = itr->node->n;
+
+    if (itr->node->level == 0) {
+      break;
+    }
+
+    itr->s[itr->lvl].i = itr->i;
+    itr->s[itr->lvl].oldcol = itr->pos.col;
+
+    assert (itr->i > 0);
+    compose(&itr->pos, itr->node->key[itr->i-1].pos);
+
+    itr->node = itr->node->ptr[itr->i];
+    itr->lvl++;
+  }
+  itr->i--;
   return true;
 }
 
@@ -635,6 +682,11 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
   return (mtkey_t){ { -1, -1 }, 0 };
 }
 
+static void swap_id(uint64_t *id1, uint64_t *id2)
+{
+
+}
+
 void marktree_splice(MarkTree *b, mtpos_t start,
                      mtpos_t old_extent, mtpos_t new_extent,
                      MarkTreeIter *itr)
@@ -644,7 +696,7 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   unrelative(start, &new_extent);
 
   // should caller?
-  marktree_itr_get(b, start, itr);
+  marktree_itr_get_ext(b, start, itr, false, true);
   if (!itr->node) {
     // den e FÄRDIG
     return;
@@ -652,6 +704,7 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   mtpos_t delta = { new_extent.row - old_extent.row,
                     new_extent.col-old_extent.col };
 #define rawkey(itr) (itr->node->key[itr->i])
+  MarkTreeIter enditr[1];
 
 
   mtpos_t invdelta[MT_MAX_DEPTH+1]; // TODO: really +1??
@@ -661,34 +714,79 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   mtpos_t loc_start, loc_old;
   // TODO: skip old_extent.left_gravity ?
 
-  // Follow the general strategy of messing things up and fix them later
-  // "invdelta" carries the debt of having 
   if (may_delete) {
-    while (itr->node) {
+    if (pos_leq(marktree_itr_test(itr).pos, old_extent)) {
+      // TODO: just before old_extent.right_gravity
+      // TODO: itr_get_before directly
+      marktree_itr_get_ext(b, old_extent, enditr, true, true);
+      assert(enditr->node);
+      // "assert" (itr <= enditr)
+    } else {
+      may_delete = false;
+    }
+  }
+
+  bool past_right = false;
+  int ahead_level = MT_MAX_DEPTH;
+
+  // Follow the general strategy of messing things up and fix them later
+  // "invdelta" carries the debt of having pre-adjusted the parent
+  if (may_delete) {
+    while (itr->node && !past_right) {
       // TODO: or just write a leaf node loop already
       loc_start = start;
       loc_old = old_extent;
       relative(itr->pos, &loc_start);
       relative(itr->pos, &loc_old);
+
       unrelative(invdelta[itr->lvl], &loc_old);
 
+continue_same_node:
       // TODO: as an opt we can leave the marks at
       // old_extent.right_gravity untouched here
       if (!pos_leq(rawkey(itr).pos, loc_old)) {
         break;
       }
+
+      if (IS_RIGHT(rawkey(itr).id)) {
+        while (rawkey(itr).id != rawkey(enditr).id && IS_RIGHT(rawkey(enditr).id)) {
+          marktree_itr_prev(b, enditr);
+        }
+        if (!IS_RIGHT(rawkey(enditr).id)) {
+          swap_id(&rawkey(itr).id, &rawkey(enditr).id);
+        } else {
+          past_right = true;
+          break;
+        }
+      }
+    
       if (itr->node->level) {
         unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
         invdelta[itr->lvl+1] = rawkey(itr).pos;
         relative(loc_start, &invdelta[itr->lvl+1]);
         rawkey(itr).pos = loc_start;
+        if (rawkey(itr).id == rawkey(enditr).id) {
+          past_right = true;
+        }
         marktree_itr_next_skip(b, itr, false, invdelta);
       } else {
-        // TODO: the right_gravity thing also here!
-        while (itr->node->level == 0 && pos_leq(rawkey(itr).pos, loc_old)) {
-          rawkey(itr).pos = loc_start;
+        rawkey(itr).pos = loc_start;
+        if (itr->i < itr->node->n-1) {
+          itr->i++;
+          goto continue_same_node;
+        } else {
           marktree_itr_next(b, itr);
         }
+      }
+    }
+    while (itr->node) {
+      loc_start = start;
+      loc_old = old_extent;
+      relative(itr->pos, &loc_start);
+      relative(itr->pos, &loc_old);
+
+      if (itr->lvl < ahead_level) {
+        unrelative(invdelta[itr->lvl], &loc_old);
       }
     }
   }
