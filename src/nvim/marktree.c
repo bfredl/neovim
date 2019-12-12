@@ -711,7 +711,6 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   memset(invdelta,0,sizeof(invdelta));
   
   bool first = true;
-  mtpos_t loc_start, loc_old;
   // TODO: skip old_extent.left_gravity ?
 
   if (may_delete) {
@@ -734,8 +733,8 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   if (may_delete) {
     while (itr->node && !past_right) {
       // TODO: or just write a leaf node loop already
-      loc_start = start;
-      loc_old = old_extent;
+      mtpos_t loc_start = start;
+      mtpos_t loc_old = old_extent;
       relative(itr->pos, &loc_start);
       relative(itr->pos, &loc_old);
 
@@ -744,6 +743,7 @@ void marktree_splice(MarkTree *b, mtpos_t start,
 continue_same_node:
       // TODO: as an opt we can leave the marks at
       // old_extent.right_gravity untouched here
+      // maybe not needed, we pass through anyway?!
       if (!pos_leq(rawkey(itr).pos, loc_old)) {
         break;
       }
@@ -760,34 +760,47 @@ continue_same_node:
         }
       }
     
+      if (rawkey(itr).id == rawkey(enditr).id) {
+        // actually, will be past_right after this key
+        past_right = true;
+      }
+
       if (itr->node->level) {
         unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
         invdelta[itr->lvl+1] = rawkey(itr).pos;
         relative(loc_start, &invdelta[itr->lvl+1]);
         rawkey(itr).pos = loc_start;
-        if (rawkey(itr).id == rawkey(enditr).id) {
-          past_right = true;
-        }
         marktree_itr_next_skip(b, itr, false, invdelta);
       } else {
         rawkey(itr).pos = loc_start;
         if (itr->i < itr->node->n-1) {
           itr->i++;
-          goto continue_same_node;
+          if (!past_right) {
+            goto continue_same_node;
+          }
         } else {
           marktree_itr_next(b, itr);
         }
       }
     }
     while (itr->node) {
-      loc_start = start;
-      loc_old = old_extent;
-      relative(itr->pos, &loc_start);
-      relative(itr->pos, &loc_old);
-
+      mtpos_t loc_new = new_extent;
+      relative(itr->pos, &loc_new);
+      mtpos_t limit = old_extent;
       if (itr->lvl < ahead_level) {
-        unrelative(invdelta[itr->lvl], &loc_old);
+        relative(itr->pos, &limit);
+        unrelative(invdelta[itr->lvl], &limit);
+      } else {
+        limit = invdelta[itr->lvl];
+        // assert loc_new = {0,0} ??
       }
+
+      if (pos_leq(limit, rawkey(itr).pos)) {
+        break;
+      }
+
+      mtpos_t oldpos = rawkey(itr).pos;
+      rawkey(itr).pos = loc_new;
     }
   }
 
