@@ -7,6 +7,7 @@
 #define key_t SKRAPET
 
 #define RIGHT_GRAVITY (((uint64_t)1)<<63)
+#define ANTIGRAVITY(id) ((id)&(RIGHT_GRAVITY-1))
 #define IS_RIGHT(id) ((id)&RIGHT_GRAVITY)
 
 struct mtnode_s {
@@ -115,7 +116,7 @@ static inline int marktree_getp_aux(const mtnode_t *x, mtkey_t k, int *r)
 
 static inline void refkey(MarkTree *b, mtnode_t *x, int i)
 {
-  pmap_put(uint64_t)(b->id2node, x->key[i].id, x);
+  pmap_put(uint64_t)(b->id2node, ANTIGRAVITY(x->key[i].id), x);
 }
 
 // put functions
@@ -214,7 +215,7 @@ uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
 {
   uint64_t id = ++b->next_id;
   if (right_gravity) {
-    id &= RIGHT_GRAVITY;
+    id |= RIGHT_GRAVITY;
   }
   marktree_put_key(b, (mtkey_t){ .pos = (mtpos_t){ .row = row, .col = col },
                                  .id = id });
@@ -315,7 +316,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   }
 
   b->n_keys--;
-  pmap_del(uint64_t)(b->id2node, id);
+  pmap_del(uint64_t)(b->id2node, ANTIGRAVITY(id));
 
   // 5.
   bool itr_dirty = false;
@@ -684,7 +685,9 @@ mtkey_t marktree_itr_test(MarkTreeIter *itr)
 
 static void swap_id(uint64_t *id1, uint64_t *id2)
 {
-
+  uint64_t temp = *id1;
+  *id1 = *id2;
+  *id2 = temp;
 }
 
 void marktree_splice(MarkTree *b, mtpos_t start,
@@ -787,6 +790,7 @@ continue_same_node:
       mtpos_t loc_new = new_extent;
       relative(itr->pos, &loc_new);
       mtpos_t limit = old_extent;
+
       if (itr->lvl < ahead_level) {
         relative(itr->pos, &limit);
         unrelative(invdelta[itr->lvl], &limit);
@@ -795,23 +799,48 @@ continue_same_node:
         // assert loc_new = {0,0} ??
       }
 
+past_continue_same_node:
+
       if (pos_leq(limit, rawkey(itr).pos)) {
         break;
       }
 
       mtpos_t oldpos = rawkey(itr).pos;
       rawkey(itr).pos = loc_new;
+      if (itr->node->level) {
+        if (itr->lvl < ahead_level) {
+          unrelative(invdelta[itr->lvl], &oldpos);
+          invdelta[itr->lvl+1] = loc_new;
+        } else {
+          invdelta[itr->lvl+1] = invdelta[itr->lvl];
+        }
+        relative(oldpos, &invdelta[itr->lvl+1]);
+        ahead_level = itr->lvl+1;
+        marktree_itr_next_skip(b, itr, false, invdelta);
+      } else {
+        if (itr->i < itr->node->n-1) {
+          itr->i++;
+          goto past_continue_same_node;
+        } else {
+          marktree_itr_next(b, itr);
+        }
+      }
     }
   }
 
   while (itr->node) {
-    unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
+    if (itr->lvl < ahead_level) {
+      unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
+    } else {
+      relative(invdelta[itr->lvl], &rawkey(itr).pos);
+    }
     int realrow = itr->pos.row+rawkey(itr).pos.row;
     assert(realrow >= old_extent.row);
     if (realrow == start.row) {
       rawkey(itr).pos.col += delta.col;
     } else {
-      if (delta.row == 0) {
+      // TODO: this is tricky. maybe "itr->lvl < ahead_level" isn't even needed?
+      if (false && delta.row == 0 && itr->lvl < ahead_level) {
         // important opt: column only adjustment can skip remaining rows
         return;
       }
@@ -824,7 +853,7 @@ continue_same_node:
 /// @param itr OPTIONAL. set itr to pos.
 mtpos_t marktree_lookup(MarkTree *b, uint64_t id, MarkTreeIter *itr)
 {
-  mtnode_t *n = pmap_get(uint64_t)(b->id2node, id);
+  mtnode_t *n = pmap_get(uint64_t)(b->id2node, ANTIGRAVITY(id));
   if (n == NULL) {
     if (itr) {
       itr->node = NULL;
@@ -923,7 +952,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
     // fprintf(stderr, "jjj %d %d\n", last->row, last->col);
     assert(pos_leq(*last, x->key[i].pos));
     assert(x->key[i].pos.col >= 0);
-    assert(pmap_get(uint64_t)(b->id2node, x->key[i].id) == x);
+    assert(pmap_get(uint64_t)(b->id2node, ANTIGRAVITY(x->key[i].id)) == x);
   }
 
   if (x->level) {
