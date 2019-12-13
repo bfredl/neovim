@@ -18,15 +18,39 @@ dibbl = {}
 
 for i = 1,20 do
   for j = 1,20 do
-    id = ffi.C.marktree_put(tree, i, j)
+    id = ffi.C.marktree_put(tree, i, j,j%2)
     if dibbl[id] then error("DIBBL!") end
     dibbl[id] = {j,i}
   end
 end
+if false then
+idx = ffi.C.marktree_put(tree, 2, 2,true)
+idy = ffi.C.marktree_put(tree, 2, 2,false)
+idz = ffi.C.marktree_put(tree, 2, 2,true)
+end
+aaa()
 
 
-ffi.C.marktree_splice(tree, mtpos(2,2), mtpos(0,0), mtpos(1,0), iter)
+ffi.C.marktree_splice(tree, mtpos(2,5), mtpos(0,3), mtpos(0,3), iter)
 ss = ffi.C.mt_inspect_rec(tree) p(ffi.string(ss))
+
+--ffi.C.marktree_itr_get(tree, key, iter)
+ffi.C.marktree_itr_first(tree, iter)
+i = 1
+repeat
+  val = ffi.C.marktree_itr_test(iter)
+  p(val.pos.row, val.pos.col, val.id)
+  pos2 = dibbl[tonumber(val.id)]
+  --p(ffi.C.marktree_itr_next(tree, iter))
+  --iter[0].lvl
+  --iter[0].node[0]
+  --iter[0].lvl
+  if val.pos.row > 3 then
+    error("x")
+  end
+  i = i +1
+until not ffi.C.marktree_itr_next(tree, iter) -- i == 109 --
+
 aaa()
 if false then
   setpos = ffi.new("mtpos_t")
@@ -63,14 +87,15 @@ p(pos.row, pos.col)
 ffi.C.marktree_itr_first(tree, iter)
 i = 1
 repeat
-  val = ffi.C.marktree_itr_test(iter) p(val.pos.row, val.pos.col, val.id)
+  val = ffi.C.marktree_itr_test(iter)
+  p(val.pos.row, val.pos.col, val.id)
   pos2 = dibbl[tonumber(val.id)]
   --p(ffi.C.marktree_itr_next(tree, iter))
   --iter[0].lvl
   --iter[0].node[0]
   --iter[0].lvl
 
-  if true and (val.pos.row ~= pos2[1] or val.pos.col ~= pos2[2]) then
+  if val.pos.row > 3 then
     error("x")
   end
   i = i +1
