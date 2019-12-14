@@ -489,11 +489,11 @@ static void pivot_left(MarkTree *b, mtnode_t *p, int i)
 // TODO: static inline
 bool marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
 {
-  return marktree_itr_get_ext(b, p, itr, false, false);
+  return marktree_itr_get_ext(b, p, itr, false, false, NULL);
 }
 
 // gives the first key that is greater or equal to p
-bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, bool gravity)
+bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, bool gravity, mtpos_t *oldbase)
 {
   mtkey_t k = { .pos = p, .id = gravity ? RIGHT_GRAVITY : 0 };
   if (last && !gravity) {
@@ -515,6 +515,9 @@ bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, 
 
     itr->s[itr->lvl].i = itr->i;
     itr->s[itr->lvl].oldcol = itr->pos.col;
+    if (oldbase) {
+      oldbase[itr->lvl] = itr->pos;
+    }
 
     if (itr->i > 0) {
       compose(&itr->pos, itr->node->key[itr->i-1].pos);
@@ -704,11 +707,14 @@ void marktree_splice(MarkTree *b, mtpos_t start,
                      mtpos_t old_extent, mtpos_t new_extent)
 {
   bool may_delete = (old_extent.row != 0 || old_extent.col != 0);
+  bool same_line = old_extent.row == 0 && new_extent.row == 0;
   unrelative(start, &old_extent);
   unrelative(start, &new_extent);
   MarkTreeIter itr[1], enditr[1];
 
-  marktree_itr_get_ext(b, start, itr, false, true);
+  mtpos_t oldbase[MT_MAX_DEPTH+1]; // TODO: really +1??
+
+  marktree_itr_get_ext(b, start, itr, false, true, oldbase);
   if (!itr->node) {
     // den e FÄRDIG
     return;
@@ -716,15 +722,11 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   mtpos_t delta = { new_extent.row - old_extent.row,
                     new_extent.col-old_extent.col };
 
-
-  mtpos_t invdelta[MT_MAX_DEPTH+1]; // TODO: really +1??
-  memset(invdelta,0,sizeof(invdelta));
-  
   if (may_delete) {
     if (pos_leq(marktree_itr_test(itr).pos, old_extent)) {
       // TODO: just before old_extent.right_gravity
       // TODO: itr_get_before directly
-      marktree_itr_get_ext(b, old_extent, enditr, true, true);
+      marktree_itr_get_ext(b, old_extent, enditr, true, true, NULL);
       assert(enditr->node);
       // "assert" (itr <= enditr)
     } else {
@@ -733,7 +735,7 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   }
 
   bool past_right = false;
-  int ahead_level = MT_MAX_DEPTH;
+  int changed_level = MT_MAX_DEPTH;
 
   // Follow the general strategy of messing things up and fix them later
   // "invdelta" carries the debt of having pre-adjusted the parent
@@ -743,9 +745,8 @@ void marktree_splice(MarkTree *b, mtpos_t start,
       mtpos_t loc_start = start;
       mtpos_t loc_old = old_extent;
       relative(itr->pos, &loc_start);
-      relative(itr->pos, &loc_old);
 
-      unrelative(invdelta[itr->lvl], &loc_old);
+      relative(oldbase[itr->lvl], &loc_old);
 
 continue_same_node:
       // TODO: as an opt we can leave the marks at
@@ -773,11 +774,11 @@ continue_same_node:
       }
 
       if (itr->node->level) {
-        unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
-        invdelta[itr->lvl+1] = rawkey(itr).pos;
-        relative(loc_start, &invdelta[itr->lvl+1]);
+        oldbase[itr->lvl+1] = rawkey(itr).pos;
+        changed_level = itr->lvl+1;
+        unrelative(oldbase[itr->lvl], &oldbase[itr->lvl+1]);
         rawkey(itr).pos = loc_start;
-        marktree_itr_next_skip(b, itr, false, invdelta);
+        marktree_itr_next_skip(b, itr, false, oldbase);
       } else {
         rawkey(itr).pos = loc_start;
         if (itr->i < itr->node->n-1) {
@@ -795,19 +796,8 @@ continue_same_node:
       relative(itr->pos, &loc_new);
       mtpos_t limit = old_extent;
 
-      mtpos_t oldbase = itr->pos;
-      fprintf(stderr, " NEWBASE %d %d\n", oldbase.row, oldbase.col);
-      if (itr->lvl < ahead_level) {
-        fprintf(stderr, "AAAA\n");
-        compose(&oldbase, invdelta[itr->lvl]);
-      } else {
-        fprintf(stderr, "BBBB\n");
-        oldbase = invdelta[itr->lvl];
-        //limit = invdelta[itr->lvl];
-        // assert loc_new = {0,0} ??
-      }
-      fprintf(stderr, " OLDBASE %d %d\n", oldbase.row, oldbase.col);
-      relative(oldbase, &limit);
+        changed_level = itr->lvl+1;
+      relative(oldbase[itr->lvl], &limit);
       fprintf(stderr, " LIMES %d %d\n", limit.row, limit.col);
 
 past_continue_same_node:
@@ -820,11 +810,11 @@ past_continue_same_node:
       rawkey(itr).pos = loc_new;
       fprintf(stderr, "PUTTA %lu\n", ANTIGRAVITY(rawkey(itr).id));
       if (itr->node->level) {
-        invdelta[itr->lvl+1] = oldpos;
-        unrelative(oldbase, &invdelta[itr->lvl+1]);
+        oldbase[itr->lvl+1] = oldpos;
+        unrelative(oldbase[itr->lvl], &oldbase[itr->lvl+1]);
 
-        ahead_level = itr->lvl+1;
-        marktree_itr_next_skip(b, itr, false, invdelta);
+        changed_level = itr->lvl+1;
+        marktree_itr_next_skip(b, itr, false, oldbase);
       } else {
         if (itr->i < itr->node->n-1) {
           itr->i++;
@@ -836,15 +826,9 @@ past_continue_same_node:
     }
   }
 
+
   while (itr->node) {
-    if (itr->lvl < ahead_level) {
-      fprintf(stderr, "HUTTA %lu\n", ANTIGRAVITY(rawkey(itr).id));
-      unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
-      unrelative(itr->pos, &rawkey(itr).pos);
-    } else {
-      fprintf(stderr, "GUTTA %lu\n", ANTIGRAVITY(rawkey(itr).id));
-      unrelative(invdelta[itr->lvl], &rawkey(itr).pos);
-    }
+    unrelative(oldbase[itr->lvl], &rawkey(itr).pos);
     int realrow = rawkey(itr).pos.row;
     assert(realrow >= old_extent.row);
     bool done = false;
@@ -852,7 +836,7 @@ past_continue_same_node:
       rawkey(itr).pos.col += delta.col;
     } else {
       // TODO: this is tricky. maybe "itr->lvl < ahead_level" isn't even needed?
-      if (true && delta.row == 0 && itr->lvl < ahead_level) {
+      if (same_line) {
         // important opt: column only adjustment can skip remaining rows
         done = true;
       }
