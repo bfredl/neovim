@@ -196,10 +196,10 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
   }
 }
 
-uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
+uint64_t marktree_put(MarkTree *b, mtpos_t pos, bool right_gravity)
 {
   uint64_t id = ++b->next_id;
-  mtkey_t k = { .pos = { .row = row, .col = col }, .id = id };
+  mtkey_t k = { .pos = pos, .id = id };
   if (right_gravity) {
     // order all right gravity keys after the left ones, for effortless
     // insertion (but not deletion!)
