@@ -109,7 +109,7 @@ describe('marktree', function()
     for i = 1,100 do
       for j = 1,100 do
         local gravitate = (i%2) > 0
-        id = tonumber(lib.marktree_put(tree, j, i, gravitate))
+        id = tonumber(lib.marktree_put(tree, mtpos(j, i), gravitate))
         ok(id > 0)
         eq(nil, shadow[id])
         shadow[id] = {j,i,gravitate}
