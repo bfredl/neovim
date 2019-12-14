@@ -798,7 +798,6 @@ continue_same_node:
       mtpos_t limit = old_extent;
 
       relative(oldbase[itr->lvl], &limit);
-      fprintf(stderr, " LIMES %d %d\n", limit.row, limit.col);
 
 past_continue_same_node:
 
@@ -808,7 +807,6 @@ past_continue_same_node:
 
       mtpos_t oldpos = rawkey(itr).pos;
       rawkey(itr).pos = loc_new;
-      fprintf(stderr, "PUTTA %lu\n", ANTIGRAVITY(rawkey(itr).id));
       if (itr->node->level) {
         oldbase[itr->lvl+1] = oldpos;
         unrelative(oldbase[itr->lvl], &oldbase[itr->lvl+1]);
@@ -841,8 +839,6 @@ past_continue_same_node:
       }
     }
     rawkey(itr).pos.row += delta.row;
-    fprintf(stderr, "BB %d %d\n", rawkey(itr).pos.row, rawkey(itr).pos.col);
-    fprintf(stderr, "xx %d %d\n", itr->pos.row, itr->pos.col);
     relative(itr->pos, &rawkey(itr).pos);
     if (done) {
       break;
@@ -951,7 +947,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last, bool *last_right)
     if (x->level) {
       // fprintf(stderr, "iiiii %d %d %d %d\n", i, x->level, x->key[i].pos.row, x->key[i].pos.col);
     }
-    // fprintf(stderr, "jjj %d %d\n", last->row, last->col);
+    //fprintf(stderr, "jjj %d %d\n", last->row, last->col);
     assert(pos_leq(*last, x->key[i].pos));
     if (last->row == x->key[i].pos.row && last->col == x->key[i].pos.col) {
       assert(!*last_right || IS_RIGHT(x->key[i].id));
