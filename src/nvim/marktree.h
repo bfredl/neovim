@@ -13,12 +13,11 @@ typedef struct {
   int32_t col;
 } mtpos_t;
 
-// NB actual marks MUST have id > 0, so we can use (row,col,0) pseudo-key for
-// "space before (row,col)"
 typedef struct {
   mtpos_t pos;
   uint64_t id;
-} mtkey_t;
+  bool right_gravity;
+} mtmark_t;
 
 typedef struct mttree_s MarkTree;
 typedef struct mtnode_s mtnode_t;

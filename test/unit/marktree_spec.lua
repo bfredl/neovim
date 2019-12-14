@@ -8,10 +8,16 @@ local ok      = helpers.ok
 
 local lib = helpers.cimport("./src/nvim/marktree.h")
 
+local inspect = require'vim.inspect'
+
 local function tablelength(t)
   local count = 0
   for _ in pairs(t) do count = count + 1 end
   return count
+end
+
+local function pos_leq(a, b)
+  return a[1] < b[1] or (a[1] == b[1] and a[2] <= b[2])
 end
 
 local function shadoworder(tree, shadow, iter, giveorder)
@@ -24,14 +30,17 @@ local function shadoworder(tree, shadow, iter, giveorder)
     return pos2id, id2pos
   end
   repeat
-    local key = lib.marktree_itr_test(iter)
-    local id = tonumber(key.id)
+    local mark = lib.marktree_itr_test(iter)
+    local id = tonumber(mark.id)
     local spos = shadow[id]
-    if (key.pos.row ~= spos[1] or key.pos.col ~= spos[2]) then
-      error("invalid pos for "..id..":("..key.pos.row..", "..key.pos.col..") instead of ("..spos[1]..", "..spos[2]..")")
+    if (mark.pos.row ~= spos[1] or mark.pos.col ~= spos[2]) then
+      error("invalid pos for "..id..":("..mark.pos.row..", "..mark.pos.col..") instead of ("..spos[1]..", "..spos[2]..")")
+    end
+    if mark.right_gravity ~= spos[3] then
+        error("invalid gravity for "..id..":("..mark.pos.row..", "..mark.pos.col..")")
     end
     if count > 0 then
-      if spos[1] < last[1] or (spos[1] == last[1] and spos[2] < last[2]) then
+      if not pos_leq(last, spos) then
         error("DISORDER")
       end
     end
@@ -49,6 +58,38 @@ local function shadoworder(tree, shadow, iter, giveorder)
   return id2pos, pos2id
 end
 
+local function shadowsplice(shadow, start, old_extent, new_extent)
+  local old_end = {start[1] + old_extent[1],
+                      (old_extent[1] == 0 and start[2] or 0) + old_extent[2]}
+  local new_end = {start[1] + new_extent[1],
+                      (new_extent[1] == 0 and start[2] or 0) + new_extent[2]}
+  local delta = {new_end[1] - old_end[1], new_end[2] - old_end[2]}
+  print("old", inspect(old_end))
+  print("neu", inspect(new_end))
+  print("delta", inspect(delta))
+  for iid, pos in pairs(shadow) do
+    if not pos_leq(start, pos) then
+      -- do nothing
+      if iid == 702 then print("aa") end
+    elseif pos_leq(pos, old_end) then
+      -- delete region
+      if pos[3] then -- right gravity
+        pos[1], pos[2] = new_end[1], new_end[2]
+      else
+        pos[1], pos[2] = start[1], start[2]
+      end
+      if iid == 702 then print("bb") end
+    else
+      if pos[1] == old_end[1] then
+        pos[2] = pos[2] + delta[2]
+      end
+      pos[1] = pos[1] + delta[1]
+      if iid == 702 then print("cc") end
+    end
+  end
+      io.stdout:flush()
+end
+
 local function mtpos(row,col)
   local setpos = ffi.new("mtpos_t")
   setpos.row = row
@@ -56,6 +97,14 @@ local function mtpos(row,col)
   return setpos
 end
 
+local function mtpos2(pos)
+  return mtpos(unpack(pos))
+end
+
+local function dosplice(tree, shadow, start, old_extent, new_extent)
+  lib.marktree_splice(tree, mtpos2(start), mtpos2(old_extent), mtpos2(new_extent))
+  shadowsplice(shadow, start, old_extent, new_extent)
+end
 
 describe('marktree', function()
  itp('works', function()
@@ -65,10 +114,10 @@ describe('marktree', function()
 
     for i = 1,100 do
       for j = 1,100 do
-        id = tonumber(lib.marktree_put(tree, j, i))
+        id = tonumber(lib.marktree_put(tree, j, i, true))
         ok(id > 0)
         eq(nil, shadow[id])
-        shadow[id] = {j,i}
+        shadow[id] = {j,i,true}
       end
       -- checking every insert is too slow, but this is ok
       --lib.marktree_check(tree)
@@ -81,6 +130,14 @@ describe('marktree', function()
     end
 
     local id2pos, pos2id = shadoworder(tree, shadow, iter)
+
+    print(inspect(shadow[702])) io.stdout:flush()
+    dosplice(tree, shadow, {2,2}, {0,5}, {1, 2})
+    id2pos, pos2id = shadoworder(tree, shadow, iter)
+    dosplice(tree, shadow, {5,3}, {0,2}, {0, 5})
+    id2pos, pos2id = shadoworder(tree, shadow, iter)
+    griff()
+
     for i,ipos in pairs(shadow) do
       local pos = lib.marktree_lookup(tree, i, iter)
       eq(ipos[1], pos.row)
