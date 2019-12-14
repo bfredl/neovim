@@ -764,6 +764,8 @@ continue_same_node:
         }
         if (!IS_RIGHT(rawkey(enditr).id)) {
           swap_id(&rawkey(itr).id, &rawkey(enditr).id);
+          refkey(b, itr->node, itr->i);
+          refkey(b, enditr->node, enditr->i);
         } else {
           past_right = true;
           break;
