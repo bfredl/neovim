@@ -64,13 +64,9 @@ local function shadowsplice(shadow, start, old_extent, new_extent)
   local new_end = {start[1] + new_extent[1],
                       (new_extent[1] == 0 and start[2] or 0) + new_extent[2]}
   local delta = {new_end[1] - old_end[1], new_end[2] - old_end[2]}
-  print("old", inspect(old_end))
-  print("neu", inspect(new_end))
-  print("delta", inspect(delta))
   for iid, pos in pairs(shadow) do
     if not pos_leq(start, pos) then
       -- do nothing
-      if iid == 702 then print("aa") end
     elseif pos_leq(pos, old_end) then
       -- delete region
       if pos[3] then -- right gravity
@@ -78,13 +74,11 @@ local function shadowsplice(shadow, start, old_extent, new_extent)
       else
         pos[1], pos[2] = start[1], start[2]
       end
-      if iid == 702 then print("bb") end
     else
       if pos[1] == old_end[1] then
         pos[2] = pos[2] + delta[2]
       end
       pos[1] = pos[1] + delta[1]
-      if iid == 702 then print("cc") end
     end
   end
       io.stdout:flush()
@@ -131,14 +125,6 @@ describe('marktree', function()
 
     local id2pos, pos2id = shadoworder(tree, shadow, iter)
 
-    print(inspect(shadow[702])) io.stdout:flush()
-    dosplice(tree, shadow, {2,2}, {0,5}, {1, 2})
-    id2pos, pos2id = shadoworder(tree, shadow, iter)
-    print(inspect(shadow[504])) io.stdout:flush()
-    dosplice(tree, shadow, {5,3}, {0,2}, {0, 5})
-    id2pos, pos2id = shadoworder(tree, shadow, iter)
-    griff()
-
     for i,ipos in pairs(shadow) do
       local pos = lib.marktree_lookup(tree, i, iter)
       eq(ipos[1], pos.row)
@@ -160,9 +146,9 @@ describe('marktree', function()
     end
 
     local status = lib.marktree_itr_first(tree, iter)
-    lib.marktree_check(tree)
+    --lib.marktree_check(tree)
     lib.marktree_del_itr(tree, iter, false)
-    lib.marktree_check(tree)
+    --lib.marktree_check(tree)
     shadow[1] = nil
     --ss = lib.mt_inspect_rec(tree) print(ffi.string(ss))
     id2pos, pos2id = shadoworder(tree, shadow, iter)
@@ -176,7 +162,7 @@ describe('marktree', function()
         eq(shadow[id][1], k.pos.row)
         eq(shadow[id][2], k.pos.col)
         lib.marktree_del_itr(tree, iter, false)
-        lib.marktree_check(tree)
+        --lib.marktree_check(tree)
         shadow[id] = nil
         --id2pos, pos2id = shadoworder(tree, shadow, iter)
         -- TODO: update the shadow and check!
@@ -184,6 +170,20 @@ describe('marktree', function()
       id2pos, pos2id = shadoworder(tree, shadow, iter)
     end
     id2pos, pos2id = shadoworder(tree, shadow, iter)
+
+    --print(inspect(shadow[702])) io.stdout:flush()
+    --lib.marktree_check(tree)
+    lib.marktree_check(tree)
+    dosplice(tree, shadow, {2,2}, {0,5}, {1, 2})
+    lib.marktree_check(tree)
+    id2pos, pos2id = shadoworder(tree, shadow, iter)
+    dosplice(tree, shadow, {30,2}, {30,5}, {1, 2})
+    lib.marktree_check(tree)
+    id2pos, pos2id = shadoworder(tree, shadow, iter)
+
+    dosplice(tree, shadow, {5,3}, {0,2}, {0, 5})
+    id2pos, pos2id = shadoworder(tree, shadow, iter)
+    lib.marktree_check(tree)
 
 
     if true then
