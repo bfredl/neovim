@@ -108,10 +108,11 @@ describe('marktree', function()
 
     for i = 1,100 do
       for j = 1,100 do
-        id = tonumber(lib.marktree_put(tree, j, i, true))
+        local gravitate = (i%2) > 0
+        id = tonumber(lib.marktree_put(tree, j, i, gravitate))
         ok(id > 0)
         eq(nil, shadow[id])
-        shadow[id] = {j,i,true}
+        shadow[id] = {j,i,gravitate}
       end
       -- checking every insert is too slow, but this is ok
       --lib.marktree_check(tree)
