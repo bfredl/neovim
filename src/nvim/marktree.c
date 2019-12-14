@@ -925,12 +925,13 @@ void marktree_check(MarkTree *b)
   }
 
   mtpos_t dummy;
-  size_t nkeys = check_node(b, b->root, &dummy);
+  bool last_right = false;
+  size_t nkeys = check_node(b, b->root, &dummy, &last_right);
   assert(b->n_keys == nkeys);
   assert(b->n_keys == map_size(b->id2node));
 }
 
-size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
+size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last, bool *last_right)
 {
   assert(x->n <= 2*T-1);
   //TODO: too strict if checking "in repair" post-delete tree.
@@ -941,7 +942,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
   for (int i = 0; i < x->n; i++) {
     // fprintf(stderr, "iiiii %d %d %d %d\n", i, x->level, x->key[i].pos.row, x->key[i].pos.col);
     if (x->level) {
-      n_keys += check_node(b, x->ptr[i], last);
+      n_keys += check_node(b, x->ptr[i], last, last_right);
     } else {
       *last = (mtpos_t) { 0, 0 };
     }
@@ -953,12 +954,16 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last)
     }
     // fprintf(stderr, "jjj %d %d\n", last->row, last->col);
     assert(pos_leq(*last, x->key[i].pos));
+    if (last->row == x->key[i].pos.row && last->col == x->key[i].pos.col) {
+      assert(!*last_right || IS_RIGHT(x->key[i].id));
+    }
+    *last_right = IS_RIGHT(x->key[i].id);
     assert(x->key[i].pos.col >= 0);
     assert(pmap_get(uint64_t)(b->id2node, ANTIGRAVITY(x->key[i].id)) == x);
   }
 
   if (x->level) {
-    n_keys += check_node(b, x->ptr[x->n], last);
+    n_keys += check_node(b, x->ptr[x->n], last, last_right);
     unrelative(x->key[x->n-1].pos, last);
 
     for (int i = 0; i < x->n+1; i++) {
