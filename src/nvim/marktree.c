@@ -506,6 +506,9 @@ bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, 
   itr->pos = (mtpos_t){ 0, 0 };
   itr->node = b->root;
   itr->lvl = 0;
+  if (oldbase) {
+    oldbase[itr->lvl] = itr->pos;
+  }
   while (true) {
     itr->i = marktree_getp_aux(itr->node, k, 0)+1;
 
@@ -515,9 +518,6 @@ bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, 
 
     itr->s[itr->lvl].i = itr->i;
     itr->s[itr->lvl].oldcol = itr->pos.col;
-    if (oldbase) {
-      oldbase[itr->lvl] = itr->pos;
-    }
 
     if (itr->i > 0) {
       compose(&itr->pos, itr->node->key[itr->i-1].pos);
@@ -525,6 +525,9 @@ bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, 
     }
     itr->node = itr->node->ptr[itr->i];
     itr->lvl++;
+    if (oldbase) {
+      oldbase[itr->lvl] = itr->pos;
+    }
   }
 
   if (last) {
@@ -735,7 +738,6 @@ void marktree_splice(MarkTree *b, mtpos_t start,
   }
 
   bool past_right = false;
-  int changed_level = MT_MAX_DEPTH;
 
   // Follow the general strategy of messing things up and fix them later
   // "invdelta" carries the debt of having pre-adjusted the parent
@@ -775,7 +777,6 @@ continue_same_node:
 
       if (itr->node->level) {
         oldbase[itr->lvl+1] = rawkey(itr).pos;
-        changed_level = itr->lvl+1;
         unrelative(oldbase[itr->lvl], &oldbase[itr->lvl+1]);
         rawkey(itr).pos = loc_start;
         marktree_itr_next_skip(b, itr, false, oldbase);
@@ -796,7 +797,6 @@ continue_same_node:
       relative(itr->pos, &loc_new);
       mtpos_t limit = old_extent;
 
-        changed_level = itr->lvl+1;
       relative(oldbase[itr->lvl], &limit);
       fprintf(stderr, " LIMES %d %d\n", limit.row, limit.col);
 
@@ -813,7 +813,6 @@ past_continue_same_node:
         oldbase[itr->lvl+1] = oldpos;
         unrelative(oldbase[itr->lvl], &oldbase[itr->lvl+1]);
 
-        changed_level = itr->lvl+1;
         marktree_itr_next_skip(b, itr, false, oldbase);
       } else {
         if (itr->i < itr->node->n-1) {
