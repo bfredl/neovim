@@ -170,10 +170,10 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
   }
 }
 
-uint64_t marktree_put(MarkTree *b, mtpos_t pos, bool right_gravity)
+uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
 {
   uint64_t id = ++b->next_id;
-  mtkey_t k = { .pos = pos, .id = id };
+  mtkey_t k = { .pos = { .row = row, .col = col }, .id = id };
   if (right_gravity) {
     // order all right gravity keys after the left ones, for effortless
     // insertion (but not deletion!)
@@ -470,9 +470,10 @@ static void pivot_left(MarkTree *b, mtnode_t *p, int i)
 // itr functions
 
 // TODO: static inline
-bool marktree_itr_get(MarkTree *b, mtpos_t p, MarkTreeIter *itr)
+bool marktree_itr_get(MarkTree *b, int row, int col, MarkTreeIter *itr)
 {
-  return marktree_itr_get_ext(b, p, itr, false, false, NULL);
+  return marktree_itr_get_ext(b, (mtpos_t){ row, col },
+                              itr, false, false, NULL);
 }
 
 // gives the first key that is greater or equal to p
@@ -576,7 +577,7 @@ bool marktree_itr_next(MarkTree *b, MarkTreeIter *itr)
   return marktree_itr_next_skip(b, itr, false, NULL);
 }
 
-bool marktree_itr_next_skip(MarkTree *b, MarkTreeIter *itr, bool skip,
+static bool marktree_itr_next_skip(MarkTree *b, MarkTreeIter *itr, bool skip,
                             mtpos_t invdelta[])
 {
   if (!itr->node) {
@@ -669,17 +670,25 @@ bool marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
 
 #define rawkey(itr) (itr->node->key[itr->i])
 
+mtpos_t marktree_itr_pos(MarkTreeIter *itr)
+{
+  mtpos_t pos = rawkey(itr).pos;
+  unrelative(itr->pos, &pos);
+  return pos;
+}
+
 mtmark_t marktree_itr_test(MarkTreeIter *itr)
 {
   if (itr->node) {
-    mtkey_t key = rawkey(itr);
-    mtmark_t mark = { .pos = key.pos,
-                       .id = ANTIGRAVITY(key.id),
-                       .right_gravity = key.id & RIGHT_GRAVITY };
-    unrelative(itr->pos, &mark.pos);
+    uint64_t keyid = rawkey(itr).id;
+    mtpos_t pos = marktree_itr_pos(itr);
+    mtmark_t mark = { .row = pos.row,
+                      .col = pos.col,
+                       .id = ANTIGRAVITY(keyid),
+                       .right_gravity = keyid & RIGHT_GRAVITY };
     return mark;
   }
-  return (mtmark_t){ { -1, -1 }, 0, false };
+  return (mtmark_t){ -1, -1, 0, false };
 }
 
 static void swap_id(uint64_t *id1, uint64_t *id2)
@@ -689,9 +698,15 @@ static void swap_id(uint64_t *id1, uint64_t *id2)
   *id2 = temp;
 }
 
-void marktree_splice(MarkTree *b, mtpos_t start,
-                     mtpos_t old_extent, mtpos_t new_extent)
+void marktree_splice(MarkTree *b,
+                     int start_line, int start_col,
+                     int old_extent_line, int old_extent_col,
+                     int new_extent_line, int new_extent_col)
 {
+  mtpos_t start = { start_line, start_col };
+  mtpos_t old_extent = { (int)old_extent_line, old_extent_col };
+  mtpos_t new_extent = { (int)new_extent_line, new_extent_col };
+
   bool may_delete = (old_extent.row != 0 || old_extent.col != 0);
   bool same_line = old_extent.row == 0 && new_extent.row == 0;
   unrelative(start, &old_extent);
@@ -709,7 +724,7 @@ void marktree_splice(MarkTree *b, mtpos_t start,
                     new_extent.col-old_extent.col };
 
   if (may_delete) {
-    if (pos_leq(marktree_itr_test(itr).pos, old_extent)) {
+    if (pos_leq(marktree_itr_pos(itr), old_extent)) {
       // TODO: just before old_extent.right_gravity
       // TODO: itr_get_before directly
       marktree_itr_get_ext(b, old_extent, enditr, true, true, NULL);

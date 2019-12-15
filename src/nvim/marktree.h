@@ -14,11 +14,11 @@ typedef struct {
 } mtpos_t;
 
 typedef struct {
-  mtpos_t pos;
+  int32_t row;
+  int32_t col;
   uint64_t id;
   bool right_gravity;
 } mtmark_t;
-
 
 typedef struct mtnode_s mtnode_t;
 typedef struct {
