@@ -1065,9 +1065,9 @@ void extmark_splice_range(buf_T *buf,
 {
   buf_updates_send_splice(buf, start_line, start_col, oldextent_line, oldextent_col, newextent_line, newextent_col);
   marktree_splice(buf->b_marktree,
-                  (mtpos_t) { (int)start_line, start_col },
-                  (mtpos_t) { (int)oldextent_line, oldextent_col },
-                  (mtpos_t) { (int)newextent_line, newextent_col });
+                  (int)start_line, start_col,
+                  (int)oldextent_line, oldextent_col,
+                  (int)newextent_line, newextent_col);
 }
 
 /// Range points to copy

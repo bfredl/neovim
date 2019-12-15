@@ -33,11 +33,11 @@ local function shadoworder(tree, shadow, iter, giveorder)
     local mark = lib.marktree_itr_test(iter)
     local id = tonumber(mark.id)
     local spos = shadow[id]
-    if (mark.pos.row ~= spos[1] or mark.pos.col ~= spos[2]) then
-      error("invalid pos for "..id..":("..mark.pos.row..", "..mark.pos.col..") instead of ("..spos[1]..", "..spos[2]..")")
+    if (mark.row ~= spos[1] or mark.col ~= spos[2]) then
+      error("invalid pos for "..id..":("..mark.row..", "..mark.col..") instead of ("..spos[1]..", "..spos[2]..")")
     end
     if mark.right_gravity ~= spos[3] then
-        error("invalid gravity for "..id..":("..mark.pos.row..", "..mark.pos.col..")")
+        error("invalid gravity for "..id..":("..mark.row..", "..mark.col..")")
     end
     if count > 0 then
       if not pos_leq(last, spos) then
@@ -84,19 +84,8 @@ local function shadowsplice(shadow, start, old_extent, new_extent)
       io.stdout:flush()
 end
 
-local function mtpos(row,col)
-  local setpos = ffi.new("mtpos_t")
-  setpos.row = row
-  setpos.col = col
-  return setpos
-end
-
-local function mtpos2(pos)
-  return mtpos(unpack(pos))
-end
-
 local function dosplice(tree, shadow, start, old_extent, new_extent)
-  lib.marktree_splice(tree, mtpos2(start), mtpos2(old_extent), mtpos2(new_extent))
+  lib.marktree_splice(tree, start[1], start[2], old_extent[1], old_extent[2], new_extent[1], new_extent[2])
   shadowsplice(shadow, start, old_extent, new_extent)
 end
 
@@ -109,7 +98,7 @@ describe('marktree', function()
     for i = 1,100 do
       for j = 1,100 do
         local gravitate = (i%2) > 0
-        id = tonumber(lib.marktree_put(tree, mtpos(j, i), gravitate))
+        id = tonumber(lib.marktree_put(tree, j, i, gravitate))
         ok(id > 0)
         eq(nil, shadow[id])
         shadow[id] = {j,i,gravitate}
@@ -131,19 +120,19 @@ describe('marktree', function()
       eq(ipos[1], pos.row)
       eq(ipos[2], pos.col)
       local k = lib.marktree_itr_test(iter)
-      eq(ipos[1], k.pos.row)
-      eq(ipos[2], k.pos.col, ipos[1])
+      eq(ipos[1], k.row)
+      eq(ipos[2], k.col, ipos[1])
       lib.marktree_itr_next(tree, iter)
       local k2 = lib.marktree_itr_test(iter)
       -- TODO: use id2pos to chechk neighbour
     end
 
     for i,ipos in pairs(shadow) do
-      lib.marktree_itr_get(tree, mtpos(unpack(ipos)), iter)
+      lib.marktree_itr_get(tree, ipos[1], ipos[2], iter)
       local k = lib.marktree_itr_test(iter)
       eq(i, tonumber(k.id))
-      eq(ipos[1], k.pos.row)
-      eq(ipos[2], k.pos.col)
+      eq(ipos[1], k.row)
+      eq(ipos[2], k.col)
     end
 
     local status = lib.marktree_itr_first(tree, iter)
@@ -157,11 +146,11 @@ describe('marktree', function()
     for _, ci in ipairs({0,-1,1,-2,2,-10,10}) do
       for i = 1,100 do
         -- TODO: kolla lookup!
-        lib.marktree_itr_get(tree, mtpos(i,50+ci), iter)
+        lib.marktree_itr_get(tree, i, 50+ci, iter)
         local k = lib.marktree_itr_test(iter)
         local id = tonumber(k.id)
-        eq(shadow[id][1], k.pos.row)
-        eq(shadow[id][2], k.pos.col)
+        eq(shadow[id][1], k.row)
+        eq(shadow[id][2], k.col)
         lib.marktree_del_itr(tree, iter, false)
         --lib.marktree_check(tree)
         shadow[id] = nil
