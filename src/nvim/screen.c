@@ -2251,14 +2251,8 @@ win_line (
     }
 
     if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
-      // TODO
-      //if (kv_size(bufhl_info.line->items)) {
-        has_bufhl = true;
-        extra_check = true;
-      //}
-      //if (kv_size(bufhl_info.line->virt_text)) {
-       // do_virttext = true;
-      //}
+      has_bufhl = true;
+      extra_check = true;
     }
 
     // Check for columns to display for 'colorcolumn'.
@@ -3908,6 +3902,15 @@ win_line (
       if (draw_color_col)
         draw_color_col = advance_color_col(VCOL_HLC, &color_cols);
 
+      VirtText virt_text = KV_INITIAL_VALUE;
+      if (has_bufhl) {
+        VirtText *vp = bufhl_get_virttext(wp->w_buffer, &bufhl_info);
+        if (vp) {
+          virt_text = *vp;
+          do_virttext = true;
+        }
+      }
+
       if (((wp->w_p_cuc
             && (int)wp->w_virtcol >= VCOL_HLC - eol_hl_off
             && (int)wp->w_virtcol <
@@ -3918,8 +3921,6 @@ win_line (
         int rightmost_vcol = 0;
         int i;
 
-        VirtText virt_text = do_virttext ? bufhl_info.line->virt_text
-                                        : (VirtText)KV_INITIAL_VALUE;
         size_t virt_pos = 0;
         LineState s = LINE_STATE((char_u *)"");
         int virt_attr = 0;
