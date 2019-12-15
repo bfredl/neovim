@@ -2316,13 +2316,14 @@ win_line (
     }
 
     if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
-      if (kv_size(bufhl_info.line->items)) {
+      // TODO
+      //if (kv_size(bufhl_info.line->items)) {
         has_bufhl = true;
         extra_check = true;
-      }
-      if (kv_size(bufhl_info.line->virt_text)) {
-        do_virttext = true;
-      }
+      //}
+      //if (kv_size(bufhl_info.line->virt_text)) {
+       // do_virttext = true;
+      //}
     }
 
     // Check for columns to display for 'colorcolumn'.
@@ -3516,7 +3517,7 @@ win_line (
         }
 
         if (has_bufhl && v > 0) {
-          int bufhl_attr = bufhl_get_attr(&bufhl_info, (colnr_T)v);
+          int bufhl_attr = bufhl_get_attr(wp->w_buffer, &bufhl_info, (colnr_T)v-1);
           if (bufhl_attr != 0) {
             if (!attr_pri) {
               char_attr = hl_combine_attr(char_attr, bufhl_attr);

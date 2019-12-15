@@ -33,6 +33,7 @@
 #include "nvim/vim.h"
 #include "charset.h"
 #include "nvim/mark_extended.h"
+#include "nvim/buffer_updates.h"
 #include "nvim/memline.h"
 #include "nvim/pos.h"
 #include "nvim/globals.h"
@@ -910,9 +911,6 @@ void extmark_col_adjust(buf_T *buf, linenr_T lnum,
   bool marks_moved =  extmark_col_adjust_impl(buf, lnum, mincol, lnum_amount,
                                               false, col_amount);
 
-  marks_moved |= bufhl_mark_col_adjust(buf, lnum, mincol,
-                                       lnum_amount, col_amount);
-
   if (undo == kExtmarkUndo && marks_moved) {
     u_extmark_col_adjust(buf, lnum, mincol, lnum_amount, col_amount);
   }
@@ -952,7 +950,6 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   marks_moved = extmark_col_adjust_impl(buf, lnum, mincol, 0,
                                         true, (long)endcol);
 
-  marks_moved |= bufhl_mark_col_adjust(buf, lnum, endcol, 0, mincol-(endcol+1));
   // Deletes at the end of the line have different behaviour than the normal
   // case when deleted.
   // Cleanup any marks that are floating beyond the end of line.
@@ -1067,6 +1064,10 @@ void extmark_splice_range(buf_T *buf,
                           linenr_T newextent_line, colnr_T newextent_col)
 {
   buf_updates_send_splice(buf, start_line, start_col, oldextent_line, oldextent_col, newextent_line, newextent_col);
+  marktree_splice(buf->b_marktree,
+                  (mtpos_t) { (int)start_line, start_col },
+                  (mtpos_t) { (int)oldextent_line, oldextent_col },
+                  (mtpos_t) { (int)newextent_line, newextent_col });
 }
 
 /// Range points to copy

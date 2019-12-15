@@ -5343,6 +5343,7 @@ int buf_signcols(buf_T *buf)
 }
 
 // bufhl: plugin highlights associated with a buffer
+// TODO: this should be in extendend_marks.c
 
 /// Get reference to line in kbtree_t
 ///
@@ -5405,18 +5406,28 @@ int bufhl_add_hl(buf_T *buf,
       // no highlight group or invalid line, just return src_id
       return src_id;
   }
+  if (!(0 < lnum && lnum <= buf->b_ml.ml_line_count)) {
+    // safety check, we can't add marks outside the range
+    return src_id;
+  }
 
-  BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, true);
-
-  BufhlItem *hlentry = kv_pushp(lineinfo->items);
+  BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
+  size_t idx = kv_size(buf->b_bufhl_items);
   hlentry->src_id = src_id;
   hlentry->hl_id = hl_id;
-  hlentry->start = col_start;
-  hlentry->stop = col_end;
-
-  if (0 < lnum && lnum <= buf->b_ml.ml_line_count) {
-    redraw_buf_line_later(buf, lnum);
+  hlentry->start = marktree_put(buf->b_marktree,
+                                (mtpos_t) { (int)lnum-1, col_start }, true);
+  mtpos_t endpos = ((col_end == MAXCOL)
+                    ? (mtpos_t) { (int)lnum, 0 }
+                    : (mtpos_t){ (int)lnum-1, col_end });
+  hlentry->stop = marktree_put(buf->b_marktree, endpos, false);
+  if (!buf->b_mark2item) {
+    buf->b_mark2item = map_new(uint64_t, size_t)();
   }
+  map_put(uint64_t, size_t)(buf->b_mark2item, hlentry->start, idx);
+  map_put(uint64_t, size_t)(buf->b_mark2item, hlentry->stop, idx);
+
+  redraw_buf_line_later(buf, lnum);
   return src_id;
 }
 
@@ -5442,16 +5453,16 @@ void bufhl_add_hl_pos_offset(buf_T *buf,
 
   for (linenr_T lnum = pos_start.lnum; lnum <= pos_end.lnum; lnum ++) {
     if (pos_start.lnum < lnum && lnum < pos_end.lnum) {
-      hl_start = offset;
+      hl_start = offset-1;
       hl_end = MAXCOL;
     } else if (lnum == pos_start.lnum && lnum < pos_end.lnum) {
-      hl_start = pos_start.col + offset + 1;
+      hl_start = pos_start.col + offset;
       hl_end = MAXCOL;
     } else if (pos_start.lnum < lnum && lnum == pos_end.lnum) {
-      hl_start = offset;
+      hl_start = offset-1;
       hl_end = pos_end.col + offset;
     } else if (pos_start.lnum == lnum && pos_end.lnum == lnum) {
-      hl_start = pos_start.col + offset + 1;
+      hl_start = pos_start.col + offset;
       hl_end = pos_end.col + offset;
     }
     (void)bufhl_add_hl(buf, src_id, hl_id, lnum, hl_start, hl_end);
@@ -5634,86 +5645,6 @@ void bufhl_mark_adjust(buf_T* buf,
   }
 }
 
-/// Adjust a placed highlight for column changes and joined/broken lines
-bool bufhl_mark_col_adjust(buf_T *buf,
-                           linenr_T lnum,
-                           colnr_T mincol,
-                           long lnum_amount,
-                           long col_amount)
-{
-  bool moved = false;
-  BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, false);
-  if (!lineinfo) {
-    // Old line empty, nothing to do
-    return false;
-  }
-  // Create the new line below only if needed
-  BufhlLine *lineinfo2 = NULL;
-
-  colnr_T delcol = MAXCOL;
-  if (lnum_amount == 0 && col_amount < 0) {
-    delcol = mincol+(int)col_amount;
-  }
-
-  size_t newidx = 0;
-  for (size_t i = 0; i < kv_size(lineinfo->items); i++) {
-    BufhlItem *item = &kv_A(lineinfo->items, i);
-    bool delete = false;
-    if (item->start >= mincol) {
-      moved = true;
-      item->start += (int)col_amount;
-      if (item->stop < MAXCOL) {
-        item->stop += (int)col_amount;
-      }
-      if (lnum_amount != 0) {
-        if (lineinfo2 == NULL) {
-          lineinfo2 = bufhl_tree_ref(&buf->b_bufhl_info,
-                                     lnum+lnum_amount, true);
-        }
-        kv_push(lineinfo2->items, *item);
-        delete = true;
-      }
-    } else {
-      if (item->start >= delcol) {
-        moved = true;
-        item->start = delcol;
-      }
-      if (item->stop == MAXCOL || item->stop+1 >= mincol) {
-        if (item->stop == MAXCOL) {
-          if (delcol < MAXCOL
-              && delcol > (colnr_T)STRLEN(ml_get_buf(buf, lnum, false))) {
-            delete = true;
-          }
-        } else {
-          moved = true;
-          item->stop += (int)col_amount;
-        }
-        assert(lnum_amount >= 0);
-        if (lnum_amount > 0) {
-          item->stop = MAXCOL;
-        }
-      } else if (item->stop+1 >= delcol) {
-        moved = true;
-        item->stop = delcol-1;
-      }
-      // we covered the entire range with a visual delete or something
-      if (item->stop < item->start) {
-        delete = true;
-      }
-    }
-
-    if (!delete) {
-      if (i != newidx) {
-        kv_A(lineinfo->items, newidx) = kv_A(lineinfo->items, i);
-      }
-      newidx++;
-    }
-  }
-  kv_size(lineinfo->items) = newidx;
-
-  return moved;
-}
-
 
 /// Get highlights to display at a specific line
 ///
@@ -5724,11 +5655,16 @@ bool bufhl_mark_col_adjust(buf_T *buf,
 bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
 {
   BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, false);
-  if (!lineinfo) {
-    return false;
-  }
   info->valid_to = -1;
   info->line = lineinfo;
+  info->row = lnum-1;
+  memset(&info->active, 0, sizeof(info->active));  // TODO: IKKE
+  marktree_itr_get(buf->b_marktree, (mtpos_t) { (int)lnum-1, 0 }, info->itr);
+  mtmark_t mark = marktree_itr_test(info->itr);
+  if (mark.pos.row != lnum-1) {
+    return false;
+  }
+  // if marktree_itr_test().pos > lnum then return false
   return true;
 }
 
@@ -5742,24 +5678,48 @@ bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
 /// @param info The info returned by bufhl_start_line
 /// @param col The column to get the attr for
 /// @return The highilight attr to display at the column
-int bufhl_get_attr(BufhlLineInfo *info, colnr_T col)
+int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
 {
   if (col <= info->valid_to) {
     return info->current;
   }
   int attr = 0;
   info->valid_to = MAXCOL;
-  for (size_t i = 0; i < kv_size(info->line->items); i++) {
-    BufhlItem entry = kv_A(info->line->items, i);
-    if (entry.start <= col && col <= entry.stop) {
-      int entry_attr = syn_id2attr(entry.hl_id);
-      attr = hl_combine_attr(attr, entry_attr);
-      if (entry.stop < info->valid_to) {
-        info->valid_to = entry.stop;
-      }
-    } else if (col < entry.start && entry.start-1 < info->valid_to) {
-      info->valid_to = entry.start-1;
+  do {
+    mtmark_t mark = marktree_itr_test(info->itr);
+    if (mark.pos.row > info->row) {
+      break;
+    } else if (mark.pos.col > col) {
+      info->valid_to = mark.pos.col-1;
+      break;
     }
+    //TODO: skip over non-visual marks without map lookup
+    size_t item_idx = map_get(uint64_t, size_t)(buf->b_mark2item, mark.id);
+    if (!item_idx) {
+      continue;
+    }
+    BufhlItem item = kv_A(buf->b_bufhl_items, --item_idx);
+    // TODO: do prioritazion sorting?
+    if (item.start == mark.id) {
+      kv_push(info->active, item_idx);
+    } else {
+      size_t newidx = 0;
+      for (size_t i = 0; i < kv_size(info->active); i++) {
+        if (kv_A(info->active, i) == item_idx) {
+          // delete it
+        } else {
+          kv_A(info->active, newidx++) = kv_A(info->active, i);
+        }
+      }
+      kv_size(info->active) = newidx;
+    }
+    // or should itr_next skip non-visual marks??
+  } while (marktree_itr_next(buf->b_marktree, info->itr));
+
+  for (size_t i = 0; i < kv_size(info->active); i++) {
+    BufhlItem entry = kv_A(buf->b_bufhl_items, kv_A(info->active, i));
+    int entry_attr = syn_id2attr(entry.hl_id);
+    attr = hl_combine_attr(attr, entry_attr);
   }
   info->current = attr;
   return attr;

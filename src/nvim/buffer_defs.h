@@ -42,6 +42,8 @@ typedef struct {
 #include "nvim/map.h"
 // for kvec
 #include "nvim/lib/kvec.h"
+// for marktree
+#include "nvim/marktree.h"
 
 #define GETFILE_SUCCESS(x)    ((x) <= 0)
 #define MODIFIABLE(buf) (buf->b_p_ma)
@@ -808,6 +810,10 @@ struct file_buffer {
   int b_mapped_ctrl_c;          // modes where CTRL-C is mapped
 
   BufhlInfo b_bufhl_info;       // buffer stored highlights
+
+  kvec_t(BufhlItem) b_bufhl_items;
+  MarkTree b_marktree[1];
+  Map(uint64_t, size_t) *b_mark2item;
 
   kvec_t(BufhlLine *) b_bufhl_move_space;  // temporary space for highlights
 
