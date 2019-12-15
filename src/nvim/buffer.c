@@ -5415,12 +5415,13 @@ int bufhl_add_hl(buf_T *buf,
   size_t idx = kv_size(buf->b_bufhl_items);
   hlentry->src_id = src_id;
   hlentry->hl_id = hl_id;
-  hlentry->start = marktree_put(buf->b_marktree,
-                                (mtpos_t) { (int)lnum-1, col_start }, true);
-  mtpos_t endpos = ((col_end == MAXCOL)
-                    ? (mtpos_t) { (int)lnum, 0 }
-                    : (mtpos_t){ (int)lnum-1, col_end });
-  hlentry->stop = marktree_put(buf->b_marktree, endpos, false);
+  hlentry->start = marktree_put(buf->b_marktree, (int)lnum-1, col_start, true);
+  linenr_T end_line = lnum;
+  if (col_end == MAXCOL) {
+    col_end = 0;
+    end_line++;
+  }
+  hlentry->stop = marktree_put(buf->b_marktree, (int)end_line-1, col_end, false);
   memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
   if (!buf->b_mark2item) {
     buf->b_mark2item = map_new(uint64_t, size_t)();
@@ -5483,8 +5484,7 @@ int bufhl_add_virt_text(buf_T *buf,
   size_t idx = kv_size(buf->b_bufhl_items);
   hlentry->src_id = src_id;
   hlentry->hl_id = 0;
-  hlentry->start = marktree_put(buf->b_marktree,
-                                (mtpos_t) { (int)lnum-1, 0 }, true);
+  hlentry->start = marktree_put(buf->b_marktree, (int)lnum-1, 0, true);
   hlentry->stop = 0;
   memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
   if (!buf->b_mark2item) {
@@ -5623,9 +5623,9 @@ bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
   info->row = (int)lnum-1;
   info->virt_text = NULL;
   memset(&info->active, 0, sizeof(info->active));  // TODO: IKKE
-  marktree_itr_get(buf->b_marktree, (mtpos_t) { (int)lnum-1, 0 }, info->itr);
+  marktree_itr_get(buf->b_marktree, (int)lnum-1, 0, info->itr);
   mtmark_t mark = marktree_itr_test(info->itr);
-  if (mark.pos.row != lnum-1) {
+  if (mark.row != lnum-1) {
     return false;
   }
   // if marktree_itr_test().pos > lnum then return false
@@ -5651,10 +5651,10 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
   info->valid_to = MAXCOL;
   do {
     mtmark_t mark = marktree_itr_test(info->itr);
-    if (mark.pos.row > info->row) {
+    if (mark.row > info->row) {
       break;
-    } else if (mark.pos.col > col) {
-      info->valid_to = mark.pos.col-1;
+    } else if (mark.col > col) {
+      info->valid_to = mark.col-1;
       break;
     }
     //TODO: skip over non-visual marks without map lookup
@@ -5696,7 +5696,7 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
 VirtText *bufhl_get_virttext(buf_T *buf, BufhlLineInfo *info) {
   while (info->virt_text == NULL) {
     mtmark_t mark = marktree_itr_test(info->itr);
-    if (mark.pos.row > info->row) {
+    if (mark.row > info->row) {
       break;
     }
     size_t item_idx = map_get(uint64_t, size_t)(buf->b_mark2item, mark.id);
