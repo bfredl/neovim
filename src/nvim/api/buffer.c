@@ -1584,6 +1584,8 @@ Array nvim_buf_get_virtual_text(Buffer buffer, Integer lnum, Error *err)
   FUNC_API_SINCE(7)
 {
   Array chunks = ARRAY_DICT_INIT;
+  // TODO :)
+  /*
 
   buf_T *buf = find_buffer_by_handle(buffer, err);
   if (!buf) {
@@ -1611,6 +1613,7 @@ Array nvim_buf_get_virtual_text(Buffer buffer, Integer lnum, Error *err)
     }
     ADD(chunks, ARRAY_OBJ(chunk));
   }
+  */
 
   return chunks;
 }

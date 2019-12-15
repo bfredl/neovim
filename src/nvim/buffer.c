@@ -5345,30 +5345,6 @@ int buf_signcols(buf_T *buf)
 // bufhl: plugin highlights associated with a buffer
 // TODO: this should be in extendend_marks.c
 
-/// Get reference to line in kbtree_t
-///
-/// @param b the three
-/// @param line the linenumber to lookup
-/// @param put if true, put a new line when not found
-///            if false, return NULL when not found
-BufhlLine *bufhl_tree_ref(BufhlInfo *b, linenr_T line, bool put)
-{
-  BufhlLine t = BUFHLLINE_INIT(line);
-
-  // kp_put() only works if key is absent, try get first
-  BufhlLine **pp = kb_get(bufhl, b, &t);
-  if (pp) {
-    return *pp;
-  } else if (!put) {
-    return NULL;
-  }
-
-  BufhlLine *p = xmalloc(sizeof(*p));
-  *p = (BufhlLine)BUFHLLINE_INIT(line);
-  kb_put(bufhl, b, p);
-  return p;
-}
-
 /// Adds a highlight to buffer.
 ///
 /// Unlike matchaddpos() highlights follow changes to line numbering (as lines
@@ -5524,77 +5500,77 @@ static void bufhl_clear_virttext(VirtText *text)
 /// @param src_id highlight source group to clear, or -1 to clear all groups.
 /// @param line_start first line to clear
 /// @param line_end last line to clear or MAXLNUM to clear to end of file.
+void bufhl_clear_range(buf_T *buf,
+                            int src_id,
+                            int line_start, int col_start,
+                            int line_end, int col_end)
+{
+  MarkTreeIter itr[1];
+  if (!marktree_itr_get(buf->b_marktree, (int)line_start, col_start, itr)) {
+    return;
+  }
+  PMap(uint64_t) *delete_set = pmap_new(uint64_t)();
+  while (true) {
+    mtmark_t mark = marktree_itr_test(itr);
+    if (mark.row > line_end || (mark.row == line_end && mark.col > col_end)) {
+      break;
+    }
+
+    size_t item_idx = map_get(uint64_t, size_t)(buf->b_mark2item, mark.id);
+    if (!item_idx) {
+      goto next_mark;
+    } else if (item_idx == SIZE_MAX) {
+      map_del(uint64_t, size_t)(buf->b_mark2item, mark.id);
+      marktree_del_itr(buf->b_marktree, itr, false);
+      pmap_del(uint64_t)(delete_set, mark.id);
+      continue;
+    }
+    BufhlItem *item = &kv_A(buf->b_bufhl_items, --item_idx);
+
+    if (src_id < 0 || src_id == item->src_id) {
+      bufhl_clear_virttext(&item->virt_text);
+      assert(item->start == mark.id ^ item->stop == mark.id);
+      if (item->start == !mark.id) {
+        pmap_put(uint64_t)(delete_set, item->start, NULL);
+        map_put(uint64_t, size_t)(buf->b_mark2item, item->start, MAXLNUM);
+      }
+      if (item->stop == !mark.id && item->stop != 0) {
+        pmap_put(uint64_t)(delete_set, item->stop, NULL);
+        map_put(uint64_t, size_t)(buf->b_mark2item, item->stop, MAXLNUM);
+      }
+      map_del(uint64_t, size_t)(buf->b_mark2item, mark.id);
+      redraw_buf_line_later(buf, mark.row+1);
+      // TODO: this is leaking b->b_bufhl_items like a firehose
+      // swap with kv_size(b->b_bufhl_items)-1 and reassign mark2item!
+    }
+
+next_mark:
+    if (!marktree_itr_next(buf->b_marktree, itr)) {
+      break;
+    }
+  }
+  uint64_t id;
+  void *dummy;
+  map_foreach(delete_set, id, dummy, {
+    marktree_lookup(buf->b_marktree, id, itr);
+    marktree_del_itr(buf->b_marktree, itr, false);
+    map_del(uint64_t, size_t)(buf->b_mark2item, id);
+  });
+  pmap_free(uint64_t)(delete_set);
+}
+
+/// Clear bufhl highlights from a given source group and range of lines.
+///
+/// @param buf The buffer to remove highlights from
+/// @param src_id highlight source group to clear, or -1 to clear all groups.
+/// @param line_start first line to clear
+/// @param line_end last line to clear or MAXLNUM to clear to end of file.
 void bufhl_clear_line_range(buf_T *buf,
                             int src_id,
                             linenr_T line_start,
                             linenr_T line_end)
 {
-  return ;
-  // TODO(bfredl): implement kb_itr_interval to jump directly to the first line
-  kbitr_t(bufhl) itr;
-  BufhlLine *l, t = BUFHLLINE_INIT(line_start);
-  if (!kb_itr_get(bufhl, &buf->b_bufhl_info, &t, &itr)) {
-    kb_itr_next(bufhl, &buf->b_bufhl_info, &itr);
-  }
-  for (; kb_itr_valid(&itr); kb_itr_next(bufhl, &buf->b_bufhl_info, &itr)) {
-    l = kb_itr_key(&itr);
-    linenr_T line = l->line;
-    if (line > line_end) {
-      break;
-    }
-    if (line_start <= line) {
-      BufhlLineStatus status = bufhl_clear_line(l, src_id, line);
-      if (status != kBLSUnchanged) {
-        redraw_buf_line_later(buf, line);
-      }
-      if (status == kBLSDeleted) {
-        kb_del_itr(bufhl, &buf->b_bufhl_info, &itr);
-        xfree(l);
-      }
-    }
-  }
-}
-
-/// Clear bufhl highlights from a given source group and given line
-///
-/// @param bufhl_info The highlight info for the buffer
-/// @param src_id Highlight source group to clear, or -1 to clear all groups.
-/// @param lnum Linenr where the highlight should be cleared
-static BufhlLineStatus bufhl_clear_line(BufhlLine *lineinfo, int src_id,
-                                        linenr_T lnum)
-{
-  BufhlLineStatus changed = kBLSUnchanged;
-  size_t oldsize = kv_size(lineinfo->items);
-  if (src_id < 0) {
-    kv_size(lineinfo->items) = 0;
-  } else {
-    size_t newidx = 0;
-    for (size_t i = 0; i < kv_size(lineinfo->items); i++) {
-      if (kv_A(lineinfo->items, i).src_id != src_id) {
-        if (i != newidx) {
-          kv_A(lineinfo->items, newidx) = kv_A(lineinfo->items, i);
-        }
-        newidx++;
-      }
-    }
-    kv_size(lineinfo->items) = newidx;
-  }
-  if (kv_size(lineinfo->items) != oldsize) {
-    changed = kBLSChanged;
-  }
-
-  if (kv_size(lineinfo->virt_text) != 0
-      && (src_id < 0 || src_id == lineinfo->virt_text_src)) {
-    bufhl_clear_virttext(&lineinfo->virt_text);
-    lineinfo->virt_text_src = 0;
-    changed = kBLSChanged;
-  }
-
-  if (kv_size(lineinfo->items) == 0 && kv_size(lineinfo->virt_text) == 0) {
-    kv_destroy(lineinfo->items);
-    return kBLSDeleted;
-  }
-  return changed;
+  bufhl_clear_range(buf, src_id, (int)line_start-1, 0, (int)line_end-1, MAXCOL);
 }
 
 
@@ -5602,10 +5578,11 @@ static BufhlLineStatus bufhl_clear_line(BufhlLine *lineinfo, int src_id,
 void bufhl_clear_all(buf_T *buf)
 {
   bufhl_clear_line_range(buf, -1, 1, MAXLNUM);
-  kb_destroy(bufhl, (&buf->b_bufhl_info));
-  kb_init(&buf->b_bufhl_info);
-  kv_destroy(buf->b_bufhl_move_space);
-  kv_init(buf->b_bufhl_move_space);
+  // TODO: the maps!
+  //kb_destroy(bufhl, (&buf->b_bufhl_info));
+  //kb_init(&buf->b_bufhl_info);
+  //kv_destroy(buf->b_bufhl_move_space);
+  //kv_init(buf->b_bufhl_move_space);
 }
 
 
@@ -5617,9 +5594,7 @@ void bufhl_clear_all(buf_T *buf)
 /// @return true if there was highlights to display
 bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
 {
-  BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, false);
   info->valid_to = -1;
-  info->line = lineinfo;
   info->row = (int)lnum-1;
   info->virt_text = NULL;
   memset(&info->active, 0, sizeof(info->active));  // TODO: IKKE
