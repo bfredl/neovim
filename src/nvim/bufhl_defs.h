@@ -9,18 +9,19 @@
 // bufhl: buffer specific highlighting
 
 typedef struct {
-  int src_id;
-  int hl_id;  // highlight group
-  uint64_t start;  // mark to start highlight
-  uint64_t stop;  // mark to end highlight
-} BufhlItem;
-
-typedef struct {
   char *text;
   int hl_id;
 } VirtTextChunk;
 
 typedef kvec_t(VirtTextChunk) VirtText;
+
+typedef struct {
+  int src_id;
+  int hl_id;  // highlight group
+  uint64_t start;  // mark to start highlight
+  uint64_t stop;  // mark to end highlight, can be zero if no highlight
+  VirtText virt_text;
+} BufhlItem;
 
 typedef struct {
   linenr_T line;
@@ -38,6 +39,7 @@ typedef struct {
   int row;
   // TODO: share the buffer?
   kvec_t(size_t) active;
+  VirtText *virt_text;
 } BufhlLineInfo;
 
 #define BUFHL_CMP(a, b) ((int)(((a)->line - (b)->line)))

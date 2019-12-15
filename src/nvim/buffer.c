@@ -5421,6 +5421,7 @@ int bufhl_add_hl(buf_T *buf,
                     ? (mtpos_t) { (int)lnum, 0 }
                     : (mtpos_t){ (int)lnum-1, col_end });
   hlentry->stop = marktree_put(buf->b_marktree, endpos, false);
+  memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
   if (!buf->b_mark2item) {
     buf->b_mark2item = map_new(uint64_t, size_t)();
   }
@@ -5478,18 +5479,29 @@ int bufhl_add_virt_text(buf_T *buf,
     src_id = (int)nvim_create_namespace((String)STRING_INIT);
   }
 
-  BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, true);
+  BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
+  size_t idx = kv_size(buf->b_bufhl_items);
+  hlentry->src_id = src_id;
+  hlentry->hl_id = 0;
+  hlentry->start = marktree_put(buf->b_marktree,
+                                (mtpos_t) { (int)lnum-1, 0 }, true);
+  hlentry->stop = 0;
+  memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
+  if (!buf->b_mark2item) {
+    buf->b_mark2item = map_new(uint64_t, size_t)();
+  }
+  map_put(uint64_t, size_t)(buf->b_mark2item, hlentry->start, idx);
 
-  bufhl_clear_virttext(&lineinfo->virt_text);
-  if (kv_size(virt_text) > 0) {
-    lineinfo->virt_text_src = src_id;
-    lineinfo->virt_text = virt_text;
-  } else {
-    lineinfo->virt_text_src = 0;
+
+  // TODO: as compat, hunt down and delete any existing virt text by this
+  // src id on this line
+  //if (kv_size(virt_text) > 0) {
+    hlentry->virt_text = virt_text;
+   //  lineinfo->virt_text_src = 0;
     // currently not needed, but allow a future caller with
     // 0 size and non-zero capacity
-    kv_destroy(virt_text);
-  }
+   // kv_destroy(virt_text);
+  //}
 
   if (0 < lnum && lnum <= buf->b_ml.ml_line_count) {
     redraw_buf_line_later(buf, lnum);
@@ -5517,6 +5529,7 @@ void bufhl_clear_line_range(buf_T *buf,
                             linenr_T line_start,
                             linenr_T line_end)
 {
+  return ;
   // TODO(bfredl): implement kb_itr_interval to jump directly to the first line
   kbitr_t(bufhl) itr;
   BufhlLine *l, t = BUFHLLINE_INIT(line_start);
@@ -5595,56 +5608,6 @@ void bufhl_clear_all(buf_T *buf)
   kv_init(buf->b_bufhl_move_space);
 }
 
-/// Adjust a placed highlight for inserted/deleted lines.
-void bufhl_mark_adjust(buf_T* buf,
-                       linenr_T line1,
-                       linenr_T line2,
-                       long amount,
-                       long amount_after,
-                       bool end_temp)
-{
-  kbitr_t(bufhl) itr;
-  BufhlLine *l, t = BUFHLLINE_INIT(line1);
-  if (end_temp && amount < 0) {
-    // Move all items from b_bufhl_move_space to the btree.
-    for (size_t i = 0; i < kv_size(buf->b_bufhl_move_space); i++) {
-      l = kv_A(buf->b_bufhl_move_space, i);
-      l->line += amount;
-      kb_put(bufhl, &buf->b_bufhl_info, l);
-    }
-    kv_size(buf->b_bufhl_move_space) = 0;
-    return;
-  }
-
-  if (!kb_itr_get(bufhl, &buf->b_bufhl_info, &t, &itr)) {
-    kb_itr_next(bufhl, &buf->b_bufhl_info, &itr);
-  }
-  for (; kb_itr_valid(&itr); kb_itr_next(bufhl, &buf->b_bufhl_info, &itr)) {
-    l = kb_itr_key(&itr);
-    if (l->line >= line1 && l->line <= line2) {
-      if (end_temp && amount > 0) {
-        kb_del_itr(bufhl, &buf->b_bufhl_info, &itr);
-        kv_push(buf->b_bufhl_move_space, l);
-      }
-      if (amount == MAXLNUM) {
-        if (bufhl_clear_line(l, -1, l->line) == kBLSDeleted) {
-          kb_del_itr(bufhl, &buf->b_bufhl_info, &itr);
-          xfree(l);
-        } else {
-          assert(false);
-        }
-      } else {
-        l->line += amount;
-      }
-    } else if (l->line > line2) {
-      if (amount_after == 0) {
-        break;
-      }
-      l->line += amount_after;
-    }
-  }
-}
-
 
 /// Get highlights to display at a specific line
 ///
@@ -5657,7 +5620,8 @@ bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
   BufhlLine *lineinfo = bufhl_tree_ref(&buf->b_bufhl_info, lnum, false);
   info->valid_to = -1;
   info->line = lineinfo;
-  info->row = lnum-1;
+  info->row = (int)lnum-1;
+  info->virt_text = NULL;
   memset(&info->active, 0, sizeof(info->active));  // TODO: IKKE
   marktree_itr_get(buf->b_marktree, (mtpos_t) { (int)lnum-1, 0 }, info->itr);
   mtmark_t mark = marktree_itr_test(info->itr);
@@ -5698,9 +5662,9 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
     if (!item_idx) {
       continue;
     }
-    BufhlItem item = kv_A(buf->b_bufhl_items, --item_idx);
+    BufhlItem *item = &kv_A(buf->b_bufhl_items, --item_idx);
     // TODO: do prioritazion sorting?
-    if (item.start == mark.id) {
+    if (item->start == mark.id && item->hl_id > 0) {
       kv_push(info->active, item_idx);
     } else {
       size_t newidx = 0;
@@ -5712,6 +5676,9 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
         }
       }
       kv_size(info->active) = newidx;
+    }
+    if (info->virt_text == NULL && kv_size(item->virt_text)) {
+      info->virt_text = &item->virt_text;
     }
     // or should itr_next skip non-visual marks??
   } while (marktree_itr_next(buf->b_marktree, info->itr));
@@ -5725,6 +5692,32 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
   return attr;
 }
 
+// TODO: bufhl_get_attr(MAXCOL)?
+VirtText *bufhl_get_virttext(buf_T *buf, BufhlLineInfo *info) {
+  while (info->virt_text == NULL) {
+    mtmark_t mark = marktree_itr_test(info->itr);
+    if (mark.pos.row > info->row) {
+      break;
+    }
+    size_t item_idx = map_get(uint64_t, size_t)(buf->b_mark2item, mark.id);
+    if (!item_idx) {
+      goto next_mark;
+    }
+    BufhlItem *item = &kv_A(buf->b_bufhl_items, --item_idx);
+
+    if (kv_size(item->virt_text)) {
+      info->virt_text = &item->virt_text;
+      break;
+    }
+
+next_mark:
+    if (!marktree_itr_next(buf->b_marktree, info->itr)) {
+      break;
+    }
+  }
+
+  return info->virt_text;
+}
 
 /*
  * Set 'buflisted' for curbuf to "on" and trigger autocommands if it changed.
