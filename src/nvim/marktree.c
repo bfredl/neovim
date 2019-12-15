@@ -1,3 +1,4 @@
+#include <assert.h>
 
 #include "nvim/marktree.h"
 #include "nvim/garray.h"
@@ -9,33 +10,6 @@
 #define RIGHT_GRAVITY (((uint64_t)1)<<63)
 #define ANTIGRAVITY(id) ((id)&(RIGHT_GRAVITY-1))
 #define IS_RIGHT(id) ((id)&RIGHT_GRAVITY)
-
-// NB: actual marks have id > 0, so we can use (row,col,0) pseudo-key for
-// "space before (row,col)"
-typedef struct {
-  mtpos_t pos;
-  uint64_t id;
-} mtkey_t;
-
-struct mtnode_s {
-  int32_t n;
-  int32_t level;
-  // TODO(bfredl): we could consider having a only-sometimes-valid
-  // index into parent for faster "chached" lookup.
-  mtnode_t *parent;
-  mtkey_t key[2 * T - 1];
-  mtnode_t *ptr[];
-};
-
-// TODO(bfredl): the iterator is pretty much everpresent, make it part of the
-// tree struct itself?
-struct mttree_s {
-  mtnode_t *root;
-  size_t n_keys, n_nodes;
-  uint64_t next_id;
-  // TODO(bfredl): the pointer to node could be part of a larger Map(uint64_t, MarkState);
-  PMap(uint64_t) *id2node;
-};
 
 static bool pos_leq(mtpos_t a, mtpos_t b)
 {
@@ -371,11 +345,20 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 
   // 6.
   if (b->root->n == 0) {
-    abort();
     // TODO: always the case right?
     if (itr->lvl > 0) {
       memmove(itr->s, itr->s+1, (size_t)itr->lvl * sizeof(*itr->s));
       itr->lvl--;
+    }
+    if (b->root->level) {
+      mtnode_t *oldroot = b->root;
+      b->root = b->root->ptr[0];
+      b->root->parent = NULL;
+      xfree(oldroot);
+    } else {
+      // no items, nothing for iterator to point to
+      // TODO: might not be needed, should handle delete right-most mark anyway
+      itr->node = NULL;
     }
   }
 
