@@ -991,7 +991,6 @@ static void mark_adjust_internal(linenr_T line1, linenr_T line2,
     }
 
     sign_mark_adjust(line1, line2, amount, amount_after);
-    bufhl_mark_adjust(curbuf, line1, line2, amount, amount_after, end_temp);
     if (op != kExtmarkNOOP) {
       extmark_adjust(curbuf, line1, line2, amount, amount_after, op, end_temp);
     }
