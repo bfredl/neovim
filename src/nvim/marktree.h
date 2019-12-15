@@ -19,9 +19,8 @@ typedef struct {
   bool right_gravity;
 } mtmark_t;
 
-typedef struct mttree_s MarkTree;
-typedef struct mtnode_s mtnode_t;
 
+typedef struct mtnode_s mtnode_t;
 typedef struct {
   int oldcol;
   int i;
@@ -34,6 +33,36 @@ typedef struct {
   int i;
   iterstate_t s[MT_MAX_DEPTH];
 } MarkTreeIter;
+
+
+// Internal storage
+//
+// NB: actual marks have id > 0, so we can use (row,col,0) pseudo-key for
+// "space before (row,col)"
+typedef struct {
+  mtpos_t pos;
+  uint64_t id;
+} mtkey_t;
+
+struct mtnode_s {
+  int32_t n;
+  int32_t level;
+  // TODO(bfredl): we could consider having a only-sometimes-valid
+  // index into parent for faster "chached" lookup.
+  mtnode_t *parent;
+  mtkey_t key[2 * MT_BRANCH_FACTOR - 1];
+  mtnode_t *ptr[];
+};
+
+// TODO(bfredl): the iterator is pretty much everpresent, make it part of the
+// tree struct itself?
+typedef struct {
+  mtnode_t *root;
+  size_t n_keys, n_nodes;
+  uint64_t next_id;
+  // TODO(bfredl): the pointer to node could be part of a larger Map(uint64_t, MarkState);
+  PMap(uint64_t) *id2node;
+} MarkTree;
 
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS

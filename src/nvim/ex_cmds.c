@@ -14,6 +14,7 @@
 #include <math.h>
 
 #include "nvim/api/private/defs.h"
+#include "nvim/api/vim.h"
 #include "nvim/api/buffer.h"
 #include "nvim/log.h"
 #include "nvim/vim.h"
@@ -4389,7 +4390,7 @@ skip:
     } else if (*p_icm != NUL &&  pat != NULL) {
       if (pre_src_id == 0) {
         // Get a unique new src_id, saved in a static
-        pre_src_id = bufhl_add_hl(NULL, 0, -1, 0, 0, 0);
+        pre_src_id = (int)nvim_create_namespace((String)STRING_INIT);
       }
       if (pre_hl_id == 0) {
         pre_hl_id = syn_check_group((char_u *)S_LEN("Substitute"));

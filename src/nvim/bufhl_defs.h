@@ -2,6 +2,7 @@
 #define NVIM_BUFHL_DEFS_H
 
 #include "nvim/pos.h"
+#include "nvim/marktree.h"
 #include "nvim/lib/kvec.h"
 #include "nvim/lib/kbtree.h"
 
@@ -10,8 +11,8 @@
 typedef struct {
   int src_id;
   int hl_id;  // highlight group
-  colnr_T start;  // first column to highlight
-  colnr_T stop;  // last column to highlight
+  uint64_t start;  // mark to start highlight
+  uint64_t stop;  // mark to end highlight
 } BufhlItem;
 
 typedef struct {
@@ -31,8 +32,12 @@ typedef struct {
 
 typedef struct {
   BufhlLine *line;
+  MarkTreeIter itr[1];
   int current;
   colnr_T valid_to;
+  int row;
+  // TODO: share the buffer?
+  kvec_t(size_t) active;
 } BufhlLineInfo;
 
 #define BUFHL_CMP(a, b) ((int)(((a)->line - (b)->line)))

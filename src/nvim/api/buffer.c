@@ -1314,6 +1314,8 @@ Integer nvim_buf_add_highlight(Buffer buffer,
     api_set_error(err, kErrorTypeValidation, "Line number outside range");
     return 0;
   }
+  // TODO: it is instrumental that we restrict these to the actual size of the
+  // ml line!!
   if (col_start < 0 || col_start > MAXCOL) {
     api_set_error(err, kErrorTypeValidation, "Column value outside range");
     return 0;
@@ -1328,7 +1330,7 @@ Integer nvim_buf_add_highlight(Buffer buffer,
   }
 
   ns_id = bufhl_add_hl(buf, (int)ns_id, hlg_id, (linenr_T)line+1,
-                       (colnr_T)col_start+1, (colnr_T)col_end);
+                       (colnr_T)col_start, (colnr_T)col_end);
   return ns_id;
 }
 
