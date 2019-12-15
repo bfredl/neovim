@@ -5667,29 +5667,9 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
   return attr;
 }
 
-// TODO: bufhl_get_attr(MAXCOL)?
 VirtText *bufhl_get_virttext(buf_T *buf, BufhlLineInfo *info) {
-  while (info->virt_text == NULL) {
-    mtmark_t mark = marktree_itr_test(info->itr);
-    if (mark.row > info->row) {
-      break;
-    }
-    size_t item_idx = map_get(uint64_t, size_t)(buf->b_mark2item, mark.id);
-    if (!item_idx) {
-      goto next_mark;
-    }
-    BufhlItem *item = &kv_A(buf->b_bufhl_items, --item_idx);
-
-    if (kv_size(item->virt_text)) {
-      info->virt_text = &item->virt_text;
-      break;
-    }
-
-next_mark:
-    if (!marktree_itr_next(buf->b_marktree, info->itr)) {
-      break;
-    }
-  }
+  // NB: we should have gotten here anyway
+  bufhl_get_attr(buf, info, MAXCOL);
 
   return info->virt_text;
 }
