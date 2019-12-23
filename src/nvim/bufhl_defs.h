@@ -30,7 +30,7 @@ typedef struct {
   colnr_T valid_to;
   int row;
   // TODO: share the buffer?
-  kvec_t(size_t) active;
+  kvec_t(ssize_t) active;
   VirtText *virt_text;
 } BufhlLineInfo;
 

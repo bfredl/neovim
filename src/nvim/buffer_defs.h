@@ -809,9 +809,10 @@ struct file_buffer {
 
   int b_mapped_ctrl_c;          // modes where CTRL-C is mapped
 
-  kvec_t(BufhlItem) b_bufhl_items;
   MarkTree b_marktree[1];
-  Map(uint64_t, size_t) *b_mark2item;
+
+  kvec_t(BufhlItem) b_bufhl_items;
+  Map(uint64_t, ssize_t) *b_bufhl_index;
 
   // TODO
   //kvec_t(BufhlLine *) b_bufhl_move_space;  // temporary space for highlights
