@@ -51,22 +51,36 @@
 ///
 /// must not be used during iteration!
 /// @returns whether a new mark was created
-int extmark_set(buf_T *buf, uint64_t ns, uint64_t id,
+int extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
                 linenr_T lnum, colnr_T col, ExtmarkOp op)
 {
-  Extmark *extmark = extmark_from_id(buf, ns, id);
-  if (!extmark) {
-    extmark_create(buf, ns, id, lnum, col, op);
-    return true;
-  } else {
-    ExtmarkLine *extmarkline = extmark->line;
-    extmark_update(extmark, buf, ns, id, lnum,  col, op, NULL);
-    if (kb_size(&extmarkline->items) == 0) {
-      kb_del(extmarklines, &buf->b_extlines, extmarkline);
-      extmarkline_free(extmarkline);
-    }
-    return false;
+  if (!buf->b_extmark_ns) {
+    buf->b_extmark_ns = map_new(uint64_t, ExtmarkNs)();
+    buf->b_extmark_index = map_new(uint64_t, ExtmarkItem)();
   }
+
+  ExtmarkNs *ns = map_ref(uint64_t, ExtmarkNs)(buf->b_extmark_ns, ns_id, true);
+  if (id == 0) {
+    id = ns->free_id++;
+  } else {
+    uint64_t old_mark = map_get(uint64_t, uint64_t)(ns->map, id);
+    if (old_mark) {
+      abort();
+      return false;
+    } else {
+      ns->free_id = MAX(ns->free_id, id+1);
+    }
+  }
+
+  uint64_t mark = marktree_put(buf->b_marktree, (int)lnum-1, col, true);
+  map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark,
+                                 (ExtmarkItem){ ns_id, id });
+  map_put(uint64_t, uint64_t)(ns->map, id, mark);
+
+  if (op != kExtmarkNoUndo) {
+    u_extmark_set(buf, ns_id, id, lnum, col, kExtmarkSet);
+  }
+  return true;
 }
 
 // Remove an extmark
@@ -165,37 +179,7 @@ ExtmarkArray extmark_get(buf_T *buf, uint64_t ns,
   return array;
 }
 
-static void extmark_create(buf_T *buf, uint64_t ns, uint64_t id,
-                           linenr_T lnum, colnr_T col, ExtmarkOp op)
-{
-  if (!buf->b_extmark_ns) {
-    buf->b_extmark_ns = pmap_new(uint64_t)();
-  }
-  ExtmarkNs *ns_obj = NULL;
-  ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
-  // Initialize a new namespace for this buffer
-  if (!ns_obj) {
-    ns_obj = xmalloc(sizeof(ExtmarkNs));
-    ns_obj->map = pmap_new(uint64_t)();
-    pmap_put(uint64_t)(buf->b_extmark_ns, ns, ns_obj);
-  }
-
-  // Create or get a line
-  ExtmarkLine *extmarkline = extmarkline_ref(buf, lnum, true);
-  // Create and put mark on the line
-  extmark_put(col, id, extmarkline, ns);
-
-  // Marks do not have stable address so we have to look them up
-  // by using the line instead of the mark
-  pmap_put(uint64_t)(ns_obj->map, id, extmarkline);
-  if (op != kExtmarkNoUndo) {
-    u_extmark_set(buf, ns, id, lnum, col, kExtmarkSet);
-  }
-
-  // Set a free id so extmark_free_id_get works
-  extmark_free_id_set(ns_obj, id);
-}
-
+/*
 // update the position of an extmark
 // to update while iterating pass the markitems itr
 static void extmark_update(Extmark *extmark, buf_T *buf,
@@ -234,6 +218,7 @@ static void extmark_update(Extmark *extmark, buf_T *buf,
     }
   }
 }
+*/
 
 static int extmark_delete(Extmark *extmark,
                           buf_T *buf,
@@ -299,26 +284,6 @@ Extmark *extmark_from_pos(buf_T *buf, uint64_t ns, linenr_T lnum, colnr_T col)
     }
   })
   return NULL;
-}
-
-// Returns an available id in a namespace
-uint64_t extmark_free_id_get(buf_T *buf, uint64_t ns)
-{
-  if (!buf->b_extmark_ns) {
-    return 1;
-  }
-  ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
-  if (!ns_obj) {
-    return 1;
-  }
-  return ns_obj->free_id;
-}
-
-// Set the next free id in a namesapce
-static void extmark_free_id_set(ExtmarkNs *ns_obj, uint64_t id)
-{
-  // Simply Heurstic, the largest id + 1
-  ns_obj->free_id = id + 1;
 }
 
 // free extmarks from the buffer
@@ -876,15 +841,15 @@ static bool extmark_col_adjust_impl(buf_T *buf, linenr_T lnum,
     // Set mark to start of line
     if (col_amount < 0
         && extmark->col <= (colnr_T)-col_amount) {
-      extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
-                     extmarkline->lnum + lnum_amount,
-                     1, kExtmarkNoUndo, &mitr);
+      //extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+      //               extmarkline->lnum + lnum_amount,
+      //               1, kExtmarkNoUndo, &mitr);
       // Update the mark
     } else {
       // Note: The undo is handled by u_extmark_col_adjust, NoUndo here
-      extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
-                     extmarkline->lnum + lnum_amount,
-                     extmark->col + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
+      //extmark_update(extmark, buf, extmark->ns_id, extmark->mark_id,
+      //               extmarkline->lnum + lnum_amount,
+      //               extmark->col + (colnr_T)col_amount, kExtmarkNoUndo, &mitr);
     }
   })
 
