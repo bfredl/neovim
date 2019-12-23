@@ -1309,9 +1309,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer id,
   }
 
   uint64_t id_num;
-  if (id == 0) {
-    id_num = extmark_free_id_get(buf, (uint64_t)ns_id);
-  } else if (id > 0) {
+  if (id >= 0) {
     id_num = (uint64_t)id;
   } else {
     api_set_error(err, kErrorTypeValidation, _("Invalid mark id"));

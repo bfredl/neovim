@@ -121,12 +121,6 @@ EXTERN int extmark_splice_pending INIT(= 0);
   }
 
 
-typedef struct ExtmarkNs {  // For namespacing extmarks
-  PMap(uint64_t) *map;      // For fast lookup
-  uint64_t free_id;         // For automatically assigning id's
-} ExtmarkNs;
-
-
 typedef kvec_t(Extmark *) ExtmarkArray;
 
 
