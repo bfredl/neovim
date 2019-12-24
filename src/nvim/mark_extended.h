@@ -121,7 +121,15 @@ EXTERN int extmark_splice_pending INIT(= 0);
   }
 
 
-typedef kvec_t(Extmark *) ExtmarkArray;
+typedef struct
+{
+  uint64_t ns_id;
+  uint64_t mark_id;
+  linenr_T row;
+  colnr_T col;
+} ExtmarkInfo;
+
+typedef kvec_t(ExtmarkInfo) ExtmarkArray;
 
 
 // Undo/redo extmarks

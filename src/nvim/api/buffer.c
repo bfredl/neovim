@@ -1240,7 +1240,7 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id, Object start,
   }
 
 
-  ExtmarkArray marks = extmark_get(buf, (uint64_t)ns_id, l_lnum, l_col, u_lnum,
+  ExtmarkArray marks = extmark_get(buf, (uint64_t)ns_id, l_lnum-1, l_col, u_lnum-1,
                                    u_col, (int64_t)limit, reverse);
 
   for (size_t i = 0; i < kv_size(marks); i++) {
