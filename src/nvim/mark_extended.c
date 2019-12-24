@@ -46,12 +46,24 @@
 # include "mark_extended.c.generated.h"
 #endif
 
+static ExtmarkNs *buf_ns_ref(buf_T *buf, uint64_t ns_id, bool put) {
+  if (!buf->b_extmark_ns) {
+    if (!put) {
+      return NULL;
+    }
+    buf->b_extmark_ns = map_new(uint64_t, ExtmarkNs)();
+    buf->b_extmark_index = map_new(uint64_t, ExtmarkItem)();
+  }
+
+  return map_ref(uint64_t, ExtmarkNs)(buf->b_extmark_ns, ns_id, put);
+}
+
 
 /// Create or update an extmark
 ///
 /// must not be used during iteration!
 /// @returns whether a new mark was created
-int extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
+bool extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
                 linenr_T lnum, colnr_T col, ExtmarkOp op)
 {
   if (!buf->b_extmark_ns) {
@@ -59,7 +71,8 @@ int extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
     buf->b_extmark_index = map_new(uint64_t, ExtmarkItem)();
   }
 
-  ExtmarkNs *ns = map_ref(uint64_t, ExtmarkNs)(buf->b_extmark_ns, ns_id, true);
+  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
+
   if (id == 0) {
     id = ns->free_id++;
   } else {
@@ -85,13 +98,29 @@ int extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
 
 // Remove an extmark
 // Returns 0 on missing id
-int extmark_del(buf_T *buf, uint64_t ns, uint64_t id, ExtmarkOp op)
+bool extmark_del(buf_T *buf, uint64_t ns_id, uint64_t id, ExtmarkOp op)
 {
-  Extmark *extmark = extmark_from_id(buf, ns, id);
-  if (!extmark) {
-    return 0;
+  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, false);
+  if (!ns) {
+    return false;
   }
-  return extmark_delete(extmark, buf, ns, id, op);
+
+  uint64_t mark = map_get(uint64_t, uint64_t)(ns->map, id);
+  if (!mark) {
+    return false;
+  }
+
+  MarkTreeIter itr[1];
+  mtpos_t pos = marktree_lookup(buf->b_marktree, mark, itr);
+  assert(pos.row >= 0);
+  if (op != kExtmarkNoUndo) {
+    u_extmark_set(buf, ns_id, id, pos.row+1, pos.col, kExtmarkDel);
+  }
+
+  marktree_del_itr(buf->b_marktree, itr, false);
+  map_del(uint64_t, uint64_t)(ns->map, id);
+
+  return true;
 }
 
 // Free extmarks in a ns between lines
@@ -99,6 +128,7 @@ int extmark_del(buf_T *buf, uint64_t ns, uint64_t id, ExtmarkOp op)
 void extmark_clear(buf_T *buf, uint64_t ns,
                    linenr_T l_lnum, linenr_T u_lnum, ExtmarkOp undo)
 {
+  /*
   if (!buf->b_extmark_ns) {
     return;
   }
@@ -142,6 +172,7 @@ void extmark_clear(buf_T *buf, uint64_t ns,
   if (marks_cleared && undo == kExtmarkUndo) {
     u_extmark_clear(buf, ns, l_lnum, u_lnum);
   }
+  */
 }
 
 // Returns the position of marks between a range,
@@ -150,31 +181,48 @@ void extmark_clear(buf_T *buf, uint64_t ns,
 // will be searched to the start, or end
 // dir can be set to control the order of the array
 // amount = amount of marks to find or -1 for all
-ExtmarkArray extmark_get(buf_T *buf, uint64_t ns,
-                         linenr_T l_lnum, colnr_T l_col,
-                         linenr_T u_lnum, colnr_T u_col,
+ExtmarkArray extmark_get(buf_T *buf, uint64_t ns_id,
+                         int l_row, colnr_T l_col,
+                         int u_row, colnr_T u_col,
                          int64_t amount, bool reverse)
 {
   ExtmarkArray array = KV_INITIAL_VALUE;
+  MarkTreeIter itr[1];
   // Find all the marks
   if (!reverse) {
-    FOR_ALL_EXTMARKS(buf, ns, l_lnum, l_col, u_lnum, u_col, {
-      if (extmark->ns_id == ns) {
-        kv_push(array, extmark);
-        if (kv_size(array) == (size_t)amount) {
-          return array;
-        }
+    marktree_itr_get(buf->b_marktree, l_row, l_col, itr);
+    while (true) {
+      mtmark_t mark = marktree_itr_test(itr);
+      if (mark.row < 0
+          || mark.row > u_row
+          || (mark.row == u_row && mark.col > u_col)) {
+        break;
       }
-    })
+      ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
+      if (item.ns_id == ns_id) {
+        kv_push(array, ((ExtmarkInfo) { .ns_id = item.ns_id,
+                                       .mark_id = item.mark_id,
+                                       .row = mark.row, .col = mark.col }));
+      }
+      marktree_itr_next(buf->b_marktree, itr);
+    }
   } else {
-    FOR_ALL_EXTMARKS_PREV(buf, ns, l_lnum, l_col, u_lnum, u_col, {
-      if (extmark->ns_id == ns) {
-        kv_push(array, extmark);
-        if (kv_size(array) == (size_t)amount) {
-          return array;
-        }
+    marktree_itr_get(buf->b_marktree, u_row, u_col, itr);
+    while (true) {
+      mtmark_t mark = marktree_itr_test(itr);
+      if (mark.row < 0
+          || mark.row < l_row
+          || (mark.row == l_row && mark.col < l_col)) {
+        break;
       }
-    })
+      ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
+      if (item.ns_id == ns_id) {
+        kv_push(array, ((ExtmarkInfo) { .ns_id = item.ns_id,
+                                       .mark_id = item.mark_id,
+                                       .row = mark.row, .col = mark.col }));
+      }
+      marktree_itr_prev(buf->b_marktree, itr);
+    }
   }
   return array;
 }
@@ -220,71 +268,32 @@ static void extmark_update(Extmark *extmark, buf_T *buf,
 }
 */
 
-static int extmark_delete(Extmark *extmark,
-                          buf_T *buf,
-                          uint64_t ns,
-                          uint64_t id,
-                          ExtmarkOp op)
-{
-  if (op != kExtmarkNoUndo) {
-    u_extmark_set(buf, ns, id, extmark->line->lnum, extmark->col,
-                  kExtmarkDel);
-  }
-
-  // Remove our key from the namespace
-  ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
-  pmap_del(uint64_t)(ns_obj->map, id);
-
-  // Remove the mark mark from the line
-  ExtmarkLine *extmarkline = extmark->line;
-  kb_del(markitems, &extmarkline->items, *extmark);
-  // Remove the line if there are no more marks in the line
-  if (kb_size(&extmarkline->items) == 0) {
-    kb_del(extmarklines, &buf->b_extlines, extmarkline);
-    extmarkline_free(extmarkline);
-  }
-  return true;
-}
-
 // Lookup an extmark by id
-Extmark *extmark_from_id(buf_T *buf, uint64_t ns, uint64_t id)
+ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
 {
-  if (!buf->b_extmark_ns) {
-    return NULL;
-  }
-  ExtmarkNs *ns_obj = pmap_get(uint64_t)(buf->b_extmark_ns, ns);
-  if (!ns_obj || !kh_size(ns_obj->map->table)) {
-    return NULL;
-  }
-  ExtmarkLine *extmarkline = pmap_get(uint64_t)(ns_obj->map, id);
-  if (!extmarkline) {
-    return NULL;
+  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, false);
+  ExtmarkInfo ret = { 0, 0, -1, -1 };
+  if (!ns) {
+    return ret;
   }
 
-  FOR_ALL_EXTMARKS_IN_LINE(extmarkline->items, 0, MAXCOL, {
-    if (extmark->ns_id == ns
-        && extmark->mark_id == id) {
-      return extmark;
-    }
-  })
-  return NULL;
+  uint64_t mark = map_get(uint64_t, uint64_t)(ns->map, id);
+  if (!mark) {
+    return ret;
+  }
+
+  mtpos_t pos = marktree_lookup(buf->b_marktree, mark, NULL);
+  assert(pos.row >= 0);
+
+  // TODO: ExtmarkPos just for this?
+  ret.ns_id = ns_id;
+  ret.mark_id = id;
+  ret.row = pos.row;
+  ret.col = pos.col;
+
+  return ret;
 }
 
-// Lookup an extmark by position
-Extmark *extmark_from_pos(buf_T *buf, uint64_t ns, linenr_T lnum, colnr_T col)
-{
-  if (!buf->b_extmark_ns) {
-    return NULL;
-  }
-  FOR_ALL_EXTMARKS(buf, ns, lnum, col, lnum, col, {
-    if (extmark->ns_id == ns) {
-      if (extmark->col == col) {
-        return extmark;
-      }
-    }
-  })
-  return NULL;
-}
 
 // free extmarks from the buffer
 void extmark_free_all(buf_T *buf)

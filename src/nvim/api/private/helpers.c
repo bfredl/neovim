@@ -1508,61 +1508,6 @@ ArrayOf(Dictionary) keymap_array(String mode, buf_T *buf)
   return mappings;
 }
 
-// Returns an extmark given an id or a positional index
-// If throw == true then an error will be raised if nothing
-// was found
-// Returns NULL if something went wrong
-Extmark *extmark_from_id_or_pos(Buffer buffer, Integer ns, Object id,
-                                Error *err, bool throw)
-{
-  buf_T *buf = find_buffer_by_handle(buffer, err);
-
-  if (!buf) {
-    return NULL;
-  }
-
-  Extmark *extmark = NULL;
-  if (id.type == kObjectTypeArray) {
-    if (id.data.array.size != 2) {
-      api_set_error(err, kErrorTypeValidation,
-                    _("Position must have 2 elements"));
-      return NULL;
-    }
-    linenr_T row = (linenr_T)id.data.array.items[0].data.integer;
-    colnr_T col = (colnr_T)id.data.array.items[1].data.integer;
-    if (row < 1 || col < 1) {
-      if (throw) {
-      api_set_error(err, kErrorTypeValidation, _("Row and column MUST be > 0"));
-      }
-      return NULL;
-    }
-    extmark = extmark_from_pos(buf, (uint64_t)ns, row, col);
-  } else if (id.type != kObjectTypeInteger) {
-    if (throw) {
-      api_set_error(err, kErrorTypeValidation,
-                    _("Mark id must be an int or [row, col]"));
-    }
-    return NULL;
-  } else if (id.data.integer < 0) {
-    if (throw) {
-      api_set_error(err, kErrorTypeValidation, _("Mark id must be positive"));
-    }
-    return NULL;
-  } else {
-    extmark = extmark_from_id(buf,
-                              (uint64_t)ns,
-                              (uint64_t)id.data.integer);
-  }
-
-  if (!extmark) {
-    if (throw) {
-      api_set_error(err, kErrorTypeValidation, _("Mark doesn't exist"));
-    }
-    return NULL;
-  }
-  return extmark;
-}
-
 // Is the Namespace in use?
 bool ns_initialized(uint64_t ns)
 {
