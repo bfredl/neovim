@@ -127,6 +127,8 @@ describe('API/extmarks', function()
   end)
 
   it('querying for information and ranges #extmarks', function()
+    --marks = {1, 2, 3}
+    --positions = {{0, 0,}, {0, 2}, {0, 3}}
     -- add some more marks
     for i, m in ipairs(marks) do
       if positions[i] ~= nil then
