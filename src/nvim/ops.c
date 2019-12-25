@@ -3793,10 +3793,10 @@ int do_join(size_t count,
 
     // TODO: assert nothing weird happens on t=0
     if (t > 0) {
-      extmark_splice_range(curbuf,
-                           curwin->w_cursor.lnum-1, sumsize,
-                           1, (int)(curr- curr_start),
-                           0, spaces[t]);
+      extmark_splice(curbuf, (int)curwin->w_cursor.lnum-1, sumsize,
+                     1, (int)(curr- curr_start),
+                     0, spaces[t],
+                     kExtmarkUndo);
     }
     currsize = (int)STRLEN(curr);
     sumsize += currsize + spaces[t];

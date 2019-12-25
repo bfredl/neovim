@@ -822,7 +822,7 @@ struct file_buffer {
   //kvec_t(BufhlLine *) b_bufhl_move_space;  // temporary space for highlights
 
   Map(uint64_t, ExtmarkNs) *b_extmark_ns;         // extmark namespaces
-  kvec_t(ExtmarkLine *) b_extmark_move_space;  // temp space for extmarks
+  //kvec_t(ExtmarkLine *) b_extmark_move_space;  // temp space for extmarks
 
   // array of channel_id:s which have asked to receive updates for this
   // buffer.

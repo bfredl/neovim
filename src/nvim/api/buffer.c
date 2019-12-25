@@ -1127,12 +1127,12 @@ ArrayOf(Integer) nvim_buf_get_extmark_by_id(Buffer buffer, Integer ns_id,
     return rv;
   }
 
-  Extmark *extmark = extmark_from_id(buf, (uint64_t)ns_id, (uint64_t)id);
-  if (!extmark) {
+  ExtmarkInfo extmark = extmark_from_id(buf, (uint64_t)ns_id, (uint64_t)id);
+  if (extmark.row < 0) {
     return rv;
   }
-  ADD(rv, INTEGER_OBJ((Integer)extmark->line->lnum-1));
-  ADD(rv, INTEGER_OBJ((Integer)extmark->col-1));
+  ADD(rv, INTEGER_OBJ((Integer)extmark.row));
+  ADD(rv, INTEGER_OBJ((Integer)extmark.col));
   return rv;
 }
 
@@ -1217,38 +1217,38 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id, Object start,
 
   bool reverse = false;
 
-  linenr_T l_lnum;
+  int l_row;
   colnr_T l_col;
-  if (!extmark_get_index_from_obj(buf, ns_id, start, &l_lnum, &l_col, err)) {
+  if (!extmark_get_index_from_obj(buf, ns_id, start, &l_row, &l_col, err)) {
     return rv;
   }
 
-  linenr_T u_lnum;
+  int u_row;
   colnr_T u_col;
-  if (!extmark_get_index_from_obj(buf, ns_id, end, &u_lnum, &u_col, err)) {
+  if (!extmark_get_index_from_obj(buf, ns_id, end, &u_row, &u_col, err)) {
     return rv;
   }
 
-  if (l_lnum > u_lnum || (l_lnum == u_lnum && l_col > u_col)) {
+  if (l_row > u_row || (l_row == u_row && l_col > u_col)) {
     reverse = true;
-    linenr_T tmp_lnum = l_lnum;
-    l_lnum = u_lnum;
-    u_lnum = tmp_lnum;
+    int tmp_row = l_row;
+    l_row = u_row;
+    u_row = tmp_row;
     colnr_T tmp_col = l_col;
     l_col = u_col;
     u_col = tmp_col;
   }
 
 
-  ExtmarkArray marks = extmark_get(buf, (uint64_t)ns_id, l_lnum-1, l_col, u_lnum-1,
+  ExtmarkArray marks = extmark_get(buf, (uint64_t)ns_id, l_row, l_col, u_row,
                                    u_col, (int64_t)limit, reverse);
 
   for (size_t i = 0; i < kv_size(marks); i++) {
     Array mark = ARRAY_DICT_INIT;
-    Extmark *extmark = kv_A(marks, i);
-    ADD(mark, INTEGER_OBJ((Integer)extmark->mark_id));
-    ADD(mark, INTEGER_OBJ(extmark->line->lnum-1));
-    ADD(mark, INTEGER_OBJ(extmark->col-1));
+    ExtmarkInfo extmark = kv_A(marks, i);
+    ADD(mark, INTEGER_OBJ((Integer)extmark.mark_id));
+    ADD(mark, INTEGER_OBJ(extmark.row));
+    ADD(mark, INTEGER_OBJ(extmark.col));
     ADD(rv, ARRAY_OBJ(mark));
   }
 
@@ -1317,7 +1317,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer id,
   }
 
   extmark_set(buf, (uint64_t)ns_id, id_num,
-              (linenr_T)line+1, (colnr_T)col+1, kExtmarkUndo);
+              (int)line, (colnr_T)col, kExtmarkUndo);
 
   return (Integer)id_num;
 }
@@ -1450,8 +1450,8 @@ void nvim_buf_clear_namespace(Buffer buffer,
 
   bufhl_clear_line_range(buf, (int)ns_id, (int)line_start+1, (int)line_end);
   extmark_clear(buf, ns_id == -1 ? 0 : (uint64_t)ns_id,
-                (linenr_T)line_start+1,
-                (linenr_T)line_end,
+                (int)line_start, 0,
+                (int)line_end, MAXCOL,
                 kExtmarkUndo);
 }
 

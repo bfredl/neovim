@@ -6,126 +6,11 @@
 
 EXTERN int extmark_splice_pending INIT(= 0);
 
-// Macro Documentation: FOR_ALL_?
-// Search exclusively using the range values given.
-// Use MAXCOL/MAXLNUM for the start and end of the line/col.
-// The ns parameter: Unless otherwise stated, this is only a starting point
-//    for the btree to searched in, the results being itterated over will
-//    still contain extmarks from other namespaces.
-
-// see FOR_ALL_? for documentation
-#define FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, code)\
-  kbitr_t(extmarklines) itr;\
-  ExtmarkLine t;\
-  t.lnum = l_lnum;\
-  if (!kb_itr_get(extmarklines, &buf->b_extlines, &t, &itr)) { \
-    kb_itr_next(extmarklines, &buf->b_extlines, &itr);\
-  }\
-  ExtmarkLine *extmarkline;\
-  for (; kb_itr_valid(&itr); kb_itr_next(extmarklines, \
-                                         &buf->b_extlines, &itr)) { \
-    extmarkline = kb_itr_key(&itr);\
-    if (extmarkline->lnum > u_lnum) { \
-      break;\
-    }\
-      code;\
-    }
-
-// see FOR_ALL_? for documentation
-#define FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, code)\
-  kbitr_t(extmarklines) itr;\
-  ExtmarkLine t;\
-  t.lnum = u_lnum;\
-  if (!kb_itr_get(extmarklines, &buf->b_extlines, &t, &itr)) { \
-    kb_itr_prev(extmarklines, &buf->b_extlines, &itr);\
-  }\
-  ExtmarkLine *extmarkline;\
-  for (; kb_itr_valid(&itr); kb_itr_prev(extmarklines, \
-                                         &buf->b_extlines, &itr)) { \
-    extmarkline = kb_itr_key(&itr);\
-    if (extmarkline->lnum < l_lnum) { \
-      break;\
-    }\
-    code;\
-  }
-
-// see FOR_ALL_? for documentation
-#define FOR_ALL_EXTMARKS(buf, ns, l_lnum, l_col, u_lnum, u_col, code)\
-  kbitr_t(markitems) mitr;\
-  Extmark mt;\
-  mt.ns_id = ns;\
-  mt.mark_id = 0;\
-  mt.line = NULL;\
-  FOR_ALL_EXTMARKLINES(buf, l_lnum, u_lnum, { \
-    mt.col = (extmarkline->lnum != l_lnum) ? MINCOL : l_col;\
-    if (!kb_itr_get(markitems, &extmarkline->items, mt, &mitr)) { \
-        kb_itr_next(markitems, &extmarkline->items, &mitr);\
-    } \
-    Extmark *extmark;\
-    for (; \
-         kb_itr_valid(&mitr); \
-         kb_itr_next(markitems, &extmarkline->items, &mitr)) { \
-      extmark = &kb_itr_key(&mitr);\
-      if (extmark->line->lnum == u_lnum \
-          && extmark->col > u_col) { \
-        break;\
-      }\
-      code;\
-    }\
-  })
-
-
-// see FOR_ALL_? for documentation
-#define FOR_ALL_EXTMARKS_PREV(buf, ns, l_lnum, l_col, u_lnum, u_col, code)\
-  kbitr_t(markitems) mitr;\
-  Extmark mt;\
-  mt.mark_id = sizeof(uint64_t);\
-  mt.ns_id = ns;\
-  FOR_ALL_EXTMARKLINES_PREV(buf, l_lnum, u_lnum, { \
-    mt.col = (extmarkline->lnum != u_lnum) ? MAXCOL : u_col;\
-    if (!kb_itr_get(markitems, &extmarkline->items, mt, &mitr)) { \
-        kb_itr_prev(markitems, &extmarkline->items, &mitr);\
-    } \
-    Extmark *extmark;\
-    for (; \
-         kb_itr_valid(&mitr); \
-         kb_itr_prev(markitems, &extmarkline->items, &mitr)) { \
-      extmark = &kb_itr_key(&mitr);\
-      if (extmark->line->lnum == l_lnum \
-          && extmark->col < l_col) { \
-          break;\
-      }\
-      code;\
-    }\
-  })
-
-
-#define FOR_ALL_EXTMARKS_IN_LINE(items, l_col, u_col, code)\
-  kbitr_t(markitems) mitr;\
-  Extmark mt;\
-  mt.ns_id = 0;\
-  mt.mark_id = 0;\
-  mt.line = NULL;\
-  mt.col = l_col;\
-  colnr_T extmarkline_u_col = u_col;\
-  if (!kb_itr_get(markitems, &items, mt, &mitr)) { \
-    kb_itr_next(markitems, &items, &mitr);\
-  } \
-  Extmark *extmark;\
-  for (; kb_itr_valid(&mitr); kb_itr_next(markitems, &items, &mitr)) { \
-    extmark = &kb_itr_key(&mitr);\
-    if (extmark->col > extmarkline_u_col) { \
-      break;\
-    }\
-    code;\
-  }
-
-
 typedef struct
 {
   uint64_t ns_id;
   uint64_t mark_id;
-  linenr_T row;
+  int row;
   colnr_T col;
 } ExtmarkInfo;
 
@@ -141,30 +26,15 @@ typedef enum {
   kExtmarkUndoNoRedo,  // Operation should be undoable, but not redoable
 } ExtmarkOp;
 
-
-// adjust line numbers only, corresponding to mark_adjust call
-typedef struct {
-  linenr_T line1;
-  linenr_T line2;
-  long amount;
-  long amount_after;
-} Adjust;
-
-// adjust columns after split/join line, like mark_col_adjust
-typedef struct {
-  linenr_T lnum;
-  colnr_T mincol;
-  long col_amount;
-  long lnum_amount;
-} ColAdjust;
-
 // delete the columns between mincol and endcol
 typedef struct {
-    linenr_T lnum;
-    colnr_T mincol;
-    colnr_T endcol;
-    int eol;
-} ColAdjustDelete;
+  int start_row;
+  colnr_T start_col;
+  int oldextent_row;
+  colnr_T oldextent_col;
+  int newextent_row;
+  colnr_T newextent_col;
+} ExtmarkSplice;
 
 // adjust linenumbers after :move operation
 typedef struct {
@@ -182,7 +52,7 @@ typedef struct {
 typedef struct {
   uint64_t ns_id;
   uint64_t mark_id;
-  linenr_T lnum;
+  int row;
   colnr_T col;
 } ExtmarkSet;
 
@@ -190,19 +60,11 @@ typedef struct {
 typedef struct {
   uint64_t ns_id;
   uint64_t mark_id;
-  linenr_T old_lnum;
+  int old_row;
   colnr_T old_col;
-  linenr_T lnum;
+  int row;
   colnr_T col;
 } ExtmarkUpdate;
-
-// copied mark before deletion (as operation is destructive)
-typedef struct {
-  uint64_t ns_id;
-  uint64_t mark_id;
-  linenr_T lnum;
-  colnr_T col;
-} ExtmarkCopy;
 
 // also used as part of :move operation? probably can be simplified to one
 // event.
@@ -225,9 +87,7 @@ typedef struct {
 
 
 typedef enum {
-  kLineAdjust,
-  kColAdjust,
-  kColAdjustDelete,
+  kSplice,
   kAdjustMove,
   kExtmarkSet,
   kExtmarkDel,
@@ -241,13 +101,11 @@ typedef enum {
 struct undo_object {
   UndoObjectType type;
   union {
-    Adjust adjust;
-    ColAdjust col_adjust;
-    ColAdjustDelete col_adjust_delete;
+    ExtmarkSplice splice;
     AdjustMove move;
     ExtmarkSet set;
     ExtmarkUpdate update;
-    ExtmarkCopy copy;
+    ExtmarkInfo copy;
     ExtmarkCopyPlace copy_place;
     ExtmarkClear clear;
   } data;

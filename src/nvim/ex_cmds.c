@@ -3249,6 +3249,9 @@ static void extmark_move_regmatch_single(lpos_T startpos,
 
 static void extmark_move_regmatch_multi(ExtmarkSubMulti s, long i)
 {
+  // TODO(bfredl): this mess is broken. reconsider when extmark_splice
+  // is saving the cleared-over marks already.
+  return;
   colnr_T mincol;
   linenr_T u_lnum;
   mincol = s.startpos.col + 1;
@@ -3269,11 +3272,13 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, long i)
     mincol = s.startpos.col + 1;
     u_lnum = n_u_lnum;
     assert(n_u_lnum == u_lnum);
+    /*
     extmark_copy_and_place(curbuf,
                            s.lnum, mincol,
                            u_lnum, n_after_newline_in_pat,
                            s.lnum, mincol,
                            kExtmarkUndo, true, NULL);
+                           */
     // 2. Move marks on last newline
     mincol = mincol - n_before_newline_in_pat;
     extmark_col_adjust(curbuf,
@@ -3342,11 +3347,13 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, long i)
       if (s.lnum_added >= 0) {
         linenr_T u_col = n_after_newline_in_pat == 0
                          ? 1 : n_after_newline_in_pat;
+        /*
         extmark_copy_and_place(curbuf,
                                a_l_lnum, mincol,
                                a_u_lnum, u_col,
                                a_l_lnum, mincol,
                                kExtmarkUndo, true, NULL);
+                               */
         // 2. Move marks on last newline
         mincol = mincol - (colnr_T)n_before_newline_in_pat;
         extmark_col_adjust(curbuf,
@@ -3374,11 +3381,13 @@ static void extmark_move_regmatch_multi(ExtmarkSubMulti s, long i)
         mincol = s.startpos.col + 1;
         a_l_lnum = s.startpos.lnum + 1;
         a_u_lnum = s.endpos.lnum + 1;
+        /*
         extmark_copy_and_place(curbuf,
                                a_l_lnum, mincol,
                                a_u_lnum, n_after_newline_in_pat,
                                a_l_lnum, mincol,
                                kExtmarkUndo, true, NULL);
+                               */
         // 2. Move marks on last newline
         mincol = mincol - (colnr_T)n_before_newline_in_pat;
         extmark_col_adjust(curbuf,

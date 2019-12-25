@@ -1526,29 +1526,29 @@ bool ns_initialized(uint64_t ns)
 /// @param[out] colnr extmark column
 ///
 /// @return true if the extmark was found, else false
-bool extmark_get_index_from_obj(buf_T *buf, Integer ns, Object obj, linenr_T
-                                *lnum, colnr_T *colnr, Error *err)
+bool extmark_get_index_from_obj(buf_T *buf, Integer ns_id, Object obj, int
+                                *row, colnr_T *col, Error *err)
 {
   // Check if it is mark id
   if (obj.type == kObjectTypeInteger) {
     Integer id = obj.data.integer;
     if (id == 0) {
-        *lnum = 1;
-        *colnr = 1;
+        *row = 0;
+        *col = 0;
         return true;
     } else if (id == -1) {
-        *lnum = MAXLNUM;
-        *colnr = MAXCOL;
+        *row = MAXLNUM;
+        *col = MAXCOL;
         return true;
     } else if (id < 0) {
       api_set_error(err, kErrorTypeValidation, _("Mark id must be positive"));
       return false;
     }
 
-    Extmark *extmark = extmark_from_id(buf, (uint64_t)ns, (uint64_t)id);
-    if (extmark) {
-      *lnum = extmark->line->lnum;
-      *colnr = extmark->col;
+    ExtmarkInfo extmark = extmark_from_id(buf, (uint64_t)ns_id, (uint64_t)id);
+    if (extmark.row >= 0) {
+      *row = extmark.row;
+      *col = extmark.col;
       return true;
     } else {
       api_set_error(err, kErrorTypeValidation, _("No mark with requested id"));
@@ -1565,10 +1565,10 @@ bool extmark_get_index_from_obj(buf_T *buf, Integer ns, Object obj, linenr_T
                     _("Position must have 2 integer elements"));
       return false;
     }
-    Integer line = pos.items[0].data.integer;
-    Integer col = pos.items[1].data.integer;
-    *lnum = (linenr_T)(line >= 0 ? line + 1 : MAXLNUM);
-    *colnr = (colnr_T)(col >= 0 ? col + 1 : MAXCOL);
+    Integer pos_row = pos.items[0].data.integer;
+    Integer pos_col = pos.items[1].data.integer;
+    *row = (int)(pos_row >= 0 ? pos_row  : MAXLNUM);
+    *col = (colnr_T)(pos_col >= 0 ? pos_col : MAXCOL);
     return true;
   } else {
     api_set_error(err, kErrorTypeValidation,

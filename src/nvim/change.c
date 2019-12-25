@@ -365,20 +365,8 @@ void changed_bytes(linenr_T lnum, colnr_T col)
 /// When "added" is negative text was deleted.
 static void inserted_bytes(linenr_T lnum, colnr_T col, int old, int new)
 {
-  extmark_splice_range(curbuf, lnum-1, col, 0, old, 0, new);
+  extmark_splice(curbuf, (int)lnum-1, col, 0, old, 0, new, kExtmarkUndo);
   
-  curbuf_splice_pending++;
-  int added = new - old;
-  if (added > 0) {
-    extmark_col_adjust(curbuf, lnum, col+1, 0, added, kExtmarkUndo);
-  } else if (added < 0) {
-    // TODO(bfredl): next revision of extmarks should handle both these
-    // with the same entry point. Also with more sane params..
-    extmark_col_adjust_delete(curbuf, lnum, col+2,
-                              col+(-added)+1, kExtmarkUndo, 0);
-  }
-  curbuf_splice_pending--;
-
   changed_bytes(lnum, col);
 }
 
@@ -395,7 +383,7 @@ void appended_lines_mark(linenr_T lnum, long count)
 {
   // Skip mark_adjust when adding a line after the last one, there can't
   // be marks there. But it's still needed in diff mode.
-  // TODO: extmark_splice_range must do this always
+  // TODO: extmark_splice must do this always
   if (lnum + count < curbuf->b_ml.ml_line_count || curwin->w_p_diff) {
     mark_adjust(lnum + 1, (linenr_T)MAXLNUM, count, 0L, false, kExtmarkUndo);
   }
@@ -1698,10 +1686,9 @@ int open_line(
         }
         // Always move extmarks - Here we move only the line where the
         // cursor is, the previous mark_adjust takes care of the lines after
-        extmark_col_adjust(curbuf, lnum, mincol, 1L, (long)-less_cols,
-                           kExtmarkUndo);
         int cols_added = mincol-1+less_cols_off-less_cols;
-        extmark_splice_range(curbuf, lnum-1, mincol-1, 0, less_cols_off, 1, cols_added);
+        extmark_splice(curbuf, (int)lnum-1, mincol-1, 0, less_cols_off,
+                       1, cols_added, kExtmarkUndo);
       } else {
         changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
       }
@@ -1716,7 +1703,8 @@ int open_line(
     // TODO: we might get into trouble with the extra dir == BACKWARDS
     // adjustment for indent which is done later (check byte count change
     // of both events!)
-    extmark_splice_range(curbuf, curwin->w_cursor.lnum-1, 0, 0, 0, 1, 0);
+    extmark_splice(curbuf, (int)curwin->w_cursor.lnum-1,
+                   0, 0, 0, 1, 0, kExtmarkUndo);
   }
   curbuf_splice_pending--;
 

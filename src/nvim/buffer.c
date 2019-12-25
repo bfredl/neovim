@@ -5505,6 +5505,10 @@ void bufhl_clear_range(buf_T *buf,
                             int line_start, int col_start,
                             int line_end, int col_end)
 {
+  if (!buf->b_bufhl_index) {
+    // TODO: quickhack, bufhl should be merged into neo-extmarks
+    return;
+  }
   MarkTreeIter itr[1];
   if (!marktree_itr_get(buf->b_marktree, (int)line_start, col_start, itr)) {
     return;
