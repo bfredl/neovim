@@ -375,6 +375,31 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   }
 }
 
+/// frees all mem, resets tree to valid empty state
+void marktree_clear(MarkTree *b)
+{
+  if (b->root) {
+    marktree_free_node(b->root);
+    b->root = NULL;
+  }
+  if (b->id2node) {
+    pmap_free(uint64_t)(b->id2node);
+    b->id2node = NULL;
+  }
+  b->n_keys = 0;
+  b->n_nodes = 0;
+}
+
+void marktree_free_node(mtnode_t *x)
+{
+  if (x->level) {
+    for (int i = 0; i < x->n+1; i++) {
+      marktree_free_node(x->ptr[i]);
+    }
+  }
+  xfree(x);
+}
+
 static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
 {
   // fprintf(stderr, "MERGE %d %d\n", i, p->level);
@@ -698,7 +723,7 @@ static void swap_id(uint64_t *id1, uint64_t *id2)
   *id2 = temp;
 }
 
-void marktree_splice(MarkTree *b,
+bool marktree_splice(MarkTree *b,
                      int start_line, int start_col,
                      int old_extent_line, int old_extent_col,
                      int new_extent_line, int new_extent_col)
@@ -718,7 +743,7 @@ void marktree_splice(MarkTree *b,
   marktree_itr_get_ext(b, start, itr, false, true, oldbase);
   if (!itr->node) {
     // den e FÄRDIG
-    return;
+    return false;
   }
   mtpos_t delta = { new_extent.row - old_extent.row,
                     new_extent.col-old_extent.col };
@@ -736,6 +761,7 @@ void marktree_splice(MarkTree *b,
   }
 
   bool past_right = false;
+  bool moved = false;
 
   // Follow the general strategy of messing things up and fix them later
   // "invdelta" carries the debt of having pre-adjusted the parent
@@ -775,6 +801,7 @@ continue_same_node:
         past_right = true;
       }
 
+      moved = true;
       if (itr->node->level) {
         oldbase[itr->lvl+1] = rawkey(itr).pos;
         unrelative(oldbase[itr->lvl], &oldbase[itr->lvl+1]);
@@ -807,6 +834,7 @@ past_continue_same_node:
 
       mtpos_t oldpos = rawkey(itr).pos;
       rawkey(itr).pos = loc_new;
+      moved = true;
       if (itr->node->level) {
         oldbase[itr->lvl+1] = oldpos;
         unrelative(oldbase[itr->lvl], &oldbase[itr->lvl+1]);
@@ -830,7 +858,10 @@ past_continue_same_node:
     assert(realrow >= old_extent.row);
     bool done = false;
     if (realrow == old_extent.row) {
-      rawkey(itr).pos.col += delta.col;
+      if (delta.col) {
+        rawkey(itr).pos.col += delta.col;
+        moved = true;
+      }
     } else {
       // TODO: this is tricky. maybe "itr->lvl < ahead_level" isn't even needed?
       if (same_line) {
@@ -838,13 +869,17 @@ past_continue_same_node:
         done = true;
       }
     }
-    rawkey(itr).pos.row += delta.row;
+    if (delta.row) {
+      rawkey(itr).pos.row += delta.row;
+      moved = true;
+    }
     relative(itr->pos, &rawkey(itr).pos);
     if (done) {
       break;
     }
     marktree_itr_next_skip(b, itr, true, NULL);
   }
+  return moved;
 }
 
 /// @param itr OPTIONAL. set itr to pos.
