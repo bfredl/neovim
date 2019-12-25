@@ -70,11 +70,6 @@ static ExtmarkNs *buf_ns_ref(buf_T *buf, uint64_t ns_id, bool put) {
 bool extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
                 int row, colnr_T col, ExtmarkOp op)
 {
-  if (!buf->b_extmark_ns) {
-    buf->b_extmark_ns = map_new(uint64_t, ExtmarkNs)();
-    buf->b_extmark_index = map_new(uint64_t, ExtmarkItem)();
-  }
-
   ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
   mtpos_t old_pos;
   bool moved = false;
