@@ -1212,6 +1212,8 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id, Object start,
 
   if (limit == 0) {
     return rv;
+  } else if (limit < 0) {
+    limit = INT64_MAX;
   }
 
 
@@ -1449,7 +1451,7 @@ void nvim_buf_clear_namespace(Buffer buffer,
   }
 
   bufhl_clear_line_range(buf, (int)ns_id, (int)line_start+1, (int)line_end);
-  extmark_clear(buf, ns_id == -1 ? 0 : (uint64_t)ns_id,
+  extmark_clear(buf, (ns_id < 0 ? 0 : (uint64_t)ns_id),
                 (int)line_start, 0,
                 (int)line_end, MAXCOL,
                 kExtmarkUndo);
