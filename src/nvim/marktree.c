@@ -749,7 +749,10 @@ bool marktree_splice(MarkTree *b,
                     new_extent.col-old_extent.col };
 
   if (may_delete) {
-    if (pos_leq(marktree_itr_pos(itr), old_extent)) {
+    mtpos_t ipos = marktree_itr_pos(itr);
+    if (!pos_leq(old_extent, ipos)
+        || (old_extent.row == ipos.row && old_extent.col == ipos.col
+            && !IS_RIGHT(rawkey(itr).id))) {
       // TODO: just before old_extent.right_gravity
       // TODO: itr_get_before directly
       marktree_itr_get_ext(b, old_extent, enditr, true, true, NULL);

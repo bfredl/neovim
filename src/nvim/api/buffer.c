@@ -1233,12 +1233,6 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id, Object start,
 
   if (l_row > u_row || (l_row == u_row && l_col > u_col)) {
     reverse = true;
-    int tmp_row = l_row;
-    l_row = u_row;
-    u_row = tmp_row;
-    colnr_T tmp_col = l_col;
-    l_col = u_col;
-    u_col = tmp_col;
   }
 
 

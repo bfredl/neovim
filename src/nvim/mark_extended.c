@@ -211,39 +211,26 @@ ExtmarkArray extmark_get(buf_T *buf, uint64_t ns_id,
   ExtmarkArray array = KV_INITIAL_VALUE;
   MarkTreeIter itr[1];
   // Find all the marks
-  if (!reverse) {
-    marktree_itr_get(buf->b_marktree, l_row, l_col, itr);
-    while ((int64_t)kv_size(array) < amount) {
-      mtmark_t mark = marktree_itr_test(itr);
-      if (mark.row < 0
-          || mark.row > u_row
-          || (mark.row == u_row && mark.col > u_col)) {
-        break;
-      }
-      ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
-      if (item.ns_id == ns_id) {
-        kv_push(array, ((ExtmarkInfo) { .ns_id = item.ns_id,
-                                       .mark_id = item.mark_id,
-                                       .row = mark.row, .col = mark.col }));
-      }
-      marktree_itr_next(buf->b_marktree, itr);
+  marktree_itr_get_ext(buf->b_marktree, (mtpos_t){ l_row, l_col },
+                       itr, reverse, false, NULL);
+  int order = reverse ? -1 : 1;
+  while ((int64_t)kv_size(array) < amount) {
+    mtmark_t mark = marktree_itr_test(itr);
+    if (mark.row < 0
+        || (mark.row - u_row) * order > 0
+        || (mark.row == u_row && (mark.col - u_col) * order > 0)) {
+      break;
     }
-  } else {
-    marktree_itr_get(buf->b_marktree, u_row, u_col, itr);
-    while ((int64_t)kv_size(array) < amount) {
-      mtmark_t mark = marktree_itr_test(itr);
-      if (mark.row < 0
-          || mark.row < l_row
-          || (mark.row == l_row && mark.col < l_col)) {
-        break;
-      }
-      ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
-      if (item.ns_id == ns_id) {
-        kv_push(array, ((ExtmarkInfo) { .ns_id = item.ns_id,
-                                       .mark_id = item.mark_id,
-                                       .row = mark.row, .col = mark.col }));
-      }
+    ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
+    if (item.ns_id == ns_id) {
+      kv_push(array, ((ExtmarkInfo) { .ns_id = item.ns_id,
+                                     .mark_id = item.mark_id,
+                                     .row = mark.row, .col = mark.col }));
+    }
+    if (reverse) {
       marktree_itr_prev(buf->b_marktree, itr);
+    } else {
+      marktree_itr_next(buf->b_marktree, itr);
     }
   }
   return array;
@@ -527,15 +514,6 @@ void u_extmark_copy_place(buf_T *buf,
 // undo or redo an extmark operation
 void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
 {
-  linenr_T lnum;
-  colnr_T mincol;
-  long lnum_amount;
-  long col_amount;
-  linenr_T line1;
-  linenr_T line2;
-  long amount;
-  long amount_after;
-
   // splice: any text operation changing position (except :move)
   if (undo_info.type == kSplice) {
     // Undo
@@ -767,9 +745,9 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
   if (!curbuf_splice_pending) {
     int old_extent = endcol-mincol+1;
     extmark_splice(buf,
-                         lnum-1, mincol-1,
-                         0, old_extent,
-                         0, 0, undo);
+                   (int)lnum-1, mincol-1,
+                   0, old_extent,
+                   0, 0, undo);
   }
 }
 
@@ -805,18 +783,18 @@ void extmark_adjust(buf_T *buf,
   }
 
   if (!curbuf_splice_pending) {
-    linenr_T old_extent, new_extent;
+    int old_extent, new_extent;
     if (amount == MAXLNUM) {
-      old_extent = line2 - line1+1;
-      new_extent = amount_after + old_extent;
+      old_extent = (int)(line2 - line1+1);
+      new_extent = (int)(amount_after + old_extent);
     } else {
       // TODO: handle :move separately
       // assert(line2 == MAXLNUM);
       old_extent = 0;
-      new_extent = amount;
+      new_extent = (int)amount;
     }
     extmark_splice(buf,
-                   line1-1, 0,
+                   (int)line1-1, 0,
                    old_extent, 0,
                    new_extent, 0, undo);
   }
