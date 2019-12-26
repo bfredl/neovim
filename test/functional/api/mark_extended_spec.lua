@@ -487,7 +487,7 @@ describe('API/extmarks', function()
     check_undo_redo(ns, marks[1], 0, 2, 0, 1)
   end)
 
-  it('deleting on a mark works #extmarks', function()
+  it('deleting right after a mark works #extmarks', function()
     -- op_delete in ops.c
     set_extmark(ns, marks[1], 0, 2)
     feed('02lx')

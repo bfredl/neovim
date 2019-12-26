@@ -709,15 +709,7 @@ void extmark_col_adjust_delete(buf_T *buf, linenr_T lnum,
                                colnr_T mincol, colnr_T endcol,
                                ExtmarkOp undo, int _eol)
 {
-  colnr_T start_effected_range = mincol;
-
-  if (undo == kExtmarkUndo) {
-    // Copy marks that would be effected by delete
-    // -1 because we need to restore if a mark existed at the start pos
-    // TODO: this should be inside splice!!
-    u_extmark_copy(buf, 0, (int)lnum-1, start_effected_range, (int)lnum-1, endcol);
-  }
-
+ // colnr_T start_effected_range = mincol;
 
   // Deletes at the end of the line have different behaviour than the normal
   // case when deleted.
@@ -769,14 +761,6 @@ void extmark_adjust(buf_T *buf,
     return;
   }
 
-  if (amount == MAXLNUM) {
-    // Careful! marks from deleted region can end up on en extisting extmarkline
-    // that is goinig to be adjusted to the target position.
-
-    u_extmark_copy(buf, 0, (int)line1-1, 0, (int)line2-1, MAXCOL);
-    // extmark_adjust is already redoable, the copy should only be for undo
-  }
-
   if (!curbuf_splice_pending) {
     int old_extent, new_extent;
     if (amount == MAXLNUM) {
@@ -804,6 +788,17 @@ void extmark_splice(buf_T *buf,
   buf_updates_send_splice(buf, start_row, start_col,
                           oldextent_row, oldextent_col,
                           newextent_row, newextent_col);
+
+  if (undo == kExtmarkUndo && (oldextent_row > 0 || oldextent_col > 0)) {
+    // Copy marks that would be effected by delete
+    // TODO: be "smart" about gravity here, left-gravity at the begining
+    // and right-gravity at the end need not be preserved
+    int end_row = start_row + oldextent_row;
+    int end_col = (oldextent_row ? 0 : start_col) + oldextent_col;
+    u_extmark_copy(buf, 0, start_row, start_col, end_row, end_col);
+  }
+
+
   bool marks_moved = marktree_splice(buf->b_marktree, start_row, start_col,
                                      oldextent_row, oldextent_col,
                                      newextent_row, newextent_col);
