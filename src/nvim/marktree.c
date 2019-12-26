@@ -11,6 +11,8 @@
 #define ANTIGRAVITY(id) ((id)&(RIGHT_GRAVITY-1))
 #define IS_RIGHT(id) ((id)&RIGHT_GRAVITY)
 
+#define rawkey(itr) (itr->node->key[itr->i])
+
 static bool pos_leq(mtpos_t a, mtpos_t b)
 {
   return a.row < b.row || (a.row == b.row && a.col <= b.col);
@@ -375,31 +377,6 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   }
 }
 
-/// frees all mem, resets tree to valid empty state
-void marktree_clear(MarkTree *b)
-{
-  if (b->root) {
-    marktree_free_node(b->root);
-    b->root = NULL;
-  }
-  if (b->id2node) {
-    pmap_free(uint64_t)(b->id2node);
-    b->id2node = NULL;
-  }
-  b->n_keys = 0;
-  b->n_nodes = 0;
-}
-
-void marktree_free_node(mtnode_t *x)
-{
-  if (x->level) {
-    for (int i = 0; i < x->n+1; i++) {
-      marktree_free_node(x->ptr[i]);
-    }
-  }
-  xfree(x);
-}
-
 static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
 {
   // fprintf(stderr, "MERGE %d %d\n", i, p->level);
@@ -490,6 +467,41 @@ static void pivot_left(MarkTree *b, mtnode_t *p, int i)
   }
   x->n++;
   y->n--;
+}
+
+/// frees all mem, resets tree to valid empty state
+void marktree_clear(MarkTree *b)
+{
+  if (b->root) {
+    marktree_free_node(b->root);
+    b->root = NULL;
+  }
+  if (b->id2node) {
+    pmap_free(uint64_t)(b->id2node);
+    b->id2node = NULL;
+  }
+  b->n_keys = 0;
+  b->n_nodes = 0;
+}
+
+void marktree_free_node(mtnode_t *x)
+{
+  if (x->level) {
+    for (int i = 0; i < x->n+1; i++) {
+      marktree_free_node(x->ptr[i]);
+    }
+  }
+  xfree(x);
+}
+
+uint64_t marktree_revise(MarkTree *b, MarkTreeIter *itr)
+{
+  uint64_t old_id = rawkey(itr).id;
+  pmap_del(uint64_t)(b->id2node, ANTIGRAVITY(old_id));
+  uint64_t new_id = ++b->next_id;
+  rawkey(itr).id = new_id + (RIGHT_GRAVITY&old_id);
+  refkey(b, itr->node, itr->i);
+  return new_id;
 }
 
 // itr functions
@@ -693,7 +705,6 @@ bool marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
   return true;
 }
 
-#define rawkey(itr) (itr->node->key[itr->i])
 
 mtpos_t marktree_itr_pos(MarkTreeIter *itr)
 {
