@@ -5598,6 +5598,9 @@ void bufhl_clear_all(buf_T *buf)
 /// @return true if there was highlights to display
 bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
 {
+  if (!buf->b_bufhl_index) {
+    return false;
+  }
   info->valid_to = -1;
   info->row = (int)lnum-1;
   info->virt_text = NULL;
