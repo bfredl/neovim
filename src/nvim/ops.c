@@ -2380,6 +2380,7 @@ int op_change(oparg_T *oap)
           oldp += bd.textcol;
           STRMOVE(newp + offset, oldp);
           ml_replace(linenr, newp, false);
+          // TODO: mark?
         }
       }
       check_cursor();
@@ -2733,28 +2734,6 @@ static void do_autocmd_textyankpost(oparg_T *oap, yankreg_T *reg)
   tv_dict_clear(dict);
 
   recursive = false;
-}
-
-
-static void extmarks_do_put(int dir,
-                            size_t totlen,
-                            MotionType y_type,
-                            linenr_T lnum,
-                            colnr_T col)
-{
-  // adjust extmarks
-  colnr_T col_amount = (colnr_T)(dir == FORWARD ? totlen-1 : totlen);
-  // Move extmark with char put
-  if (y_type == kMTCharWise) {
-    extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
-  // Move extmark with blockwise put
-  } else if (y_type == kMTBlockWise) {
-    for (lnum = curbuf->b_op_start.lnum;
-         lnum <= curbuf->b_op_end.lnum;
-         lnum++) {
-      extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
-    }
-  }
 }
 
 /*
@@ -3277,6 +3256,7 @@ void do_put(int regname, yankreg_T *reg, int dir, long count, int flags)
       if (totlen && (restart_edit != 0 || (flags & PUT_CURSEND)))
         ++curwin->w_cursor.col;
       changed_bytes(lnum, col);
+      extmark_col_adjust(curbuf, lnum, col, 0, (int)totlen, kExtmarkUndo);
     } else {
       // Insert at least one line.  When y_type is kMTCharWise, break the first
       // line in two.
@@ -3339,6 +3319,10 @@ void do_put(int regname, yankreg_T *reg, int dir, long count, int flags)
               lendiff -= (int)STRLEN(ml_get(lnum));
           }
         }
+
+        // TODO: this was borked before so it needs a test. or a few.
+        extmark_splice(curbuf, (int)new_cursor.lnum-1, col, 0, 0, (int)y_size-1,
+                       (int)STRLEN(y_array[y_size-1]), kExtmarkUndo);
       }
 
 error:
@@ -3352,8 +3336,9 @@ error:
       // can't be marks there.
       if (curbuf->b_op_start.lnum + (y_type == kMTCharWise) - 1 + nr_lines
           < curbuf->b_ml.ml_line_count) {
+        ExtmarkOp kind = (y_type == kMTLineWise) ? kExtmarkUndo : kExtmarkNOOP;
         mark_adjust(curbuf->b_op_start.lnum + (y_type == kMTCharWise),
-                    (linenr_T)MAXLNUM, nr_lines, 0L, false, kExtmarkUndo);
+                    (linenr_T)MAXLNUM, nr_lines, 0L, false, kind);
       }
 
       // note changed text for displaying and folding
@@ -3416,7 +3401,16 @@ end:
   /* If the cursor is past the end of the line put it at the end. */
   adjust_cursor_eol();
 
-  extmarks_do_put(dir, totlen, y_type, lnum, col);
+  // adjust extmarks
+  colnr_T col_amount = (colnr_T)(dir == FORWARD ? totlen-1 : totlen);
+  // Move extmark with blockwise put
+  if (y_type == kMTBlockWise) {
+    for (lnum = curbuf->b_op_start.lnum;
+         lnum <= curbuf->b_op_end.lnum;
+         lnum++) {
+      extmark_col_adjust(curbuf, lnum, col, 0, col_amount, kExtmarkUndo);
+    }
+  }
 }
 
 /*

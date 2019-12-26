@@ -73,6 +73,7 @@ bool extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
   ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
   mtpos_t old_pos;
   bool moved = false;
+  uint64_t mark = 0;
 
   if (id == 0) {
     id = ns->free_id++;
@@ -81,8 +82,11 @@ bool extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
     if (old_mark) {
       MarkTreeIter itr[1];
       old_pos = marktree_lookup(buf->b_marktree, old_mark, itr);
+      assert(itr->node);
       if (old_pos.row == row && old_pos.col == col) {
-        return false;  // successful no-op
+        map_del(uint64_t, ExtmarkItem)(buf->b_extmark_index, old_mark);
+        mark = marktree_revise(buf->b_marktree, itr);
+        goto revised;
       }
       marktree_del_itr(buf->b_marktree, itr, false);
       moved = true;
@@ -91,7 +95,8 @@ bool extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
     }
   }
 
-  uint64_t mark = marktree_put(buf->b_marktree, row, col, true);
+  mark = marktree_put(buf->b_marktree, row, col, true);
+revised:
   map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark,
                                  (ExtmarkItem){ ns_id, id });
   map_put(uint64_t, uint64_t)(ns->map, id, mark);

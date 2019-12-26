@@ -90,6 +90,7 @@ int get_indent_str(char_u *ptr, int ts, int list)
 //  SIN_UNDO:   save line for undo before changing it.
 //  @param size measured in spaces
 // Returns true if the line was changed.
+// TODO: should this call extmark_splice already?
 int set_indent(int size, int flags)
 {
   char_u *p;
