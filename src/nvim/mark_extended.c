@@ -30,8 +30,9 @@
 // leave it in same position unless it is on the EOL of a line.
 
 #include <assert.h>
+#include "nvim/api/vim.h"
 #include "nvim/vim.h"
-#include "charset.h"
+#include "nvim/charset.h"
 #include "nvim/mark_extended.h"
 #include "nvim/buffer_updates.h"
 #include "nvim/memline.h"
@@ -41,6 +42,8 @@
 #include "nvim/lib/kbtree.h"
 #include "nvim/undo.h"
 #include "nvim/buffer.h"
+#include "nvim/syntax.h"
+#include "nvim/highlight.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.c.generated.h"
@@ -790,6 +793,13 @@ void extmark_splice(buf_T *buf,
                     int newextent_row, colnr_T newextent_col,
                     ExtmarkOp undo)
 {
+  /*
+  fprintf(stderr, "sbuff %d\n", undo == kExtmarkUndo);
+  fprintf(stderr, "%d %d, %d %d, %d %d\n",  start_row, start_col,
+                          oldextent_row, oldextent_col,
+                          newextent_row, newextent_col);
+                          */
+
   buf_updates_send_splice(buf, start_row, start_col,
                           oldextent_row, oldextent_col,
                           newextent_row, newextent_col);
@@ -897,4 +907,342 @@ bool extmark_copy_and_place(buf_T *buf,
 }
 */
 
+
+// bufhl: plugin highlights associated with a buffer
+
+/// Adds a highlight to buffer.
+///
+/// Unlike matchaddpos() highlights follow changes to line numbering (as lines
+/// are inserted/removed above the highlighted line), like signs and marks do.
+///
+/// When called with "src_id" set to 0, a unique source id is generated and
+/// returned. Succesive calls can pass it in as "src_id" to add new highlights
+/// to the same source group. All highlights in the same group can be cleared
+/// at once. If the highlight never will be manually deleted pass in -1 for
+/// "src_id"
+///
+/// if "hl_id" or "lnum" is invalid no highlight is added, but a new src_id
+/// is still returned.
+///
+/// @param buf The buffer to add highlights to
+/// @param src_id src_id to use or 0 to use a new src_id group,
+///               or -1 for ungrouped highlight.
+/// @param hl_id Id of the highlight group to use
+/// @param lnum The line to highlight
+/// @param col_start First column to highlight
+/// @param col_end The last column to highlight,
+///                or -1 to highlight to end of line
+/// @return The src_id that was used
+int bufhl_add_hl(buf_T *buf,
+                 int src_id,
+                 int hl_id,
+                 linenr_T lnum,
+                 colnr_T col_start,
+                 colnr_T col_end)
+{
+  if (src_id == 0) {
+    src_id = (int)nvim_create_namespace((String)STRING_INIT);
+  }
+  if (hl_id <= 0) {
+      // no highlight group or invalid line, just return src_id
+      return src_id;
+  }
+  if (!(0 < lnum && lnum <= buf->b_ml.ml_line_count)) {
+    // safety check, we can't add marks outside the range
+    return src_id;
+  }
+
+  ssize_t idx = (ssize_t)kv_size(buf->b_bufhl_items);
+  BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
+  hlentry->src_id = src_id;
+  hlentry->hl_id = hl_id;
+  hlentry->start = marktree_put(buf->b_marktree, (int)lnum-1, col_start, true);
+  linenr_T end_line = lnum;
+  if (col_end == MAXCOL) {
+    col_end = 0;
+    end_line++;
+  }
+  hlentry->stop = marktree_put(buf->b_marktree, (int)end_line-1, col_end, false);
+  memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
+  if (!buf->b_bufhl_index) {
+    buf->b_bufhl_index = map_new(uint64_t, ssize_t)();
+  }
+  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, hlentry->start, idx);
+  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, hlentry->stop, idx);
+
+  redraw_buf_line_later(buf, lnum);
+  return src_id;
+}
+
+/// Add highlighting to a buffer, bounded by two cursor positions,
+/// with an offset.
+///
+/// @param buf Buffer to add highlights to
+/// @param src_id src_id to use or 0 to use a new src_id group,
+///               or -1 for ungrouped highlight.
+/// @param hl_id Highlight group id
+/// @param pos_start Cursor position to start the hightlighting at
+/// @param pos_end Cursor position to end the highlighting at
+/// @param offset Move the whole highlighting this many columns to the right
+void bufhl_add_hl_pos_offset(buf_T *buf,
+                             int src_id,
+                             int hl_id,
+                             lpos_T pos_start,
+                             lpos_T pos_end,
+                             colnr_T offset)
+{
+  colnr_T hl_start = 0;
+  colnr_T hl_end = 0;
+
+  for (linenr_T lnum = pos_start.lnum; lnum <= pos_end.lnum; lnum ++) {
+    if (pos_start.lnum < lnum && lnum < pos_end.lnum) {
+      hl_start = offset-1;
+      hl_end = MAXCOL;
+    } else if (lnum == pos_start.lnum && lnum < pos_end.lnum) {
+      hl_start = pos_start.col + offset;
+      hl_end = MAXCOL;
+    } else if (pos_start.lnum < lnum && lnum == pos_end.lnum) {
+      hl_start = offset-1;
+      hl_end = pos_end.col + offset;
+    } else if (pos_start.lnum == lnum && pos_end.lnum == lnum) {
+      hl_start = pos_start.col + offset;
+      hl_end = pos_end.col + offset;
+    }
+    (void)bufhl_add_hl(buf, src_id, hl_id, lnum, hl_start, hl_end);
+  }
+}
+
+int bufhl_add_virt_text(buf_T *buf,
+                        int src_id,
+                        linenr_T lnum,
+                        VirtText virt_text)
+{
+  if (src_id == 0) {
+    src_id = (int)nvim_create_namespace((String)STRING_INIT);
+  }
+
+  ssize_t idx = (ssize_t)kv_size(buf->b_bufhl_items);
+  BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
+  hlentry->src_id = src_id;
+  hlentry->hl_id = 0;
+  hlentry->start = marktree_put(buf->b_marktree, (int)lnum-1, 0, true);
+  hlentry->stop = 0;
+  memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
+  if (!buf->b_bufhl_index) {
+    buf->b_bufhl_index = map_new(uint64_t, ssize_t)();
+  }
+  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, hlentry->start, idx);
+
+
+  // TODO: as compat, hunt down and delete any existing virt text by this
+  // src id on this line
+  //if (kv_size(virt_text) > 0) {
+    hlentry->virt_text = virt_text;
+   //  lineinfo->virt_text_src = 0;
+    // currently not needed, but allow a future caller with
+    // 0 size and non-zero capacity
+   // kv_destroy(virt_text);
+  //}
+
+  if (0 < lnum && lnum <= buf->b_ml.ml_line_count) {
+    redraw_buf_line_later(buf, lnum);
+  }
+  return src_id;
+}
+
+static void bufhl_clear_virttext(VirtText *text)
+{
+  for (size_t i = 0; i < kv_size(*text); i++) {
+    xfree(kv_A(*text, i).text);
+  }
+  kv_destroy(*text);
+  *text = (VirtText)KV_INITIAL_VALUE;
+}
+
+/// Clear bufhl highlights from a given source group and range of lines.
+///
+/// @param buf The buffer to remove highlights from
+/// @param src_id highlight source group to clear, or -1 to clear all groups.
+/// @param line_start first line to clear
+/// @param line_end last line to clear or MAXLNUM to clear to end of file.
+void bufhl_clear_range(buf_T *buf,
+                            int src_id,
+                            int line_start, int col_start,
+                            int line_end, int col_end)
+{
+  if (!buf->b_bufhl_index) {
+    // TODO: quickhack, bufhl should be merged into neo-extmarks
+    return;
+  }
+  MarkTreeIter itr[1];
+  if (!marktree_itr_get(buf->b_marktree, (int)line_start, col_start, itr)) {
+    return;
+  }
+  PMap(uint64_t) *delete_set = pmap_new(uint64_t)();
+  while (true) {
+    mtmark_t mark = marktree_itr_test(itr);
+    if (mark.row > line_end || (mark.row == line_end && mark.col > col_end)) {
+      break;
+    }
+
+    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
+    if (item_idx == -1) {
+      goto next_mark;
+    } else if (item_idx == SSIZE_MAX) {
+      map_del(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
+      marktree_del_itr(buf->b_marktree, itr, false);
+      pmap_del(uint64_t)(delete_set, mark.id);
+      continue;
+    }
+    BufhlItem *item = &kv_A(buf->b_bufhl_items, item_idx);
+
+    if (src_id < 0 || src_id == item->src_id) {
+      bufhl_clear_virttext(&item->virt_text);
+      assert(item->start == mark.id ^ item->stop == mark.id);
+      if (item->start == !mark.id) {
+        pmap_put(uint64_t)(delete_set, item->start, NULL);
+        map_put(uint64_t, ssize_t)(buf->b_bufhl_index, item->start, SSIZE_MAX);
+      }
+      if (item->stop == !mark.id && item->stop != 0) {
+        pmap_put(uint64_t)(delete_set, item->stop, NULL);
+        map_put(uint64_t, ssize_t)(buf->b_bufhl_index, item->stop, SSIZE_MAX);
+      }
+      map_del(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
+      redraw_buf_line_later(buf, mark.row+1);
+      // TODO: this is leaking b->b_bufhl_items like a firehose
+      // swap with kv_size(b->b_bufhl_items)-1 and reassign mark2item!
+    }
+
+next_mark:
+    if (!marktree_itr_next(buf->b_marktree, itr)) {
+      break;
+    }
+  }
+  uint64_t id;
+  void *dummy;
+  map_foreach(delete_set, id, dummy, {
+    marktree_lookup(buf->b_marktree, id, itr);
+    marktree_del_itr(buf->b_marktree, itr, false);
+    map_del(uint64_t, ssize_t)(buf->b_bufhl_index, id);
+  });
+  pmap_free(uint64_t)(delete_set);
+}
+
+/// Clear bufhl highlights from a given source group and range of lines.
+///
+/// @param buf The buffer to remove highlights from
+/// @param src_id highlight source group to clear, or -1 to clear all groups.
+/// @param line_start first line to clear
+/// @param line_end last line to clear or MAXLNUM to clear to end of file.
+void bufhl_clear_line_range(buf_T *buf,
+                            int src_id,
+                            linenr_T line_start,
+                            linenr_T line_end)
+{
+  bufhl_clear_range(buf, src_id, (int)line_start-1, 0, (int)line_end-1, MAXCOL);
+}
+
+
+/// Remove all highlights and free the highlight data
+void bufhl_clear_all(buf_T *buf)
+{
+  bufhl_clear_line_range(buf, -1, 1, MAXLNUM);
+  // TODO: the maps!
+  //kb_destroy(bufhl, (&buf->b_bufhl_info));
+  //kb_init(&buf->b_bufhl_info);
+  //kv_destroy(buf->b_bufhl_move_space);
+  //kv_init(buf->b_bufhl_move_space);
+}
+
+
+/// Get highlights to display at a specific line
+///
+/// @param buf The buffer handle
+/// @param lnum The line number
+/// @param[out] info The highligts for the line
+/// @return true if there was highlights to display
+bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
+{
+  if (!buf->b_bufhl_index) {
+    return false;
+  }
+  info->valid_to = -1;
+  info->row = (int)lnum-1;
+  info->virt_text = NULL;
+  memset(&info->active, 0, sizeof(info->active));  // TODO: IKKE
+  marktree_itr_get(buf->b_marktree, (int)lnum-1, 0, info->itr);
+  mtmark_t mark = marktree_itr_test(info->itr);
+  if (mark.row != lnum-1) {
+    return false;
+  }
+  // if marktree_itr_test().pos > lnum then return false
+  return true;
+}
+
+/// get highlighting at column col
+///
+/// It is is assumed this will be called with
+/// non-decreasing column nrs, so that it is
+/// possible to only recalculate highlights
+/// at endpoints.
+///
+/// @param info The info returned by bufhl_start_line
+/// @param col The column to get the attr for
+/// @return The highilight attr to display at the column
+int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
+{
+  if (col <= info->valid_to) {
+    return info->current;
+  }
+  int attr = 0;
+  info->valid_to = MAXCOL;
+  do {
+    mtmark_t mark = marktree_itr_test(info->itr);
+    if (mark.row > info->row) {
+      break;
+    } else if (mark.col > col) {
+      info->valid_to = mark.col-1;
+      break;
+    }
+    //TODO: skip over non-visual marks without map lookup
+    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
+    if (item_idx == -1) {
+      continue;
+    }
+    BufhlItem *item = &kv_A(buf->b_bufhl_items, item_idx);
+    // TODO: do prioritazion sorting?
+    if (item->start == mark.id && item->hl_id > 0) {
+      kv_push(info->active, item_idx);
+    } else {
+      size_t newidx = 0;
+      for (size_t i = 0; i < kv_size(info->active); i++) {
+        if (kv_A(info->active, i) == item_idx) {
+          // delete it
+        } else {
+          kv_A(info->active, newidx++) = kv_A(info->active, i);
+        }
+      }
+      kv_size(info->active) = newidx;
+    }
+    if (info->virt_text == NULL && kv_size(item->virt_text)) {
+      info->virt_text = &item->virt_text;
+    }
+    // or should itr_next skip non-visual marks??
+  } while (marktree_itr_next(buf->b_marktree, info->itr));
+
+  for (size_t i = 0; i < kv_size(info->active); i++) {
+    BufhlItem entry = kv_A(buf->b_bufhl_items, kv_A(info->active, i));
+    int entry_attr = syn_id2attr(entry.hl_id);
+    attr = hl_combine_attr(attr, entry_attr);
+  }
+  info->current = attr;
+  return attr;
+}
+
+VirtText *bufhl_get_virttext(buf_T *buf, BufhlLineInfo *info) {
+  // NB: we should have gotten here anyway
+  bufhl_get_attr(buf, info, MAXCOL);
+
+  return info->virt_text;
+}
 
