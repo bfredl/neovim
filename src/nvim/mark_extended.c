@@ -105,6 +105,9 @@ revised:
   map_put(uint64_t, uint64_t)(ns->map, id, mark);
 
   if (op != kExtmarkNoUndo) {
+    // TODO: this doesn't cover all the cases and probably shouldn't be done
+    // "prematurely". Any movement in undo history might necceitate adding
+    // new marks to old undo headers.
     u_extmark_set(buf, mark, row, col);
   }
   return !moved;
