@@ -175,12 +175,19 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
 uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
 {
   uint64_t id = ++b->next_id;
-  mtkey_t k = { .pos = { .row = row, .col = col }, .id = id };
+  uint64_t keyid = id;
   if (right_gravity) {
     // order all right gravity keys after the left ones, for effortless
     // insertion (but not deletion!)
-    k.id |= RIGHT_GRAVITY;
+    keyid |= RIGHT_GRAVITY;
   }
+  marktree_put_key(b, row, col, keyid);
+  return id;
+}
+
+void marktree_put_key(MarkTree *b, int row, int col, uint64_t id)
+{
+  mtkey_t k = { .pos = { .row = row, .col = col }, .id = id };
 
   if (!b->root) {
     b->root = (mtnode_t *)xcalloc(1, ILEN);
@@ -200,7 +207,6 @@ uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
     r = s;
   }
   marktree_putp_aux(b, r, k);
-  return id;
 }
 
 /// INITIATING DELETION PROTOCOL:
@@ -502,6 +508,16 @@ uint64_t marktree_revise(MarkTree *b, MarkTreeIter *itr)
   rawkey(itr).id = new_id + (RIGHT_GRAVITY&old_id);
   refkey(b, itr->node, itr->i);
   return new_id;
+}
+
+void marktree_move(MarkTree *b, MarkTreeIter *itr, int row, int col)
+{
+  uint64_t old_id = rawkey(itr).id;
+  // TODO(bfredl): optimize when moving a mark within a leaf without moving it
+  // across neighbours!
+  marktree_del_itr(b, itr, false);
+  marktree_put_key(b, row, col, old_id);
+  itr->node = NULL;  // itr might become invalid by put
 }
 
 // itr functions

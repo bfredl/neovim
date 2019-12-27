@@ -58,13 +58,12 @@ typedef struct {
 
 // extmark was updated
 typedef struct {
-  uint64_t ns_id;
-  uint64_t mark_id;
+  uint64_t mark;  // raw mark id of the marktree
   int old_row;
   colnr_T old_col;
   int row;
   colnr_T col;
-} ExtmarkUpdate;
+} ExtmarkSavePos;
 
 // also used as part of :move operation? probably can be simplified to one
 // event.
@@ -77,22 +76,11 @@ typedef struct {
   colnr_T p_col;
 } ExtmarkCopyPlace;
 
-// extmark was cleared.
-// TODO(bfredl): same reconsideration as for ExtmarkSet/ExtmarkUpdate
-typedef struct {
-  uint64_t ns_id;
-  linenr_T l_lnum;
-  linenr_T u_lnum;
-} ExtmarkClear;
-
-
 typedef enum {
   kSplice,
   kAdjustMove,
-  kExtmarkSet,
-  kExtmarkDel,
   kExtmarkUpdate,
-  kExtmarkCopy,
+  kExtmarkSavePos,
   kExtmarkCopyPlace,
   kExtmarkClear,
 } UndoObjectType;
@@ -103,11 +91,8 @@ struct undo_object {
   union {
     ExtmarkSplice splice;
     AdjustMove move;
-    ExtmarkSet set;
-    ExtmarkUpdate update;
-    ExtmarkInfo copy;
+    ExtmarkSavePos savepos;
     ExtmarkCopyPlace copy_place;
-    ExtmarkClear clear;
   } data;
 };
 
