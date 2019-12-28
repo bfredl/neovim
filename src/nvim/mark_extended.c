@@ -908,19 +908,19 @@ int bufhl_add_hl(buf_T *buf,
   BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
   hlentry->src_id = src_id;
   hlentry->hl_id = hl_id;
-  hlentry->start = marktree_put(buf->b_marktree, (int)lnum-1, col_start, true);
   linenr_T end_line = lnum;
   if (col_end == MAXCOL) {
     col_end = 0;
     end_line++;
   }
-  hlentry->stop = marktree_put(buf->b_marktree, (int)end_line-1, col_end, false);
   memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
   if (!buf->b_bufhl_index) {
     buf->b_bufhl_index = map_new(uint64_t, ssize_t)();
   }
-  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, hlentry->start, idx);
-  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, hlentry->stop, idx);
+  uint64_t mark = marktree_put_pair(buf->b_marktree,
+                                    (int)lnum-1, col_start, true,
+                                    (int)end_line-1, col_end, false);
+  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, mark, idx);
 
   redraw_buf_line_later(buf, lnum);
   return src_id;
@@ -977,13 +977,12 @@ int bufhl_add_virt_text(buf_T *buf,
   BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
   hlentry->src_id = src_id;
   hlentry->hl_id = 0;
-  hlentry->start = marktree_put(buf->b_marktree, (int)lnum-1, 0, true);
-  hlentry->stop = 0;
   memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
   if (!buf->b_bufhl_index) {
     buf->b_bufhl_index = map_new(uint64_t, ssize_t)();
   }
-  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, hlentry->start, idx);
+  uint64_t mark = marktree_put(buf->b_marktree, (int)lnum-1, 0, true);
+  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, mark, idx);
 
 
   // TODO: as compat, hunt down and delete any existing virt text by this
@@ -1030,37 +1029,36 @@ void bufhl_clear_range(buf_T *buf,
   if (!marktree_itr_get(buf->b_marktree, (int)line_start, col_start, itr)) {
     return;
   }
-  PMap(uint64_t) *delete_set = pmap_new(uint64_t)();
+  Map(uint64_t, uint64_t) *delete_set = map_new(uint64_t, uint64_t)();
   while (true) {
     mtmark_t mark = marktree_itr_test(itr);
     if (mark.row > line_end || (mark.row == line_end && mark.col > col_end)) {
       break;
     }
 
-    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
+    if (map_get(uint64_t, uint64_t)(delete_set, mark.id)) {
+      marktree_del_itr(buf->b_marktree, itr, false);
+      map_del(uint64_t, uint64_t)(delete_set, mark.id);
+      continue;
+    }
+    uint64_t start_id = mark.id&(~MARKTREE_END_FLAG);
+    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, start_id);
     if (item_idx == -1) {
       goto next_mark;
-    } else if (item_idx == SSIZE_MAX) {
-      map_del(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
-      marktree_del_itr(buf->b_marktree, itr, false);
-      pmap_del(uint64_t)(delete_set, mark.id);
-      continue;
     }
     BufhlItem *item = &kv_A(buf->b_bufhl_items, item_idx);
 
     if (src_id < 0 || src_id == item->src_id) {
       bufhl_clear_virttext(&item->virt_text);
-      assert(item->start == mark.id ^ item->stop == mark.id);
-      if (item->start == !mark.id) {
-        pmap_put(uint64_t)(delete_set, item->start, NULL);
-        map_put(uint64_t, ssize_t)(buf->b_bufhl_index, item->start, SSIZE_MAX);
-      }
-      if (item->stop == !mark.id && item->stop != 0) {
-        pmap_put(uint64_t)(delete_set, item->stop, NULL);
-        map_put(uint64_t, ssize_t)(buf->b_bufhl_index, item->stop, SSIZE_MAX);
-      }
       map_del(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
+      // we reached whatever end of p a
+      if (mark.id & MARKTREE_PAIRED_FLAG) {
+        uint64_t other = mark.id ^ MARKTREE_END_FLAG;
+        map_put(uint64_t, uint64_t)(delete_set, other, 1);
+      }
       redraw_buf_line_later(buf, mark.row+1);
+      marktree_del_itr(buf->b_marktree, itr, false);
+      continue;
       // TODO: this is leaking b->b_bufhl_items like a firehose
       // swap with kv_size(b->b_bufhl_items)-1 and reassign mark2item!
     }
@@ -1070,14 +1068,13 @@ next_mark:
       break;
     }
   }
-  uint64_t id;
-  void *dummy;
+  uint64_t id, dummy;
   map_foreach(delete_set, id, dummy, {
     marktree_lookup(buf->b_marktree, id, itr);
     marktree_del_itr(buf->b_marktree, itr, false);
     map_del(uint64_t, ssize_t)(buf->b_bufhl_index, id);
   });
-  pmap_free(uint64_t)(delete_set);
+  map_free(uint64_t, uint64_t)(delete_set);
 }
 
 /// Clear bufhl highlights from a given source group and range of lines.
@@ -1157,24 +1154,27 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
       break;
     }
     //TODO: skip over non-visual marks without map lookup
-    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
+    uint64_t start_id = mark.id&(~MARKTREE_END_FLAG);
+    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, start_id);
     if (item_idx == -1) {
       continue;
     }
     BufhlItem *item = &kv_A(buf->b_bufhl_items, item_idx);
     // TODO: do prioritazion sorting?
-    if (item->start == mark.id && item->hl_id > 0) {
-      kv_push(info->active, item_idx);
-    } else {
-      size_t newidx = 0;
-      for (size_t i = 0; i < kv_size(info->active); i++) {
-        if (kv_A(info->active, i) == item_idx) {
-          // delete it
-        } else {
-          kv_A(info->active, newidx++) = kv_A(info->active, i);
+    if (item->hl_id > 0) {
+      if (!(mark.id&MARKTREE_END_FLAG)) {
+        kv_push(info->active, item_idx);
+      } else {
+        size_t newidx = 0;
+        for (size_t i = 0; i < kv_size(info->active); i++) {
+          if (kv_A(info->active, i) == item_idx) {
+            // delete it
+          } else {
+            kv_A(info->active, newidx++) = kv_A(info->active, i);
+          }
         }
+        kv_size(info->active) = newidx;
       }
-      kv_size(info->active) = newidx;
     }
     if (info->virt_text == NULL && kv_size(item->virt_text)) {
       info->virt_text = &item->virt_text;

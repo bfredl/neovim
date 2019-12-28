@@ -4,12 +4,18 @@
 #include "nvim/garray.h"
 
 #define T MT_BRANCH_FACTOR
-#define ILEN (sizeof(mtnode_t)+(2*T)*sizeof(void *))
+#define ILEN (sizeof(mtnode_t)+(2 * T) * sizeof(void *))
 #define key_t SKRAPET
 
-#define RIGHT_GRAVITY (((uint64_t)1)<<63)
+#define RIGHT_GRAVITY (((uint64_t)1) << 63)
 #define ANTIGRAVITY(id) ((id)&(RIGHT_GRAVITY-1))
 #define IS_RIGHT(id) ((id)&RIGHT_GRAVITY)
+
+#define PAIRED MARKTREE_PAIRED_FLAG
+#define END_FLAG MARKTREE_END_FLAG
+#define ID_INCR (((uint64_t)1) << 2)
+
+#define PROP_MASK (RIGHT_GRAVITY|PAIRED|END_FLAG)
 
 #define rawkey(itr) (itr->node->key[itr->i])
 
@@ -174,7 +180,7 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
 
 uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
 {
-  uint64_t id = ++b->next_id;
+  uint64_t id = (b->next_id+=ID_INCR);
   uint64_t keyid = id;
   if (right_gravity) {
     // order all right gravity keys after the left ones, for effortless
@@ -182,6 +188,17 @@ uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
     keyid |= RIGHT_GRAVITY;
   }
   marktree_put_key(b, row, col, keyid);
+  return id;
+}
+
+uint64_t marktree_put_pair(MarkTree *b, int start_row, int start_col, bool start_right,
+                           int end_row, int end_col, bool end_right)
+{
+  uint64_t id = (b->next_id+=ID_INCR)|PAIRED;
+  uint64_t start_id = id|(start_right?RIGHT_GRAVITY:0);
+  uint64_t end_id = id|END_FLAG|(end_right?RIGHT_GRAVITY:0);
+  marktree_put_key(b, start_row, start_col, start_id);
+  marktree_put_key(b, end_row, end_col, end_id);
   return id;
 }
 
@@ -500,11 +517,12 @@ void marktree_free_node(mtnode_t *x)
   xfree(x);
 }
 
+// TODO: should caller handle pairs??
 uint64_t marktree_revise(MarkTree *b, MarkTreeIter *itr)
 {
   uint64_t old_id = rawkey(itr).id;
   pmap_del(uint64_t)(b->id2node, ANTIGRAVITY(old_id));
-  uint64_t new_id = ++b->next_id;
+  uint64_t new_id = (b->next_id += ID_INCR);
   rawkey(itr).id = new_id + (RIGHT_GRAVITY&old_id);
   refkey(b, itr->node, itr->i);
   return new_id;

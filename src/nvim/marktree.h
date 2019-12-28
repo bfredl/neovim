@@ -69,5 +69,7 @@ typedef struct {
 # include "marktree.h.generated.h"
 #endif
 
+#define MARKTREE_PAIRED_FLAG (((uint64_t)1) << 1)
+#define MARKTREE_END_FLAG (((uint64_t)1) << 0)
 
 #endif  // NVIM_MARKTREE_H
