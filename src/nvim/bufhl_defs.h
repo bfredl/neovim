@@ -18,8 +18,6 @@ typedef kvec_t(VirtTextChunk) VirtText;
 typedef struct {
   int src_id;
   int hl_id;  // highlight group
-  uint64_t start;  // mark to start highlight
-  uint64_t stop;  // mark to end highlight, can be zero if no highlight
   VirtText virt_text;
 } BufhlItem;
 
