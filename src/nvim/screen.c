@@ -1225,6 +1225,7 @@ static void win_update(win_T *wp)
                          : (wp->w_topline + wp->w_height_inner));
     args.items[0] = WINDOW_OBJ(wp->handle);
     args.items[1] = BUFFER_OBJ(buf->handle);
+    // TODO: we are not using this, but should be first drawn line
     args.items[2] = INTEGER_OBJ(wp->w_topline-1);
     args.items[3] = INTEGER_OBJ(knownmax);
     // TODO(bfredl): we could allow this callback to change mod_top, mod_bot.
@@ -1236,6 +1237,7 @@ static void win_update(win_T *wp)
     }
   }
 
+  // TODO: first drawn line, not topline!
   decorations_active = extmark_decorations_start(buf, wp->w_topline-1,
                                                  &decorations);
 
