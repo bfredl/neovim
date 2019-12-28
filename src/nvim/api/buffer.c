@@ -1443,12 +1443,9 @@ void nvim_buf_clear_namespace(Buffer buffer,
   if (line_end < 0 || line_end > MAXLNUM) {
     line_end = MAXLNUM;
   }
-
-  bufhl_clear_line_range(buf, (int)ns_id, (int)line_start+1, (int)line_end);
   extmark_clear(buf, (ns_id < 0 ? 0 : (uint64_t)ns_id),
                 (int)line_start, 0,
-                (int)line_end, MAXCOL,
-                kExtmarkUndo);
+                (int)line_end, MAXCOL);
 }
 
 /// Clears highlights and virtual text from namespace and range of lines

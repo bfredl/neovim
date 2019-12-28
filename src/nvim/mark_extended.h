@@ -121,6 +121,17 @@ typedef struct {
 typedef kvec_t(ExtmarkSubSingle) extmark_sub_single_vec_t;
 typedef kvec_t(ExtmarkSubMulti) extmark_sub_multi_vec_t;
 
+typedef struct {
+  MarkTreeIter itr[1];
+  int current;
+  colnr_T valid_to;
+  int row;
+  // TODO: share the buffer?
+  kvec_t(ExtmarkItem *) active;
+  VirtText *virt_text;
+} BufhlLineInfo;
+
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.h.generated.h"
 #endif

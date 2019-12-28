@@ -4406,8 +4406,8 @@ skip:
       preview_buf = show_sub(eap, old_cursor, &preview_lines,
                              pre_hl_id, pre_src_id);
       if (subsize > 0) {
-        bufhl_clear_line_range(orig_buf, pre_src_id, eap->line1,
-                               kv_last(preview_lines.subresults).end.lnum);
+        extmark_clear(orig_buf, pre_src_id, eap->line1-1, 0,
+                      kv_last(preview_lines.subresults).end.lnum-1, MAXCOL);
       }
     }
   }

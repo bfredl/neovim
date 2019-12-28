@@ -111,13 +111,10 @@ typedef uint16_t disptick_T;  // display tick type
 #include "nvim/syntax_defs.h"
 // for signlist_T
 #include "nvim/sign_defs.h"
-// for bufhl_*_T
-#include "nvim/bufhl_defs.h"
 
 #include "nvim/os/fs_defs.h"    // for FileID
 #include "nvim/terminal.h"      // for Terminal
 
-#include "nvim/lib/kbtree.h"
 #include "nvim/mark_extended.h"
 
 /*
@@ -811,15 +808,7 @@ struct file_buffer {
 
   MarkTree b_marktree[1];
 
-  kvec_t(BufhlItem) b_bufhl_items;
-  
-  // TODO: integrate me into b_extmark_index !
-  Map(uint64_t, ssize_t) *b_bufhl_index;
-
   Map(uint64_t, ExtmarkItem) *b_extmark_index;
-
-  // TODO
-  //kvec_t(BufhlLine *) b_bufhl_move_space;  // temporary space for highlights
 
   Map(uint64_t, ExtmarkNs) *b_extmark_ns;         // extmark namespaces
   //kvec_t(ExtmarkLine *) b_extmark_move_space;  // temp space for extmarks
