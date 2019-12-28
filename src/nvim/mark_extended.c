@@ -83,6 +83,9 @@ bool extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
   } else {
     uint64_t old_mark = map_get(uint64_t, uint64_t)(ns->map, id);
     if (old_mark) {
+      if (old_mark & MARKTREE_PAIRED_FLAG) {
+        abort();
+      }
       MarkTreeIter itr[1];
       old_pos = marktree_lookup(buf->b_marktree, old_mark, itr);
       assert(itr->node);
@@ -101,7 +104,8 @@ bool extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
   mark = marktree_put(buf->b_marktree, row, col, true);
 revised:
   map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark,
-                                 (ExtmarkItem){ ns_id, id });
+                                 (ExtmarkItem){ ns_id, id, 0,
+                                                KV_INITIAL_VALUE });
   map_put(uint64_t, uint64_t)(ns->map, id, mark);
 
   if (op != kExtmarkNoUndo) {
@@ -159,8 +163,7 @@ bool extmark_del(buf_T *buf, uint64_t ns_id, uint64_t id, ExtmarkOp op)
 // if ns = 0, it means clear all namespaces
 void extmark_clear(buf_T *buf, uint64_t ns_id,
                    int l_row, colnr_T l_col,
-                   int u_row, colnr_T u_col,
-                   ExtmarkOp undo)
+                   int u_row, colnr_T u_col)
 {
   if (!buf->b_extmark_ns) {
     return;
@@ -178,6 +181,8 @@ void extmark_clear(buf_T *buf, uint64_t ns_id,
     }
   }
 
+  Map(uint64_t, uint64_t) *delete_set = map_new(uint64_t, uint64_t)();
+
   MarkTreeIter itr[1];
   marktree_itr_get(buf->b_marktree, l_row, l_col, itr);
   while (true) {
@@ -187,10 +192,25 @@ void extmark_clear(buf_T *buf, uint64_t ns_id,
         || (mark.row == u_row && mark.col > u_col)) {
       break;
     }
+    if (map_get(uint64_t, uint64_t)(delete_set, mark.id)) {
+      marktree_del_itr(buf->b_marktree, itr, false);
+      map_del(uint64_t, uint64_t)(delete_set, mark.id);
+      continue;
+    }
+
     ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
 
     if (item.ns_id == ns_id || all_ns) {
+      if (item.hl_id || kv_size(item.virt_text)) {
+        // TODO: problematic with multiline bufhl
+        redraw_buf_line_later(buf, mark.row+1);
+      }
+      clear_virttext(&item.virt_text);
       marks_cleared = true;
+      if (mark.id & MARKTREE_PAIRED_FLAG) {
+        uint64_t other = mark.id ^ MARKTREE_END_FLAG;
+        map_put(uint64_t, uint64_t)(delete_set, other, 1);
+      }
       ExtmarkNs *my_ns = all_ns ? buf_ns_ref(buf, item.ns_id, false) : ns;
       map_del(uint64_t, uint64_t)(my_ns->map, item.mark_id);
       map_del(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
@@ -199,6 +219,13 @@ void extmark_clear(buf_T *buf, uint64_t ns_id,
       marktree_itr_next(buf->b_marktree, itr);
     }
   }
+  uint64_t id, dummy;
+  map_foreach(delete_set, id, dummy, {
+    marktree_lookup(buf->b_marktree, id, itr);
+    assert(itr->node);
+    marktree_del_itr(buf->b_marktree, itr, false);
+  });
+  map_free(uint64_t, uint64_t)(delete_set);
 }
 
 // Returns the position of marks between a range,
@@ -860,7 +887,17 @@ bool extmark_copy_and_place(buf_T *buf,
 */
 
 
-// bufhl: plugin highlights associated with a buffer
+uint64_t src2ns(int *src_id)
+{
+  if (*src_id == 0) {
+    *src_id = (int)nvim_create_namespace((String)STRING_INIT);
+  }
+  if (*src_id < 0) {
+    return UINT64_MAX;
+  } else {
+    return (uint64_t)(*src_id);
+  }
+}
 
 /// Adds a highlight to buffer.
 ///
@@ -892,9 +929,7 @@ int bufhl_add_hl(buf_T *buf,
                  colnr_T col_start,
                  colnr_T col_end)
 {
-  if (src_id == 0) {
-    src_id = (int)nvim_create_namespace((String)STRING_INIT);
-  }
+  uint64_t ns_id = src2ns(&src_id);
   if (hl_id <= 0) {
       // no highlight group or invalid line, just return src_id
       return src_id;
@@ -903,24 +938,23 @@ int bufhl_add_hl(buf_T *buf,
     // safety check, we can't add marks outside the range
     return src_id;
   }
+  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
+  ExtmarkItem item;
+  item.ns_id = ns_id;
+  item.mark_id = ns->free_id++;
+  item.hl_id = hl_id;
+  memset(&item.virt_text, 0, sizeof(item.virt_text));
 
-  ssize_t idx = (ssize_t)kv_size(buf->b_bufhl_items);
-  BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
-  hlentry->src_id = src_id;
-  hlentry->hl_id = hl_id;
   linenr_T end_line = lnum;
   if (col_end == MAXCOL) {
     col_end = 0;
     end_line++;
   }
-  memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
-  if (!buf->b_bufhl_index) {
-    buf->b_bufhl_index = map_new(uint64_t, ssize_t)();
-  }
   uint64_t mark = marktree_put_pair(buf->b_marktree,
                                     (int)lnum-1, col_start, true,
                                     (int)end_line-1, col_end, false);
-  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, mark, idx);
+  map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark, item);
+  map_put(uint64_t, uint64_t)(ns->map, item.mark_id, mark);
 
   redraw_buf_line_later(buf, lnum);
   return src_id;
@@ -969,26 +1003,23 @@ int bufhl_add_virt_text(buf_T *buf,
                         linenr_T lnum,
                         VirtText virt_text)
 {
-  if (src_id == 0) {
-    src_id = (int)nvim_create_namespace((String)STRING_INIT);
-  }
+  uint64_t ns_id = src2ns(&src_id);
 
-  ssize_t idx = (ssize_t)kv_size(buf->b_bufhl_items);
-  BufhlItem *hlentry = kv_pushp(buf->b_bufhl_items);
-  hlentry->src_id = src_id;
-  hlentry->hl_id = 0;
-  memset(&hlentry->virt_text, 0, sizeof(hlentry->virt_text));
-  if (!buf->b_bufhl_index) {
-    buf->b_bufhl_index = map_new(uint64_t, ssize_t)();
-  }
+  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
+  ExtmarkItem item;
+  item.ns_id = ns_id;
+  item.mark_id = ns->free_id++;
+  item.hl_id = 0;
+  item.virt_text = virt_text;
+
   uint64_t mark = marktree_put(buf->b_marktree, (int)lnum-1, 0, true);
-  map_put(uint64_t, ssize_t)(buf->b_bufhl_index, mark, idx);
+  map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark, item);
+  map_put(uint64_t, uint64_t)(ns->map, item.mark_id, mark);
 
 
   // TODO: as compat, hunt down and delete any existing virt text by this
   // src id on this line
   //if (kv_size(virt_text) > 0) {
-    hlentry->virt_text = virt_text;
    //  lineinfo->virt_text_src = 0;
     // currently not needed, but allow a future caller with
     // 0 size and non-zero capacity
@@ -1001,7 +1032,7 @@ int bufhl_add_virt_text(buf_T *buf,
   return src_id;
 }
 
-static void bufhl_clear_virttext(VirtText *text)
+static void clear_virttext(VirtText *text)
 {
   for (size_t i = 0; i < kv_size(*text); i++) {
     xfree(kv_A(*text, i).text);
@@ -1009,100 +1040,6 @@ static void bufhl_clear_virttext(VirtText *text)
   kv_destroy(*text);
   *text = (VirtText)KV_INITIAL_VALUE;
 }
-
-/// Clear bufhl highlights from a given source group and range of lines.
-///
-/// @param buf The buffer to remove highlights from
-/// @param src_id highlight source group to clear, or -1 to clear all groups.
-/// @param line_start first line to clear
-/// @param line_end last line to clear or MAXLNUM to clear to end of file.
-void bufhl_clear_range(buf_T *buf,
-                            int src_id,
-                            int line_start, int col_start,
-                            int line_end, int col_end)
-{
-  if (!buf->b_bufhl_index) {
-    // TODO: quickhack, bufhl should be merged into neo-extmarks
-    return;
-  }
-  MarkTreeIter itr[1];
-  if (!marktree_itr_get(buf->b_marktree, (int)line_start, col_start, itr)) {
-    return;
-  }
-  Map(uint64_t, uint64_t) *delete_set = map_new(uint64_t, uint64_t)();
-  while (true) {
-    mtmark_t mark = marktree_itr_test(itr);
-    if (mark.row > line_end || (mark.row == line_end && mark.col > col_end)) {
-      break;
-    }
-
-    if (map_get(uint64_t, uint64_t)(delete_set, mark.id)) {
-      marktree_del_itr(buf->b_marktree, itr, false);
-      map_del(uint64_t, uint64_t)(delete_set, mark.id);
-      continue;
-    }
-    uint64_t start_id = mark.id&(~MARKTREE_END_FLAG);
-    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, start_id);
-    if (item_idx == -1) {
-      goto next_mark;
-    }
-    BufhlItem *item = &kv_A(buf->b_bufhl_items, item_idx);
-
-    if (src_id < 0 || src_id == item->src_id) {
-      bufhl_clear_virttext(&item->virt_text);
-      map_del(uint64_t, ssize_t)(buf->b_bufhl_index, mark.id);
-      // we reached whatever end of p a
-      if (mark.id & MARKTREE_PAIRED_FLAG) {
-        uint64_t other = mark.id ^ MARKTREE_END_FLAG;
-        map_put(uint64_t, uint64_t)(delete_set, other, 1);
-      }
-      redraw_buf_line_later(buf, mark.row+1);
-      marktree_del_itr(buf->b_marktree, itr, false);
-      continue;
-      // TODO: this is leaking b->b_bufhl_items like a firehose
-      // swap with kv_size(b->b_bufhl_items)-1 and reassign mark2item!
-    }
-
-next_mark:
-    if (!marktree_itr_next(buf->b_marktree, itr)) {
-      break;
-    }
-  }
-  uint64_t id, dummy;
-  map_foreach(delete_set, id, dummy, {
-    marktree_lookup(buf->b_marktree, id, itr);
-    marktree_del_itr(buf->b_marktree, itr, false);
-    map_del(uint64_t, ssize_t)(buf->b_bufhl_index, id);
-  });
-  map_free(uint64_t, uint64_t)(delete_set);
-}
-
-/// Clear bufhl highlights from a given source group and range of lines.
-///
-/// @param buf The buffer to remove highlights from
-/// @param src_id highlight source group to clear, or -1 to clear all groups.
-/// @param line_start first line to clear
-/// @param line_end last line to clear or MAXLNUM to clear to end of file.
-void bufhl_clear_line_range(buf_T *buf,
-                            int src_id,
-                            linenr_T line_start,
-                            linenr_T line_end)
-{
-  bufhl_clear_range(buf, src_id, (int)line_start-1, 0, (int)line_end-1, MAXCOL);
-}
-
-
-/// Remove all highlights and free the highlight data
-void bufhl_clear_all(buf_T *buf)
-{
-  bufhl_clear_line_range(buf, -1, 1, MAXLNUM);
-  // TODO: the maps!
-  //kb_destroy(bufhl, (&buf->b_bufhl_info));
-  //kb_init(&buf->b_bufhl_info);
-  //kv_destroy(buf->b_bufhl_move_space);
-  //kv_init(buf->b_bufhl_move_space);
-}
-
 
 /// Get highlights to display at a specific line
 ///
@@ -1112,7 +1049,7 @@ void bufhl_clear_all(buf_T *buf)
 /// @return true if there was highlights to display
 bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
 {
-  if (!buf->b_bufhl_index) {
+  if (!buf->b_extmark_index) {
     return false;
   }
   info->valid_to = -1;
@@ -1155,19 +1092,19 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
     }
     //TODO: skip over non-visual marks without map lookup
     uint64_t start_id = mark.id&(~MARKTREE_END_FLAG);
-    ssize_t item_idx = map_get(uint64_t, ssize_t)(buf->b_bufhl_index, start_id);
-    if (item_idx == -1) {
+    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index, start_id, false);
+    if (!item) {
       continue;
     }
-    BufhlItem *item = &kv_A(buf->b_bufhl_items, item_idx);
+
     // TODO: do prioritazion sorting?
     if (item->hl_id > 0) {
       if (!(mark.id&MARKTREE_END_FLAG)) {
-        kv_push(info->active, item_idx);
+        kv_push(info->active, item);
       } else {
         size_t newidx = 0;
         for (size_t i = 0; i < kv_size(info->active); i++) {
-          if (kv_A(info->active, i) == item_idx) {
+          if (kv_A(info->active, i) == item) {
             // delete it
           } else {
             kv_A(info->active, newidx++) = kv_A(info->active, i);
@@ -1183,8 +1120,8 @@ int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
   } while (marktree_itr_next(buf->b_marktree, info->itr));
 
   for (size_t i = 0; i < kv_size(info->active); i++) {
-    BufhlItem entry = kv_A(buf->b_bufhl_items, kv_A(info->active, i));
-    int entry_attr = syn_id2attr(entry.hl_id);
+    ExtmarkItem *item = kv_A(info->active, i);
+    int entry_attr = syn_id2attr(item->hl_id);
     attr = hl_combine_attr(attr, entry_attr);
   }
   info->current = attr;
