@@ -750,6 +750,11 @@ void marktree_itr_rewind(MarkTree *b, MarkTreeIter *itr)
   itr->i = 0;
 }
 
+bool marktree_itr_node_done(MarkTreeIter *itr)
+{
+  return !itr->node || itr->i == itr->node->n-1;
+}
+
 
 mtpos_t marktree_itr_pos(MarkTreeIter *itr)
 {

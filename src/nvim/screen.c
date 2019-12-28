@@ -622,6 +622,9 @@ bool win_cursorline_standout(const win_T *wp)
     || (wp->w_p_cole > 0 && (VIsual_active || !conceal_cursor_line(wp)));
 }
 
+static DecorationState decorations;
+bool decorations_active = false;
+
 /*
  * Update a single window.
  *
@@ -1231,6 +1234,9 @@ static void win_update(win_T *wp)
       api_clear_error(&err);
     }
   }
+
+  decorations_active = extmark_decorations_start(buf, wp->w_topline-1,
+                                                 &decorations);
 
   for (;; ) {
     /* stop updating when reached the end of the window (check for _past_
@@ -2250,8 +2256,7 @@ win_line (
   int prev_c1 = 0;                      // first composing char for prev_c
 
   bool search_attr_from_match = false;  // if search_attr is from :match
-  BufhlLineInfo bufhl_info;             // bufhl data for this line
-  bool has_bufhl = false;               // this buffer has highlight matches
+  bool has_decorations = false;               // this buffer has highlight matches
   bool do_virttext = false;             // draw virtual text for this line
 
   /* draw_state: items that are drawn in sequence: */
@@ -2315,9 +2320,12 @@ win_line (
       }
     }
 
-    if (bufhl_start_line(wp->w_buffer, lnum, &bufhl_info)) {
-      has_bufhl = true;
-      extra_check = true;
+    if (decorations_active) {
+      // TODO: can be smarter
+      has_decorations = extmark_decorations_line(wp->w_buffer, lnum-1, &decorations);
+      if (has_decorations) {
+        extra_check = true;
+      }
     }
 
     // Check for columns to display for 'colorcolumn'.
@@ -3510,19 +3518,25 @@ win_line (
             char_attr = hl_combine_attr(spell_attr, char_attr);
         }
 
-        if (has_bufhl && v > 0) {
-          int bufhl_attr = bufhl_get_attr(wp->w_buffer, &bufhl_info, (colnr_T)v-1);
-          if (bufhl_attr != 0) {
+        if (has_decorations && v > 0) {
+          int extmark_attr = extmark_decorations_col(wp->w_buffer, (colnr_T)v-1,
+                                                   &decorations);
+          if (extmark_attr != 0) {
             if (!attr_pri) {
-              char_attr = hl_combine_attr(char_attr, bufhl_attr);
+              char_attr = hl_combine_attr(char_attr, extmark_attr);
             } else {
-              char_attr = hl_combine_attr(bufhl_attr, char_attr);
+              char_attr = hl_combine_attr(extmark_attr, char_attr);
             }
           }
         }
 
+        // TODO: luahl should just create on-the-fly decorations, now.
         if (buf->b_luahl && v > 0 && v < (long)lua_attr_bufsize+1) {
-          char_attr = hl_combine_attr(char_attr, lua_attr_buf[v-1]);
+          if (!attr_pri) {
+            char_attr = hl_combine_attr(char_attr, lua_attr_buf[v-1]);
+          } else {
+            char_attr = hl_combine_attr(lua_attr_buf[v-1], char_attr);
+          }
         }
 
         if (wp->w_buffer->terminal) {
@@ -4007,8 +4021,9 @@ win_line (
       if (luatext) {
         kv_push(virt_text, ((VirtTextChunk){ .text = luatext, .hl_id = 0 }));
         do_virttext = true;
-      } else if (has_bufhl) {
-        VirtText *vp = bufhl_get_virttext(wp->w_buffer, &bufhl_info);
+      } else if (has_decorations) {
+        //VirtText *vp = bufhl_get_virttext(wp->w_buffer, &bufhl_info);
+        VirtText *vp = NULL;
         if (vp) {
           virt_text = *vp;
           do_virttext = true;

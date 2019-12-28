@@ -137,12 +137,16 @@ typedef struct {
   int end_row;
   int end_col;
   int hl_id;
+  VirtText *virt_text;
 } HlRange;
 
 typedef struct {
   MarkTreeIter itr[1];
   kvec_t(HlRange) active;
+  int top_row;
   int row;
+  int col_until;
+  int current;
   VirtText *virt_text;
 } DecorationState;
 

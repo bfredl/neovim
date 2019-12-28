@@ -1041,102 +1041,9 @@ static void clear_virttext(VirtText *text)
   *text = (VirtText)KV_INITIAL_VALUE;
 }
 
-/// Get highlights to display at a specific line
-///
-/// @param buf The buffer handle
-/// @param lnum The line number
-/// @param[out] info The highligts for the line
-/// @return true if there was highlights to display
-bool bufhl_start_line(buf_T *buf, linenr_T lnum, BufhlLineInfo *info)
-{
-  if (!buf->b_extmark_index) {
-    return false;
-  }
-  info->valid_to = -1;
-  info->row = (int)lnum-1;
-  info->virt_text = NULL;
-  memset(&info->active, 0, sizeof(info->active));  // TODO: IKKE
-  marktree_itr_get(buf->b_marktree, (int)lnum-1, 0, info->itr);
-  mtmark_t mark = marktree_itr_test(info->itr);
-  if (mark.row != lnum-1) {
-    return false;
-  }
-  // if marktree_itr_test().pos > lnum then return false
-  return true;
-}
-
-/// get highlighting at column col
-///
-/// It is is assumed this will be called with
-/// non-decreasing column nrs, so that it is
-/// possible to only recalculate highlights
-/// at endpoints.
-///
-/// @param info The info returned by bufhl_start_line
-/// @param col The column to get the attr for
-/// @return The highilight attr to display at the column
-int bufhl_get_attr(buf_T *buf, BufhlLineInfo *info, colnr_T col)
-{
-  if (col <= info->valid_to) {
-    return info->current;
-  }
-  int attr = 0;
-  info->valid_to = MAXCOL;
-  do {
-    mtmark_t mark = marktree_itr_test(info->itr);
-    if (mark.row > info->row) {
-      break;
-    } else if (mark.col > col) {
-      info->valid_to = mark.col-1;
-      break;
-    }
-    //TODO: skip over non-visual marks without map lookup
-    uint64_t start_id = mark.id&(~MARKTREE_END_FLAG);
-    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index, start_id, false);
-    if (!item) {
-      continue;
-    }
-
-    // TODO: do prioritazion sorting?
-    if (item->hl_id > 0) {
-      if (!(mark.id&MARKTREE_END_FLAG)) {
-        kv_push(info->active, item);
-      } else {
-        size_t newidx = 0;
-        for (size_t i = 0; i < kv_size(info->active); i++) {
-          if (kv_A(info->active, i) == item) {
-            // delete it
-          } else {
-            kv_A(info->active, newidx++) = kv_A(info->active, i);
-          }
-        }
-        kv_size(info->active) = newidx;
-      }
-    }
-    if (info->virt_text == NULL && kv_size(item->virt_text)) {
-      info->virt_text = &item->virt_text;
-    }
-    // or should itr_next skip non-visual marks??
-  } while (marktree_itr_next(buf->b_marktree, info->itr));
-
-  for (size_t i = 0; i < kv_size(info->active); i++) {
-    ExtmarkItem *item = kv_A(info->active, i);
-    int entry_attr = syn_id2attr(item->hl_id);
-    attr = hl_combine_attr(attr, entry_attr);
-  }
-  info->current = attr;
-  return attr;
-}
-
-VirtText *bufhl_get_virttext(buf_T *buf, BufhlLineInfo *info) {
-  // NB: we should have gotten here anyway
-  bufhl_get_attr(buf, info, MAXCOL);
-
-  return info->virt_text;
-}
-
-bool extmark_decorations_start(buf_T *buf, int top_row, int max_row, DecorationState *state) {
+bool extmark_decorations_start(buf_T *buf, int top_row, DecorationState *state) {
   kv_size(state->active) = 0;
+  state->top_row = top_row;
   marktree_itr_get(buf->b_marktree, top_row, 0, state->itr);
   if (!state->itr->node) {
     return false;
@@ -1144,34 +1051,114 @@ bool extmark_decorations_start(buf_T *buf, int top_row, int max_row, DecorationS
   marktree_itr_rewind(buf->b_marktree, state->itr);
   while (true) {
     mtmark_t mark = marktree_itr_test(state->itr);
-    if (mark.row < 0 || mark.row >= top_row) {
+    if (mark.row < 0) { // || mark.row > end_row
       break;
     }
     // TODO: FLAG for being a decoration?
-    if ((mark.id&MARKTREE_END_FLAG) || !(mark.id&MARKTREE_PAIRED_FLAG)) {
+    if ((mark.row < top_row && mark.id&MARKTREE_END_FLAG)
+        || !(mark.id&MARKTREE_PAIRED_FLAG)) {
       goto next_mark;
     }
     mtpos_t endpos = marktree_lookup(buf->b_marktree,
                                      mark.id|MARKTREE_END_FLAG, NULL);
-    if (endpos.row >= top_row) {
-      ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                         mark.id, false);
-      if (item && item->hl_id > 0) {
-        kv_push(state->active, ((HlRange){ mark.row, mark.col,
-                                           endpos.row, endpos.col,
-                                           item->hl_id }));
-      }
+    if (endpos.row < top_row) {
+      goto next_mark;
+    }
+
+    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
+                                                       mark.id, false);
+
+    // TODO: need to prefetch skipped virt_text also
+    if (item && item->hl_id > 0) {
+      kv_push(state->active, ((HlRange){ mark.row, mark.col,
+                                         endpos.row, endpos.col,
+                                         item->hl_id, NULL }));
     }
 next_mark:
+    if (marktree_itr_node_done(state->itr)) {
+      break;
+    }
     marktree_itr_next(buf->b_marktree, state->itr);
   }
   return true;
 }
 
-bool extmark_decorations_line(buf_T *buf, int row, BufhlLineInfo *info) {
-
+bool extmark_decorations_line(buf_T *buf, int row, DecorationState *state) {
+  state->row = row;
+  state->col_until = -1;
+  return true; // TODO: be smarter
 }
 
-int extmark_decorations_col(buf_T *buf, int col, BufhlLineInfo *info) {
+int extmark_decorations_col(buf_T *buf, int col, DecorationState *state) {
+  if (col <= state->col_until) {
+    return state->current;
+  }
+  state->col_until = MAXCOL;
+  while (true) {
+    mtmark_t mark = marktree_itr_test(state->itr);
+    if (mark.row < 0 || mark.row >= state->row) {
+      break;
+    } else if (mark.col > col) {
+      state->col_until = mark.col-1;
+      break;
+    }
 
+    if ((mark.id&MARKTREE_END_FLAG)
+        || !(mark.id&MARKTREE_PAIRED_FLAG)) {
+      goto next_mark;
+    }
+    mtpos_t endpos = marktree_lookup(buf->b_marktree,
+                                     mark.id|MARKTREE_END_FLAG, NULL);
+    if (endpos.row < mark.row
+        || (endpos.row == mark.row && endpos.col <= mark.col)) {
+      goto next_mark;
+    }
+
+    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
+                                                       mark.id, false);
+
+    // TODO: virt_text!
+    if (item && item->hl_id > 0) {
+      kv_push(state->active, ((HlRange){ mark.row, mark.col,
+                                         endpos.row, endpos.col,
+                                         item->hl_id, NULL }));
+    }
+
+next_mark:
+    marktree_itr_next(buf->b_marktree, state->itr);
+  }
+
+  int attr = 0;
+  size_t j = 0;
+  for (size_t i = 0; i < kv_size(state->active); i++) {
+    HlRange item = kv_A(state->active, i);
+    bool active = false, keep = true;
+    if (item.end_row < state->row
+        || (item.end_row == state->row && item.end_col <= col)) {
+      keep = false;
+    } else {
+      if (item.start_row < state->row
+               || (item.start_row == state->row && item.start_col <= col)) {
+        active = true;
+        if (item.end_row == state->row) {
+          state->col_until = MIN(state->col_until, item.end_col-1);
+        }
+      } else {
+        if (item.start_row == state->row) {
+          state->col_until = MIN(state->col_until, item.start_col-1);
+        }
+      }
+    }
+    if (active) {
+      // TODO: earlier!
+      int entry_attr = syn_id2attr(item.hl_id);
+      attr = hl_combine_attr(attr, entry_attr);
+    }
+    if (keep) {
+      kv_A(state->active, j++) = kv_A(state->active, i);
+    }
+  }
+  kv_size(state->active) = j;
+  state->current = attr;
+  return attr;
 }
