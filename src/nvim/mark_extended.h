@@ -131,6 +131,21 @@ typedef struct {
   VirtText *virt_text;
 } BufhlLineInfo;
 
+typedef struct {
+  int start_row;
+  int start_col;
+  int end_row;
+  int end_col;
+  int hl_id;
+} HlRange;
+
+typedef struct {
+  MarkTreeIter itr[1];
+  kvec_t(HlRange) active;
+  int row;
+  VirtText *virt_text;
+} DecorationState;
+
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mark_extended.h.generated.h"
