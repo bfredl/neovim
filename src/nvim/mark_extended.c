@@ -1135,3 +1135,43 @@ VirtText *bufhl_get_virttext(buf_T *buf, BufhlLineInfo *info) {
   return info->virt_text;
 }
 
+bool extmark_decorations_start(buf_T *buf, int top_row, int max_row, DecorationState *state) {
+  kv_size(state->active) = 0;
+  marktree_itr_get(buf->b_marktree, top_row, 0, state->itr);
+  if (!state->itr->node) {
+    return false;
+  }
+  marktree_itr_rewind(buf->b_marktree, state->itr);
+  while (true) {
+    mtmark_t mark = marktree_itr_test(state->itr);
+    if (mark.row < 0 || mark.row >= top_row) {
+      break;
+    }
+    // TODO: FLAG for being a decoration?
+    if ((mark.id&MARKTREE_END_FLAG) || !(mark.id&MARKTREE_PAIRED_FLAG)) {
+      goto next_mark;
+    }
+    mtpos_t endpos = marktree_lookup(buf->b_marktree,
+                                     mark.id|MARKTREE_END_FLAG, NULL);
+    if (endpos.row >= top_row) {
+      ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
+                                                         mark.id, false);
+      if (item && item->hl_id > 0) {
+        kv_push(state->active, ((HlRange){ mark.row, mark.col,
+                                           endpos.row, endpos.col,
+                                           item->hl_id }));
+      }
+    }
+next_mark:
+    marktree_itr_next(buf->b_marktree, state->itr);
+  }
+  return true;
+}
+
+bool extmark_decorations_line(buf_T *buf, int row, BufhlLineInfo *info) {
+
+}
+
+int extmark_decorations_col(buf_T *buf, int col, BufhlLineInfo *info) {
+
+}

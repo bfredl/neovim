@@ -739,6 +739,17 @@ bool marktree_itr_prev(MarkTree *b, MarkTreeIter *itr)
   return true;
 }
 
+void marktree_itr_rewind(MarkTree *b, MarkTreeIter *itr)
+{
+  if (!itr->node) {
+    return;
+  }
+  if (itr->node->level) {
+    marktree_itr_prev(b, itr);
+  }
+  itr->i = 0;
+}
+
 
 mtpos_t marktree_itr_pos(MarkTreeIter *itr)
 {
