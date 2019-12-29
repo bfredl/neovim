@@ -257,13 +257,13 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   mtnode_t *cur = itr->node;
   int curi = itr->i;
   uint64_t id = cur->key[curi].id;
-  // fprintf(stderr, "\nDELET %lu\n", id);
+   //fprintf(stderr, "\nDELET %lu\n", id);
 
   if (itr->node->level) {
     if (rev) {
       abort();
     } else {
-      // fprintf(stderr, "INTERNAL %d\n", cur->level);
+       //fprintf(stderr, "INTERNAL %d\n", cur->level);
       // steal previous node
       marktree_itr_prev(b, itr);
       adjustment = -1;
@@ -285,6 +285,8 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     if (adjustment == 1) {
       abort();
     } else { // adjustment == -1
+      //fprintf(stderr, "TAGEN %d \n", x->n);
+      //fprintf(stderr, "BLUFFKEY %lu %d %d\n", intkey.id, intkey.pos.row, intkey.pos.col);
       int ilvl = itr->lvl-1;
       mtnode_t *lnode = x;
       do {
@@ -300,11 +302,14 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
         lnode = p;
         ilvl--;
       } while (lnode != cur);
+      //fprintf(stderr, "GLUFFKEY %lu %d %d\n", intkey.id, intkey.pos.row, intkey.pos.col);
 
       mtkey_t deleted = cur->key[curi];
+      //fprintf(stderr, "DELKEY %lu %d %d\n", deleted.id, deleted.pos.row, deleted.pos.col);
       cur->key[curi] = intkey;
       refkey(b, cur, curi);
       relative(intkey.pos, &deleted.pos);
+      //fprintf(stderr, "EDJKEY %d %d\n", deleted.pos.row, deleted.pos.col);
       mtnode_t *y = cur->ptr[curi+1];
       if (deleted.pos.row || deleted.pos.col) {
         // TODO: might be seen as special case of "splice"?
@@ -321,6 +326,9 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 
   b->n_keys--;
   pmap_del(uint64_t)(b->id2node, ANTIGRAVITY(id));
+
+  //mtpos_t rong = marktree_lookup(b, 10008, NULL);
+  //fprintf(stderr, "RONG %d %d\n", rong.row, rong.col);
 
   // 5.
   bool itr_dirty = false;
@@ -346,7 +354,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       pivot_left(b, p, pi);
       break;
     } else if (pi > 0) {
-      // fprintf(stderr, "LEFT ");
+      //fprintf(stderr, "LEFT ");
       assert(p->ptr[pi-1]->n == T-1);
       // merge with left neighbour
       *lasti += T;
@@ -358,7 +366,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       itr->s[rlvl].i--;
       itr_dirty = true;
     } else {
-      // fprintf(stderr, "RIGHT ");
+      //fprintf(stderr, "RIGHT ");
       assert(pi < p->n && p->ptr[pi+1]->n == T-1);
       merge_node(b, p, pi);
       // no iter adjustment needed
@@ -366,10 +374,14 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     lasti = &itr->s[rlvl].i;
     rlvl--;
     x = p;
+
+    //mtpos_t erong = marktree_lookup(b, 10008, NULL);
+    //fprintf(stderr, "RONG %d %d\n", erong.row, erong.col);
   }
 
   // 6.
   if (b->root->n == 0) {
+    //fprintf(stderr, "KRINRK %d \n", itr->lvl);
     // TODO: always the case right?
     if (itr->lvl > 0) {
       memmove(itr->s, itr->s+1, (size_t)itr->lvl * sizeof(*itr->s));
@@ -413,7 +425,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 
 static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
 {
-  // fprintf(stderr, "MERGE %d %d\n", i, p->level);
+  //fprintf(stderr, "MERGE %d %d\n", i, p->level);
   mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
 
   x->key[x->n] = p->key[i];
@@ -421,6 +433,7 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
   if (i > 0) {
     relative(p->key[i-1].pos, &x->key[x->n].pos);
   }
+  //fprintf(stderr, "PIVååå %d %d %d\n", x->n, x->key[x->n].pos.row, x->key[x->n].pos.col);
 
   memmove(&x->key[x->n+1], y->key, (size_t)y->n * sizeof(mtkey_t));
   for (int k = 0; k < y->n; k++) {
@@ -433,6 +446,7 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
       x->ptr[x->n+k+1]->parent = x;
     }
   }
+  //fprintf(stderr, "PIVååå %p %d %d %d\n", (void *)x, x->n, x->key[x->n].pos.row, x->key[x->n].pos.col);
   x->n += y->n+1;
   memmove(&p->key[i], &p->key[i + 1], (size_t)(p->n - i - 1) * sizeof(mtkey_t));
   memmove(&p->ptr[i + 1], &p->ptr[i + 2],
@@ -447,7 +461,7 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
 // the two nodes instead of stealing just one key
 static void pivot_right(MarkTree *b, mtnode_t *p, int i)
 {
-  // fprintf(stderr, "RIGHT_P\n");
+  //fprintf(stderr, "RIGHT_P\n");
   mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
   memmove(&y->key[1], y->key, (size_t)y->n * sizeof(mtkey_t));
   if (y->level) {
@@ -474,7 +488,7 @@ static void pivot_right(MarkTree *b, mtnode_t *p, int i)
 
 static void pivot_left(MarkTree *b, mtnode_t *p, int i)
 {
-  // fprintf(stderr, "LEFT_P\n");
+  //fprintf(stderr, "LEFT_P\n");
   mtnode_t *x = p->ptr[i], *y = p->ptr[i+1];
 
   // reverse from how we "always" do it. but pivot_left
@@ -976,6 +990,7 @@ mtpos_t marktree_lookup(MarkTree *b, uint64_t id, MarkTreeIter *itr)
   abort();
 found: {}
   mtpos_t pos = n->key[i].pos;
+  //fprintf(stderr, "LEAFY %d %d %d\n", i, pos.row, pos.col);
   if (itr) {
     itr->i = i;
     itr->node = n;
@@ -990,10 +1005,12 @@ found: {}
     }
     abort();
 found_node:
+    //fprintf(stderr, "NODEY %p %d\n", i);
     if (itr) {
       itr->s[b->root->level-p->level].i = i;
     }
     if (i > 0) {
+      //fprintf(stderr, " plu %d %d\n",  p->key[i-1].pos.row, p->key[i-1].pos.col);
       unrelative(p->key[i-1].pos, &pos);
     }
     n = p;

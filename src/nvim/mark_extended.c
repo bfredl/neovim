@@ -181,6 +181,7 @@ void extmark_clear(buf_T *buf, uint64_t ns_id,
     }
   }
 
+  marktree_check(buf->b_marktree);
   Map(uint64_t, uint64_t) *delete_set = map_new(uint64_t, uint64_t)();
 
   MarkTreeIter itr[1];
@@ -194,6 +195,7 @@ void extmark_clear(buf_T *buf, uint64_t ns_id,
     }
     if (map_get(uint64_t, uint64_t)(delete_set, mark.id)) {
       marktree_del_itr(buf->b_marktree, itr, false);
+      marktree_check(buf->b_marktree);
       map_del(uint64_t, uint64_t)(delete_set, mark.id);
       continue;
     }
@@ -215,6 +217,7 @@ void extmark_clear(buf_T *buf, uint64_t ns_id,
       map_del(uint64_t, uint64_t)(my_ns->map, item.mark_id);
       map_del(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark.id);
       marktree_del_itr(buf->b_marktree, itr, false);
+      marktree_check(buf->b_marktree);
     } else {
       marktree_itr_next(buf->b_marktree, itr);
     }
@@ -225,6 +228,7 @@ void extmark_clear(buf_T *buf, uint64_t ns_id,
     assert(itr->node);
     marktree_del_itr(buf->b_marktree, itr, false);
   });
+  marktree_check(buf->b_marktree);
   map_free(uint64_t, uint64_t)(delete_set);
 }
 
@@ -793,9 +797,11 @@ void extmark_splice(buf_T *buf,
   }
 
 
+  marktree_check(buf->b_marktree);
   bool marks_moved = marktree_splice(buf->b_marktree, start_row, start_col,
                                      oldextent_row, oldextent_col,
                                      newextent_row, newextent_col);
+  marktree_check(buf->b_marktree);
 
   if (undo == kExtmarkUndo && marks_moved) {
     u_header_T  *uhp = u_force_get_undo_header(buf);
@@ -950,9 +956,11 @@ int bufhl_add_hl(buf_T *buf,
     col_end = 0;
     end_line++;
   }
+  marktree_check(buf->b_marktree);
   uint64_t mark = marktree_put_pair(buf->b_marktree,
                                     (int)lnum-1, col_start, true,
                                     (int)end_line-1, col_end, false);
+  marktree_check(buf->b_marktree);
   map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark, item);
   map_put(uint64_t, uint64_t)(ns->map, item.mark_id, mark);
 
