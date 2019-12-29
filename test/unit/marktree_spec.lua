@@ -93,7 +93,8 @@ describe('marktree', function()
  itp('works', function()
     tree = lib.marktree_new()
     local shadow = {}
-    iter = ffi.new("MarkTreeIter[1]")
+    local iter = ffi.new("MarkTreeIter[1]")
+    local iter2 = ffi.new("MarkTreeIter[1]")
 
     for i = 1,100 do
       for j = 1,100 do
@@ -186,12 +187,13 @@ describe('marktree', function()
           lib.marktree_del_itr(tree, iter, false)
           ok(shadow[tonumber(k.id)] ~= nil)
           shadow[tonumber(k.id)] = nil
-          id2pos, pos2id = shadoworder(tree, shadow, iter)
           local stat = lib.marktree_itr_next(tree, iter)
           if not stat then
-              break
+            break
           end
         end
+        id2pos, pos2id = shadoworder(tree, shadow, iter2)
+        lib.marktree_check(tree)
     end
 
 
