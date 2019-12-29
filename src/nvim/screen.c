@@ -1236,9 +1236,7 @@ static void win_update(win_T *wp)
     }
   }
 
-  // TODO: first drawn line, not topline!
-  decorations_active = extmark_decorations_start(buf, wp->w_topline-1,
-                                                 &decorations);
+  decorations_active = extmark_decorations_reset(buf, &decorations);
 
   for (;; ) {
     /* stop updating when reached the end of the window (check for _past_

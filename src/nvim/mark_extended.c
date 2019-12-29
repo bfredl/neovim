@@ -1041,6 +1041,13 @@ static void clear_virttext(VirtText *text)
   *text = (VirtText)KV_INITIAL_VALUE;
 }
 
+bool extmark_decorations_reset(buf_T *buf, DecorationState *state)
+{
+  state->row = -1;
+  return buf->b_extmark_index; // TODO: be smarter
+}
+
+
 bool extmark_decorations_start(buf_T *buf, int top_row, DecorationState *state) {
   kv_size(state->active) = 0;
   state->top_row = top_row;
@@ -1092,6 +1099,9 @@ next_mark:
 }
 
 bool extmark_decorations_line(buf_T *buf, int row, DecorationState *state) {
+  if (state->row == -1) {
+    extmark_decorations_start(buf, row, state);
+  }
   state->row = row;
   state->col_until = -1;
   return true; // TODO: be smarter
