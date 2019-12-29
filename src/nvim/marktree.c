@@ -607,7 +607,7 @@ bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, 
 bool marktree_itr_first(MarkTree *b, MarkTreeIter *itr)
 {
   itr->node = b->root;
-  if (!itr->node) {
+  if (b->n_keys == 0) {
     return false;
   }
 
