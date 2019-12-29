@@ -136,10 +136,12 @@ describe('marktree', function()
     end
 
     local status = lib.marktree_itr_first(tree, iter)
+    local gg = lib.marktree_itr_test(iter)
+
     --lib.marktree_check(tree)
     lib.marktree_del_itr(tree, iter, false)
     --lib.marktree_check(tree)
-    shadow[1] = nil
+    shadow[tonumber(gg.id)] = nil
     --ss = lib.mt_inspect_rec(tree) print(ffi.string(ss))
     id2pos, pos2id = shadoworder(tree, shadow, iter)
 
@@ -174,6 +176,24 @@ describe('marktree', function()
     dosplice(tree, shadow, {5,3}, {0,2}, {0, 5})
     id2pos, pos2id = shadoworder(tree, shadow, iter)
     lib.marktree_check(tree)
+
+    -- build then burn (HOORAY! HOORAY!)
+    while next(shadow) do
+        lib.marktree_itr_first(tree, iter)
+        -- delet every other key for fun and profit
+        while true do
+          local k = lib.marktree_itr_test(iter)
+          lib.marktree_del_itr(tree, iter, false)
+          ok(shadow[tonumber(k.id)] ~= nil)
+          shadow[tonumber(k.id)] = nil
+          id2pos, pos2id = shadoworder(tree, shadow, iter)
+          local stat = lib.marktree_itr_next(tree, iter)
+          if not stat then
+              break
+          end
+        end
+    end
+
 
 
     if true then
