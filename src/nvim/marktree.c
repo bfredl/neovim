@@ -428,9 +428,9 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
     unrelative(x->key[x->n].pos, &x->key[x->n+1+k].pos);
   }
   if (x->level) {
-    memmove(&x->ptr[x->n], y->ptr, (size_t)(y->n + 1) * sizeof(mtnode_t *));
+    memmove(&x->ptr[x->n+1], y->ptr, (size_t)(y->n + 1) * sizeof(mtnode_t *));
     for (int k = 0; k < y->n+1; k++) {
-      x->ptr[x->n+k]->parent = x;
+      x->ptr[x->n+k+1]->parent = x;
     }
   }
   x->n += y->n+1;
@@ -1040,7 +1040,7 @@ size_t check_node(MarkTree *b, mtnode_t *x, mtpos_t *last, bool *last_right)
 {
   assert(x->n <= 2*T-1);
   //TODO: too strict if checking "in repair" post-delete tree.
-  assert(x->n >= (x != b->root ? T-1 : 1));
+  assert(x->n >= (x != b->root ? T-1 : 0));
   size_t n_keys = (size_t)x->n;
   // fprintf(stderr, "[");
 
