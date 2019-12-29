@@ -387,16 +387,27 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     }
   }
 
+  if (itr->node && itr_dirty) {
+    marktree_itr_fix_pos(b, itr);
+  }
   // BONUS STEP: fix the iterator, so that it points to the key afterwards
   // TODO: maybe with "rev" should point before??
   if (adjustment == 1) {
     abort();
   } else if (adjustment == -1) {
   // fprintf(stderr, "UNADJ\n");
+    // tricky: we stand at the deleted space in the previous leaf node.
+    // But the inner key is now the previous key we stole, so we need
+    // to skip that one as well.
     marktree_itr_next(b, itr);
-  }
-  if (itr->node && itr_dirty) {
-    marktree_itr_fix_pos(b, itr);
+    marktree_itr_next(b, itr);
+  } else {
+    if (itr->node && itr->i >= itr->node->n) {
+      // we deleted the last key of a leaf node
+      // go to the inner key after that.
+      assert(itr->node->level == 0);
+      marktree_itr_next(b, itr);
+    }
   }
 }
 
@@ -1014,7 +1025,7 @@ void marktree_check(MarkTree *b)
   if (b->root == NULL) {
     assert(b->n_keys == 0);
     assert(b->n_nodes == 0);
-    assert(map_size(b->id2node) == 0);
+    assert(b->id2node == NULL || map_size(b->id2node) == 0);
     return;
   }
 
