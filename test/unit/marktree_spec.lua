@@ -180,20 +180,20 @@ describe('marktree', function()
 
     -- build then burn (HOORAY! HOORAY!)
     while next(shadow) do
-        lib.marktree_itr_first(tree, iter)
-        -- delet every other key for fun and profit
-        while true do
-          local k = lib.marktree_itr_test(iter)
-          lib.marktree_del_itr(tree, iter, false)
-          ok(shadow[tonumber(k.id)] ~= nil)
-          shadow[tonumber(k.id)] = nil
-          local stat = lib.marktree_itr_next(tree, iter)
-          if not stat then
-            break
-          end
+      lib.marktree_itr_first(tree, iter)
+      -- delet every other key for fun and profit
+      while true do
+        local k = lib.marktree_itr_test(iter)
+        lib.marktree_del_itr(tree, iter, false)
+        ok(shadow[tonumber(k.id)] ~= nil)
+        shadow[tonumber(k.id)] = nil
+        local stat = lib.marktree_itr_next(tree, iter)
+        if not stat then
+          break
         end
-        id2pos, pos2id = shadoworder(tree, shadow, iter2)
-        lib.marktree_check(tree)
+      end
+      id2pos, pos2id = shadoworder(tree, shadow, iter2)
+      lib.marktree_check(tree)
     end
 
 
