@@ -1059,9 +1059,11 @@ bool extmark_decorations_start(buf_T *buf, int top_row, DecorationState *state) 
         || !(mark.id&MARKTREE_PAIRED_FLAG)) {
       goto next_mark;
     }
-    mtpos_t endpos = marktree_lookup(buf->b_marktree,
-                                     mark.id|MARKTREE_END_FLAG, NULL);
-    if (endpos.row < top_row) {
+    mtpos_t altpos = marktree_lookup(buf->b_marktree,
+                                     mark.id^MARKTREE_END_FLAG, NULL);
+
+    if ((!(mark.id&MARKTREE_END_FLAG) && altpos.row < top_row)
+        || ((mark.id&MARKTREE_END_FLAG) && altpos.row >= top_row)) {
       goto next_mark;
     }
 
@@ -1070,9 +1072,15 @@ bool extmark_decorations_start(buf_T *buf, int top_row, DecorationState *state) 
 
     // TODO: need to prefetch skipped virt_text also
     if (item && item->hl_id > 0) {
-      kv_push(state->active, ((HlRange){ mark.row, mark.col,
-                                         endpos.row, endpos.col,
-                                         item->hl_id, NULL }));
+      HlRange range;
+      if (mark.id&MARKTREE_END_FLAG) {
+        range = (HlRange){ altpos.row, altpos.col, mark.row, mark.col,
+                           item->hl_id, NULL };
+      } else {
+        range = (HlRange){ mark.row, mark.col, altpos.row,
+                           altpos.col, item->hl_id, NULL };
+      }
+      kv_push(state->active, range);
     }
 next_mark:
     if (marktree_itr_node_done(state->itr)) {
@@ -1096,9 +1104,9 @@ int extmark_decorations_col(buf_T *buf, int col, DecorationState *state) {
   state->col_until = MAXCOL;
   while (true) {
     mtmark_t mark = marktree_itr_test(state->itr);
-    if (mark.row < 0 || mark.row >= state->row) {
+    if (mark.row < 0 || mark.row > state->row) {
       break;
-    } else if (mark.col > col) {
+    } else if (mark.row == state->row && mark.col > col) {
       state->col_until = mark.col-1;
       break;
     }
