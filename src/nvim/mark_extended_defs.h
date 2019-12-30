@@ -10,6 +10,7 @@ typedef struct {
 } VirtTextChunk;
 
 typedef kvec_t(VirtTextChunk) VirtText;
+#define VIRTTEXT_EMPTY ((VirtText)KV_INITIAL_VALUE)
 
 typedef struct
 {

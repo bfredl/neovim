@@ -887,10 +887,10 @@ bool extmark_copy_and_place(buf_T *buf,
 */
 
 
-uint64_t src2ns(int *src_id)
+uint64_t src2ns(Integer *src_id)
 {
   if (*src_id == 0) {
-    *src_id = (int)nvim_create_namespace((String)STRING_INIT);
+    *src_id = (Integer)nvim_create_namespace((String)STRING_INIT);
   }
   if (*src_id < 0) {
     return UINT64_MAX;
@@ -922,42 +922,34 @@ uint64_t src2ns(int *src_id)
 /// @param col_end The last column to highlight,
 ///                or -1 to highlight to end of line
 /// @return The src_id that was used
-int bufhl_add_hl(buf_T *buf,
-                 int src_id,
-                 int hl_id,
-                 linenr_T lnum,
-                 colnr_T col_start,
-                 colnr_T col_end)
+uint64_t extmark_add_decoration(buf_T *buf, uint64_t ns_id, int hl_id,
+                                int start_row, colnr_T start_col,
+                                int end_row, colnr_T end_col,
+                                VirtText virt_text)
 {
-  uint64_t ns_id = src2ns(&src_id);
-  if (hl_id <= 0) {
-      // no highlight group or invalid line, just return src_id
-      return src_id;
-  }
-  if (!(0 < lnum && lnum <= buf->b_ml.ml_line_count)) {
-    // safety check, we can't add marks outside the range
-    return src_id;
-  }
   ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
   ExtmarkItem item;
   item.ns_id = ns_id;
   item.mark_id = ns->free_id++;
   item.hl_id = hl_id;
-  memset(&item.virt_text, 0, sizeof(item.virt_text));
+  item.virt_text = virt_text;
 
-  linenr_T end_line = lnum;
-  if (col_end == MAXCOL) {
-    col_end = 0;
-    end_line++;
+  uint64_t mark;
+
+  if (end_row > -1) {
+    mark = marktree_put_pair(buf->b_marktree,
+                             start_row, start_col, true,
+                             end_row, end_col, false);
+  } else {
+    mark = marktree_put(buf->b_marktree, start_row, start_col, true);
   }
-  uint64_t mark = marktree_put_pair(buf->b_marktree,
-                                    (int)lnum-1, col_start, true,
-                                    (int)end_line-1, col_end, false);
+
   map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark, item);
   map_put(uint64_t, uint64_t)(ns->map, item.mark_id, mark);
 
-  redraw_buf_line_later(buf, lnum);
-  return src_id;
+  redraw_buf_range_later(buf, start_row+1,
+                         (end_row >= 0 ? end_row : start_row) + 1);
+  return item.mark_id;
 }
 
 /// Add highlighting to a buffer, bounded by two cursor positions,
@@ -980,6 +972,7 @@ void bufhl_add_hl_pos_offset(buf_T *buf,
   colnr_T hl_start = 0;
   colnr_T hl_end = 0;
 
+  // TODO: if decoration had blocky mode, we could avoid this loop :P
   for (linenr_T lnum = pos_start.lnum; lnum <= pos_end.lnum; lnum ++) {
     if (pos_start.lnum < lnum && lnum < pos_end.lnum) {
       hl_start = offset-1;
@@ -994,42 +987,10 @@ void bufhl_add_hl_pos_offset(buf_T *buf,
       hl_start = pos_start.col + offset;
       hl_end = pos_end.col + offset;
     }
-    (void)bufhl_add_hl(buf, src_id, hl_id, lnum, hl_start, hl_end);
+    (void)extmark_add_decoration(buf, (uint64_t)src_id, hl_id,
+                                 (int)lnum, hl_start, (int)lnum, hl_end,
+                                 VIRTTEXT_EMPTY);
   }
-}
-
-int bufhl_add_virt_text(buf_T *buf,
-                        int src_id,
-                        linenr_T lnum,
-                        VirtText virt_text)
-{
-  uint64_t ns_id = src2ns(&src_id);
-
-  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
-  ExtmarkItem item;
-  item.ns_id = ns_id;
-  item.mark_id = ns->free_id++;
-  item.hl_id = 0;
-  item.virt_text = virt_text;
-
-  uint64_t mark = marktree_put(buf->b_marktree, (int)lnum-1, 0, true);
-  map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark, item);
-  map_put(uint64_t, uint64_t)(ns->map, item.mark_id, mark);
-
-
-  // TODO: as compat, hunt down and delete any existing virt text by this
-  // src id on this line
-  //if (kv_size(virt_text) > 0) {
-   //  lineinfo->virt_text_src = 0;
-    // currently not needed, but allow a future caller with
-    // 0 size and non-zero capacity
-   // kv_destroy(virt_text);
-  //}
-
-  if (0 < lnum && lnum <= buf->b_ml.ml_line_count) {
-    redraw_buf_line_later(buf, lnum);
-  }
-  return src_id;
 }
 
 static void clear_virttext(VirtText *text)
