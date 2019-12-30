@@ -4022,8 +4022,8 @@ win_line (
         kv_push(virt_text, ((VirtTextChunk){ .text = luatext, .hl_id = 0 }));
         do_virttext = true;
       } else if (has_decorations) {
-        //VirtText *vp = bufhl_get_virttext(wp->w_buffer, &bufhl_info);
-        VirtText *vp = NULL;
+        VirtText *vp = extmark_decorations_virt_text(wp->w_buffer,
+                                                     &decorations);
         if (vp) {
           virt_text = *vp;
           do_virttext = true;

@@ -1062,30 +1062,30 @@ bool extmark_decorations_start(buf_T *buf, int top_row, DecorationState *state) 
       break;
     }
     // TODO: FLAG for being a decoration?
-    if ((mark.row < top_row && mark.id&MARKTREE_END_FLAG)
-        || !(mark.id&MARKTREE_PAIRED_FLAG)) {
+    if ((mark.row < top_row && mark.id&MARKTREE_END_FLAG)) {
+        // || !(mark.id&MARKTREE_PAIRED_FLAG)) {
       goto next_mark;
     }
     mtpos_t altpos = marktree_lookup(buf->b_marktree,
                                      mark.id^MARKTREE_END_FLAG, NULL);
 
-    if ((!(mark.id&MARKTREE_END_FLAG) && altpos.row < top_row)
+    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
+                                                       mark.id, false);
+    if ((!(mark.id&MARKTREE_END_FLAG) && altpos.row < top_row
+         && !kv_size(item->virt_text))
         || ((mark.id&MARKTREE_END_FLAG) && altpos.row >= top_row)) {
       goto next_mark;
     }
 
-    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                       mark.id, false);
-
-    // TODO: need to prefetch skipped virt_text also
-    if (item && item->hl_id > 0) {
+    if (item && (item->hl_id > 0 || kv_size(item->virt_text))) {
+      VirtText *vt = kv_size(item->virt_text) ? &item->virt_text : NULL;
       HlRange range;
       if (mark.id&MARKTREE_END_FLAG) {
         range = (HlRange){ altpos.row, altpos.col, mark.row, mark.col,
-                           item->hl_id, NULL };
+                           item->hl_id, vt };
       } else {
         range = (HlRange){ mark.row, mark.col, altpos.row,
-                           altpos.col, item->hl_id, NULL };
+                           altpos.col, item->hl_id, vt };
       }
       kv_push(state->active, range);
     }
@@ -1107,7 +1107,8 @@ bool extmark_decorations_line(buf_T *buf, int row, DecorationState *state) {
   return true; // TODO: be smarter
 }
 
-int extmark_decorations_col(buf_T *buf, int col, DecorationState *state) {
+int extmark_decorations_col(buf_T *buf, int col, DecorationState *state)
+{
   if (col <= state->col_until) {
     return state->current;
   }
@@ -1121,25 +1122,29 @@ int extmark_decorations_col(buf_T *buf, int col, DecorationState *state) {
       break;
     }
 
-    if ((mark.id&MARKTREE_END_FLAG)
-        || !(mark.id&MARKTREE_PAIRED_FLAG)) {
+    if ((mark.id&MARKTREE_END_FLAG)) {
+       // TODO: visual flag!
+       // || !(mark.id&MARKTREE_PAIRED_FLAG)) {
       goto next_mark;
     }
     mtpos_t endpos = marktree_lookup(buf->b_marktree,
                                      mark.id|MARKTREE_END_FLAG, NULL);
-    if (endpos.row < mark.row
-        || (endpos.row == mark.row && endpos.col <= mark.col)) {
-      goto next_mark;
-    }
 
     ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
                                                        mark.id, false);
 
-    // TODO: virt_text!
-    if (item && item->hl_id > 0) {
+    if (endpos.row < mark.row
+        || (endpos.row == mark.row && endpos.col <= mark.col)) {
+      if (!kv_size(item->virt_text)) {
+        goto next_mark;
+      }
+    }
+
+    if (item && (item->hl_id > 0 || kv_size(item->virt_text))) {
+      VirtText *vt = kv_size(item->virt_text) ? &item->virt_text : NULL;
       kv_push(state->active, ((HlRange){ mark.row, mark.col,
                                          endpos.row, endpos.col,
-                                         item->hl_id, NULL }));
+                                         item->hl_id, vt }));
     }
 
 next_mark:
@@ -1153,7 +1158,9 @@ next_mark:
     bool active = false, keep = true;
     if (item.end_row < state->row
         || (item.end_row == state->row && item.end_col <= col)) {
-      keep = false;
+      if (!(item.start_row >= state->row && item.virt_text)) {
+        keep = false;
+      }
     } else {
       if (item.start_row < state->row
                || (item.start_row == state->row && item.start_col <= col)) {
@@ -1167,7 +1174,7 @@ next_mark:
         }
       }
     }
-    if (active) {
+    if (active && item.hl_id > 0) {
       // TODO: earlier!
       int entry_attr = syn_id2attr(item.hl_id);
       attr = hl_combine_attr(attr, entry_attr);
@@ -1179,4 +1186,16 @@ next_mark:
   kv_size(state->active) = j;
   state->current = attr;
   return attr;
+}
+
+VirtText *extmark_decorations_virt_text(buf_T *buf, DecorationState *state)
+{
+  extmark_decorations_col(buf, MAXCOL, state);
+  for (size_t i = 0; i < kv_size(state->active); i++) {
+    HlRange item = kv_A(state->active, i);
+    if (item.start_row == state->row && item.virt_text) {
+      return item.virt_text;
+    }
+  }
+  return NULL;
 }
