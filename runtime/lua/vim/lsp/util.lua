@@ -523,19 +523,6 @@ function M.open_floating_peek_preview(bufnr, start, finish, opts)
 end
 
 
-local function highlight_range(bufnr, ns, hiname, start, finish)
-  if start[1] == finish[1] then
-    -- TODO care about encoding here since this is in byte index?
-    api.nvim_buf_add_highlight(bufnr, ns, hiname, start[1], start[2], finish[2])
-  else
-    api.nvim_buf_add_highlight(bufnr, ns, hiname, start[1], start[2], -1)
-    for line = start[1] + 1, finish[1] - 1 do
-      api.nvim_buf_add_highlight(bufnr, ns, hiname, line, 0, -1)
-    end
-    api.nvim_buf_add_highlight(bufnr, ns, hiname, finish[1], 0, finish[2])
-  end
-end
-
 do
   local all_buffer_diagnostics = {}
 
@@ -656,9 +643,9 @@ do
       local finish = diagnostic.range["end"]
 
       -- TODO care about encoding here since this is in byte index?
-      highlight_range(bufnr, diagnostic_ns, underline_highlight_name,
-          {start.line, start.character},
-          {finish.line, finish.character}
+      api.nvim__buf_add_decoration(bufnr, diagnostic_ns, underline_highlight_name,
+                                  start.line, start.character,
+                                  finish.line, finish.character, {}
       )
     end
   end
