@@ -11,6 +11,7 @@
 #include "nvim/func_attr.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
+#include "nvim/api/private/handle.h"
 #include "nvim/api/vim.h"
 #include "nvim/msgpack_rpc/channel.h"
 #include "nvim/vim.h"
@@ -1052,12 +1053,12 @@ static void nlua_add_treesitter(lua_State *const lstate) FUNC_ATTR_NONNULL_ALL
 static int nlua_regex(lua_State *lstate)
 {
   Error err = ERROR_INIT;
-  char *text = luaL_checkstring(lstate, 1);
+  const char *text = luaL_checkstring(lstate, 1);
   regprog_T *prog = NULL;
   // NB: a second prog is needed to match strings if it contains \n
   TRY_WRAP({
   try_start();
-  prog = vim_regcomp(text, RE_AUTO | RE_MAGIC | RE_STRICT);
+  prog = vim_regcomp((char_u *)text, RE_AUTO | RE_MAGIC | RE_STRICT);
   if (try_end(&err)) {
     goto error;
   }
@@ -1076,9 +1077,64 @@ error:
   return luaL_error(lstate, "failed regex: %s", err.msg);
 }
 
+static regprog_T **regex_check(lua_State *L)
+{
+  return luaL_checkudata(L, 1, "nvim_regex");
+}
+
+
 static int regex_gc(lua_State *lstate)
 {
+  regprog_T **prog = regex_check(lstate);
+  vim_regfree(*prog);
   return 0;
+}
+
+static int regex_match_line(lua_State *lstate)
+{
+  regprog_T **prog = regex_check(lstate);
+  int narg = lua_gettop(lstate);
+  if (narg < 3) {
+    return luaL_error(lstate, "not enough args");
+  }
+  long bufnr = luaL_checkinteger(lstate, 2);
+  long rownr = luaL_checkinteger(lstate, 3);
+  long start = 0, end = -1;
+  if (narg >= 4) {
+    start = luaL_checkinteger(lstate, 4);
+  }
+  if (narg >= 5) {
+    end = luaL_checkinteger(lstate, 5);
+  }
+
+  buf_T *buf = handle_get_buffer((int)bufnr);
+  if (!buf || buf->b_ml.ml_mfp == NULL) {
+    return luaL_error(lstate, "invalid buffer");
+  }
+  if (rownr >= buf->b_ml.ml_line_count) {
+    return luaL_error(lstate, "invalid row");
+  }
+
+  char_u *line = ml_get_buf(buf, rownr+1, false);
+
+  if (end >= 0) {
+    abort();
+  }
+
+  regmatch_T regmatch;
+  regmatch.regprog = *prog;
+  regmatch.rm_ic = false;
+  bool match = vim_regexec(&regmatch, line, (int)start);
+  *prog = regmatch.regprog;
+  if (!regmatch.regprog) {
+    return luaL_error(lstate, "regex bought the farm");
+  }
+  if (!match) {
+    return 0;
+  }
+
+  lua_pushboolean(lstate, true);
+  return 1;
 }
 
 static int regex_tostring(lua_State *lstate)
