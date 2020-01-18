@@ -26,6 +26,9 @@ typedef struct {
   colnr_T oldextent_col;
   int newextent_row;
   colnr_T newextent_col;
+  size_t start_byte;
+  size_t oldextent_byte;
+  size_t newextent_byte;
 } ExtmarkSplice;
 
 // adjust marks after :move operation
