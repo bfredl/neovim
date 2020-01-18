@@ -1631,9 +1631,8 @@ static void foldAddMarker(linenr_T lnum, const char_u *marker, size_t markerlen)
     }
     ml_replace(lnum, newline, false);
     if (added) {
-      extmark_splice(curbuf, (int)lnum-1, (int)line_len,
-                     0, 0,
-                     0, (int)added, kExtmarkUndo);
+      extmark_splice_cols(curbuf, (int)lnum-1, (int)line_len,
+                          0, (int)added, kExtmarkUndo);
     }
   }
 }
@@ -1702,9 +1701,8 @@ static void foldDelMarker(linenr_T lnum, char_u *marker, size_t markerlen)
       memcpy(newline, line, (size_t)(p - line));
       STRCPY(newline + (p - line), p + len);
       ml_replace(lnum, newline, false);
-      extmark_splice(curbuf, (int)lnum-1, (int)(p - line),
-                     0, (int)len,
-                     0, 0, kExtmarkUndo);
+      extmark_splice_cols(curbuf, (int)lnum-1, (int)(p - line),
+                          (int)len, 0, kExtmarkUndo);
     }
     break;
   }
