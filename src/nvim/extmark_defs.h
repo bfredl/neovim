@@ -12,6 +12,12 @@ typedef struct {
 typedef kvec_t(VirtTextChunk) VirtText;
 #define VIRTTEXT_EMPTY ((VirtText)KV_INITIAL_VALUE)
 
+typedef enum {
+  kStyleChars = 0,
+  kStyleBlock,
+  kStyleLines,
+} DecorationStyle;
+
 typedef struct
 {
   uint64_t ns_id;
@@ -20,6 +26,7 @@ typedef struct
   // TODO(bfredl): virt_text is pretty larger than the rest,
   // pointer indirection?
   VirtText virt_text;
+  DecorationStyle style;
 } ExtmarkItem;
 
 typedef struct undo_object ExtmarkUndoObject;

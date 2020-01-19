@@ -791,10 +791,10 @@ bool extmark_decorations_start(buf_T *buf, int top_row, DecorationState *state)
       HlRange range;
       if (mark.id&MARKTREE_END_FLAG) {
         range = (HlRange){ altpos.row, altpos.col, mark.row, mark.col,
-                           attr_id, vt };
+                           attr_id, vt, item->style };
       } else {
         range = (HlRange){ mark.row, mark.col, altpos.row,
-                           altpos.col, attr_id, vt };
+                           altpos.col, attr_id, vt, item->style };
       }
       kv_push(state->active, range);
     }
@@ -897,14 +897,20 @@ next_mark:
   return attr;
 }
 
-VirtText *extmark_decorations_virt_text(buf_T *buf, DecorationState *state)
+VirtText *extmark_decorations_eol(buf_T *buf, DecorationState *state, int *eol_hl)
 {
   extmark_decorations_col(buf, MAXCOL, state);
+  int eol_attr = 0;
   for (size_t i = 0; i < kv_size(state->active); i++) {
     HlRange item = kv_A(state->active, i);
     if (item.start_row == state->row && item.virt_text) {
       return item.virt_text;
     }
+    if (item.start_row <= state->row && state->row <= item.end_row &&
+        item.style == kStyleLines) {
+      eol_attr = hl_combine_attr(eol_attr, item.attr_ird);
+    }
+
   }
   return NULL;
 }

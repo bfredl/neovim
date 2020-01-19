@@ -73,6 +73,7 @@ typedef struct {
   int end_col;
   int attr_id;
   VirtText *virt_text;
+  DecorationStyle style;
 } HlRange;
 
 typedef struct {
