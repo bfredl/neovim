@@ -31,7 +31,6 @@ function Parser:_on_lines(bufnr, _, start_row, old_stop_row, stop_row, old_byte_
 end
 
 local M = {
-  add_language=vim._ts_add_language,
   inspect_language=vim._ts_inspect_language,
   parse_query = vim._ts_parse_query,
 }
@@ -44,6 +43,23 @@ setmetatable(M, {
       end
    end
  })
+
+function M.require_language(lang, path)
+  if vim._ts_has_language(lang) then
+    return true
+  end
+  if path == nil then
+    -- TODO: per platform!!
+    local fname = 'treesitter/parser/' .. lang .. '.so'
+    local paths = a.nvim_find_runtime_file(fname, false);
+    if #paths == 0 then
+      -- TODO: help tag?
+      error("couldn't find tree-sitter parser for '"..lang.."' language")
+    end
+    path = paths[1]
+  end
+  vim._ts_add_language(path, lang)
+end
 
 function M.create_parser(bufnr, ft, id)
   if bufnr == 0 then
@@ -77,6 +93,7 @@ function M.get_parser(bufnr, ft, cb)
   if ft == nil then
     ft = a.nvim_buf_get_option(bufnr, "filetype")
   end
+  M.require_language(ft)
   local id = tostring(bufnr)..'_'..ft
 
   if parsers[id] == nil then
