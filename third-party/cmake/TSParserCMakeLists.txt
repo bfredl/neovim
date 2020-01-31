@@ -1,0 +1,14 @@
+cmake_minimum_required(VERSION 2.8.12)
+project(parser LANGUAGES C CXX)
+
+add_library(teeest
+  MODULE
+  src/parser.c
+  ) 
+set_target_properties(
+  teeest
+  PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
+include_directories(src)
