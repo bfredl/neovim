@@ -1716,6 +1716,7 @@ Dictionary nvim__buf_stats(Buffer buffer, Error *err)
   // NB: this should be zero at any time API functions are called,
   // this exists to debug issues
   PUT(rv, "dirty_bytes", INTEGER_OBJ((Integer)buf->deleted_bytes));
+  PUT(rv, "dirty_bytes2", INTEGER_OBJ((Integer)buf->deleted_bytes2));
 
   u_header_T *uhp = NULL;
   if (buf->b_u_curhead != NULL) {

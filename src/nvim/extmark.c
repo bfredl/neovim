@@ -481,24 +481,33 @@ void extmark_adjust(buf_T *buf,
                     long amount_after,
                     ExtmarkOp undo)
 {
-  if (!curbuf_splice_pending) {
-    int old_extent, new_extent;
-    if (amount == MAXLNUM) {
-      old_extent = (int)(line2 - line1+1);
-      new_extent = (int)(amount_after + old_extent);
-    } else {
-      // A region is either deleted (amount == MAXLNUM) or
-      // added (line2 == MAXLNUM). The only other case is :move
-      // which is handled by a separate entry point extmark_move_region.
-      assert(line2 == MAXLNUM);
-      old_extent = 0;
-      new_extent = (int)amount;
-    }
-    extmark_splice(buf,
-                   (int)line1-1, 0,
-                   old_extent, 0, FNORD,
-                   new_extent, 0, FNORD, undo);
+  if (curbuf_splice_pending) {
+    return;
   }
+  bcount_t start_byte = ml_find_line_or_offset(buf, line1, NULL, true);
+  bcount_t old_byte = 0, new_byte = 0;
+  int old_row, new_row;
+  if (amount == MAXLNUM) {
+    old_row = (int)(line2 - line1+1);
+    // TODO: ej kasta?
+    old_byte = (bcount_t)buf->deleted_bytes2;
+
+    new_row = (int)(amount_after + old_row);
+  } else {
+    // A region is either deleted (amount == MAXLNUM) or
+    // added (line2 == MAXLNUM). The only other case is :move
+    // which is handled by a separate entry point extmark_move_region.
+    assert(line2 == MAXLNUM);
+    old_row = 0;
+    new_row = (int)amount;
+  }
+  if (new_row > 0) {
+    new_byte = ml_find_line_or_offset(buf, line1+new_row, NULL, true);
+  }
+  extmark_splice_impl(buf,
+                      (int)line1-1, 0, start_byte,
+                      old_row, 0, old_byte,
+                      new_row, 0, new_byte, undo);
 }
 
 void extmark_splice(buf_T *buf,
