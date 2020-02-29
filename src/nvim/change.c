@@ -1691,8 +1691,9 @@ int open_line(
         // Always move extmarks - Here we move only the line where the
         // cursor is, the previous mark_adjust takes care of the lines after
         int cols_added = mincol-1+less_cols_off-less_cols;
-        extmark_splice(curbuf, (int)lnum-1, mincol-1, 0, less_cols_off,
-                       1, cols_added, kExtmarkUndo);
+        extmark_splice(curbuf, (int)lnum-1, mincol-1,
+                       0, less_cols_off, less_cols_off,
+                       1, cols_added, FNORD, kExtmarkUndo);
       } else {
         changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
       }
@@ -1704,8 +1705,8 @@ int open_line(
   }
   if (did_append) {
     changed_lines(curwin->w_cursor.lnum, 0, curwin->w_cursor.lnum, 1L, true);
-    extmark_splice(curbuf, (int)curwin->w_cursor.lnum-1,
-                   0, 0, 0, 1, 0, kExtmarkUndo);
+    extmark_splice(curbuf, (int)curwin->w_cursor.lnum-1, 0,
+                   0, 0, 0, 1, 0, FNORD, kExtmarkUndo);
   }
   curbuf_splice_pending--;
 

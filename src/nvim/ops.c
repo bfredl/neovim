@@ -1669,7 +1669,7 @@ int op_delete(oparg_T *oap)
       (void)do_join(2, false, false, false, false);
       curbuf_splice_pending--;
       extmark_splice(curbuf, (int)startpos.lnum-1, startpos.col,
-                     (int)oap->line_count-1, n, 0, 0, kExtmarkUndo);
+                     (int)oap->line_count-1, n, FNORD, 0, 0, 0, kExtmarkUndo);
     }
   }
 
@@ -1862,8 +1862,8 @@ int op_replace(oparg_T *oap, int c)
         xfree(after_p);
       }
       extmark_splice(curbuf, (int)baselnum-1, bd.textcol,
-                     0, bd.textlen,
-                     newrows, newcols, kExtmarkUndo);
+                     0, bd.textlen, bd.textlen,
+                     newrows, newcols, FNORD, kExtmarkUndo);
     }
   } else {
     // Characterwise or linewise motion replace.
@@ -3342,12 +3342,12 @@ void do_put(int regname, yankreg_T *reg, int dir, long count, int flags)
         }
 
         if (y_type == kMTCharWise) {
-          extmark_splice(curbuf, (int)new_cursor.lnum-1, col, 0, 0,
-                         (int)y_size-1, (int)STRLEN(y_array[y_size-1]),
+          extmark_splice(curbuf, (int)new_cursor.lnum-1, col, 0, 0, 0,
+                         (int)y_size-1, (int)STRLEN(y_array[y_size-1]), FNORD,
                          kExtmarkUndo);
         } else if (y_type == kMTLineWise && flags & PUT_LINE_SPLIT) {
-          extmark_splice(curbuf, (int)new_cursor.lnum-1, col, 0, 0,
-                         (int)y_size+1, 0, kExtmarkUndo);
+          extmark_splice(curbuf, (int)new_cursor.lnum-1, col, 0, 0, 0,
+                         (int)y_size+1, 0, FNORD, kExtmarkUndo);
         }
       }
 
@@ -3792,8 +3792,8 @@ int do_join(size_t count,
 
     if (t > 0 && curbuf_splice_pending == 0) {
       extmark_splice(curbuf, (int)curwin->w_cursor.lnum-1, sumsize,
-                     1, (int)(curr- curr_start),
-                     0, spaces[t],
+                     1, (int)(curr- curr_start), FNORD,
+                     0, spaces[t], 0,
                      kExtmarkUndo);
     }
     currsize = (int)STRLEN(curr);
