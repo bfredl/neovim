@@ -3955,8 +3955,8 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
                                        ? start.col : 0);
             int subcols = new_endcol - ((lnum == lnum_start) ? start_col : 0);
             extmark_splice(curbuf, lnum_start-1, start_col,
-                           end.lnum-start.lnum, matchcols,
-                           lnum-lnum_start, subcols, kExtmarkUndo);
+                           end.lnum-start.lnum, matchcols, FNORD,
+                           lnum-lnum_start, subcols, FNORD, kExtmarkUndo);
             }
         }
 
