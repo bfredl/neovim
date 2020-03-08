@@ -3791,9 +3791,10 @@ int do_join(size_t count,
     }
 
     if (t > 0 && curbuf_splice_pending == 0) {
+      colnr_T removed = (int)(curr- curr_start);
       extmark_splice(curbuf, (int)curwin->w_cursor.lnum-1, sumsize,
-                     1, (int)(curr- curr_start), FNORD,
-                     0, spaces[t], 0,
+                     1, removed, removed + 1,
+                     0, spaces[t], spaces[t],
                      kExtmarkUndo);
     }
     currsize = (int)STRLEN(curr);
