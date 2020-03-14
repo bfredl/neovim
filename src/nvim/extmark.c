@@ -588,10 +588,13 @@ void extmark_splice_impl(buf_T *buf,
       ExtmarkSplice splice;
       splice.start_row = start_row;
       splice.start_col = start_col;
+      splice.start_byte = start_byte;
       splice.old_row = old_row;
       splice.old_col = old_col;
+      splice.old_byte = old_byte;
       splice.new_row = new_row;
       splice.new_col = new_col;
+      splice.new_byte = new_byte;
 
       kv_push(uhp->uh_extmark,
               ((ExtmarkUndoObject){ .type = kExtmarkSplice,

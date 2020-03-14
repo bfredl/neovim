@@ -3902,6 +3902,23 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
 
           ADJUST_SUB_FIRSTLNUM();
 
+          // TODO(bfredl): adjust also in preview, because decorations?
+          // this has some robustness issues, will look into later.
+          bool do_splice = !preview;
+          bcount_t replaced_bytes;
+          lpos_T start = regmatch.startpos[0], end = regmatch.endpos[0];
+          if (do_splice) {
+            if (nmatch > 1) {
+              replaced_bytes = STRLEN(feeel sub_firstline)-start.col+1;
+              for (i = 1; i < nmatch-1; i++) {
+                replaced_bytes += STRLEN(ml_get(start.lnum+i)) + 1;
+              }
+              replaced_bytes += end.col;
+            } else {
+              replaced_bytes = end.col - start.col;
+            }
+          }
+
 
           // Now the trick is to replace CTRL-M chars with a real line
           // break.  This would make it impossible to insert a CTRL-M in
@@ -3945,17 +3962,14 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
           current_match.end.col = new_endcol;
           current_match.end.lnum = lnum;
 
-          // TODO(bfredl): adjust in preview, because decorations?
-          // this has some robustness issues, will look into later.
-          if (!preview) {
-            lpos_T start = regmatch.startpos[0], end = regmatch.endpos[0];
+          if (do_splice) {
             int matchcols = end.col - ((end.lnum == start.lnum)
                                        ? start.col : 0);
             int subcols = new_endcol - ((lnum == lnum_start) ? start_col : 0);
             extmark_splice(curbuf, lnum_start-1, start_col,
-                           end.lnum-start.lnum, matchcols, FNORD,
-                           lnum-lnum_start, subcols, FNORD, kExtmarkUndo);
-            }
+                           end.lnum-start.lnum, matchcols, replaced_bytes,
+                           lnum-lnum_start, subcols, sublen-1, kExtmarkUndo);
+          }
         }
 
 
