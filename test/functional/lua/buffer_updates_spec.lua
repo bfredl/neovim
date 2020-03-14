@@ -239,7 +239,7 @@ describe('lua buffer event callbacks: on_lines', function()
     local lastsize
     meths.buf_set_lines(0, 0, -1, true, origlines)
     local shadow = deepcopy(origlines)
-    local shadowbytes = table.concat(shadow, '\n') + '\n'
+    local shadowbytes = table.concat(shadow, '\n') .. '\n'
     if verify then
       lastsize = meths.buf_get_offset(0, meths.buf_line_count(0))
     end
@@ -253,26 +253,39 @@ describe('lua buffer event callbacks: on_lines', function()
       if verify then
         for _, event in ipairs(events) do
           if event[1] == verify_name and event[2] == "bytes" then
-            local _, _, buf, tick, start_row, start_col, start_byte, old_row, old_col, old_byte, new_row, new_col, new_byte = event
+            local _, _, buf, tick, start_row, start_col, start_byte, old_row, old_col, old_byte, new_row, new_col, new_byte = unpack(event)
             local before = string.sub(shadowbytes, 1, start_byte)
             -- no text in the tests will contain 0xff bytes (invalid UTF-8)
             -- so we can use it as marker for unknown bytes
             local unknown = string.rep('\255', new_byte)
             local after = string.sub(shadowbytes, start_byte + old_byte + 1)
-            shadowbytes = before .. unkwown .. after
+            shadowbytes = before .. unknown .. after
           end
         end
         local text = meths.buf_get_lines(0, 0, -1, true)
-        local bytes = table.concat(text, '\n') + '\n'
+        local bytes = table.concat(text, '\n') .. '\n'
         eq(string.len(bytes), string.len(shadowbytes), shadowbytes)
-        for i in 1, string.len(shadowbytes) do
+        for i = 1, string.len(shadowbytes) do
           local shadowbyte = string.sub(shadowbytes, i, i)
           if shadowbyte ~= '\255' then
-            eq(string.sub(bytes, i, i), shadowbytes, i)
+            eq(string.sub(bytes, i, i), shadowbyte, i)
           end
         end
       end
     end
+
+    feed('ggJ')
+    check_events({{'test1', 'bytes', 1, 3, 0, 15, 15, 1, 0, 1, 0, 1, 1}})
+
+    feed('3J')
+    check_events({
+        {'test1', 'bytes', 1, 5, 0, 31, 31, 1, 0, 1, 0, 1, 1},
+        {'test1', 'bytes', 1, 5, 0, 47, 47, 1, 0, 1, 0, 1, 1},
+    })
   end
-end
+
+  it('works with verify', function()
+    check(true)
+  end)
+end)
 
