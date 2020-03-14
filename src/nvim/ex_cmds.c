@@ -3907,18 +3907,13 @@ static buf_T *do_sub(exarg_T *eap, proftime_T timeout,
           // TODO(bfredl): adjust also in preview, because decorations?
           // this has some robustness issues, will look into later.
           bool do_splice = !preview;
-          bcount_t replaced_bytes;
+          bcount_t replaced_bytes = 0;
           lpos_T start = regmatch.startpos[0], end = regmatch.endpos[0];
           if (do_splice) {
-            if (nmatch > 1) {
-              replaced_bytes = STRLEN(feeel sub_firstline)-start.col+1;
-              for (i = 1; i < nmatch-1; i++) {
-                replaced_bytes += STRLEN(ml_get(start.lnum+i)) + 1;
-              }
-              replaced_bytes += end.col;
-            } else {
-              replaced_bytes = end.col - start.col;
+            for (i = 0; i < nmatch-1; i++) {
+              replaced_bytes += STRLEN(ml_get(lnum_start+i)) + 1;
             }
+            replaced_bytes += end.col - start.col;
           }
 
 
