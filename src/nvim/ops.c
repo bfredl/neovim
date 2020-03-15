@@ -3345,13 +3345,23 @@ void do_put(int regname, yankreg_T *reg, int dir, long count, int flags)
           }
         }
 
+        bcount_t totsize = 0;
+        int lastsize = 0;
+        if (y_type == kMTCharWise
+            || (y_type == kMTLineWise && flags & PUT_LINE_SPLIT)) {
+          for (i = 0; i < y_size-1; i++) {
+            totsize += STRLEN(y_array[i]) + 1;
+          }
+          lastsize = (int)STRLEN(y_array[y_size-1]);
+          totsize += lastsize;
+        }
         if (y_type == kMTCharWise) {
           extmark_splice(curbuf, (int)new_cursor.lnum-1, col, 0, 0, 0,
-                         (int)y_size-1, (int)STRLEN(y_array[y_size-1]), FNORD,
+                         (int)y_size-1, lastsize, totsize,
                          kExtmarkUndo);
         } else if (y_type == kMTLineWise && flags & PUT_LINE_SPLIT) {
           extmark_splice(curbuf, (int)new_cursor.lnum-1, col, 0, 0, 0,
-                         (int)y_size+1, 0, FNORD, kExtmarkUndo);
+                         (int)y_size+1, 0, totsize+1, kExtmarkUndo);
         }
       }
 
