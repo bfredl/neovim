@@ -528,6 +528,7 @@ void extmark_splice_impl(buf_T *buf,
                          int new_row, colnr_T new_col, bcount_t new_byte,
                          ExtmarkOp undo)
 {
+  curbuf->deleted_bytes2 = 0;
   buf_updates_send_splice(buf, start_row, start_col, start_byte,
                           old_row, old_col, old_byte,
                           new_row, new_col, new_byte);

@@ -1653,7 +1653,6 @@ int op_delete(oparg_T *oap)
         return FAIL;
 
       curbuf_splice_pending++;
-      curbuf->deleted_bytes2 = 0;
       pos_T startpos = curwin->w_cursor;  // start position for delete
       truncate_line(true);        // delete from cursor to end of line
 
