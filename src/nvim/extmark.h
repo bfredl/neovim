@@ -7,9 +7,6 @@
 
 EXTERN int extmark_splice_pending INIT(= 0);
 
-// TODO: delete your account
-#define FNORD -1
-
 typedef struct
 {
   uint64_t ns_id;
@@ -45,6 +42,9 @@ typedef struct {
   int extent_col;
   int new_row;
   int new_col;
+  bcount_t start_byte;
+  bcount_t extent_byte;
+  bcount_t new_byte;
 } ExtmarkMove;
 
 // extmark was updated

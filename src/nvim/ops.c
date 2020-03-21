@@ -1857,6 +1857,7 @@ int op_replace(oparg_T *oap, int c)
       }
       // replace the line
       ml_replace(curwin->w_cursor.lnum, newp, false);
+      curbuf_splice_pending++;
       linenr_T baselnum = curwin->w_cursor.lnum;
       if (after_p != NULL) {
         ml_append(curwin->w_cursor.lnum++, after_p, (int)after_p_len, false);
@@ -1864,9 +1865,10 @@ int op_replace(oparg_T *oap, int c)
         oap->end.lnum++;
         xfree(after_p);
       }
+      curbuf_splice_pending--;
       extmark_splice(curbuf, (int)baselnum-1, bd.textcol,
                      0, bd.textlen, bd.textlen,
-                     newrows, newcols, FNORD, kExtmarkUndo);
+                     newrows, newcols, newrows+newcols, kExtmarkUndo);
     }
   } else {
     // Characterwise or linewise motion replace.

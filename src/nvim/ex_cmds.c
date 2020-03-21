@@ -844,6 +844,11 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
     return OK;
   }
 
+  bcount_t start_byte = ml_find_line_or_offset(curbuf, line1, NULL, true);
+  bcount_t end_byte = ml_find_line_or_offset(curbuf, line2+1, NULL, true);
+  bcount_t extent_byte = end_byte-start_byte;
+  bcount_t dest_byte = ml_find_line_or_offset(curbuf, dest+1, NULL, true);
+
   num_lines = line2 - line1 + 1;
 
   /*
@@ -878,6 +883,8 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
   last_line = curbuf->b_ml.ml_line_count;
   mark_adjust_nofold(line1, line2, last_line - line2, 0L, kExtmarkNOOP);
   changed_lines(last_line - num_lines + 1, 0, last_line + 1, num_lines, false);
+  int line_off = 0;
+  bcount_t byte_off = 0;
   if (dest >= line2) {
     mark_adjust_nofold(line2 + 1, dest, -num_lines, 0L, kExtmarkNOOP);
     FOR_ALL_TAB_WINDOWS(tab, win) {
@@ -887,6 +894,8 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
     }
     curbuf->b_op_start.lnum = dest - num_lines + 1;
     curbuf->b_op_end.lnum = dest;
+    line_off = -num_lines;
+    byte_off = -extent_byte;
   } else {
     mark_adjust_nofold(dest + 1, line1 - 1, num_lines, 0L, kExtmarkNOOP);
     FOR_ALL_TAB_WINDOWS(tab, win) {
@@ -902,11 +911,10 @@ int do_move(linenr_T line1, linenr_T line2, linenr_T dest)
                      -(last_line - dest - extra), 0L, kExtmarkNOOP);
 
   // extmarks are handled separately
-  int size = line2-line1+1;
-  int off = dest >= line2 ? -size : 0;
-  extmark_move_region(curbuf, line1-1, 0,
-                      line2-line1+1, 0,
-                      dest+off, 0, kExtmarkUndo);
+  extmark_move_region(curbuf, line1-1, 0, start_byte,
+                      line2-line1+1, 0, extent_byte,
+                      dest+line_off, 0, dest_byte+byte_off,
+                      kExtmarkUndo);
 
   changed_lines(last_line - num_lines + 1, 0, last_line + 1, -extra, false);
 
