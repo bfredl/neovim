@@ -502,7 +502,7 @@ void extmark_adjust(buf_T *buf,
     new_row = (int)amount;
   }
   if (new_row > 0) {
-    new_byte = ml_find_line_or_offset(buf, line1+new_row, NULL, true);
+    new_byte = ml_find_line_or_offset(buf, line1+new_row, NULL, true)-start_byte;
   }
   extmark_splice_impl(buf,
                       (int)line1-1, 0, start_byte,

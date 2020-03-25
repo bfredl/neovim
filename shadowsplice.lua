@@ -69,16 +69,16 @@ function ssp.show()
       lastpos = i
     end
     local shadowbyte = string.sub(ssp.shadow, i, i)
-    if shadowbyte ~= '\255' then
-      if textbyte ~= shadowbyte then
-        pcall(function()
-          a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "ErrorMsg", line, i-lastpos-1, i-lastpos)
-          a.nvim_buf_set_virtual_text(ssp.bufnr, ssp.ns, line, {{"ERR", "ErrorMsg"}}, {})
-        end)
+    pcall(function()
+      if shadowbyte ~= '\255' then
+        if textbyte ~= shadowbyte then
+            a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "ErrorMsg", line, i-lastpos-1, i-lastpos)
+            a.nvim_buf_set_virtual_text(ssp.bufnr, ssp.ns, line, {{"ERR", "ErrorMsg"}}, {})
+        end
+      else
+        a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "StatusLine", line, i-lastpos-1, i-lastpos)
       end
-    else
-        a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "StatusLine", line, i-lastpos, i-lastpos+1)
-    end
+    end)
   end
 end
 

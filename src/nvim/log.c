@@ -333,6 +333,7 @@ static bool v_do_log_to_file(FILE *log_file, int log_level,
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/vim.h"
 void blog(char *fmt, ...)
+  FUNC_ATTR_PRINTF(1, 2)
 {
   static char buf[IOSIZE];
   va_list args;
@@ -342,5 +343,5 @@ void blog(char *fmt, ...)
   FIXED_TEMP_ARRAY(luargs, 1);
   luargs.items[0] = STRING_OBJ(((String){ .data =buf, .size = size }));
   Error err = ERROR_INIT;
-  nvim_exec_lua(STATIC_CSTR_AS_STRING("require'luadev'.print(...)"), luargs, &err);
+  nvim_exec_lua(STATIC_CSTR_AS_STRING("vim.schedule_wrap(require'luadev'.print)(...)"), luargs, &err);
 }
