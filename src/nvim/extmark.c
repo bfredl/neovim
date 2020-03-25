@@ -564,21 +564,24 @@ void extmark_splice_impl(buf_T *buf,
                                       kv_size(uhp->uh_extmark)-1);
       if (item->type == kExtmarkSplice) {
         ExtmarkSplice *splice = &item->data.splice;
-        // TODO: bytessss!
         if (splice->start_row == start_row && splice->old_row == 0
             && splice->new_row == 0) {
           if (old_col == 0 && start_col >= splice->start_col
               && start_col <= splice->start_col+splice->new_col) {
             splice->new_col += new_col;
+            splice->new_byte += new_byte;
             merged = true;
           } else if (new_col == 0
                      && start_col == splice->start_col+splice->new_col) {
             splice->old_col += old_col;
+            splice->old_byte += old_byte;
             merged = true;
           } else if (new_col == 0
                      && start_col + old_col == splice->start_col) {
             splice->start_col = start_col;
+            splice->start_byte = start_byte;
             splice->old_col += old_col;
+            splice->old_byte += old_byte;
             merged = true;
           }
         }
