@@ -72,11 +72,15 @@ function ssp.show()
     pcall(function()
       if shadowbyte ~= '\255' then
         if textbyte ~= shadowbyte then
-            a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "ErrorMsg", line, i-lastpos-1, i-lastpos)
             a.nvim_buf_set_virtual_text(ssp.bufnr, ssp.ns, line, {{"ERR", "ErrorMsg"}}, {})
+            a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "ErrorMsg", line, i-lastpos-1, i-lastpos)
         end
       else
-        a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "StatusLine", line, i-lastpos-1, i-lastpos)
+        if i - lastpos == 0 then
+          a.nvim_buf_set_virtual_text(ssp.bufnr, ssp.ns, line-1, {{" ", "RedrawDebugComposed"}}, {})
+        else
+          a.nvim_buf_add_highlight(ssp.bufnr, ssp.ns, "StatusLine", line, i-lastpos-1, i-lastpos)
+        end
       end
     end)
   end
@@ -87,7 +91,8 @@ ssp.reset()
 ra = [[
 ssp.start()
 ssp.reset()
-eeeeee
+eee
+eee
 eeee
 ssp.show()
 ssp.sync()
