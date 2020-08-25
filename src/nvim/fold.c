@@ -791,7 +791,8 @@ void foldUpdate(win_T *wp, linenr_T top, linenr_T bot)
   // Mark all folds from top to bot as maybe-small.
   fold_T *fp;
   (void)foldFind(&wp->w_folds, top, &fp);
-  while (fp < (fold_T *)wp->w_folds.ga_data + wp->w_folds.ga_len
+  while (wp->w_folds.ga_data != NULL
+         && fp < (fold_T *)wp->w_folds.ga_data + wp->w_folds.ga_len
          && fp->fd_top < bot) {
     fp->fd_small = kNone;
     fp++;
@@ -1085,8 +1086,8 @@ static int foldFind(const garray_T *gap, linenr_T lnum, fold_T **fpp)
       return TRUE;
     }
   }
-  *fpp = fp + low;
-  return FALSE;
+  *fpp = fp ? fp + low : NULL;
+  return false;
 }
 
 /* foldLevelWin() {{{2 */
@@ -1220,9 +1221,10 @@ setManualFoldWin(
   gap = &wp->w_folds;
   for (;; ) {
     if (!foldFind(gap, lnum, &fp)) {
-      /* If there is a following fold, continue there next time. */
-      if (fp < (fold_T *)gap->ga_data + gap->ga_len)
+      // If there is a following fold, continue there next time.
+      if (gap->ga_data != NULL && fp < (fold_T *)gap->ga_data + gap->ga_len) {
         next = fp->fd_top + off;
+      }
       break;
     }
 
@@ -2266,10 +2268,12 @@ static linenr_T foldUpdateIEMSRecurse(
          * includes startlnum, otherwise one that ends just before
          * startlnum or starts after it. */
         if (foldFind(gap, startlnum, &fp)
-            || (fp < ((fold_T *)gap->ga_data) + gap->ga_len
+            || (gap->ga_data != NULL
+                && fp < ((fold_T *)gap->ga_data) + gap->ga_len
                 && fp->fd_top <= firstlnum)
             || foldFind(gap, firstlnum - concat, &fp)
-            || (fp < ((fold_T *)gap->ga_data) + gap->ga_len
+            || (gap->ga_data != NULL
+                && fp < ((fold_T *)gap->ga_data) + gap->ga_len
                 && ((lvl < level && fp->fd_top < flp->lnum)
                     || (lvl >= level
                         && fp->fd_top <= flp->lnum_save)))) {
@@ -2597,7 +2601,9 @@ static void foldSplit(buf_T *buf, garray_T *const gap,
   garray_T *const gap1 = &fp->fd_nested;
   garray_T *const gap2 = &fp[1].fd_nested;
   (void)(foldFind(gap1, bot + 1 - fp->fd_top, &fp2));
-  const int len = (int)((fold_T *)gap1->ga_data + gap1->ga_len - fp2);
+  const int len = (int)(gap1->ga_data
+                        ? ((fold_T *)gap1->ga_data + gap1->ga_len - fp2)
+                        : 0);
   if (len > 0) {
     ga_grow(gap2, len);
     for (int idx = 0; idx < len; idx++) {
@@ -2657,7 +2663,8 @@ static void foldRemove(
       fold_changed = true;
       continue;
     }
-    if (fp >= (fold_T *)(gap->ga_data) + gap->ga_len
+    if (gap->ga_data == NULL
+        || fp >= (fold_T *)(gap->ga_data) + gap->ga_len
         || fp->fd_top > bot) {
       // 6: Found a fold below bot, can stop looking.
       break;
@@ -2738,7 +2745,9 @@ static void truncate_fold(win_T *const wp, fold_T *fp, linenr_T end)
 }
 
 #define FOLD_END(fp) ((fp)->fd_top + (fp)->fd_len - 1)
-#define VALID_FOLD(fp, gap) ((fp) < ((fold_T *)(gap)->ga_data + (gap)->ga_len))
+#define VALID_FOLD(fp, gap) ((gap)->ga_data != NULL \
+                             && (fp) < ((fold_T *)(gap)->ga_data \
+                                        + (gap)->ga_len))
 #define FOLD_INDEX(fp, gap) ((size_t)(fp - ((fold_T *)(gap)->ga_data)))
 void foldMoveRange(
     win_T *const wp, garray_T *gap,
