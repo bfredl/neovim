@@ -5285,7 +5285,7 @@ static char_u *vim_tempdir = NULL;
 /// This method avoids security problems because of symlink attacks et al.
 /// It's also a bit faster, because we only need to check for an existing
 /// file when creating the directory and not for each temp file.
-static void vim_maketempdir(void)
+void vim_maketempdir(void)
 {
   static const char *temp_dirs[] = TEMP_DIR_NAMES;
   // Try the entries in `TEMP_DIR_NAMES` to create the temp directory.

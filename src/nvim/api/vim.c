@@ -17,6 +17,7 @@
 #include "nvim/api/window.h"
 #include "nvim/msgpack_rpc/channel.h"
 #include "nvim/msgpack_rpc/helpers.h"
+#include "nvim/msgpack_rpc/server.h"
 #include "nvim/lua/executor.h"
 #include "nvim/vim.h"
 #include "nvim/buffer.h"
@@ -2626,4 +2627,42 @@ void nvim__put_attr(Integer id, Integer start_row, Integer start_col,
   }
   decorations_add_luahl_attr(attr, (int)start_row, (colnr_T)start_col,
                              (int)end_row, (colnr_T)end_col);
+}
+
+void nvim__fork_serve(void)
+{
+  this_function_probably_already_exists();
+  fprintf(stderr, "\nbork %s\n\n", get_vim_var_str(VV_SEND_SERVER));
+
+  const bool forever = true;
+  while (forever) {
+    LOOP_PROCESS_EVENTS_UNTIL(&main_loop, main_loop.events, -1, !forever);
+  }
+  exit(1);
+}
+
+void nvim__fork_to(void) {
+  int child_pid = fork();
+  if (child_pid != 0) {
+    // parent
+    return; // we good?
+  } else {
+    assert(0 == uv_loop_fork(&main_loop.uv));
+    server_teardown();
+    loop_poll_events(&main_loop, 20);
+    vim_maketempdir();
+    os_unsetenv("NVIM_LISTEN_ADDRESS");
+    set_vim_var_string(VV_SEND_SERVER, "", 0);
+    server_init(NULL);
+    fprintf(stderr, "\nbork2 %s\n\n", get_vim_var_str(VV_SEND_SERVER));
+  }
+  //uv_walk(&main_loop.uv, loop_walk_cb, NULL);
+  //exit(2);
+}
+
+static void loop_walk_cb(uv_handle_t *handle, void *arg)
+{
+  if (!uv_is_closing(handle)) {
+    uv_close(handle, NULL);
+  }
 }

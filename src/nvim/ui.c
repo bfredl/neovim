@@ -351,6 +351,10 @@ void ui_detach_impl(UI *ui, uint64_t chanid)
   do_autocmd_uienter(chanid, false);
 }
 
+void this_function_probably_already_exists(void) {
+  ui_detach_impl(uis[1], 0);
+}
+
 void ui_set_ext_option(UI *ui, UIExtension ext, bool active)
 {
   if (ext < kUIGlobalCount) {
