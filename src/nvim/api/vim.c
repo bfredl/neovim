@@ -2641,7 +2641,7 @@ void nvim__fork_serve(void)
   exit(1);
 }
 
-void nvim__fork_to(void) {
+void nvim__fork_to(uint64_t channel_id) {
   int child_pid = fork();
   if (child_pid != 0) {
     // parent
@@ -2649,6 +2649,13 @@ void nvim__fork_to(void) {
   } else {
     assert(0 == uv_loop_fork(&main_loop.uv));
     server_teardown();
+    const char *error = NULL;
+    // TODO(bfredl): a bit racy but it should work in manual testing
+    channel_close(channel_id, kChannelPartRpc, &error);
+    if (error) {
+      fprintf(stderr, "verry ärror: %s\n", error);
+      XFREE_CLEAR(error);
+    }
     loop_poll_events(&main_loop, 20);
     vim_maketempdir();
     os_unsetenv("NVIM_LISTEN_ADDRESS");
