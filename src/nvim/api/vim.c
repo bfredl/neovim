@@ -2629,6 +2629,8 @@ void nvim__put_attr(Integer id, Integer start_row, Integer start_col,
                              (int)end_row, (colnr_T)end_col);
 }
 
+static bool did_fork = false;
+
 void nvim__fork_serve(void)
 {
   this_function_probably_already_exists();
@@ -2636,17 +2638,19 @@ void nvim__fork_serve(void)
 
   const bool forever = true;
   while (forever) {
-    LOOP_PROCESS_EVENTS_UNTIL(&main_loop, main_loop.events, -1, !forever);
+    LOOP_PROCESS_EVENTS_UNTIL(&main_loop, main_loop.events, -1, did_fork && false);
   }
-  exit(1);
 }
 
 void nvim__fork_to(uint64_t channel_id) {
+  int pipå[2];
+  pipe(pipå);  // do you even uv
   int child_pid = fork();
   if (child_pid != 0) {
     // parent
     return; // we good?
   } else {
+    did_fork = true;
     assert(0 == uv_loop_fork(&main_loop.uv));
     server_teardown();
     const char *error = NULL;
@@ -2662,9 +2666,24 @@ void nvim__fork_to(uint64_t channel_id) {
     set_vim_var_string(VV_SEND_SERVER, "", 0);
     server_init(NULL);
     fprintf(stderr, "\nbork2 %s\n\n", get_vim_var_str(VV_SEND_SERVER));
+    char_u *name = get_vim_var_str(VV_SEND_SERVER);
+    snprintf((char *)IObuff, sizeof(IObuff), _("%s\n"), name);
+    loop_schedule_deferred(&main_loop, event_create(foo, 0));
+    //assert(write(pipå[1], IObuff, strlen(IObuff)) == (ssize_t)strlen(Iobuff));
   }
   //uv_walk(&main_loop.uv, loop_walk_cb, NULL);
   //exit(2);
+}
+
+static void foo(void **argv)
+{
+}
+
+// play stupid games, get stupid prizes
+void nvim__stupid_test(void) {
+  while (1) {
+    LOOP_PROCESS_EVENTS_UNTIL(&main_loop, main_loop.events, -1, 0);
+  }
 }
 
 static void loop_walk_cb(uv_handle_t *handle, void *arg)
