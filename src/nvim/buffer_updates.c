@@ -382,6 +382,6 @@ void buf_updates_changedtick_single(buf_T *buf, uint64_t channel_id)
 
 static void free_update_callbacks(BufUpdateCallbacks cb)
 {
-  executor_free_luaref(cb.on_lines);
-  executor_free_luaref(cb.on_changedtick);
+  api_free_luaref(cb.on_lines);
+  api_free_luaref(cb.on_changedtick);
 }

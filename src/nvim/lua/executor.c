@@ -845,7 +845,7 @@ void nlua_unref(lua_State *lstate, LuaRef ref)
   }
 }
 
-void executor_free_luaref(LuaRef ref)
+void api_free_luaref(LuaRef ref)
 {
   lua_State *const lstate = nlua_enter();
   nlua_unref(lstate, ref);

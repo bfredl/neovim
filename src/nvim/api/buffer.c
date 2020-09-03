@@ -213,10 +213,10 @@ Boolean nvim_buf_attach(uint64_t channel_id,
 
 error:
   // TODO(bfredl): ASAN build should check that the ref table is empty?
-  executor_free_luaref(cb.on_lines);
-  executor_free_luaref(cb.on_bytes);
-  executor_free_luaref(cb.on_changedtick);
-  executor_free_luaref(cb.on_detach);
+  api_free_luaref(cb.on_lines);
+  api_free_luaref(cb.on_bytes);
+  api_free_luaref(cb.on_changedtick);
+  api_free_luaref(cb.on_detach);
   return false;
 }
 
@@ -248,10 +248,10 @@ Boolean nvim_buf_detach(uint64_t channel_id,
 static void buf_clear_luahl(buf_T *buf, bool force)
 {
   if (buf->b_luahl || force) {
-    executor_free_luaref(buf->b_luahl_start);
-    executor_free_luaref(buf->b_luahl_window);
-    executor_free_luaref(buf->b_luahl_line);
-    executor_free_luaref(buf->b_luahl_end);
+    api_free_luaref(buf->b_luahl_start);
+    api_free_luaref(buf->b_luahl_window);
+    api_free_luaref(buf->b_luahl_line);
+    api_free_luaref(buf->b_luahl_end);
   }
   buf->b_luahl_start = LUA_NOREF;
   buf->b_luahl_window = LUA_NOREF;
@@ -1853,4 +1853,23 @@ static int64_t normalize_index(buf_T *buf, int64_t index, bool *oob)
 static int64_t convert_index(int64_t index)
 {
   return index < 0 ? index - 1 : index;
+}
+
+Object nvim__buf_do(Buffer buffer, LuaRef cb, Error *err)
+  FUNC_API_LUA_ONLY
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!buf) {
+    return NIL;
+  }
+  try_start();
+  aco_save_T aco;
+  aucmd_prepbuf(&aco, (buf_T *)buf);
+
+  Array args = ARRAY_DICT_INIT;
+  Object res = executor_exec_lua_cb(cb, "buf", args, true, err);
+
+  aucmd_restbuf(&aco);
+  try_end(err);
+  return res;
 }
