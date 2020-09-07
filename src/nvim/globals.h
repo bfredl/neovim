@@ -92,6 +92,7 @@ EXTERN struct nvim_stats_s {
 EXTERN int Rows INIT(= DFLT_ROWS);     // nr of rows in the screen
 EXTERN int Columns INIT(= DFLT_COLS);  // nr of columns in the screen
 
+EXTERN int rewin INIT(= 0);     // nr of rows in the screen
 // We use 64-bit file functions here, if available.  E.g. ftello() returns
 // off_t instead of long, which helps if long is 32 bit and off_t is 64 bit.
 // We assume that when fseeko() is available then ftello() is too.

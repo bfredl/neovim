@@ -12,6 +12,7 @@
 #include "nvim/screen.h"
 #include "nvim/syntax.h"
 #include "nvim/ui.h"
+#include "nvim/lua/executor.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
 
@@ -27,6 +28,7 @@ static Map(HlEntry, int) *attr_entry_ids;
 static Map(int, int) *combine_attr_entries;
 static Map(int, int) *blend_attr_entries;
 static Map(int, int) *blendthrough_attr_entries;
+static Map(uint64_t, ssize_t) *fubb;
 
 void highlight_init(void)
 {
@@ -34,6 +36,7 @@ void highlight_init(void)
   combine_attr_entries = map_new(int, int)();
   blend_attr_entries = map_new(int, int)();
   blendthrough_attr_entries = map_new(int, int)();
+  fubb = map_new(uint64_t, ssize_t)();
 
   // index 0 is no attribute, add dummy entry:
   kv_push(attr_entries, ((HlEntry){ .attr = HLATTRS_INIT, .kind = kHlUnknown,
@@ -144,10 +147,66 @@ int hl_get_syn_attr(int idx, HlAttrs at_en)
   }
 }
 
+static LuaRef hl_ref = LUA_NOREF;
+void putta(LuaRef h) {
+  hl_ref = h;
+  map_clear(uint64_t, ssize_t)(fubb);
+}
+
+bool twiddla(HlAttrs *attrs, int idx, int final_id, int winid) {
+  if (hl_ref != LUA_NOREF) {
+    Dictionary ats = hlattrs2dict(*attrs, true);
+    FIXED_TEMP_ARRAY(args, 4);
+    Error err = ERROR_INIT;
+
+    args.items[0] = WINDOW_OBJ(winid);
+    args.items[1] = STRING_OBJ(cstr_to_string(idx >= 0 ? hlf_names[idx] : (char *)syn_id2name(-idx)));
+    args.items[2] = STRING_OBJ(cstr_to_string((char *)syn_id2name(final_id)));
+    args.items[3] = DICTIONARY_OBJ(ats);
+    Object ret = executor_exec_lua_cb(hl_ref, "ui", args, true, &err);
+    if (ret.type == kObjectTypeDictionary) {
+      *attrs = dict2hlattrs(ret.data.dictionary, true);
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Translate a group ID to highlight attributes.
+/// @see syn_attr2entry
+int syn_id2attr2(int hl_id, int winid)
+{
+  uint64_t compo = (((uint64_t)winid) * 900000) + (uint64_t)hl_id;
+  ssize_t test =  map_get(uint64_t, ssize_t)(fubb, compo);
+  if (test >= 0) {
+   // return test;
+  }
+  int final_id = syn_get_final_id(hl_id);
+  int attr = syn_id2attr(hl_id);
+  HlAttrs at_en = syn_attr2entry(attr);
+  twiddla(&at_en, -hl_id, final_id, winid);
+  if (at_en.cterm_fg_color != 0 || at_en.cterm_bg_color != 0
+      || at_en.rgb_fg_color != -1 || at_en.rgb_bg_color != -1
+      || at_en.rgb_sp_color != -1 || at_en.cterm_ae_attr != 0
+      || at_en.rgb_ae_attr != 0) {
+    test =  get_attr_entry((HlEntry){ .attr = at_en, .kind = kHlSyntax,
+                                     .id1 = hl_id, .id2 = winid });
+  } else {
+    // If all the fields are cleared, clear the attr field back to default value
+    test =  0;
+  }
+
+  map_put(uint64_t, ssize_t)(fubb, compo, test);
+
+  return test;
+
+}
+
+
 /// Get attribute code for a builtin highlight group.
 ///
 /// The final syntax group could be modified by hi-link or 'winhighlight'.
-int hl_get_ui_attr(int idx, int final_id, bool optional)
+int hl_get_ui_attr(int idx, int final_id, bool optional, int winid)
 {
   HlAttrs attrs = HLATTRS_INIT;
   bool available = false;
@@ -158,6 +217,10 @@ int hl_get_ui_attr(int idx, int final_id, bool optional)
       attrs = syn_attr2entry(syn_attr);
       available = true;
     }
+  }
+
+  if (twiddla(&attrs, idx, final_id, winid)) {
+    available = true;
   }
 
   if (HLF_PNI <= idx && idx <= HLF_PST) {
@@ -188,18 +251,19 @@ void update_window_hl(win_T *wp, bool invalid)
   // If a floating window is blending it always have a named
   // wp->w_hl_attr_normal group. HL_ATTR(HLF_NFLOAT) is always named.
   bool has_blend = wp->w_floating && wp->w_p_winbl != 0;
+  int id = wp->handle;
 
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
   if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] != 0) {
     wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE,
                                           wp->w_hl_ids[HLF_INACTIVE],
-                                          !has_blend);
+                                          !has_blend, id);
   } else if (float_win && wp->w_hl_ids[HLF_NFLOAT] != 0) {
     wp->w_hl_attr_normal = hl_get_ui_attr(HLF_NFLOAT,
-                                          wp->w_hl_ids[HLF_NFLOAT], !has_blend);
+                                          wp->w_hl_ids[HLF_NFLOAT], !has_blend, id);
   } else if (wp->w_hl_id_normal != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, !has_blend);
+    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, !has_blend, id);
   } else {
     wp->w_hl_attr_normal = float_win ? HL_ATTR(HLF_NFLOAT) : 0;
   }
@@ -220,8 +284,12 @@ void update_window_hl(win_T *wp, bool invalid)
 
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int attr;
-    if (wp->w_hl_ids[hlf] != 0) {
-      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf], false);
+    if (wp->w_hl_ids[hlf] != 0 || hl_ref != LUA_NOREF) {
+      int final = wp->w_hl_ids[hlf];
+      if (final == 0) {
+        final = syn_get_final_id(syn_check_group((char_u *)hlf_names[hlf], (int)STRLEN(hlf_names[hlf])));
+      }
+      attr = hl_get_ui_attr(hlf, final, false, id);
     } else {
       attr = HL_ATTR(hlf);
     }
@@ -663,6 +731,53 @@ Dictionary hlattrs2dict(HlAttrs ae, bool use_rgb)
   return hl;
 }
 
+// credit: praveen GSOC 2019
+HlAttrs dict2hlattrs(Dictionary dict, bool use_rgb)
+{
+  HlAttrs hlattrs = HLATTRS_INIT;
+
+  int32_t foreground = -1;
+  int32_t background = -1;
+  int32_t special = -1;
+  int16_t mask = 0;
+  for (size_t i = 0; i < dict.size; i++) {
+    char *key = dict.items[i].key.data;
+    Object val = dict.items[i].value;
+
+    if (strequal(key, "bold")) {
+      mask = mask | HL_BOLD;
+    } else if (strequal(key, "standout")) {
+      mask = mask | HL_STANDOUT;
+    } else if (strequal(key, "underline")) {
+      mask = mask | HL_UNDERLINE;
+    } else if (strequal(key, "undercurl")) {
+      mask = mask | HL_UNDERCURL;
+    } else if (strequal(key, "italic")) {
+      mask = mask | HL_ITALIC;
+    } else if (strequal(key, "reverse")) {
+      mask = mask | HL_INVERSE;
+    } else if (strequal(key, "special")) {
+      special = (int32_t)val.data.integer;
+    } else if (strequal(key, "foreground")) {
+      foreground = (int32_t)val.data.integer;
+    } else if (strequal(key, "background")) {
+      background = (int32_t)val.data.integer;
+    }
+  }
+
+  if (use_rgb) {
+    hlattrs.rgb_ae_attr = mask;
+    hlattrs.rgb_bg_color = background;
+    hlattrs.rgb_fg_color = foreground;
+    hlattrs.rgb_sp_color = special;
+  } else {
+    hlattrs.cterm_ae_attr = mask;
+    hlattrs.cterm_bg_color = background == -1 ? cterm_normal_bg_color : background + 1;
+    hlattrs.cterm_fg_color = foreground == -1 ? cterm_normal_fg_color : foreground + 1;
+  }
+
+  return hlattrs;
+}
 Array hl_inspect(int attr)
 {
   Array ret = ARRAY_DICT_INIT;

@@ -180,6 +180,7 @@ typedef struct {
   HlKind kind;
   int id1;
   int id2;
+  int winid;
 } HlEntry;
 
 #endif  // NVIM_HIGHLIGHT_DEFS_H

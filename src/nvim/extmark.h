@@ -86,6 +86,7 @@ typedef struct {
   int col_until;
   int current;
   VirtText *virt_text;
+  int winid;
 } DecorationRedrawState;
 
 

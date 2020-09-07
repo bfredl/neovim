@@ -850,7 +850,7 @@ bool decorations_redraw_start(buf_T *buf, int top_row,
       goto next_mark;
     }
 
-    int attr_id = decor->hl_id > 0 ? syn_id2attr(decor->hl_id) : 0;
+    int attr_id = decor->hl_id > 0 ? syn_id2attr2(decor->hl_id, state->winid) : 0;
     VirtText *vt = kv_size(decor->virt_text) ? &decor->virt_text : NULL;
     HlRange range;
     if (mark.id&MARKTREE_END_FLAG) {
@@ -919,7 +919,7 @@ int decorations_redraw_col(buf_T *buf, int col, DecorationRedrawState *state)
       }
     }
 
-    int attr_id = decor->hl_id > 0 ? syn_id2attr(decor->hl_id) : 0;
+    int attr_id = decor->hl_id > 0 ? syn_id2attr2(decor->hl_id, state->winid) : 0;
     VirtText *vt = kv_size(decor->virt_text) ? &decor->virt_text : NULL;
     kv_push(state->active, ((HlRange){ mark.row, mark.col,
                                        endpos.row, endpos.col,

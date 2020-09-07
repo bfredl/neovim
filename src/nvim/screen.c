@@ -1236,6 +1236,7 @@ static void win_update(win_T *wp)
   srow = 0;
   lnum = wp->w_topline;  // first line shown in window
 
+  decorations.winid = wp->handle;
   decorations_active = decorations_redraw_reset(buf, &decorations);
 
   if (buf->b_luahl && buf->b_luahl_window != LUA_NOREF) {
@@ -2182,6 +2183,7 @@ win_line (
     bool number_only                  // only update the number column
 )
 {
+  rewin = wp->handle;
   int c = 0;                          // init for GCC
   long vcol = 0;                      // virtual column (for tabs)
   long vcol_sbr = -1;                 // virtual column after showbreak
@@ -4097,7 +4099,7 @@ win_line (
               if (virt_pos < virt_text.size) {
                 s.p = (char_u *)kv_A(virt_text, virt_pos).text;
                 int hl_id = kv_A(virt_text, virt_pos).hl_id;
-                virt_attr = hl_id > 0 ? syn_id2attr(hl_id) : 0;
+                virt_attr = hl_id > 0 ? syn_id2attr2(hl_id, wp->handle) : 0;
                 virt_pos++;
               } else {
                do_virttext = false;
@@ -5434,7 +5436,7 @@ win_redr_custom (
     if (hltab[n].userhl == 0)
       curattr = attr;
     else if (hltab[n].userhl < 0)
-      curattr = syn_id2attr(-hltab[n].userhl);
+      curattr = syn_id2attr2(-hltab[n].userhl, wp->handle);
     else if (wp != NULL && wp != curwin && wp->w_status_height != 0)
       curattr = highlight_stlnc[hltab[n].userhl - 1];
     else
@@ -5818,7 +5820,7 @@ static void init_search_hl(win_T *wp)
     if (cur->hlg_id == 0)
       cur->hl.attr = 0;
     else
-      cur->hl.attr = syn_id2attr(cur->hlg_id);
+      cur->hl.attr = syn_id2attr2(cur->hlg_id, wp->handle);
     cur->hl.buf = wp->w_buffer;
     cur->hl.lnum = 0;
     cur->hl.first_lnum = 0;

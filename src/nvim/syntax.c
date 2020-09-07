@@ -1777,7 +1777,7 @@ static int syn_current_attr(
                       current_state.ga_len - 2).si_trans_id;
                 }
               } else {
-                cur_si->si_attr = syn_id2attr(syn_id);
+                cur_si->si_attr = syn_id2attr2(syn_id, rewin);
               }
               cur_si->si_cont_list = NULL;
               cur_si->si_next_list = next_list;
@@ -2364,7 +2364,7 @@ static void update_si_attr(int idx)
     sip->si_id = spp->sp_syn_match_id;
   else
     sip->si_id = spp->sp_syn.id;
-  sip->si_attr = syn_id2attr(sip->si_id);
+  sip->si_attr = syn_id2attr2(sip->si_id, rewin);
   sip->si_trans_id = sip->si_id;
   if (sip->si_flags & HL_MATCH)
     sip->si_cont_list = NULL;
@@ -7544,6 +7544,8 @@ int syn_id2attr(int hl_id)
 }
 
 
+
+
 /*
  * Translate a group ID to the final group ID (following links).
  */
@@ -7653,7 +7655,7 @@ void highlight_changed(void)
     }
 
     highlight_attr[hlf] = hl_get_ui_attr(hlf, final_id,
-                                         hlf == (int)HLF_INACTIVE);
+                                         hlf == (int)HLF_INACTIVE, 0);
 
     if (highlight_attr[hlf] != highlight_attr_last[hlf]) {
       if (hlf == HLF_MSG) {

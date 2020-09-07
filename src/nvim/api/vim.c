@@ -2633,3 +2633,11 @@ void nvim__screenshot(String path)
 {
   ui_call_screenshot(path);
 }
+
+void nvim__putta(LuaRef cb, Error *err)
+  FUNC_API_LUA_ONLY
+{
+  putta(cb);
+  highlight_changed();
+  redraw_later(NOT_VALID);
+}
