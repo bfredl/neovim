@@ -119,10 +119,12 @@
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/vim.h"
 #include "nvim/lua/executor.h"
+#include "nvim/lib/kvec.h"
 
 #define MB_FILLER_CHAR '<'  /* character used when a double-width character
                              * doesn't fit. */
 
+typedef kvec_withinit_t(DecorationProvider *, 4) ActiveProviders;
 
 // temporary buffer for rendering a single screenline, so it can be
 // compared with previous contents to calculate smallest delta.
@@ -158,12 +160,31 @@ static bool msg_grid_invalid = false;
 
 static bool resizing = false;
 
-static bool do_luahl_line = false;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "screen.c.generated.h"
 #endif
 #define SEARCH_HL_PRIORITY 0
+
+
+static bool luahl_invoke(const char *name, LuaRef ref, Array args)
+{
+  Error err = ERROR_INIT;
+
+  Object ret = nlua_call_ref(ref, name, args, true, &err);
+  if (!ERROR_SET(&err) && api_is_truthy(ret, "luahl_window retval", &err)) {
+    return true;
+  }
+
+  if (ERROR_SET(&err)) {
+    // TODO: högljutt läge with virtual text errors
+    ELOG("error in luahl %s: %s", name, err.msg);
+    api_clear_error(&err);
+  }
+
+  api_free_object(ret);
+  return false;
+}
 
 /*
  * Redraw the current window later, with update_screen(type).
@@ -448,6 +469,29 @@ int update_screen(int type)
 
   ui_comp_set_screen_valid(true);
 
+  ActiveProviders luahls;
+  kvi_init(luahls);
+  for (size_t i = 0; i < kv_size(decoration_providers); i++) {
+    DecorationProvider *p = &kv_A(decoration_providers, i);
+    if (!p->active) {
+      continue;
+    }
+
+    bool active;
+    if (p->redraw_start != LUA_NOREF) {
+      FIXED_TEMP_ARRAY(args, 2);
+      args.items[0] = INTEGER_OBJ(display_tick);
+      args.items[1] = INTEGER_OBJ(type);
+      active = luahl_invoke("start", p->redraw_start, args);
+    } else {
+      active = true;
+    }
+
+    if (active) {
+      kvi_push(luahls, p);
+    }
+  }
+
   if (clear_cmdline)            /* going to clear cmdline (done below) */
     check_for_delay(FALSE);
 
@@ -510,15 +554,13 @@ int update_screen(int type)
       }
 
       buf_T *buf = wp->w_buffer;
-      if (luahl_active && luahl_start != LUA_NOREF) {
-        Error err = ERROR_INIT;
-        FIXED_TEMP_ARRAY(args, 2);
-        args.items[0] = BUFFER_OBJ(buf->handle);
-        args.items[1] = INTEGER_OBJ(display_tick);
-        nlua_call_ref(luahl_start, "start", args, false, &err);
-        if (ERROR_SET(&err)) {
-          ELOG("error in luahl start: %s", err.msg);
-          api_clear_error(&err);
+
+      for (size_t i = 0; i < kv_size(luahls); i++) {
+        DecorationProvider *p = kv_A(luahls, i);
+        if (p && p->redraw_start != LUA_NOREF) {
+          FIXED_TEMP_ARRAY(args, 1);
+          args.items[0] = BUFFER_OBJ(buf->handle);
+          luahl_invoke("buf", p->redraw_buf, args);
         }
       }
     }
@@ -543,7 +585,7 @@ int update_screen(int type)
         did_one = TRUE;
         start_search_hl();
       }
-      win_update(wp);
+      win_update(wp, &luahls);
     }
 
     /* redraw status line after the window to minimize cursor movement */
@@ -675,7 +717,7 @@ void decorations_add_luahl_attr(int attr_id,
  * mid: from mid_start to mid_end (update inversion or changed text)
  * bot: from bot_start to last row (when scrolled up)
  */
-static void win_update(win_T *wp)
+static void win_update(win_T *wp, ActiveProviders *luahls)
 {
   buf_T       *buf = wp->w_buffer;
   int type;
@@ -1241,31 +1283,26 @@ static void win_update(win_T *wp)
 
   decorations_active = decorations_redraw_reset(buf, &decorations);
 
-  do_luahl_line = false;
+  ActiveProviders luahl_lines;
+  kvi_init(luahl_lines);
 
-  if (luahl_win != LUA_NOREF) {
-    Error err = ERROR_INIT;
-    FIXED_TEMP_ARRAY(args, 4);
-    linenr_T knownmax = ((wp->w_valid & VALID_BOTLINE)
-                         ? wp->w_botline
-                         : (wp->w_topline + wp->w_height_inner));
-    args.items[0] = WINDOW_OBJ(wp->handle);
-    args.items[1] = BUFFER_OBJ(buf->handle);
-    // TODO(bfredl): we are not using this, but should be first drawn line?
-    args.items[2] = INTEGER_OBJ(wp->w_topline-1);
-    args.items[3] = INTEGER_OBJ(knownmax);
-    // TODO(bfredl): we could allow this callback to change mod_top, mod_bot.
-    // For now the "start" callback is expected to use nvim__buf_redraw_range.
-    Object ret = nlua_call_ref(luahl_win, "win", args, true, &err);
+  linenr_T knownmax = ((wp->w_valid & VALID_BOTLINE)
+                       ? wp->w_botline
+                       : (wp->w_topline + wp->w_height_inner));
 
-    if (!ERROR_SET(&err) && api_is_truthy(ret, "luahl_window retval", &err)) {
-      do_luahl_line = true;
-      decorations_active = true;
-    }
-
-    if (ERROR_SET(&err)) {
-      ELOG("error in luahl window: %s", err.msg);
-      api_clear_error(&err);
+  for (size_t k = 0; k < kv_size(*luahls); k++) {
+    DecorationProvider *p = kv_A(*luahls, k);
+    if (p && p->redraw_win != LUA_NOREF) {
+      FIXED_TEMP_ARRAY(args, 4);
+      args.items[0] = WINDOW_OBJ(wp->handle);
+      args.items[1] = BUFFER_OBJ(buf->handle);
+      // TODO(bfredl): we are not using this, but should be first drawn line?
+      args.items[2] = INTEGER_OBJ(wp->w_topline-1);
+      args.items[3] = INTEGER_OBJ(knownmax);
+      if (luahl_invoke("win", p->redraw_win, args)) {
+        kvi_push(luahl_lines, p);
+        decorations_active = true;
+      }
     }
   }
 
@@ -1649,7 +1686,7 @@ static void win_update(win_T *wp)
         /* Don't update for changes in buffer again. */
         i = curbuf->b_mod_set;
         curbuf->b_mod_set = false;
-        win_update(curwin);
+        win_update(curwin, luahls);
         must_redraw = 0;
         curbuf->b_mod_set = i;
       }
@@ -2176,22 +2213,20 @@ fill_foldcolumn(
   return MAX(char_counter + (fdc-i), (size_t)fdc);
 }
 
-/*
- * Display line "lnum" of window 'wp' on the screen.
- * Start at row "startrow", stop when "endrow" is reached.
- * wp->w_virtcol needs to be valid.
- *
- * Return the number of last row the line occupies.
- */
-static int
-win_line (
-    win_T *wp,
-    linenr_T lnum,
-    int startrow,
-    int endrow,
-    bool nochange,                    // not updating for changed text
-    bool number_only                  // only update the number column
-)
+/// Display line "lnum" of window 'wp' on the screen.
+///
+/// wp->w_virtcol needs to be valid.
+///
+/// @param wp            window to redraw
+/// @param lnum          line number in buffer to draw
+/// @param startrow      first row relative to window grid
+/// @param stoprow       last grid row to be redrawn
+/// @param nochange      not updating for changed text
+/// @param number_only   only update the number column
+///
+/// @return              the number of last row the line occupies.
+static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
+                    bool nochange, bool number_only)
 {
   int c = 0;                          // init for GCC
   long vcol = 0;                      // virtual column (for tabs)
@@ -2359,7 +2394,8 @@ win_line (
     }
 
     if (decorations_active) {
-      if (do_luahl_line && luahl_line != LUA_NOREF) {
+      // TODO: smoueo
+      if (false && false != LUA_NOREF) {
         Error err = ERROR_INIT;
         FIXED_TEMP_ARRAY(args, 3);
         args.items[0] = WINDOW_OBJ(wp->handle);
@@ -2367,7 +2403,7 @@ win_line (
         args.items[2] = INTEGER_OBJ(lnum-1);
         lua_attr_active = true;
         extra_check = true;
-        nlua_call_ref(luahl_line, "line", args, false, &err);
+        nlua_call_ref(false, "line", args, false, &err);
         lua_attr_active = false;
 
         if (ERROR_SET(&err)) {

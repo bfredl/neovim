@@ -2703,19 +2703,39 @@ void nvim__screenshot(String path)
   ui_call_screenshot(path);
 }
 
-static void clear_luahl(bool force)
+static DecorationProvider *get_luahl(NS ns_id, bool force)
 {
-  if (luahl_active || force) {
-    api_free_luaref(luahl_start);
-    api_free_luaref(luahl_win);
-    api_free_luaref(luahl_line);
-    api_free_luaref(luahl_end);
+  size_t i;
+  for (i = 0; i < kv_size(decoration_providers); i++) {
+    DecorationProvider *item = &kv_A(decoration_providers, i);
+    if (item->ns_id == ns_id) {
+      return item;
+    } else if (item->ns_id > ns_id) {
+      break;
+    }
   }
-  luahl_start = LUA_NOREF;
-  luahl_win = LUA_NOREF;
-  luahl_line = LUA_NOREF;
-  luahl_end = LUA_NOREF;
-  luahl_active = false;
+
+  if (!force) {
+    return NULL;
+  }
+
+  for (size_t j = kv_size(decoration_providers)-1; j >= i; j++) {
+    // allocates if needed:
+    kv_a(decoration_providers, j+1) = kv_a(decoration_providers, j);
+  }
+  DecorationProvider *item = &kv_a(decoration_providers, i);
+  *item = DECORATION_PROVIDER_INIT(ns_id);
+  return item;
+}
+
+static void clear_luahl(DecorationProvider *p)
+{
+  NLUA_CLEAR_REF(p->redraw_start);
+  NLUA_CLEAR_REF(p->redraw_buf);
+  NLUA_CLEAR_REF(p->redraw_win);
+  NLUA_CLEAR_REF(p->redraw_line);
+  NLUA_CLEAR_REF(p->redraw_end);
+  p->active = false;
 }
 
 /// Unstabilized interface for defining syntax hl in lua.
@@ -2727,43 +2747,50 @@ static void clear_luahl(bool force)
 /// final shape. Ideally this should operate on chunks larger than a single
 /// line to reduce interpreter overhead, and generate annotation objects
 /// (bufhl/virttext) on the fly but using the same representation.
-void nvim__set_luahl(DictionaryOf(LuaRef) opts, Error *err)
-  FUNC_API_LUA_ONLY
+void nvim_set_decoration_provider(Integer ns, DictionaryOf(LuaRef) opts,
+                                  Error *err)
+  FUNC_API_SINCE(7) FUNC_API_LUA_ONLY
 {
-  redraw_later(NOT_VALID);
-  clear_luahl(false);
+  DecorationProvider *p = get_luahl((NS)ns, true);
+  redraw_later(NOT_VALID); // TODO: to0 soon?
+
+  clear_luahl(p);
+
+  struct {
+    const char *name;
+    LuaRef *dest;
+  } cbs[] = {
+    { "on_start", &p->redraw_start },
+    { "on_buf", &p->redraw_buf },
+    { "on_win", &p->redraw_win },
+    { "on_line", &p->redraw_line },
+    { "on_end", &p->redraw_end },
+    { NULL, NULL },
+  };
 
   for (size_t i = 0; i < opts.size; i++) {
     String k = opts.items[i].key;
     Object *v = &opts.items[i].value;
-    if (strequal("on_start", k.data)) {
-      if (v->type != kObjectTypeLuaRef) {
-        api_set_error(err, kErrorTypeValidation, "callback is not a function");
-        goto error;
+    size_t j;
+    for (j = 0; cbs[j].name; j++) {
+      if (strequal(cbs[j].name, k.data)) {
+        if (v->type != kObjectTypeLuaRef) {
+          api_set_error(err, kErrorTypeValidation,
+                        "%s is not a function", cbs[j].name);
+          goto error;
+        }
+        *(cbs[j].dest) = v->data.luaref;
+        v->data.luaref = LUA_NOREF;
+        break;
       }
-      luahl_start = v->data.luaref;
-      v->data.luaref = LUA_NOREF;
-    } else if (strequal("on_win", k.data)) {
-      if (v->type != kObjectTypeLuaRef) {
-        api_set_error(err, kErrorTypeValidation, "callback is not a function");
-        goto error;
-      }
-      luahl_win = v->data.luaref;
-      v->data.luaref = LUA_NOREF;
-    } else if (strequal("on_line", k.data)) {
-      if (v->type != kObjectTypeLuaRef) {
-        api_set_error(err, kErrorTypeValidation, "callback is not a function");
-        goto error;
-      }
-      luahl_line = v->data.luaref;
-      v->data.luaref = LUA_NOREF;
-    } else {
+    }
+    if (!cbs[j].name) {
       api_set_error(err, kErrorTypeValidation, "unexpected key: %s", k.data);
       goto error;
     }
   }
-  luahl_active = true;
+  p->active = true;
   return;
 error:
-  clear_luahl(true);
+  clear_luahl(p);
 }
