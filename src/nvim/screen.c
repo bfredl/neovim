@@ -168,7 +168,8 @@ static bool resizing = false;
 
 static char * luahl_first_error = NULL;
 
-static bool luahl_invoke(NS ns_id, const char *name, LuaRef ref, Array args)
+static bool luahl_invoke(NS ns_id, const char *name, LuaRef ref,
+                         Array args, bool default_true)
 {
   Error err = ERROR_INIT;
 
@@ -177,7 +178,8 @@ static bool luahl_invoke(NS ns_id, const char *name, LuaRef ref, Array args)
   Object ret = nlua_call_ref(ref, name, args, true, &err);
   lua_attr_active = false;
 
-  if (!ERROR_SET(&err) && api_is_truthy(ret, "provider %s retval", &err)) {
+  if (!ERROR_SET(&err)
+      && api_is_truthy(ret, "provider %s retval", default_true, &err)) {
     return true;
   }
 
@@ -492,7 +494,7 @@ int update_screen(int type)
       FIXED_TEMP_ARRAY(args, 2);
       args.items[0] = INTEGER_OBJ(display_tick);
       args.items[1] = INTEGER_OBJ(type);
-      active = luahl_invoke(p->ns_id, "start", p->redraw_start, args);
+      active = luahl_invoke(p->ns_id, "start", p->redraw_start, args, true);
     } else {
       active = true;
     }
@@ -570,7 +572,7 @@ int update_screen(int type)
         if (p && p->redraw_start != LUA_NOREF) {
           FIXED_TEMP_ARRAY(args, 1);
           args.items[0] = BUFFER_OBJ(buf->handle);
-          luahl_invoke(p->ns_id, "buf", p->redraw_buf, args);
+          luahl_invoke(p->ns_id, "buf", p->redraw_buf, args, true);
         }
       }
     }
@@ -1309,7 +1311,7 @@ static void win_update(win_T *wp, ActiveProviders *luahls)
       // TODO(bfredl): we are not using this, but should be first drawn line?
       args.items[2] = INTEGER_OBJ(wp->w_topline-1);
       args.items[3] = INTEGER_OBJ(knownmax);
-      if (luahl_invoke(p->ns_id, "win", p->redraw_win, args)) {
+      if (luahl_invoke(p->ns_id, "win", p->redraw_win, args, true)) {
         kvi_push(luahl_lines, p);
         decorations_active = true;
       }
@@ -2381,7 +2383,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
 
   row = startrow;
 
-  char *luatext = NULL;
+  char *err_text = NULL;
 
   buf_T *buf = wp->w_buffer;
 
@@ -2413,7 +2415,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
         args.items[0] = WINDOW_OBJ(wp->handle);
         args.items[1] = BUFFER_OBJ(buf->handle);
         args.items[2] = INTEGER_OBJ(lnum-1);
-        if (luahl_invoke(p->ns_id, "line", p->redraw_line, args)) {
+        if (luahl_invoke(p->ns_id, "line", p->redraw_line, args, true)) {
           decorations_active = true;
         } else {
           // return 'false' or error: skip rest of this window
@@ -2429,7 +2431,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
     }
 
     if (luahl_first_error) {
-      luatext = luahl_first_error;
+      err_text = luahl_first_error;
       luahl_first_error = NULL;
       do_virttext = true;
     }
@@ -4085,8 +4087,11 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
         draw_color_col = advance_color_col(VCOL_HLC, &color_cols);
 
       VirtText virt_text = KV_INITIAL_VALUE;
-      if (luatext) {
-        kv_push(virt_text, ((VirtTextChunk){ .text = luatext, .hl_id = 0 }));
+      if (err_text) {
+        // TODO: virt_text with attr already
+        int hl_err = syn_check_group((char_u *)S_LEN("ErrorMsg"));
+        kv_push(virt_text, ((VirtTextChunk){ .text = err_text,
+                                             .hl_id = hl_err }));
         do_virttext = true;
       } else if (has_decorations) {
         VirtText *vp = decorations_redraw_virt_text(wp->w_buffer, &decorations);
@@ -4506,7 +4511,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
   }
 
   xfree(p_extra_free);
-  xfree(luatext);
+  xfree(err_text);
   return row;
 }
 
