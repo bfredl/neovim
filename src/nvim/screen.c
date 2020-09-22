@@ -166,20 +166,30 @@ static bool resizing = false;
 #endif
 #define SEARCH_HL_PRIORITY 0
 
+static char * luahl_first_error = NULL;
 
-static bool luahl_invoke(const char *name, LuaRef ref, Array args)
+static bool luahl_invoke(NS ns_id, const char *name, LuaRef ref, Array args)
 {
   Error err = ERROR_INIT;
 
+  // TODO: refactor the entire dynamic scoping thing
+  lua_attr_active = true;
   Object ret = nlua_call_ref(ref, name, args, true, &err);
-  if (!ERROR_SET(&err) && api_is_truthy(ret, "luahl_window retval", &err)) {
+  lua_attr_active = false;
+
+  if (!ERROR_SET(&err) && api_is_truthy(ret, "provider %s retval", &err)) {
     return true;
   }
 
   if (ERROR_SET(&err)) {
+    const char *ns_name = "FOOBAR";//describe_ns(ns_id);
     // TODO: högljutt läge with virtual text errors
-    ELOG("error in luahl %s: %s", name, err.msg);
-    api_clear_error(&err);
+    ELOG("error in provider %s:%s: %s", ns_name, name, err.msg);
+    if (true && luahl_first_error == NULL) {
+      static char errbuf[IOSIZE];
+      snprintf(errbuf, sizeof errbuf, "%s:%s: %s", ns_name, name, err.msg);
+      luahl_first_error = xstrdup(errbuf);
+    }
   }
 
   api_free_object(ret);
@@ -482,7 +492,7 @@ int update_screen(int type)
       FIXED_TEMP_ARRAY(args, 2);
       args.items[0] = INTEGER_OBJ(display_tick);
       args.items[1] = INTEGER_OBJ(type);
-      active = luahl_invoke("start", p->redraw_start, args);
+      active = luahl_invoke(p->ns_id, "start", p->redraw_start, args);
     } else {
       active = true;
     }
@@ -560,7 +570,7 @@ int update_screen(int type)
         if (p && p->redraw_start != LUA_NOREF) {
           FIXED_TEMP_ARRAY(args, 1);
           args.items[0] = BUFFER_OBJ(buf->handle);
-          luahl_invoke("buf", p->redraw_buf, args);
+          luahl_invoke(p->ns_id, "buf", p->redraw_buf, args);
         }
       }
     }
@@ -1299,7 +1309,7 @@ static void win_update(win_T *wp, ActiveProviders *luahls)
       // TODO(bfredl): we are not using this, but should be first drawn line?
       args.items[2] = INTEGER_OBJ(wp->w_topline-1);
       args.items[3] = INTEGER_OBJ(knownmax);
-      if (luahl_invoke("win", p->redraw_win, args)) {
+      if (luahl_invoke(p->ns_id, "win", p->redraw_win, args)) {
         kvi_push(luahl_lines, p);
         decorations_active = true;
       }
@@ -1525,7 +1535,8 @@ static void win_update(win_T *wp, ActiveProviders *luahls)
         /*
          * Display one line.
          */
-        row = win_line(wp, lnum, srow, wp->w_grid.Rows, mod_top == 0, false);
+        row = win_line(wp, lnum, srow, wp->w_grid.Rows,
+                       mod_top == 0, false, &luahl_lines);
 
         wp->w_lines[idx].wl_folded = FALSE;
         wp->w_lines[idx].wl_lastlnum = lnum;
@@ -1556,7 +1567,8 @@ static void win_update(win_T *wp, ActiveProviders *luahls)
         if (fold_count != 0) {
           fold_line(wp, fold_count, &win_foldinfo, lnum, row);
         } else {
-          (void)win_line(wp, lnum, srow, wp->w_grid.Rows, true, true);
+          (void)win_line(wp, lnum, srow, wp->w_grid.Rows,
+                         true, true, &luahl_lines);
         }
       }
 
@@ -2226,7 +2238,8 @@ fill_foldcolumn(
 ///
 /// @return              the number of last row the line occupies.
 static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
-                    bool nochange, bool number_only)
+                    bool nochange, bool number_only,
+                    ActiveProviders *luahl_lines)
 {
   int c = 0;                          // init for GCC
   long vcol = 0;                      // virtual column (for tabs)
@@ -2393,23 +2406,18 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
       }
     }
 
-    if (decorations_active) {
-      // TODO: smoueo
-      if (false && false != LUA_NOREF) {
-        Error err = ERROR_INIT;
+    for (size_t k = 0; k < kv_size(*luahl_lines); k++) {
+      DecorationProvider *p = kv_A(*luahl_lines, k);
+      if (p && p->redraw_buf != LUA_NOREF) {
         FIXED_TEMP_ARRAY(args, 3);
         args.items[0] = WINDOW_OBJ(wp->handle);
         args.items[1] = BUFFER_OBJ(buf->handle);
         args.items[2] = INTEGER_OBJ(lnum-1);
-        lua_attr_active = true;
-        extra_check = true;
-        nlua_call_ref(false, "line", args, false, &err);
-        lua_attr_active = false;
-
-        if (ERROR_SET(&err)) {
-          ELOG("error in luahl line: %s", err.msg);
-          luatext = err.msg;
-          do_virttext = true;
+        if (luahl_invoke(p->ns_id, "line", p->redraw_line, args)) {
+          decorations_active = true;
+        } else {
+          // return 'false' or error: skip rest of this window
+          kv_A(*luahl_lines, k) = NULL;
         }
       }
 
@@ -2418,6 +2426,12 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
       if (has_decorations) {
         extra_check = true;
       }
+    }
+
+    if (luahl_first_error) {
+      luatext = luahl_first_error;
+      luahl_first_error = NULL;
+      do_virttext = true;
     }
 
     // Check for columns to display for 'colorcolumn'.
