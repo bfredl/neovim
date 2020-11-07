@@ -5,6 +5,7 @@
 #include "nvim/pos.h"
 #include "nvim/map.h"
 #include "nvim/garray.h"
+#include "nvim/lib/kvec.h"
 
 // only for debug functions:
 #include "api/private/defs.h"
@@ -51,6 +52,7 @@ typedef struct {
 struct mtnode_s {
   int32_t n;
   int32_t level;
+  kvec_withinit_t(uint64_t, 4) intersect;
   // TODO(bfredl): we could consider having a only-sometimes-valid
   // index into parent for faster "chached" lookup.
   mtnode_t *parent;
