@@ -247,9 +247,32 @@ uint64_t marktree_put_pair(MarkTree *b,
   marktree_put_key(b, start_row, start_col, start_id);
   marktree_put_key(b, end_row, end_col, end_id);
 
-  MarkTreeIter start_itr[1] = { 0 }, end_itr[1] = { 0 };
-  marktree_lookup(b, start_id, start_itr);
+  MarkTreeIter itr[1] = { 0 }, end_itr[1] = { 0 };
+  marktree_lookup(b, start_id, itr);
   marktree_lookup(b, end_id, end_itr);
+
+  int lvl = 0, maxlvl = MIN(itr->lvl, end_itr->lvl);
+  for (; lvl < maxlvl; lvl++) {
+    if (itr->s[lvl].i != end_itr->s[lvl].i) {
+      break;
+    }
+  }
+
+  while (true) {
+    bool skip = false;
+    if (itr->node == end_itr->node) {
+      if (itr->node->level == 0 || itr->i >= end_itr->i) {
+        break;
+      } else {
+        skip = true;
+      }
+    } else if (itr->lvl > lvl) {
+      skip = true;
+    } else {
+      itr->s[lvl].i; end_itr->s[lvl].i;
+      abort();
+    }
+  }
 
   return id;
 }

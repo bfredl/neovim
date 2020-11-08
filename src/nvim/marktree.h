@@ -60,8 +60,6 @@ struct mtnode_s {
   mtnode_t *ptr[];
 };
 
-// TODO(bfredl): the iterator is pretty much everpresent, make it part of the
-// tree struct itself?
 typedef struct {
   mtnode_t *root;
   size_t n_keys, n_nodes;
