@@ -17,6 +17,7 @@ typedef struct {
   int32_t row;
   int32_t col;
 } mtpos_t;
+#define mtpos_t(r, c) ((mtpos_t){ .row = (r), .col = (c) })
 
 typedef struct {
   int32_t row;
@@ -34,10 +35,15 @@ typedef struct {
 typedef struct {
   mtpos_t pos;
   int lvl;
-  mtnode_t *node;
+  mtnode_t *x;
   int i;
   iterstate_t s[MT_MAX_DEPTH];
+
+  size_t intersect_idx;
+  mtpos_t intersect_pos;
 } MarkTreeIter;
+
+#define marktree_itr_valid(itr) ((itr)->x != NULL)
 
 
 // Internal storage
@@ -48,6 +54,7 @@ typedef struct {
   mtpos_t pos;
   uint64_t id;
 } mtkey_t;
+#define mtkey_t(p, i) ((mtkey_t){ .pos = (p), .id = (i) })
 
 struct mtnode_s {
   int32_t n;
