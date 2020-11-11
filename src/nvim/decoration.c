@@ -138,10 +138,10 @@ VirtText *decor_find_virttext(buf_T *buf, int row, uint64_t ns_id)
   return NULL;
 }
 
-bool decor_redraw_reset(buf_T *buf, DecorState *state)
+bool decor_redraw_reset(win_T *wp, DecorState *state)
 {
   state->row = -1;
-  state->buf = buf;
+  state->win = wp;
   for (size_t i = 0; i < kv_size(state->active); i++) {
     HlRange item = kv_A(state->active, i);
     if (item.virt_text_owned) {
@@ -150,70 +150,71 @@ bool decor_redraw_reset(buf_T *buf, DecorState *state)
     }
   }
   kv_size(state->active) = 0;
-  return buf->b_extmark_index;
+  return wp->w_buffer->b_extmark_index;
 }
 
 
-bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
+bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
 {
+  buf_T *buf = wp->w_buffer;
   state->top_row = top_row;
-  marktree_itr_get(buf->b_marktree, top_row, 0, state->itr);
-  if (!state->itr->node) {
+  if (!marktree_itr_first(buf->b_marktree, state->itr)) {
     return false;
   }
-  marktree_itr_rewind(buf->b_marktree, state->itr);
   while (true) {
-    mtmark_t mark = marktree_itr_current(state->itr);
-    if (mark.row < 0) {  // || mark.row > end_row
+    uint64_t id = marktree_itr_get_intersect(buf->b_marktree, top_row, 0, state->itr);
+    if (!id) {
       break;
     }
-    if ((mark.row < top_row && mark.id&MARKTREE_END_FLAG)) {
-      goto next_mark;
-    }
-    mtpos_t altpos = marktree_lookup(buf->b_marktree,
-                                     mark.id^MARKTREE_END_FLAG, NULL);
 
-    uint64_t start_id = mark.id & ~MARKTREE_END_FLAG;
+    bool errornous = false;
+    if (rdb_flags & RDB_INTERSECT) {
+      // intersections must never contain nodes beginning after the target pos
+      mtpos_t pos = marktree_lookup(buf->b_marktree, id, NULL);
+      if (pos.row > top_row || (pos.row == top_row && pos.col > 0)) {
+        errornous = true;
+      }
+    }
+
+    mtpos_t endpos = marktree_lookup(buf->b_marktree,
+                                     id|MARKTREE_END_FLAG, NULL);
+
     ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                       start_id, false);
+                                                       id, false);
     if (!item || !item->decor) {
-    // TODO(bfredl): dedicated flag for being a decoration?
-      goto next_mark;
+      // TODO(bfredl): dedicated flag for being a decoration?
+      continue;
     }
     Decoration *decor = item->decor;
 
-    if ((!(mark.id&MARKTREE_END_FLAG) && altpos.row < top_row
-         && !kv_size(decor->virt_text))
-        || ((mark.id&MARKTREE_END_FLAG) && altpos.row >= top_row)) {
-      goto next_mark;
+    // TODO: this never happens right
+    if (rdb_flags & RDB_INTERSECT) {
+      if (endpos.row < top_row) {
+        abort(); // TODO: do a nice virttext error instead
+      }
     }
 
     int attr_id = decor->hl_id > 0 ? syn_id2attr(decor->hl_id) : 0;
+    if (errornous) {
+      attr_id = win_hl_attr(wp, HLF_E);
+    }
     VirtText *vt = kv_size(decor->virt_text) ? &decor->virt_text : NULL;
     HlRange range;
-    if (mark.id&MARKTREE_END_FLAG) {
-      range = (HlRange){ altpos.row, altpos.col, mark.row, mark.col,
-                         attr_id, decor->priority, vt, false };
-    } else {
-      range = (HlRange){ mark.row, mark.col, altpos.row,
-                         altpos.col, attr_id, decor->priority, vt, false };
-    }
+    // range began before the start of first redraw line, don't bother
+    // calculate it more precisely
+    range = (HlRange){ top_row-1, MAXCOL, endpos.row,
+                       endpos.col, attr_id, decor->priority, vt, false };
     hlrange_activate(range, state);
-
-next_mark:
-    if (marktree_itr_node_done(state->itr)) {
-      break;
-    }
-    marktree_itr_next(buf->b_marktree, state->itr);
+    kv_push(state->active, range);
   }
 
   return true;  // TODO(bfredl): check if available in the region
 }
 
-bool decor_redraw_line(buf_T *buf, int row, DecorState *state)
+bool decor_redraw_line(win_T *wp, int row, DecorState *state)
 {
   if (state->row == -1) {
-    decor_redraw_start(buf, row, state);
+    decor_redraw_start(wp, row, state);
   }
   state->row = row;
   state->col_until = -1;
@@ -248,8 +249,9 @@ static void hlrange_activate(HlRange range, DecorState *state)
   kv_A(state->active, dest_index) = range;
 }
 
-int decor_redraw_col(buf_T *buf, int col, DecorState *state)
+int decor_redraw_col(win_T *wp, int col, DecorState *state)
 {
+  buf_T *buf = wp->w_buffer;
   if (col <= state->col_until) {
     return state->current;
   }
@@ -336,12 +338,12 @@ next_mark:
 
 void decor_redraw_end(DecorState *state)
 {
-  state->buf = NULL;
+  state->win = NULL;
 }
 
-VirtText *decor_redraw_virt_text(buf_T *buf, DecorState *state)
+VirtText *decor_redraw_virt_text(win_T *wp, DecorState *state)
 {
-  decor_redraw_col(buf, MAXCOL, state);
+  decor_redraw_col(wp, MAXCOL, state);
   for (size_t i = 0; i < kv_size(state->active); i++) {
     HlRange item = kv_A(state->active, i);
     if (item.start_row == state->row && item.virt_text) {

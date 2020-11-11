@@ -237,6 +237,12 @@ uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity)
   return id;
 }
 
+void intersect_node(MarkTree *b, mtnode_t *x, uint64_t id, bool new)
+{
+  assert(new);
+  kvi_push(x->intersect, id);
+}
+
 uint64_t marktree_put_pair(MarkTree *b,
                            int start_row, int start_col, bool start_right,
                            int end_row, int end_col, bool end_right)
@@ -258,7 +264,7 @@ uint64_t marktree_put_pair(MarkTree *b,
     }
   }
 
-  while (true) {
+  while (itr->node) {
     bool skip = false;
     if (itr->node == end_itr->node) {
       if (itr->node->level == 0 || itr->i >= end_itr->i) {
@@ -272,6 +278,14 @@ uint64_t marktree_put_pair(MarkTree *b,
       itr->s[lvl].i; end_itr->s[lvl].i;
       abort();
     }
+
+    if (skip) {
+      if (itr->node->level) {
+        mtnode_t *n = itr->node->ptr[itr->i];
+        intersect_node(b, n, id, true);
+      }
+    }
+    marktree_itr_next_skip(b, itr, skip, NULL);
   }
 
   return id;

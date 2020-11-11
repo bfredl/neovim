@@ -1295,7 +1295,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
   }
 
   // TODO(bfredl): synergize these two branches even more
-  if (ephemeral && decor_state.buf == buf) {
+  if (ephemeral && decor_state.win && decor_state.win->w_buffer == buf) {
     int attr_id = hl_id > 0 ? syn_id2attr(hl_id) : 0;
     VirtText *vt_allocated = NULL;
     if (kv_size(virt_text)) {
