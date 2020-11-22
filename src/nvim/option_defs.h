@@ -636,6 +636,7 @@ EXTERN unsigned rdb_flags;
 #define RDB_NOTHROTTLE         0x002
 #define RDB_INVALID            0x004
 #define RDB_NODELTA            0x008
+#define RDB_INTERSECT          0x010
 
 EXTERN long p_rdt;            // 'redrawtime'
 EXTERN long p_re;             // 'regexpengine'

@@ -151,10 +151,10 @@ next_mark:
   return NULL;
 }
 
-bool decor_redraw_reset(buf_T *buf, DecorState *state)
+bool decor_redraw_reset(win_T *wp, DecorState *state)
 {
   state->row = -1;
-  state->buf = buf;
+  state->win = wp;
   for (size_t i = 0; i < kv_size(state->active); i++) {
     DecorRange item = kv_A(state->active, i);
     if (item.virt_text_owned) {
@@ -162,7 +162,7 @@ bool decor_redraw_reset(buf_T *buf, DecorState *state)
     }
   }
   kv_size(state->active) = 0;
-  return buf->b_marktree->n_keys;
+  return wp->w_buffer->b_marktree->n_keys;
 }
 
 Decoration get_decor(mtkey_t mark)
@@ -184,24 +184,32 @@ static bool decor_virt_pos(Decoration decor)
   return kv_size(decor.virt_text) || decor.ui_watched;
 }
 
-bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
+bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
 {
+  buf_T *buf = wp->w_buffer;
   state->top_row = top_row;
-  marktree_itr_get(buf->b_marktree, top_row, 0, state->itr);
-  if (!state->itr->node) {
+  if (!marktree_itr_get_intersect(buf->b_marktree, top_row, 0, state->itr)) {
     return false;
   }
-  marktree_itr_rewind(buf->b_marktree, state->itr);
   while (true) {
-    mtkey_t mark = marktree_itr_current(state->itr);
+    mtkey_t mark = marktree_itr_step_intersect(buf->b_marktree, state->itr);
+    // TODO: all of there are SKRAPET:
     if (mark.pos.row < 0) {  // || mark.row > end_row
       break;
     }
     if ((mark.pos.row < top_row && mt_end(mark))
         || marktree_decor_level(mark) < kDecorLevelVisible) {
-      goto next_mark;
+      continue;
     }
 
+    bool errornous = false;
+    if ((rdb_flags & RDB_INTERSECT) && !(mark.id & MARKTREE_END_FLAG)) {
+      // intersections must never contain nodes beginning after the target pos
+      mtpos_t pos = marktree_lookup(buf->b_marktree, id, NULL);
+      if (pos.row > top_row || (pos.row == top_row && pos.col > 0)) {
+        errornous = true;
+      }
+    }
     Decoration decor = get_decor(mark);
 
     mtpos_t altpos = marktree_get_altpos(buf->b_marktree, mark, NULL);
@@ -210,7 +218,11 @@ bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
     // Exclude end marks if we have already added the start mark
     if ((mt_start(mark) && altpos.row < top_row && !decor_virt_pos(decor))
         || (mt_end(mark) && altpos.row >= top_row)) {
-      goto next_mark;
+      continue;
+    }
+    if (errornous) {
+      // FEEL
+      decor.hl_id = win_hl_attr(wp, HLF_E);
     }
 
     if (mt_end(mark)) {
@@ -225,21 +237,23 @@ bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
                 &decor, false, mark.ns, mark.id);
     }
 
-next_mark:
-    if (marktree_itr_node_done(state->itr)) {
-      marktree_itr_next(buf->b_marktree, state->itr);
-      break;
+
+    // TODO: this never happens right
+    if (rdb_flags & RDB_INTERSECT) {
+      if (altpos.row < top_row) {
+        abort(); // TODO: do a nice virttext error instead
+      }
     }
-    marktree_itr_next(buf->b_marktree, state->itr);
+
   }
 
   return true;  // TODO(bfredl): check if available in the region
 }
 
-bool decor_redraw_line(buf_T *buf, int row, DecorState *state)
+bool decor_redraw_line(win_T *wp, int row, DecorState *state)
 {
   if (state->row == -1) {
-    decor_redraw_start(buf, row, state);
+    decor_redraw_start(wp, row, state);
   }
   state->row = row;
   state->col_until = -1;
@@ -268,8 +282,9 @@ static void decor_add(DecorState *state, int start_row, int start_col, int end_r
   kv_A(state->active, index) = range;
 }
 
-int decor_redraw_col(buf_T *buf, int col, int win_col, bool hidden, DecorState *state)
+int decor_redraw_col(win_T *wp, int col, int win_col, bool hidden, DecorState *state)
 {
+  buf_T *buf = wp->w_buffer;
   if (col <= state->col_until) {
     return state->current;
   }
@@ -515,12 +530,12 @@ next_mark:
 
 void decor_redraw_end(DecorState *state)
 {
-  state->buf = NULL;
+  state->win = NULL;
 }
 
-bool decor_redraw_eol(buf_T *buf, DecorState *state, int *eol_attr, int eol_col)
+bool decor_redraw_eol(win_T *wp, DecorState *state, int *eol_attr, int eol_col)
 {
-  decor_redraw_col(buf, MAXCOL, MAXCOL, false, state);
+  decor_redraw_col(wp, MAXCOL, MAXCOL, false, state);
   state->eol_col = eol_col;
   bool has_virttext = false;
   for (size_t i = 0; i < kv_size(state->active); i++) {

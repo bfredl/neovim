@@ -91,7 +91,7 @@ void extmark_set(buf_T *buf, uint32_t ns_id, uint32_t *idp, int row, colnr_T col
         extmark_del(buf, ns_id, id);
       } else {
         // TODO(bfredl): we need to do more if "revising" a decoration mark.
-        assert(itr->node);
+        assert(marktree_itr_valid(itr));
         if (old_mark.pos.row == row && old_mark.pos.col == col) {
           if (marktree_decor_level(old_mark) > kDecorLevelNone) {
             decor_remove(buf, row, row, old_mark.decor_full);
@@ -279,7 +279,7 @@ bool extmark_clear(buf_T *buf, uint32_t ns_id, int l_row, colnr_T l_col, int u_r
   ssize_t decor_id;
   map_foreach(&delete_set, id, decor_id, {
     mtkey_t mark = marktree_lookup(buf->b_marktree, id, itr);
-    assert(itr->node);
+    assert(marktree_itr_valid(itr));
     marktree_del_itr(buf->b_marktree, itr, false);
     if (decor_id >= 0) {
       DecorItem it = kv_A(decors, decor_id);
@@ -304,7 +304,7 @@ ExtmarkInfoArray extmark_get(buf_T *buf, uint32_t ns_id, int l_row, colnr_T l_co
   ExtmarkInfoArray array = KV_INITIAL_VALUE;
   MarkTreeIter itr[1];
   // Find all the marks
-  marktree_itr_get_ext(buf->b_marktree, (mtpos_t){ l_row, l_col },
+  marktree_itr_get_ext(buf->b_marktree, mtpos_t(l_row, l_col),
                        itr, reverse, false, NULL);
   int order = reverse ? -1 : 1;
   while ((int64_t)kv_size(array) < amount) {

@@ -112,7 +112,7 @@ static char *(p_spo_values[]) = { "camel", "noplainbuffer", NULL };
 static char *(p_icm_values[]) = { "nosplit", "split", NULL };
 static char *(p_jop_values[]) = { "stack", "view", NULL };
 static char *(p_tpf_values[]) = { "BS", "HT", "FF", "ESC", "DEL", "C0", "C1", NULL };
-static char *(p_rdb_values[]) = { "compositor", "nothrottle", "invalid", "nodelta", NULL };
+static char *(p_rdb_values[]) = { "compositor", "nothrottle", "invalid", "nodelta", "intersect", NULL };
 
 /// All possible flags for 'shm'.
 static char SHM_ALL[] = { SHM_RO, SHM_MOD, SHM_FILE, SHM_LAST, SHM_TEXT, SHM_LINES, SHM_NEW,

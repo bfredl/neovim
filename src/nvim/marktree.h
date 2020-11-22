@@ -9,6 +9,10 @@
 #include "nvim/map.h"
 #include "nvim/pos.h"
 #include "nvim/types.h"
+#include "nvim/lib/kvec.h"
+
+// only for debug functions:
+#include "api/private/defs.h"
 
 #define MT_MAX_DEPTH 20
 #define MT_BRANCH_FACTOR 10
@@ -17,6 +21,7 @@ typedef struct {
   int32_t row;
   int32_t col;
 } mtpos_t;
+#define mtpos_t(r, c) ((mtpos_t){ .row = (r), .col = (c) })
 
 typedef struct mtnode_s mtnode_t;
 typedef struct {
@@ -27,10 +32,15 @@ typedef struct {
 typedef struct {
   mtpos_t pos;
   int lvl;
-  mtnode_t *node;
+  mtnode_t *x;
   int i;
   iterstate_t s[MT_MAX_DEPTH];
+
+  size_t intersect_idx;
+  mtpos_t intersect_pos;
 } MarkTreeIter;
+
+#define marktree_itr_valid(itr) ((itr)->x != NULL)
 
 // Internal storage
 //
@@ -111,6 +121,7 @@ static inline uint16_t mt_flags(bool right_gravity, uint8_t decor_level)
 struct mtnode_s {
   int32_t n;
   int32_t level;
+  kvec_withinit_t(uint64_t, 4) intersect;
   // TODO(bfredl): we could consider having a only-sometimes-valid
   // index into parent for faster "cached" lookup.
   mtnode_t *parent;
@@ -118,8 +129,6 @@ struct mtnode_s {
   mtnode_t *ptr[];
 };
 
-// TODO(bfredl): the iterator is pretty much everpresent, make it part of the
-// tree struct itself?
 typedef struct {
   mtnode_t *root;
   size_t n_keys, n_nodes;
