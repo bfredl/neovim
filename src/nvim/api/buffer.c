@@ -1356,6 +1356,35 @@ Boolean nvim_buf_del_extmark(Buffer buffer,
   return extmark_del(buf, (uint64_t)ns_id, (uint64_t)id);
 }
 
+String nvim__buf_debug_extmarks(Buffer buffer, Boolean keys, Error *err)
+  FUNC_API_SINCE(7)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!buf) {
+    return NULL_STRING;
+  }
+
+  return mt_inspect_rec(buf->b_marktree, keys);
+
+}
+
+Boolean nvim__buf_assert_extmarks(Buffer buffer, Error *err)
+  FUNC_API_SINCE(7)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!buf) {
+    return false;
+  }
+
+#ifdef NDEBUG
+  return false;
+#else
+  marktree_check(buf->b_marktree);
+  return true;
+#endif
+}
+
+
 /// Adds a highlight to buffer.
 ///
 /// Useful for plugins that dynamically generate highlights to a buffer

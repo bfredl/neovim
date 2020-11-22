@@ -6,6 +6,9 @@
 #include "nvim/map.h"
 #include "nvim/garray.h"
 
+// only for debug functions:
+#include "api/private/defs.h"
+
 #define MT_MAX_DEPTH 20
 #define MT_BRANCH_FACTOR 10
 

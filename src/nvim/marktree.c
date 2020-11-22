@@ -51,7 +51,9 @@
 
 #include "nvim/marktree.h"
 #include "nvim/lib/kvec.h"
-#include "nvim/garray.h"
+
+// only for debug functions
+#include "nvim/api/private/helpers.h"
 
 #define T MT_BRANCH_FACTOR
 #define ILEN (sizeof(mtnode_t)+(2 * T) * sizeof(void *))
@@ -63,6 +65,11 @@
 #define PAIRED MARKTREE_PAIRED_FLAG
 #define END_FLAG MARKTREE_END_FLAG
 #define ID_INCR (((uint64_t)1) << 2)
+
+#define PAIR_MASK (PAIRED|END_FLAG)
+// PAIRED set but not END_FLAG
+#define IS_START(id) ((id & PAIR_MASK) == PAIRED)
+#define PROP_MASK (RIGHT_GRAVITY|PAIR_MASK)
 
 #define rawkey(itr) (itr->node->key[itr->i])
 
@@ -241,6 +248,7 @@ uint64_t marktree_put_pair(MarkTree *b,
   uint64_t end_id = id|END_FLAG|(end_right?RIGHT_GRAVITY:0);
   marktree_put_key(b, start_row, start_col, start_id);
   marktree_put_key(b, end_row, end_col, end_id);
+
   return id;
 }
 
@@ -1160,30 +1168,45 @@ static size_t check_node(MarkTree *b, mtnode_t *x,
 }
 #endif
 
-char *mt_inspect_rec(MarkTree *b)
+String mt_inspect_rec(MarkTree *b, bool keys)
 {
   garray_T ga;
   ga_init(&ga, (int)sizeof(char), 80);
   mtpos_t p = { 0, 0 };
-  mt_inspect_node(b, &ga, b->root, p);
-  return ga.ga_data;
+  if (b->root) {
+    mt_inspect_node(b, &ga, keys, b->root, p);
+  }
+  return ga_take_string(&ga);
 }
 
-void mt_inspect_node(MarkTree *b, garray_T *ga, mtnode_t *n, mtpos_t off)
+void mt_inspect_node(MarkTree *b, garray_T *ga, bool keys,
+                     mtnode_t *n, mtpos_t off)
 {
   static char buf[1024];
 #define GA_PUT(x) ga_concat(ga, (char_u *)(x))
+#define GA_PRINT(fmt, ...) snprintf(buf, sizeof(buf), fmt, __VA_ARGS__); \
+                           GA_PUT(buf);
   GA_PUT("[");
   if (n->level) {
-    mt_inspect_node(b, ga, n->ptr[0], off);
+    mt_inspect_node(b, ga, keys, n->ptr[0], off);
   }
   for (int i = 0; i < n->n; i++) {
     mtpos_t p = n->key[i].pos;
     unrelative(off, &p);
-    snprintf((char *)buf, sizeof(buf), "%d/%d", p.row, p.col);
-    GA_PUT(buf);
+    GA_PRINT("%d-%d", p.row, p.col);
+    if (keys) {
+      uint64_t key = ANTIGRAVITY(n->key[i].id);
+      GA_PUT(":");
+      if (IS_START(key)) {
+        GA_PUT("<");
+      }
+      GA_PRINT("%"PRIu64, key&~3u);
+      if (key & END_FLAG) {
+        GA_PUT(">");
+      }
+    }
     if (n->level) {
-      mt_inspect_node(b, ga, n->ptr[i+1], p);
+      mt_inspect_node(b, ga, keys, n->ptr[i+1], p);
     } else {
       GA_PUT(",");
     }
