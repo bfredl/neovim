@@ -158,6 +158,7 @@ bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
 {
   buf_T *buf = wp->w_buffer;
   state->top_row = top_row;
+  return false;
   if (!marktree_itr_first(buf->b_marktree, state->itr)) {
     return false;
   }

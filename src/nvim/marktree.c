@@ -277,8 +277,11 @@ uint64_t marktree_put_pair(MarkTree *b,
     } else if (itr->lvl > lvl) {
       skip = true;
     } else {
-      itr->s[lvl].i; end_itr->s[lvl].i;
-      abort();
+      if (itr->s[lvl].i < end_itr->s[lvl].i) {
+        skip = true;
+      } else {
+        lvl++;
+      }
     }
 
     if (skip) {
@@ -1288,6 +1291,13 @@ void mt_inspect_node(MarkTree *b, garray_T *ga, bool keys,
 #define GA_PRINT(fmt, ...) snprintf(buf, sizeof(buf), fmt, __VA_ARGS__); \
                            GA_PUT(buf);
   GA_PUT("[");
+  if (keys && kv_size(n->intersect)) {
+    for (size_t i = 0; i < kv_size(n->intersect); n++) {
+      GA_PUT(i == 0 ? "{" : ";");
+      GA_PRINT("%"PRIu64, kv_A(n->intersect, i));
+    }
+    GA_PUT("}");
+  }
   if (n->level) {
     mt_inspect_node(b, ga, keys, n->ptr[0], off);
   }
