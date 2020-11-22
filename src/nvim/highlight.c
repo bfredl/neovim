@@ -233,6 +233,26 @@ int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
   }
 }
 
+Dictionary get_hl_defs(NS ns)
+{
+  Dictionary rv = ARRAY_DICT_INIT;
+  ColorKey key;
+  ColorItem item;
+  map_foreach(ns_hl, key, item, {
+    if (key.ns_id == ns || ns == -1) {
+      Dictionary attrs = ((Dictionary)ARRAY_DICT_INIT);
+      if (item.attr_id > 0) {
+        attrs = hlattrs2dict(syn_attr2entry(item.attr_id), true);
+      } else if (item.link_id > 0) {
+        const char *link = get_highlight_name_ext(NULL, item.link_id-1, false);
+        PUT(attrs, "link", STRING_OBJ(cstr_to_string(link)));
+      }
+      const char *name = get_highlight_name_ext(NULL, key.syn_id - 1, false);
+      PUT(rv, name, DICTIONARY_OBJ(attrs));
+    }
+  })
+  return rv;
+}
 
 bool win_check_ns_hl(win_T *wp)
 {

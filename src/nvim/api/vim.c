@@ -203,8 +203,9 @@ Dictionary nvim__get_hl_defs(Integer ns_id, Error *err)
 {
   if (ns_id == 0) {
     return get_global_hl_defs();
+  } else {
+    return get_hl_defs((NS)ns_id);
   }
-  abort();
 }
 
 /// Set a highlight group.
