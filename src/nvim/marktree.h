@@ -11,6 +11,10 @@
 #include "nvim/map.h"
 #include "nvim/pos.h"
 #include "nvim/types.h"
+#include "klib/kvec.h"
+
+// only for debug functions:
+#include "api/private/defs.h"
 
 struct mtnode_s;
 
@@ -28,7 +32,7 @@ typedef struct mtnode_s mtnode_t;
 typedef struct {
   mtpos_t pos;
   int lvl;
-  mtnode_t *node;
+  mtnode_t *x;
   int i;
   struct {
     int oldcol;
@@ -39,7 +43,7 @@ typedef struct {
   mtpos_t intersect_pos;
 } MarkTreeIter;
 
-#define marktree_itr_valid(itr) ((itr)->node != NULL)
+#define marktree_itr_valid(itr) ((itr)->x != NULL)
 
 // Internal storage
 //
@@ -54,15 +58,24 @@ typedef struct {
   uint16_t priority;
   Decoration *decor_full;
 } mtkey_t;
+
+
+typedef struct {
+  mtkey_t start;
+  mtpos_t end_pos;
+} mtpair_t;
+
 #define MT_INVALID_KEY (mtkey_t) { { -1, -1 }, 0, 0, 0, 0, 0, NULL }
 
 #define MT_FLAG_REAL (((uint16_t)1) << 0)
 #define MT_FLAG_END (((uint16_t)1) << 1)
 #define MT_FLAG_PAIRED (((uint16_t)1) << 2)
-#define MT_FLAG_HL_EOL (((uint16_t)1) << 3)
+// orphaned: the other side of this paired mark was deleted. this mark must be deleted very soon!
+#define MT_FLAG_ORPHANED (((uint16_t)1) << 3)
+#define MT_FLAG_HL_EOL (((uint16_t)1) << 4)
 
 #define DECOR_LEVELS 4
-#define MT_FLAG_DECOR_OFFSET 4
+#define MT_FLAG_DECOR_OFFSET 5
 #define MT_FLAG_DECOR_MASK (((uint16_t)(DECOR_LEVELS - 1)) << MT_FLAG_DECOR_OFFSET)
 
 // next flag is (((uint16_t)1) << 6)
@@ -78,7 +91,11 @@ static inline uint64_t mt_lookup_id(uint32_t ns, uint32_t id, bool enda)
 {
   return (uint64_t)ns << 32 | id | (enda ? MARKTREE_END_FLAG : 0);
 }
-#undef MARKTREE_END_FLAG
+
+static inline uint64_t mt_lookup_key_side(mtkey_t key, bool end)
+{
+  return mt_lookup_id(key.ns, key.id, end);
+}
 
 static inline uint64_t mt_lookup_key(mtkey_t key)
 {
@@ -117,9 +134,12 @@ static inline uint16_t mt_flags(bool right_gravity, uint8_t decor_level)
                     | (decor_level << MT_FLAG_DECOR_OFFSET));
 }
 
+typedef kvec_withinit_t(uint64_t, 4) Intersection; 
+
 struct mtnode_s {
   int32_t n;
   int32_t level;
+  Intersection intersect;
   // TODO(bfredl): we could consider having a only-sometimes-valid
   // index into parent for faster "cached" lookup.
   mtnode_t *parent;

@@ -691,6 +691,7 @@ describe('extmark decorations', function()
       [33] = {foreground = Screen.colors.DarkBlue, background = Screen.colors.LightGray};
       [34] = {background = Screen.colors.Yellow};
       [35] = {background = Screen.colors.Yellow, bold = true, foreground = Screen.colors.Blue};
+      [36] = {foreground = Screen.colors.Blue1, bold = true, background = Screen.colors.Red};
     }
 
     ns = meths.create_namespace 'test'
@@ -1626,6 +1627,70 @@ describe('extmark decorations', function()
       {1:~                                                 }|
       {24:-- VISUAL BLOCK --}                                |
     ]])
+  end)
+
+  it('supports multiline highlights', function()
+    insert(example_text)
+    feed 'gg'
+    for _,i in ipairs {1,2,3,5,6,7} do
+      for _,j in ipairs {2,5,10,15} do
+        meths.buf_set_extmark(0, ns, i, j, { end_col=j+2, hl_group = 'NonText'})
+      end
+    end
+    screen:expect{grid=[[
+      ^for _,item in ipairs(items) do                    |
+        {1:  }l{1:oc}al {1:te}xt,{1: h}l_id_cell, count = unpack(item)  |
+        {1:  }i{1:f }hl_{1:id}_ce{1:ll} ~= nil then                     |
+        {1:  } {1:  } hl{1:_i}d ={1: h}l_id_cell                        |
+          end                                           |
+        {1:  }f{1:or} _ {1:= }1, {1:(c}ount or 1) do                    |
+        {1:  } {1:  } lo{1:ca}l c{1:el}l = line[colpos]                 |
+        {1:  } {1:  } ce{1:ll}.te{1:xt} = text                          |
+              cell.hl_id = hl_id                        |
+              colpos = colpos+1                         |
+          end                                           |
+      end                                               |
+      {1:~                                                 }|
+      {1:~                                                 }|
+                                                        |
+    ]]}
+    feed'5<c-e>'
+    screen:expect{grid=[[
+      ^  {1:  }f{1:or} _ {1:= }1, {1:(c}ount or 1) do                    |
+        {1:  } {1:  } lo{1:ca}l c{1:el}l = line[colpos]                 |
+        {1:  } {1:  } ce{1:ll}.te{1:xt} = text                          |
+              cell.hl_id = hl_id                        |
+              colpos = colpos+1                         |
+          end                                           |
+      end                                               |
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+                                                        |
+    ]]}
+
+    meths.buf_set_extmark(0, ns, 1, 0, { end_line=8, end_col=10, hl_group = 'ErrorMsg'})
+    screen:expect{grid=[[
+      {4:^  }{36:  }{4:f}{36:or}{4: _ }{36:= }{4:1, }{36:(c}{4:ount or 1) do}                    |
+      {4:  }{36:  }{4: }{36:  }{4: lo}{36:ca}{4:l c}{36:el}{4:l = line[colpos]}                 |
+      {4:  }{36:  }{4: }{36:  }{4: ce}{36:ll}{4:.te}{36:xt}{4: = text}                          |
+      {4:        ce}ll.hl_id = hl_id                        |
+              colpos = colpos+1                         |
+          end                                           |
+      end                                               |
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+      {1:~                                                 }|
+                                                        |
+    ]]}
   end)
 end)
 

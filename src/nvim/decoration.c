@@ -211,50 +211,44 @@ bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
 {
   buf_T *buf = wp->w_buffer;
   state->top_row = top_row;
-  marktree_itr_get(buf->b_marktree, top_row, 0, state->itr);
-  if (!state->itr->node) {
+  if (!marktree_itr_get_intersect(buf->b_marktree, top_row, 0, state->itr)) {
     return false;
   }
-  marktree_itr_rewind(buf->b_marktree, state->itr);
-  while (true) {
-    mtkey_t mark = marktree_itr_current(state->itr);
-    if (mark.pos.row < 0) {  // || mark.row > end_row
-      break;
-    }
-    if ((mark.pos.row < top_row && mt_end(mark))
-        || marktree_decor_level(mark) < kDecorLevelVisible) {
-      goto next_mark;
+  mtpair_t pair;
+
+  while (marktree_itr_step_intersect(buf->b_marktree, state->itr, &pair)) {
+    if (marktree_decor_level(pair.start) < kDecorLevelVisible) {
+      continue;
     }
 
-    Decoration decor = get_decor(mark);
-
-    mtpos_t altpos = marktree_get_altpos(buf->b_marktree, mark, NULL);
-
-    // Exclude start marks if the end mark position is above the top row
-    // Exclude end marks if we have already added the start mark
-    if ((mt_start(mark) && altpos.row < top_row && !decor_virt_pos(&decor))
-        || (mt_end(mark) && altpos.row >= top_row)) {
-      goto next_mark;
-    }
-
-    if (mt_end(mark)) {
-      decor_add(state, altpos.row, altpos.col, mark.pos.row, mark.pos.col,
-                &decor, false, mark.ns, mark.id);
-    } else {
-      if (altpos.row == -1) {
-        altpos.row = mark.pos.row;
-        altpos.col = mark.pos.col;
+    bool errornous = false;
+    if ((rdb_flags & RDB_INTERSECT)) {
+      // intersections must never contain nodes beginning after the target pos
+      mtpos_t pos = pair.start.pos;
+      if (pos.row > top_row || (pos.row == top_row && pos.col > 0)) {
+        errornous = true;
       }
-      decor_add(state, mark.pos.row, mark.pos.col, altpos.row, altpos.col,
-                &decor, false, mark.ns, mark.id);
+    }
+    Decoration decor = get_decor(pair.start);
+
+    // TODO: add back missing check for decor_virt_pos()
+
+    if (errornous) {
+      // FEEL
+      decor.hl_id = win_hl_attr(wp, HLF_E);
     }
 
-next_mark:
-    if (marktree_itr_node_done(state->itr)) {
-      marktree_itr_next(buf->b_marktree, state->itr);
-      break;
+    decor_add(state, pair.start.pos.row, pair.start.pos.col, pair.end_pos.row, pair.end_pos.col,
+              &decor, false, pair.start.ns, pair.start.id);
+
+
+    // TODO: this never happens right
+    if (rdb_flags & RDB_INTERSECT) {
+      if (pair.end_pos.row < top_row) {
+        abort(); // TODO: do a nice virttext error instead
+      }
     }
-    marktree_itr_next(buf->b_marktree, state->itr);
+
   }
 
   return true;  // TODO(bfredl): check if available in the region
@@ -318,7 +312,6 @@ int decor_redraw_col(win_T *wp, int col, int win_col, bool hidden, DecorState *s
     Decoration decor = get_decor(mark);
 
     mtpos_t endpos = marktree_get_altpos(buf->b_marktree, mark, NULL);
-
     if (endpos.row == -1) {
       endpos = mark.pos;
     }
