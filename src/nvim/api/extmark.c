@@ -1229,3 +1229,47 @@ free_exit:
   clear_virttext(&virt_text);
   return virt_text;
 }
+
+Array nvim__buf_intersect(Buffer buffer, Integer row, Integer col, Error *err)
+  FUNC_API_SINCE(7)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  Array retval = ARRAY_DICT_INIT;
+  if (!buf) {
+    return retval;
+  }
+  MarkTreeIter itr[1];
+
+  if (!marktree_itr_get_intersect(buf->b_marktree, (int)row, (int)col, itr)) {
+    return retval;
+  }
+  mtpair_t pair;
+  while (marktree_itr_step_intersect(buf->b_marktree, itr, &pair)) {
+
+    Array a = ARRAY_DICT_INIT;
+    ADD(a, INTEGER_OBJ((Integer)pair.start.id));
+    if (pair.start.decor_full) {
+      ADD(a, INTEGER_OBJ(pair.start.decor_full->hl_id));
+    } else {
+      ADD(a, INTEGER_OBJ(pair.start.hl_id));
+    }
+    ADD(a, INTEGER_OBJ(pair.start.pos.row));
+    ADD(a, INTEGER_OBJ(pair.start.pos.col));
+    ADD(a, INTEGER_OBJ(pair.end_pos.row));
+    ADD(a, INTEGER_OBJ(pair.end_pos.col));
+    ADD(retval, ARRAY_OBJ(a));
+  }
+  return retval;
+}
+
+
+String nvim__buf_debug_extmarks(Buffer buffer, Boolean keys, Boolean dot, Error *err)
+  FUNC_API_SINCE(7)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!buf) {
+    return NULL_STRING;
+  }
+
+  return mt_inspect(buf->b_marktree, keys, dot);
+}
