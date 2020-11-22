@@ -1186,7 +1186,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
   uint64_t id = 0;
   int line2 = -1, hl_id = 0;
   DecorPriority priority = DECOR_PRIORITY_BASE;
-  colnr_T col2 = 0;
+  colnr_T col2 = -1;
   VirtText virt_text = KV_INITIAL_VALUE;
   for (size_t i = 0; i < opts.size; i++) {
     String k = opts.items[i].key;
