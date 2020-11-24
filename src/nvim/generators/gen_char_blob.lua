@@ -12,8 +12,6 @@ assert(#arg >= 3 and (#arg - 1) % 2 == 0)
 local target_file = arg[1] or error('Need a target file')
 local target = io.open(target_file, 'w')
 
-target:write('#include <stdint.h>\n\n')
-
 local varnames = {}
 for argi = 2, #arg, 2 do
   local source_file = arg[argi]
@@ -26,7 +24,7 @@ for argi = 2, #arg, 2 do
   local source = io.open(source_file, 'r')
       or error(string.format("source_file %q doesn't exist", source_file))
 
-  target:write(('static const uint8_t %s[] = {\n'):format(varname))
+  target:write(('static const unsigned char %s[] = {\n'):format(varname))
 
   local num_bytes = 0
   local MAX_NUM_BYTES = 15  -- 78 / 5: maximum number of bytes on one line

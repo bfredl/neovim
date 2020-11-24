@@ -740,48 +740,17 @@ Integer nvim_strwidth(String text, Error *err)
 
 /// Gets the paths contained in 'runtimepath'.
 ///
+/// Equivalent to `nvim_get_runtime_file("", true)`
+///
+/// Prefer to use `nvim_list_runtime_paths("rplugin/python3/", true)` and
+/// similarly (note the final slash!) to only get the subdirs relevant
+/// for your usecase.
+///
 /// @return List of paths
-ArrayOf(String) nvim_list_runtime_paths(void)
+ArrayOf(String) nvim_list_runtime_paths(Error *err)
   FUNC_API_SINCE(1)
 {
-  // TODO(bfredl): this should just work:
-  // return nvim_get_runtime_file(NULL_STRING, true);
-
-  Array rv = ARRAY_DICT_INIT;
-
-  char_u *rtp = p_rtp;
-
-  if (*rtp == NUL) {
-    // No paths
-    return rv;
-  }
-
-  // Count the number of paths in rtp
-  while (*rtp != NUL) {
-    if (*rtp == ',') {
-      rv.size++;
-    }
-    rtp++;
-  }
-  rv.size++;
-
-  // Allocate memory for the copies
-  rv.items = xmalloc(sizeof(*rv.items) * rv.size);
-  // Reset the position
-  rtp = p_rtp;
-  // Start copying
-  for (size_t i = 0; i < rv.size; i++) {
-    rv.items[i].type = kObjectTypeString;
-    rv.items[i].data.string.data = xmalloc(MAXPATHL);
-    // Copy the path from 'runtimepath' to rv.items[i]
-    size_t length = copy_option_part(&rtp,
-                                     (char_u *)rv.items[i].data.string.data,
-                                     MAXPATHL,
-                                     ",");
-    rv.items[i].data.string.size = length;
-  }
-
-  return rv;
+  return nvim_get_runtime_file(NULL_STRING, true, err);
 }
 
 /// Find files in runtime directories
@@ -801,14 +770,13 @@ ArrayOf(String) nvim_get_runtime_file(String name, Boolean all, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
 
-  // TODO(bfredl):
-  if (name.size == 0) {
-    api_set_error(err, kErrorTypeValidation, "not yet implemented");
-    return rv;
+  int flags = DIP_START | (all ? DIP_ALL : 0);
+
+  if (name.size == 0 || name.data[name.size-1] == '/') {
+    flags |= DIP_DIR;
   }
 
-  int flags = DIP_START | (all ? DIP_ALL : 0);
-  do_in_runtimepath((char_u *)name.data,
+  do_in_runtimepath((char_u *)(name.size ? name.data : ""),
                     flags, find_runtime_cb, &rv);
   return rv;
 }
