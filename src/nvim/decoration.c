@@ -206,7 +206,6 @@ bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
     range = (HlRange){ top_row-1, MAXCOL, endpos.row,
                        endpos.col, attr_id, decor->priority, vt, false };
     hlrange_activate(range, state);
-    kv_push(state->active, range);
   }
 
   return true;  // TODO(bfredl): check if available in the region
