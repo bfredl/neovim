@@ -200,12 +200,10 @@ bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
       attr_id = win_hl_attr(wp, HLF_E);
     }
     VirtText *vt = kv_size(decor->virt_text) ? &decor->virt_text : NULL;
-    HlRange range;
     // range began before the start of first redraw line, don't bother
     // calculate it more precisely
-    range = (HlRange){ top_row-1, MAXCOL, endpos.row,
-                       endpos.col, attr_id, decor->priority, vt, false };
-    hlrange_activate(range, state);
+    decor_activate(state, (HlRange){ top_row-1, MAXCOL, endpos.row, endpos.col,
+                                     attr_id, decor->priority, vt, false });
   }
 
   return true;  // TODO(bfredl): check if available in the region
@@ -221,32 +219,18 @@ bool decor_redraw_line(win_T *wp, int row, DecorState *state)
   return true;  // TODO(bfredl): be more precise
 }
 
-static void hlrange_activate(HlRange range, DecorState *state)
+static void decor_activate(DecorState *state, HlRange range)
 {
-  // Get size before preparing the push, to have the number of elements
-  size_t s = kv_size(state->active);
-
+  size_t i;
   kv_pushp(state->active);
-
-  size_t dest_index = 0;
-
-  // Determine insertion dest_index
-  while (dest_index < s) {
-    HlRange item = kv_A(state->active, dest_index);
-    if (item.priority > range.priority) {
-      break;
+  for (i = kv_size(state->active)-1; i > 0; i--) {
+    if (kv_A(state->active, i-1).priority <= range.priority) {
+      break;  // insert after last element with same or lower priority
     }
-
-    dest_index++;
+    kv_A(state->active, i) = kv_A(state->active, i-1);
   }
 
-  // Splice
-  for (size_t index = s; index > dest_index; index--) {
-    kv_A(state->active, index) = kv_A(state->active, index-1);
-  }
-
-  // Insert
-  kv_A(state->active, dest_index) = range;
+  kv_A(state->active, i) = range;
 }
 
 int decor_redraw_col(win_T *wp, int col, DecorState *state)
@@ -289,10 +273,8 @@ int decor_redraw_col(win_T *wp, int col, DecorState *state)
 
     int attr_id = decor->hl_id > 0 ? syn_id2attr(decor->hl_id) : 0;
     VirtText *vt = kv_size(decor->virt_text) ? &decor->virt_text : NULL;
-    hlrange_activate((HlRange){ mark.row, mark.col,
-                                endpos.row, endpos.col,
-                                attr_id, decor->priority,
-                                vt, false }, state);
+    decor_activate(state, (HlRange){ mark.row, mark.col, endpos.row, endpos.col,
+                                     attr_id, decor->priority, vt, false });
 
 next_mark:
     marktree_itr_next(buf->b_marktree, state->itr);
@@ -357,7 +339,7 @@ void decor_add_ephemeral(int attr_id, int start_row, int start_col,
                          int end_row, int end_col, DecorPriority priority,
                          VirtText *virt_text)
 {
-hlrange_activate(((HlRange){ start_row, start_col, end_row, end_col, attr_id,
-                             priority, virt_text, virt_text != NULL }),
-                 &decor_state);
+  decor_activate(&decor_state,
+                 (HlRange){ start_row, start_col, end_row, end_col,
+                            attr_id, priority, virt_text, virt_text != NULL });
 }
