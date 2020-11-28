@@ -256,8 +256,8 @@ uint64_t marktree_put_pair(MarkTree *b,
   marktree_put_key(b, end_row, end_col, end_id);
 
   MarkTreeIter itr[1] = { 0 }, end_itr[1] = { 0 };
-  marktree_lookup(b, start_id, itr);
-  marktree_lookup(b, end_id, end_itr);
+  marktree_lookup(b, id, itr);
+  marktree_lookup(b, id|END_FLAG, end_itr);
 
   int lvl = 0, maxlvl = MIN(itr->lvl, end_itr->lvl);
   for (; lvl < maxlvl; lvl++) {
@@ -286,7 +286,7 @@ uint64_t marktree_put_pair(MarkTree *b,
 
     if (skip) {
       if (itr->x->level) {
-        mtnode_t *x = itr->x->ptr[itr->i];
+        mtnode_t *x = itr->x->ptr[itr->i+1];
         intersect_node(b, x, id, true);
       }
     }
@@ -767,7 +767,10 @@ static bool marktree_itr_next_skip(MarkTree *b, MarkTreeIter *itr, bool skip,
   }
   itr->i++;
   if (itr->x->level == 0 || skip) {
-    if (itr->i < itr->x->n) {
+    if (itr->x->level == 0 && skip) {
+      // skip rest of this leaf node
+      itr->i = itr->x->n;
+    } else if (itr->i < itr->x->n) {
       // TODO(bfredl): this is the common case,
       // and could be handled by inline wrapper
       return true;
@@ -1292,11 +1295,11 @@ void mt_inspect_node(MarkTree *b, garray_T *ga, bool keys,
                            GA_PUT(buf);
   GA_PUT("[");
   if (keys && kv_size(n->intersect)) {
-    for (size_t i = 0; i < kv_size(n->intersect); n++) {
+    for (size_t i = 0; i < kv_size(n->intersect); i++) {
       GA_PUT(i == 0 ? "{" : ";");
       GA_PRINT("%"PRIu64, kv_A(n->intersect, i));
     }
-    GA_PUT("}");
+    GA_PUT("},");
   }
   if (n->level) {
     mt_inspect_node(b, ga, keys, n->ptr[0], off);
@@ -1311,7 +1314,7 @@ void mt_inspect_node(MarkTree *b, garray_T *ga, bool keys,
       if (IS_START(key)) {
         GA_PUT("<");
       }
-      GA_PRINT("%"PRIu64, key&~3u);
+      GA_PRINT("%"PRIu64, key&~END_FLAG);
       if (key & END_FLAG) {
         GA_PUT(">");
       }
