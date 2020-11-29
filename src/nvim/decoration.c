@@ -127,8 +127,8 @@ VirtText *decor_find_virttext(buf_T *buf, int row, uint64_t ns_id)
     if (mark.row < 0 || mark.row > row) {
       break;
     }
-    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                       mark.id, false);
+
+    ExtmarkItem *item = get_item(buf, mark.id, false);
     if (item && (ns_id == 0 || ns_id == item->ns_id)
         && item->decor && kv_size(item->decor->virt_text)) {
       return &item->decor->virt_text;
@@ -158,18 +158,17 @@ bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
 {
   buf_T *buf = wp->w_buffer;
   state->top_row = top_row;
-  return false;
-  if (!marktree_itr_first(buf->b_marktree, state->itr)) {
+  if (!marktree_itr_get_intersect(buf->b_marktree, top_row, 0, state->itr)) {
     return false;
   }
   while (true) {
-    uint64_t id = marktree_itr_get_intersect(buf->b_marktree, top_row, 0, state->itr);
+    uint64_t id = marktree_itr_step_intersect(buf->b_marktree, state->itr);
     if (!id) {
       break;
     }
 
     bool errornous = false;
-    if (rdb_flags & RDB_INTERSECT) {
+    if ((rdb_flags & RDB_INTERSECT) && !(id & MARKTREE_END_FLAG)) {
       // intersections must never contain nodes beginning after the target pos
       mtpos_t pos = marktree_lookup(buf->b_marktree, id, NULL);
       if (pos.row > top_row || (pos.row == top_row && pos.col > 0)) {
@@ -177,11 +176,12 @@ bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
       }
     }
 
+    // id can be either start or end, but we want endpos regardless
     mtpos_t endpos = marktree_lookup(buf->b_marktree,
                                      id|MARKTREE_END_FLAG, NULL);
 
-    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                       id, false);
+    ExtmarkItem *item = get_item(buf, id, false);
+
     if (!item || !item->decor) {
       // TODO(bfredl): dedicated flag for being a decoration?
       continue;
@@ -233,6 +233,12 @@ static void decor_activate(DecorState *state, HlRange range)
   kv_A(state->active, i) = range;
 }
 
+static ExtmarkItem *get_item(buf_T *buf, uint64_t id, bool ref)
+{
+  return map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
+                                        id&~MARKTREE_END_FLAG, ref);
+}
+
 int decor_redraw_col(win_T *wp, int col, DecorState *state)
 {
   buf_T *buf = wp->w_buffer;
@@ -256,8 +262,8 @@ int decor_redraw_col(win_T *wp, int col, DecorState *state)
     mtpos_t endpos = marktree_lookup(buf->b_marktree,
                                      mark.id|MARKTREE_END_FLAG, NULL);
 
-    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                       mark.id, false);
+    ExtmarkItem *item = get_item(buf, mark.id, false);
+
     if (!item || !item->decor) {
     // TODO(bfredl): dedicated flag for being a decoration?
       goto next_mark;

@@ -11,7 +11,7 @@
 #include "api/private/defs.h"
 
 #define MT_MAX_DEPTH 20
-#define MT_BRANCH_FACTOR 10
+#define MT_BRANCH_FACTOR 5
 
 typedef struct {
   int32_t row;
