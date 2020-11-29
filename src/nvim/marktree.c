@@ -949,7 +949,7 @@ uint64_t marktree_itr_step_intersect(MarkTree *b, MarkTreeIter *itr)
     }
 
     if (itr->x->level == 0) {
-      itr->i = 0;
+      itr->s[itr->lvl].i = itr->i = 0;
       break;
     }
 
@@ -965,7 +965,6 @@ uint64_t marktree_itr_step_intersect(MarkTree *b, MarkTreeIter *itr)
     }
     itr->x = itr->x->ptr[itr->i];
     itr->lvl++;
-    itr->i = -1;
     itr->intersect_idx = 0;
   }
 
