@@ -1057,12 +1057,13 @@ enum {
 EXTERN const char *const float_anchor_str[] INIT(= { "NW", "NE", "SW", "SE" });
 
 typedef enum {
-  kFloatRelativeEditor = 0,
-  kFloatRelativeWindow = 1,
-  kFloatRelativeCursor = 2,
+  kFloatRelativeNone = 0,
+  kFloatRelativeEditor = 1,
+  kFloatRelativeWindow = 2,
+  kFloatRelativeCursor = 3,
 } FloatRelative;
 
-EXTERN const char *const float_relative_str[] INIT(= { "editor", "win",
+EXTERN const char *const float_relative_str[] INIT(= { "", "editor", "win",
                                                        "cursor" });
 
 typedef enum {
@@ -1080,6 +1081,7 @@ typedef struct {
   bool external;
   bool focusable;
   WinStyle style;
+  int ns_hl;
 } FloatConfig;
 
 #define FLOAT_CONFIG_INIT ((FloatConfig){ .height = 0, .width = 0, \
@@ -1087,7 +1089,7 @@ typedef struct {
                                           .row = 0, .col = 0, .anchor = 0, \
                                           .relative = 0, .external = false, \
                                           .focusable = true, \
-                                          .style = kWinStyleUnused })
+                                          .style = kWinStyleUnused, .ns_hl = -1 })
 
 // Structure to store last cursor position and topline.  Used by check_lnums()
 // and reset_lnums().
@@ -1145,6 +1147,8 @@ struct window_S {
                                     ///< often, keep it the first item!)
 
   synblock_T  *w_s;                 ///< for :ownsyntax
+
+  int w_ns_hl_active;
 
   int w_hl_id_normal;               ///< 'winhighlight' normal id
   int w_hl_attr_normal;             ///< 'winhighlight' normal final attrs

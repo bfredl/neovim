@@ -7,6 +7,7 @@
 
 #include "nvim/api/private/handle.h"
 #include "nvim/api/private/helpers.h"
+#include "nvim/api/vim.h"
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
 #include "nvim/window.h"
@@ -600,7 +601,7 @@ win_T *win_new_float(win_T *wp, FloatConfig fconfig, Error *err)
     win_remove(wp, NULL);
     win_append(lastwin_nofloating(), wp);
   }
-  wp->w_floating = 1;
+  wp->w_floating = true;
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
 
@@ -625,7 +626,7 @@ void win_set_minimal_style(win_T *wp)
     wp->w_p_fcs = ((*old == NUL)
                    ? (char_u *)xstrdup("eob: ")
                    : concat_str(old, (char_u *)",eob: "));
-    xfree(old);
+    xfree(*old ? old : NULL);
   }
   if (wp->w_hl_ids[HLF_EOB] != -1) {
     char_u *old = wp->w_p_winhl;
@@ -656,22 +657,23 @@ void win_set_minimal_style(win_T *wp)
 
 void win_config_float(win_T *wp, FloatConfig fconfig)
 {
-  wp->w_width = MAX(fconfig.width, 1);
-  wp->w_height = MAX(fconfig.height, 1);
-
   if (fconfig.relative == kFloatRelativeCursor) {
     fconfig.relative = kFloatRelativeWindow;
     fconfig.row += curwin->w_wrow;
     fconfig.col += curwin->w_wcol;
     fconfig.window = curwin->handle;
   }
-
-  bool change_external = fconfig.external != wp->w_float_config.external;
   wp->w_float_config = fconfig;
 
-  if (!ui_has(kUIMultigrid)) {
-    wp->w_height = MIN(wp->w_height, Rows-1);
-    wp->w_width = MIN(wp->w_width, Columns);
+  bool change_external = fconfig.external != wp->w_float_config.external;
+
+  if (wp->w_floating) {
+    wp->w_width = MAX(fconfig.width, 1);
+    wp->w_height = MAX(fconfig.height, 1);
+    if (!ui_has(kUIMultigrid)) {
+      wp->w_height = MIN(wp->w_height, Rows-1);
+      wp->w_width = MIN(wp->w_width, Columns);
+    }
   }
 
   win_set_inner_size(wp);
@@ -972,6 +974,15 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
         api_set_error(err, kErrorTypeValidation,
                       "Invalid value of 'style' key");
       }
+    } else if (strequal(key, "hl_ns")) {
+      if (val.type == kObjectTypeInteger) {
+        fconfig->ns_hl = val.data.integer;
+      } else if (val.type == kObjectTypeString) {
+        fconfig->ns_hl = nvim_create_namespace(val.data.string);
+      } else {
+        api_set_error(err, kErrorTypeValidation,
+                      "'hl_ns' must be string or integer");
+      }
     } else {
       api_set_error(err, kErrorTypeValidation,
                     "Invalid key '%s'", key);
@@ -1010,15 +1021,12 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
     api_set_error(err, kErrorTypeValidation,
                   "Only one of 'relative' and 'external' must be used");
     return false;
-  } else if (!reconf && !has_relative && !has_external) {
-    api_set_error(err, kErrorTypeValidation,
-                  "One of 'relative' and 'external' must be used");
-    return false;
   } else if (has_relative) {
     fconfig->external = false;
   }
+  bool unsized = !reconf && (has_relative || has_external);
 
-  if (!reconf && !(has_height && has_width)) {
+  if (unsized && !(has_height && has_width)) {
     api_set_error(err, kErrorTypeValidation,
                   "Must specify 'width' and 'height'");
     return false;

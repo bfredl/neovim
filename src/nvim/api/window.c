@@ -421,12 +421,12 @@ void nvim_win_set_config(Window window, Dictionary config, Error *err)
   }
   bool new_float = !win->w_floating;
   // reuse old values, if not overriden
-  FloatConfig fconfig = new_float ? FLOAT_CONFIG_INIT : win->w_float_config;
+  FloatConfig fconfig = win->w_float_config;
 
   if (!parse_float_config(config, &fconfig, !new_float, err)) {
     return;
   }
-  if (new_float) {
+  if (new_float && (fconfig.external || fconfig.relative)) {
     if (!win_new_float(win, fconfig, err)) {
       return;
     }
