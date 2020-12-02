@@ -170,6 +170,14 @@ EXTERN RgbValue normal_fg INIT(= -1);
 EXTERN RgbValue normal_bg INIT(= -1);
 EXTERN RgbValue normal_sp INIT(= -1);
 
+EXTERN NS ns_hl_global INIT(= 0);      // global highlight namespace
+EXTERN NS ns_hl_win INIT(= -1);        // tema for those who gotta go fast!
+EXTERN NS ns_hl_fast INIT(= -1);        // tema for those who gotta go fast!
+EXTERN NS ns_hl_active INIT(= 0);      // currently active/cached namespace
+
+
+EXTERN int *hl_attr_active INIT(= highlight_attr);
+
 typedef enum {
   kHlUnknown,
   kHlUI,
@@ -199,6 +207,7 @@ typedef struct {
   int link_id;
   int version;
   bool is_default;
+  bool link_global;
 } ColorItem;
 #define COLOR_ITEM_INITIALIZER { .attr_id = -1, .link_id = -1, \
                                  .version = -1, .is_default = false }
