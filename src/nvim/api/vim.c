@@ -91,7 +91,6 @@ Dictionary nvim_get_hl_by_name(String name, Boolean rgb, Error *err)
 }
 
 /// Gets a highlight definition by id. |hlID()|
-///
 /// @param hl_id Highlight id as returned by |hlID()|
 /// @param rgb Export RGB colors
 /// @param[out] err Error details, if any
@@ -187,28 +186,36 @@ void nvim_set_hl(Integer ns_id, String name, Dict(highlight) *val, Error *err)
 /// |nvim_set_decoration_provider| on_win and on_line callbacks
 /// are explicitly allowed to change the namespace during a redraw cycle.
 ///
-/// @param ns_id the namespace to activate
+// @param ns_id the namespace to activate
 /// @param[out] err Error details, if any
-void nvim__set_hl_ns(Integer ns_id, Error *err)
-  FUNC_API_FAST
+void nvim_set_hl_ns(Integer ns_id, Error *err)
+  FUNC_API_SINCE(7)
 {
-  if (ns_id >= 0) {
-    ns_hl_active = (NS)ns_id;
+  if (ns_id < 0) {
+    api_set_error(err, kErrorTypeValidation, "no such namespace");
+    return;
   }
 
-  // TODO(bfredl): this is a little bit hackish.  Eventually we want a standard
-  // event path for redraws caused by "fast" events. This could tie in with
-  // better throttling of async events causing redraws, such as non-batched
-  // nvim_buf_set_extmark calls from async contexts.
-  if (!provider_active && !ns_hl_changed && must_redraw < NOT_VALID) {
-    multiqueue_put(main_loop.events, on_redraw_event, 0);
-  }
-  ns_hl_changed = true;
+  ns_hl_global = (NS)ns_id;
+  hl_check_ns();
+  redraw_all_later(NOT_VALID);
 }
 
-static void on_redraw_event(void **argv)
+/// Set active namespace for highlights.
+///
+/// NB: this function can be called from async contexts, but the
+/// semantics are not yet well-defined. To start with
+/// |nvim_set_decoration_provider| on_win and on_line callbacks
+/// are explicitly allowed to change the namespace during a redraw cycle.
+///
+/// @param ns_id the namespace to activate
+/// @param[out] err Error details, if any
+void nvim_set_hl_ns_fast(Integer ns_id, Error *err)
+  FUNC_API_SINCE(7)
+  FUNC_API_FAST
 {
-  redraw_all_later(NOT_VALID);
+  ns_hl_fast = (NS)ns_id;
+  hl_check_ns();
 }
 
 /// Sends input-keys to Nvim, subject to various quirks controlled by `mode`
@@ -2265,3 +2272,4 @@ void nvim_error_event(uint64_t channel_id, Integer lvl, String data)
   // if we fork nvim processes as async workers
   ELOG("async error on channel %" PRId64 ": %s", channel_id, data.size ? data.data : "");
 }
+

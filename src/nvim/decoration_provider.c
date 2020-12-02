@@ -14,7 +14,7 @@ static kvec_t(DecorProvider) decor_providers = KV_INITIAL_VALUE;
 #define DECORATION_PROVIDER_INIT(ns_id) (DecorProvider) \
   { ns_id, false, LUA_NOREF, LUA_NOREF, \
     LUA_NOREF, LUA_NOREF, LUA_NOREF, \
-    LUA_NOREF, -1 }
+    LUA_NOREF, -1, false }
 
 static bool decor_provider_invoke(NS ns_id, const char *name, LuaRef ref, Array args,
                                   bool default_true, char **perr)

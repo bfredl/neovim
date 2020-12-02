@@ -1182,8 +1182,13 @@ struct window_S {
 
   synblock_T *w_s;                 ///< for :ownsyntax
 
+  int w_ns_hl;
+  int w_ns_hl_active;
+
   int w_hl_id_normal;               ///< 'winhighlight' normal id
   int w_hl_attr_normal;             ///< 'winhighlight' normal final attrs
+  int w_hl_attr_normalnc;           ///< 'winhighlight' NormalNC final attrs
+  int w_hl_attr_bg;                 ///< actual background color to use
 
   int w_hl_ids[HLF_COUNT];          ///< 'winhighlight' id
   int w_hl_attrs[HLF_COUNT];        ///< 'winhighlight' final attrs
@@ -1510,7 +1515,8 @@ struct window_S {
 
 static inline int win_hl_attr(win_T *wp, int hlf)
 {
-  return wp->w_hl_attrs[hlf];
+  // TODO: fell a victim
+  return (hl_attr_active != highlight_attr ? hl_attr_active : wp->w_hl_attrs)[hlf];
 }
 
 /// Macros defined in Vim, but not in Neovim

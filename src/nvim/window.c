@@ -6,6 +6,8 @@
 #include <stdbool.h>
 
 #include "nvim/api/private/helpers.h"
+#include "nvim/api/vim.h"
+#include "nvim/vim.h"
 #include "nvim/ascii.h"
 #include "nvim/buffer.h"
 #include "nvim/charset.h"
@@ -26,6 +28,7 @@
 #include "nvim/getchar.h"
 #include "nvim/globals.h"
 #include "nvim/hashtab.h"
+#include "nvim/highlight.h"
 #include "nvim/main.h"
 #include "nvim/mapping.h"
 #include "nvim/mark.h"
@@ -698,7 +701,7 @@ win_T *win_new_float(win_T *wp, bool last, FloatConfig fconfig, Error *err)
     win_remove(wp, NULL);
     win_append(lastwin_nofloating(), wp);
   }
-  wp->w_floating = 1;
+  wp->w_floating = true;
   wp->w_status_height = 0;
   wp->w_winbar_height = 0;
   wp->w_hsep_height = 0;
@@ -4870,10 +4873,11 @@ static void win_enter_ext(win_T *const wp, const int flags)
     redraw_later(curwin, VALID);  // causes status line redraw
   }
 
-  if (HL_ATTR(HLF_INACTIVE)
-      || (prevwin && prevwin->w_hl_ids[HLF_INACTIVE])
-      || curwin->w_hl_ids[HLF_INACTIVE]) {
-    redraw_all_later(NOT_VALID);
+  // change background color according to NormalNC,
+  // but only if actually defined (otherwise no extra redraw)
+  update_window_hl(curwin, false);
+  if (prevwin) {
+    update_window_hl(prevwin, false);
   }
 
   // set window height to desired minimal value
@@ -5041,6 +5045,8 @@ static win_T *win_alloc(win_T *after, bool hidden)
   new_wp->w_floating = 0;
   new_wp->w_float_config = FLOAT_CONFIG_INIT;
   new_wp->w_viewport_invalid = true;
+
+  new_wp->w_ns_hl = -1;
 
   // use global option for global-local options
   new_wp->w_p_so = -1;
