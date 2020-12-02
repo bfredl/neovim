@@ -306,15 +306,6 @@ redrawWinline(
   }
 }
 
-/*
- * update all windows that are editing the current buffer
- */
-void update_curbuf(int type)
-{
-  redraw_curbuf_later(type);
-  update_screen(type);
-}
-
 /// Redraw the parts of the screen that is marked for redraw.
 ///
 /// Most code shouldn't call this directly, rather use redraw_later() and
@@ -473,6 +464,8 @@ int update_screen(int type)
   }
 
   ui_comp_set_screen_valid(true);
+
+  ns_hl_fast = -1;
 
   Providers providers;
   kvi_init(providers);

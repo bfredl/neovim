@@ -7,6 +7,7 @@
 
 #include "nvim/api/private/handle.h"
 #include "nvim/api/private/helpers.h"
+#include "nvim/api/vim.h"
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
 #include "nvim/window.h"
@@ -639,7 +640,7 @@ win_T *win_new_float(win_T *wp, FloatConfig fconfig, Error *err)
     win_remove(wp, NULL);
     win_append(lastwin_nofloating(), wp);
   }
-  wp->w_floating = 1;
+  wp->w_floating = true;
   wp->w_status_height = 0;
   wp->w_vsep_width = 0;
 
@@ -665,7 +666,7 @@ void win_set_minimal_style(win_T *wp)
     wp->w_p_fcs = ((*old == NUL)
                    ? (char_u *)xstrdup("eob: ")
                    : concat_str(old, (char_u *)",eob: "));
-    xfree(old);
+    xfree(*old ? old : NULL);
   }
   if (wp->w_hl_ids[HLF_EOB] != -1) {
     char_u *old = wp->w_p_winhl;
@@ -696,15 +697,13 @@ void win_set_minimal_style(win_T *wp)
 
 void win_config_float(win_T *wp, FloatConfig fconfig)
 {
-  wp->w_width = MAX(fconfig.width, 1);
-  wp->w_height = MAX(fconfig.height, 1);
-
   if (fconfig.relative == kFloatRelativeCursor) {
     fconfig.relative = kFloatRelativeWindow;
     fconfig.row += curwin->w_wrow;
     fconfig.col += curwin->w_wcol;
     fconfig.window = curwin->handle;
   }
+  wp->w_float_config = fconfig;
 
   bool change_external = fconfig.external != wp->w_float_config.external;
   bool change_border = (fconfig.border != wp->w_float_config.border
@@ -721,7 +720,7 @@ void win_config_float(win_T *wp, FloatConfig fconfig)
       has_border && wp->w_float_config.border_chars[2 * i+1][0];
   }
 
-  if (!ui_has(kUIMultigrid)) {
+  if (wp->w_floating && !ui_has(kUIMultigrid)) {
     wp->w_height = MIN(wp->w_height,
                        Rows - 1 - (wp->w_border_adj[0] + wp->w_border_adj[2]));
     wp->w_width = MIN(wp->w_width,

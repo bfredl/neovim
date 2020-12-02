@@ -1988,6 +1988,15 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
                       "'zindex' key must be a positive Integer");
         return false;
       }
+    } else if (strequal(key, "hl_ns")) {
+      if (val.type == kObjectTypeInteger) {
+        fconfig->ns_hl = val.data.integer;
+      } else if (val.type == kObjectTypeString) {
+        fconfig->ns_hl = nvim_create_namespace(val.data.string);
+      } else {
+        api_set_error(err, kErrorTypeValidation,
+                      "'hl_ns' must be string or integer");
+      }
     } else if (!strcmp(key, "border")) {
       parse_border_style(val, fconfig, err);
       if (ERROR_SET(err)) {

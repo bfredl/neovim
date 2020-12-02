@@ -92,8 +92,9 @@ EXTERN struct nvim_stats_s {
 EXTERN int Rows INIT(= DFLT_ROWS);     // nr of rows in the screen
 EXTERN int Columns INIT(= DFLT_COLS);  // nr of columns in the screen
 
-EXTERN NS ns_hl_active INIT(= 0);         // current ns that defines highlights
-EXTERN bool ns_hl_changed INIT(= false);  // highlight need update
+EXTERN NS ns_hl_global INIT(= 0);      // global highlight namespace
+EXTERN NS ns_hl_fast INIT(= 0);        // tema for those who gotta go fast!
+EXTERN NS ns_hl_active INIT(= 0);      // currently active/cached namespace
 
 
 // We use 64-bit file functions here, if available.  E.g. ftello() returns

@@ -237,12 +237,24 @@ int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
 
 bool win_check_ns_hl(win_T *wp)
 {
-  if (ns_hl_changed) {
+  NS ns;
+  if (ns_hl_fast >= 0) {
+    ns = ns_hl_fast;
+  } else if (wp && wp->w_float_config.ns_hl >= 0) {
+    ns = wp->w_float_config.ns_hl;
+  } else {
+    ns = ns_hl_global;
+  }
+
+  if (ns != ns_hl_active) {
+    ns_hl_active = ns;
     highlight_changed();
-    if (wp) {
-      update_window_hl(wp, true);
-    }
-    ns_hl_changed = false;
+  }
+  if (wp && ns != wp->w_ns_hl_active) {
+    wp->w_ns_hl_active = ns;
+    // TODO: when we are done here, the hl info will be cached per
+    // tema, not per window.
+    update_window_hl(wp, true);
     return true;
   }
   return false;
@@ -251,13 +263,13 @@ bool win_check_ns_hl(win_T *wp)
 /// Get attribute code for a builtin highlight group.
 ///
 /// The final syntax group could be modified by hi-link or 'winhighlight'.
-int hl_get_ui_attr(int idx, int final_id, bool optional)
+int hl_get_ui_attr(int ns_id, int idx, int final_id, bool optional)
 {
   HlAttrs attrs = HLATTRS_INIT;
   bool available = false;
 
   if (final_id > 0) {
-    int syn_attr = syn_id2attr(final_id);
+    int syn_attr = syn_ns_id2attr(ns_id, final_id);
     if (syn_attr != 0) {
       attrs = syn_attr2entry(syn_attr);
       available = true;
@@ -284,6 +296,7 @@ int hl_get_ui_attr(int idx, int final_id, bool optional)
 
 void update_window_hl(win_T *wp, bool invalid)
 {
+  int ns_id = wp->w_ns_hl_active;
   if (!wp->w_hl_needs_update && !invalid) {
     return;
   }
@@ -296,14 +309,15 @@ void update_window_hl(win_T *wp, bool invalid)
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
   if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE,
+    wp->w_hl_attr_normal = hl_get_ui_attr(ns_id, HLF_INACTIVE,
                                           wp->w_hl_ids[HLF_INACTIVE],
                                           !has_blend);
   } else if (float_win && wp->w_hl_ids[HLF_NFLOAT] != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(HLF_NFLOAT,
+    wp->w_hl_attr_normal = hl_get_ui_attr(ns_id, HLF_NFLOAT,
                                           wp->w_hl_ids[HLF_NFLOAT], !has_blend);
   } else if (wp->w_hl_id_normal != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, !has_blend);
+    wp->w_hl_attr_normal = hl_get_ui_attr(ns_id, -1, wp->w_hl_id_normal,
+                                          !has_blend);
   } else {
     wp->w_hl_attr_normal = float_win ? HL_ATTR(HLF_NFLOAT) : 0;
   }
@@ -313,7 +327,7 @@ void update_window_hl(win_T *wp, bool invalid)
   //
   // haha, theme engine go brrr
   int normality = syn_check_group((const char_u *)S_LEN("Normal"));
-  int ns_attr = ns_get_hl(-1, normality, false, false);
+  int ns_attr = ns_get_hl(ns_id, normality, false, false);
   if (ns_attr > 0) {
     // TODO(bfredl): hantera NormalNC and so on
     wp->w_hl_attr_normal = ns_attr;
@@ -335,8 +349,8 @@ void update_window_hl(win_T *wp, bool invalid)
 
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int attr;
-    if (wp->w_hl_ids[hlf] != 0) {
-      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf], false);
+    if (ns_id > 0 || wp->w_hl_ids[hlf] != 0) {
+      attr = hl_get_ui_attr(ns_id, hlf, wp->w_hl_ids[hlf], false);
     } else {
       attr = HL_ATTR(hlf);
     }
