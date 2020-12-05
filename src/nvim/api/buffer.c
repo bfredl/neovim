@@ -1356,6 +1356,37 @@ Boolean nvim_buf_del_extmark(Buffer buffer,
   return extmark_del(buf, (uint64_t)ns_id, (uint64_t)id);
 }
 
+Array nvim__buf_intersect(Buffer buffer, Integer row, Integer col, Error *err)
+  FUNC_API_SINCE(7)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  Array retval = ARRAY_DICT_INIT;
+  if (!buf) {
+    return retval;
+  }
+  MarkTreeIter itr[1];
+
+  if (!marktree_itr_get_intersect(buf->b_marktree, (int)row, (int)col, itr)) {
+    return retval;
+  }
+  while (true) {
+    uint64_t id = marktree_itr_step_intersect(buf->b_marktree, itr);
+    if (!id) {
+      break;
+    }
+
+    ExtmarkItem *item = extmark_get_item(buf, id, false);
+    Array a = ARRAY_DICT_INIT;
+    ADD(a, INTEGER_OBJ((Integer)item->mark_id));
+    if (item->decor) {
+      ADD(a, INTEGER_OBJ(item->decor->hl_id));
+    }
+    ADD(retval, ARRAY_OBJ(a));
+  }
+  return retval;
+}
+
+
 String nvim__buf_debug_extmarks(Buffer buffer, Boolean keys, Error *err)
   FUNC_API_SINCE(7)
 {

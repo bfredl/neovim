@@ -378,6 +378,12 @@ ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
   return ret;
 }
 
+ExtmarkItem *extmark_get_item(buf_T *buf, uint64_t id, bool ref)
+{
+  return map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
+                                        id&~MARKTREE_END_FLAG, ref);
+}
+
 
 // free extmarks from the buffer
 void extmark_free_all(buf_T *buf)

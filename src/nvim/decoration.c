@@ -128,7 +128,7 @@ VirtText *decor_find_virttext(buf_T *buf, int row, uint64_t ns_id)
       break;
     }
 
-    ExtmarkItem *item = get_item(buf, mark.id, false);
+    ExtmarkItem *item = extmark_get_item(buf, mark.id, false);
     if (item && (ns_id == 0 || ns_id == item->ns_id)
         && item->decor && kv_size(item->decor->virt_text)) {
       return &item->decor->virt_text;
@@ -180,7 +180,7 @@ bool decor_redraw_start(win_T *wp, int top_row, DecorState *state)
     mtpos_t endpos = marktree_lookup(buf->b_marktree,
                                      id|MARKTREE_END_FLAG, NULL);
 
-    ExtmarkItem *item = get_item(buf, id, false);
+    ExtmarkItem *item = extmark_get_item(buf, id, false);
 
     if (!item || !item->decor) {
       // TODO(bfredl): dedicated flag for being a decoration?
@@ -233,12 +233,6 @@ static void decor_activate(DecorState *state, HlRange range)
   kv_A(state->active, i) = range;
 }
 
-static ExtmarkItem *get_item(buf_T *buf, uint64_t id, bool ref)
-{
-  return map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                        id&~MARKTREE_END_FLAG, ref);
-}
-
 int decor_redraw_col(win_T *wp, int col, DecorState *state)
 {
   buf_T *buf = wp->w_buffer;
@@ -262,7 +256,7 @@ int decor_redraw_col(win_T *wp, int col, DecorState *state)
     mtpos_t endpos = marktree_lookup(buf->b_marktree,
                                      mark.id|MARKTREE_END_FLAG, NULL);
 
-    ExtmarkItem *item = get_item(buf, mark.id, false);
+    ExtmarkItem *item = extmark_get_item(buf, mark.id, false);
 
     if (!item || !item->decor) {
     // TODO(bfredl): dedicated flag for being a decoration?
