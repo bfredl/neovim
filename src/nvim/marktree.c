@@ -799,7 +799,7 @@ static bool marktree_itr_next_skip(MarkTree *b, MarkTreeIter *itr, bool skip,
   }
   itr->i++;
   if (itr->x->level == 0 || skip) {
-    if (itr->x->level == 0 && skip) {
+    if (preload && itr->x->level == 0 && skip) {
       // skip rest of this leaf node
       itr->i = itr->x->n;
     } else if (itr->i < itr->x->n) {
