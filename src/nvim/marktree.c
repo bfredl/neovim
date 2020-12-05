@@ -986,6 +986,10 @@ uint64_t marktree_itr_step_intersect(MarkTree *b, MarkTreeIter *itr)
 
   // Foam Boam track (A): the backtrack. Return to intersection position.
   itr->i = itr->s[itr->lvl].i;
+  assert(itr-> i >= 0);
+  if (itr->i >= itr->x->n) {
+    marktree_itr_next(b, itr);
+  }
 
   // either on or after the intersected position
   return 0;
