@@ -161,20 +161,23 @@ void ns_hl_def(NS ns_id, int hl_id, HlAttrs attrs, int link_id)
   ColorItem it = { .attr_id = attr_id,
                    .link_id = link_id,
                    .version = p->hl_valid,
-                   .is_default = (attrs.rgb_ae_attr & HL_DEFAULT) };
+                   .is_default = (attrs.rgb_ae_attr & HL_DEFAULT),
+                   .link_global = (attrs.rgb_ae_attr & HL_GLOBAL) };
   map_put(ColorKey, ColorItem)(ns_hl, ColorKey(ns_id, hl_id), it);
 }
 
-int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
+int ns_get_hl(NS *hl_ns, int hl_id, bool link, bool nodefault)
 {
   static int recursive = 0;
 
-  if (ns_id < 0) {
+  if (*hl_ns < 0) {
     if (ns_hl_active <= 0) {
       return -1;
     }
-    ns_id = ns_hl_active;
+    *hl_ns = ns_hl_active;
   }
+
+  int ns_id = *hl_ns;
 
   DecorProvider *p = get_decor_provider(ns_id, true);
   ColorItem it = map_get(ColorKey, ColorItem)(ns_hl, ColorKey(ns_id, hl_id));
@@ -183,7 +186,7 @@ int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
 
   if (!valid_cache && p->hl_def != LUA_NOREF && !recursive) {
     FIXED_TEMP_ARRAY(args, 3);
-    args.items[0] = INTEGER_OBJ((Integer)ns_id);
+    args.items[0] = INTEGER_OBJ((Integer)ns_id); // NOLINT
     args.items[1] = STRING_OBJ(cstr_to_string((char *)syn_id2name(hl_id)));
     args.items[2] = BOOLEAN_OBJ(link);
     // TODO(bfredl): preload the "global" attr dict?
@@ -220,6 +223,7 @@ int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
     it.attr_id = fallback ? -1 : hl_get_syn_attr((int)ns_id, hl_id, attrs);
     it.version = p->hl_valid-tmp;
     it.is_default = attrs.rgb_ae_attr & HL_DEFAULT;
+    it.link_global = attrs.rgb_ae_attr & HL_GLOBAL;
     map_put(ColorKey, ColorItem)(ns_hl, ColorKey(ns_id, hl_id), it);
   }
 
@@ -228,7 +232,14 @@ int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
   }
 
   if (link) {
-    return it.attr_id >= 0 ? 0 : it.link_id;
+    if (it.attr_id >= 0) {
+      return 0;
+    } else {
+      if (it.link_global) {
+        *hl_ns = 0;
+      }
+      return it.link_id;
+    }
   } else {
     return it.attr_id;
   }
@@ -327,7 +338,7 @@ void update_window_hl(win_T *wp, bool invalid)
   //
   // haha, theme engine go brrr
   int normality = syn_check_group((const char_u *)S_LEN("Normal"));
-  int ns_attr = ns_get_hl(ns_id, normality, false, false);
+  int ns_attr = ns_get_hl(&ns_id, normality, false, false);
   if (ns_attr > 0) {
     // TODO(bfredl): hantera NormalNC and so on
     wp->w_hl_attr_normal = ns_attr;
@@ -350,7 +361,12 @@ void update_window_hl(win_T *wp, bool invalid)
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int attr;
     if (ns_id > 0 || wp->w_hl_ids[hlf] != 0) {
-      attr = hl_get_ui_attr(ns_id, hlf, wp->w_hl_ids[hlf], false);
+      int id = wp->w_hl_ids[hlf];
+      if (id == 0) {
+        id = syn_check_group((char_u *)hlf_names[hlf],
+                             (int)STRLEN(hlf_names[hlf]));
+      }
+      attr = hl_get_ui_attr(ns_id, hlf, id, false);
     } else {
       attr = HL_ATTR(hlf);
     }
@@ -840,7 +856,6 @@ HlAttrs dict2hlattrs(Dictionary dict, bool use_rgb, int *link_id, Error *err)
       { "italic", HL_ITALIC },
       { "reverse", HL_INVERSE },
       { "default", HL_DEFAULT },
-      { "global", HL_GLOBAL },
       { NULL, 0 },
     };
 
@@ -905,9 +920,12 @@ HlAttrs dict2hlattrs(Dictionary dict, bool use_rgb, int *link_id, Error *err)
       }
     }
 
+
+    bool global = false;
     if (flags[j].name || colors[k].name) {
       // handled above
-    } else if (link_id && strequal(key, "link")) {
+    } else if (link_id && (strequal(key, "link")
+                           || (global = strequal(key, "global_link")))) {
       if (val.type == kObjectTypeString) {
         String str = val.data.string;
         *link_id = syn_check_group((const char_u *)str.data, (int)str.size);
@@ -917,6 +935,9 @@ HlAttrs dict2hlattrs(Dictionary dict, bool use_rgb, int *link_id, Error *err)
       } else {
         api_set_error(err, kErrorTypeValidation,
                       "'link' must be string or integer");
+      }
+      if (global) {
+        mask |= HL_GLOBAL;
       }
     }
 

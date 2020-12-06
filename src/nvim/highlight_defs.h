@@ -199,6 +199,7 @@ typedef struct {
   int link_id;
   int version;
   bool is_default;
+  bool link_global;
 } ColorItem;
 #define COLOR_ITEM_INITIALIZER { .attr_id = -1, .link_id = -1, \
                                  .version = -1, .is_default = false }

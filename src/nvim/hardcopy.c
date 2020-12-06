@@ -666,7 +666,7 @@ void ex_hardcopy(exarg_T *eap)
   if (prt_use_number() && settings.do_syntax) {
     int id = syn_name2id((char_u *)"LineNr");
     if (id > 0) {
-      id = syn_get_final_id(curwin->w_ns_hl_active, id);
+      id = syn_get_final_id(id);
     }
 
     prt_get_attr(id, &settings.number, settings.modec);
@@ -871,7 +871,7 @@ static colnr_T hardcopy_line(prt_settings_T *psettings, int page_line, prt_pos_T
     if (psettings->do_syntax) {
       id = syn_get_id(curwin, ppos->file_line, col, 1, NULL, false);
       if (id > 0) {
-        id = syn_get_final_id(curwin->w_ns_hl_active, id);
+        id = syn_get_final_id(id);
       } else {
         id = 0;
       }

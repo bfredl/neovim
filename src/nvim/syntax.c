@@ -7584,35 +7584,32 @@ static void syn_unadd_group(void)
 /// @see syn_attr2entry
 int syn_id2attr(int hl_id)
 {
-  hl_id = syn_get_final_id(-1, hl_id);
-  struct hl_group *sgp = &HL_TABLE()[hl_id - 1];  // index is ID minus one
-
-  int attr = ns_get_hl(-1, hl_id, false, sgp->sg_set);
-  if (attr >= 0) {
-    return attr;
-  }
-  return sgp->sg_attr;
+  return syn_ns_id2attr(-1, hl_id);
 }
 
 int syn_ns_id2attr(int ns_id, int hl_id)
 {
-  hl_id = syn_get_final_id(ns_id, hl_id);
+  hl_id = syn_ns_get_final_id(&ns_id, hl_id);
   struct hl_group *sgp = &HL_TABLE()[hl_id - 1];  // index is ID minus one
 
-  int attr = ns_get_hl(ns_id, hl_id, false, sgp->sg_set);
+  int attr = ns_get_hl(&ns_id, hl_id, false, sgp->sg_set);
   if (attr >= 0) {
     return attr;
   }
   return sgp->sg_attr;
 }
-
-
 
 
 /*
  * Translate a group ID to the final group ID (following links).
  */
-int syn_get_final_id(int ns_id, int hl_id)
+int syn_get_final_id(int hl_id)
+{
+  int id = curwin->w_ns_hl_active;
+  return syn_ns_get_final_id(&id, hl_id);
+}
+
+int syn_ns_get_final_id(int *ns_id, int hl_id)
 {
   int count;
 
@@ -7646,6 +7643,7 @@ int syn_get_final_id(int ns_id, int hl_id)
 
   return hl_id;
 }
+
 
 /// Refresh the color attributes of all highlight groups.
 void highlight_attr_set_all(void)
@@ -7723,14 +7721,15 @@ void highlight_changed(void)
     if (id == 0) {
       abort();
     }
-    int final_id = syn_get_final_id(-1, id);
+    int ns_id = -1;
+    int final_id = syn_ns_get_final_id(&ns_id, id);
     if (hlf == (int)HLF_SNC) {
       id_SNC = final_id;
     } else if (hlf == (int)HLF_S) {
       id_S = final_id;
     }
 
-    highlight_attr[hlf] = hl_get_ui_attr(-1, hlf, final_id,
+    highlight_attr[hlf] = hl_get_ui_attr(ns_id, hlf, final_id,
                                          hlf == (int)HLF_INACTIVE);
 
     if (highlight_attr[hlf] != highlight_attr_last[hlf]) {
