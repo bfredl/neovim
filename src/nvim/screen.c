@@ -1601,7 +1601,7 @@ static void win_update(win_T *wp, Providers *providers)
   wp->w_empty_rows = 0;
   wp->w_filler_rows = 0;
   if (!eof && !didline) {
-    int at_attr = hl_combine_attr(wp->w_hl_attr_normal,
+    int at_attr = hl_combine_attr(wp->w_hl_attr_bg,
                                   win_hl_attr(wp, HLF_AT));
     if (lnum == wp->w_topline) {
       /*
@@ -1806,7 +1806,7 @@ static void win_draw_end(win_T *wp, int c1, int c2, bool draw_margin, int row,
     }
   }
 
-  int attr = hl_combine_attr(wp->w_hl_attr_normal, win_hl_attr(wp, hl));
+  int attr = hl_combine_attr(wp->w_hl_attr_bg, win_hl_attr(wp, hl));
 
   if (wp->w_p_rl) {
     grid_fill(&wp->w_grid, row, endrow, wp->w_wincol, W_ENDCOL(wp) - 1 - n,
@@ -2864,7 +2864,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
          || (number_only && draw_state > WL_NR))
         && filler_todo <= 0) {
       grid_put_linebuf(grid, row, 0, col, -grid->Columns, wp->w_p_rl, wp,
-                       wp->w_hl_attr_normal, false);
+                       wp->w_hl_attr_bg, false);
       // Pretend we have finished updating the window.  Except when
       // 'cursorcolumn' is set.
       if (wp->w_p_cuc) {
@@ -4019,7 +4019,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
         }
       }
       grid_put_linebuf(grid, row, 0, col, grid->Columns, wp->w_p_rl, wp,
-                       wp->w_hl_attr_normal, false);
+                       wp->w_hl_attr_bg, false);
       row++;
 
       /*
@@ -4237,7 +4237,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
             || ui_has(kUIMultigrid))  // or has dedicated grid.
         && !wp->w_p_rl;              // Not right-to-left.
       grid_put_linebuf(grid, row, 0, col - boguscols, grid->Columns, wp->w_p_rl,
-                       wp, wp->w_hl_attr_normal, wrap);
+                       wp, wp->w_hl_attr_bg, wrap);
       if (wrap) {
         ScreenGrid *current_grid = grid;
         int current_row = row, dummy_col = 0;  // dummy_col unused
