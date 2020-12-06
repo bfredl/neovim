@@ -32,6 +32,8 @@ static Map(int, int) *blendthrough_attr_entries;
 
 /// highlight entries private to a namespace
 static Map(ColorKey, ColorItem) *ns_hl;
+typedef int NSHlAttr[HLF_COUNT+1];
+static PMap(handle_T) *ns_hl_attr;
 
 void highlight_init(void)
 {
@@ -40,6 +42,7 @@ void highlight_init(void)
   blend_attr_entries = map_new(int, int)();
   blendthrough_attr_entries = map_new(int, int)();
   ns_hl = map_new(ColorKey, ColorItem)();
+  ns_hl_attr = pmap_new(handle_T)();
 
   // index 0 is no attribute, add dummy entry:
   kv_push(attr_entries, ((HlEntry){ .attr = HLATTRS_INIT, .kind = kHlUnknown,
@@ -400,6 +403,28 @@ void update_window_hl(win_T *wp, bool invalid)
   }
 
   wp->w_hl_attr_bg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
+}
+
+void update_ns_hl(int ns_id)
+{
+  NSHlAttr **alloc = (NSHlAttr **)pmap_ref(handle_T)(ns_hl_attr, ns_id, true);
+  if (*alloc == NULL) {
+    *alloc = xmalloc(sizeof(**alloc));
+  }
+  int *hl_attrs = **alloc;
+
+  for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
+    int id = syn_check_group((char_u *)hlf_names[hlf],
+                             (int)STRLEN(hlf_names[hlf]));
+    hl_attrs[hlf] = hl_get_ui_attr(ns_id, hlf, id, false);
+  }
+
+  // NOOOO! You cannot just pretend that "Normal" is just like any other
+  // syntax group! It needs at least 10 layers of special casing! Noooooo!
+  //
+  // haha, theme engine go brrr
+  int normality = syn_check_group((const char_u *)S_LEN("Normal"));
+  hl_attrs[HLF_COUNT] = hl_get_ui_attr(ns_id, -1, normality, false);
 }
 
 /// Gets HL_UNDERLINE highlight.
