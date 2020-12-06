@@ -1167,6 +1167,8 @@ struct window_S {
 
   int w_hl_id_normal;               ///< 'winhighlight' normal id
   int w_hl_attr_normal;             ///< 'winhighlight' normal final attrs
+  int w_hl_attr_normalnc;           ///< 'winhighlight' NormalNC final attrs
+  int w_hl_attr_bg;                 ///< actual background color to use
 
   int w_hl_ids[HLF_COUNT];          ///< 'winhighlight' id
   int w_hl_attrs[HLF_COUNT];        ///< 'winhighlight' final attrs

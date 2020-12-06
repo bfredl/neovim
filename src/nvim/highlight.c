@@ -309,6 +309,13 @@ void update_window_hl(win_T *wp, bool invalid)
 {
   int ns_id = wp->w_ns_hl_active;
   if (!wp->w_hl_needs_update && !invalid) {
+    int newbg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
+    if (newbg != wp->w_hl_attr_bg) {
+      wp->w_hl_attr_bg = newbg;
+      // TODO(bfredl): eventually we should be smart enough
+      // to only recompose the window, not redraw it.
+      redraw_later(wp, NOT_VALID);
+    }
     return;
   }
   wp->w_hl_needs_update = false;
@@ -319,11 +326,7 @@ void update_window_hl(win_T *wp, bool invalid)
 
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
-  if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(ns_id, HLF_INACTIVE,
-                                          wp->w_hl_ids[HLF_INACTIVE],
-                                          !has_blend);
-  } else if (float_win && wp->w_hl_ids[HLF_NFLOAT] != 0) {
+  if (float_win && wp->w_hl_ids[HLF_NFLOAT] != 0) {
     wp->w_hl_attr_normal = hl_get_ui_attr(ns_id, HLF_NFLOAT,
                                           wp->w_hl_ids[HLF_NFLOAT], !has_blend);
   } else if (wp->w_hl_id_normal != 0) {
@@ -353,10 +356,6 @@ void update_window_hl(win_T *wp, bool invalid)
     }
   }
 
-  if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] == 0) {
-    wp->w_hl_attr_normal = hl_combine_attr(HL_ATTR(HLF_INACTIVE),
-                                           wp->w_hl_attr_normal);
-  }
 
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int attr;
@@ -391,6 +390,16 @@ void update_window_hl(win_T *wp, bool invalid)
 
   // shadow might cause blending
   check_blending(wp);
+
+  // TODO: not the correct check with ns
+  if (wp->w_hl_ids[HLF_INACTIVE] == 0) {
+    wp->w_hl_attr_normalnc = hl_combine_attr(HL_ATTR(HLF_INACTIVE),
+                                             wp->w_hl_attr_normal);
+  } else {
+    wp->w_hl_attr_normalnc = wp->w_hl_attrs[HLF_INACTIVE];
+  }
+
+  wp->w_hl_attr_bg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
 }
 
 /// Gets HL_UNDERLINE highlight.

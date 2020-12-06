@@ -26,6 +26,7 @@
 #include "nvim/fold.h"
 #include "nvim/getchar.h"
 #include "nvim/hashtab.h"
+#include "nvim/highlight.h"
 #include "nvim/main.h"
 #include "nvim/mark.h"
 #include "nvim/memline.h"
@@ -4455,10 +4456,11 @@ static void win_enter_ext(win_T *wp, bool undo_sync, int curwin_invalid,
     redraw_later(curwin, VALID);  // causes status line redraw
   }
 
-  if (HL_ATTR(HLF_INACTIVE)
-      || (prevwin && prevwin->w_hl_ids[HLF_INACTIVE])
-      || curwin->w_hl_ids[HLF_INACTIVE]) {
-    redraw_all_later(NOT_VALID);
+  // change background color according to NormalNC,
+  // but only if actually defined (otherwise no extra redraw)
+  update_window_hl(curwin, false);
+  if (prevwin) {
+    update_window_hl(prevwin, false);
   }
 
   // set window height to desired minimal value
