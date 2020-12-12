@@ -178,13 +178,13 @@ static inline void split_node(MarkTree *b, mtnode_t *x, const int i)
   // TODO(bfredl): when spliting internal node, bubble up intersections
   kv_copy(z->intersect, y->intersect);
   for (int j = 0; j < T; j++) {
-    if (IS_START(x->key[j].id) && id2node(b, x->key[i].id|END_FLAG) != x) {
-      intersect_node(b, y, x->key[j].id);
+    if (IS_START(y->key[j].id) && id2node(b, y->key[j].id|END_FLAG) != y) {
+      intersect_node(b, z, y->key[j].id);
     }
   }
-  for (int j = T; j < (T * 2)-1; j++) {
-    if ((x->key[j].id & END_FLAG) && id2node(b, x->key[i].id&~END_FLAG) != x) {
-      intersect_node(b, x, x->key[j].id);
+  for (int j = T-1; j < (T * 2)-1; j++) {
+    if ((y->key[j].id & END_FLAG) && id2node(b, y->key[j].id&~END_FLAG) != y) {
+      intersect_node(b, y, y->key[j].id);
     }
   }
 
@@ -265,8 +265,8 @@ static void intersect_node(MarkTree *b, mtnode_t *x, uint64_t id)
   id &= ~END_FLAG;
   kvi_pushp(x->intersect);
   // optimized for the common case: new key is always in the end
-  for (size_t i = kv_size(x->intersect)-1; i > 0; i--) {
-    if (kv_A(x->intersect, i-1) > id) {
+  for (ssize_t i = (ssize_t)kv_size(x->intersect)-1; i >= 0; i--) {
+    if (i > 0 && kv_A(x->intersect, i-1) > id) {
       kv_A(x->intersect, i) = kv_A(x->intersect, i-1);
     } else {
       kv_A(x->intersect, i) = id;
