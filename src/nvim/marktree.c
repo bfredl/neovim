@@ -996,11 +996,40 @@ uint64_t marktree_itr_step_intersect(MarkTree *b, MarkTreeIter *itr)
 }
 
 
-static void swap_id(uint64_t *id1, uint64_t *id2)
+typedef struct {
+  uint64_t id;
+  mtnode_t *old, *new;
+  int old_pos, new_pos;
+  bool left;
+} Damage;
+typedef kvec_withinit_t(Damage, 8) DamageList;
+
+static void swap_keys(MarkTree *b, MarkTreeIter *itr1, MarkTreeIter *itr2,
+                      DamageList *damage)
 {
-  uint64_t temp = *id1;
-  *id1 = *id2;
-  *id2 = temp;
+  if (itr1->x != itr2->x) {
+    if (rawkey(itr1).id & PAIRED) {
+      kvi_push(*damage, ((Damage){ rawkey(itr1).id, itr1->x, itr2->x,
+                                   itr1->i, itr2->i, true }));
+    }
+    if (rawkey(itr2).id & PAIRED) {
+      kvi_push(*damage, ((Damage){ rawkey(itr2).id, itr2->x, itr1->x,
+                                   itr2->i, itr1->i, false }));
+    }
+  }
+
+  uint64_t temp = rawkey(itr1).id;
+  rawkey(itr1).id = rawkey(itr2).id;
+  rawkey(itr2).id = temp;
+  refkey(b, itr1->x, itr1->i);
+  refkey(b, itr2->x, itr2->i);
+}
+
+static int damage_cmp(const void *s1, const void *s2)
+{
+  Damage *d1 = (Damage *)s1, *d2 = (Damage *)s2;
+  assert(d1->id != d2->id);
+  return d1->id > d2->id;
 }
 
 bool marktree_splice(MarkTree *b,
@@ -1043,6 +1072,8 @@ bool marktree_splice(MarkTree *b,
 
   bool past_right = false;
   bool moved = false;
+  DamageList damage;
+  kvi_init(damage);
 
   // Follow the general strategy of messing things up and fix them later
   // "oldbase" carries the information needed to calculate old position of
@@ -1068,9 +1099,7 @@ continue_same_node:
           marktree_itr_prev(b, enditr);
         }
         if (!IS_RIGHT(rawkey(enditr).id)) {
-          swap_id(&rawkey(itr).id, &rawkey(enditr).id);
-          refkey(b, itr->x, itr->i);
-          refkey(b, enditr->x, enditr->i);
+          swap_keys(b, itr, enditr, &damage);
         } else {
           past_right = true; // NOLINT
           break;
@@ -1158,6 +1187,12 @@ past_continue_same_node:
     }
     marktree_itr_next_skip(b, itr, true, false, NULL);
   }
+
+  if (kv_size(damage)) {
+    qsort((void *)&kv_A(damage, 0), kv_size(damage), sizeof(kv_A(damage, 0)),
+          damage_cmp);
+  }
+
   return moved;
 }
 
