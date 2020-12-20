@@ -322,7 +322,7 @@ void terminal_check_size(Terminal *term)
   invalidate_terminal(term, -1, -1);
 }
 
-void terminal_enter(void)
+bool terminal_enter(void)
 {
   buf_T *buf = curbuf;
   assert(buf->terminal);  // Should only be called when curbuf has a terminal.
@@ -391,7 +391,9 @@ void terminal_enter(void)
     if (wipe) {
       do_cmdline_cmd("bwipeout!");
     }
+    restart_edit = 0;
   }
+  return (restart_edit != 0);
 }
 
 static void terminal_check_cursor(void)
@@ -471,6 +473,13 @@ static int terminal_execute(VimState *state, int key)
 
     case Ctrl_N:
       if (s->got_bsl) {
+        return 0;
+      }
+      FALLTHROUGH;
+
+    case Ctrl_O:
+      if (s->got_bsl) {
+        restart_edit = 'I';
         return 0;
       }
       FALLTHROUGH;
