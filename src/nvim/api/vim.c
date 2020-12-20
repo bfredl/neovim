@@ -1184,6 +1184,62 @@ fail:
   return 0;
 }
 
+Integer nvim_open_term(Buffer buffer, Error *err)
+  FUNC_API_SINCE(7)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!buf) {
+    return 0;
+  }
+
+  TerminalOptions topts;
+  Channel *chan = channel_alloc(kChannelStreamInternal);
+  topts.data = chan;
+  // NB: overriden in terminal_check_size if a window is already
+  // displaying the buffer
+  topts.width = curwin->w_width_inner - win_col_off(curwin);
+  topts.height = curwin->w_height_inner;
+  topts.write_cb = term_write;
+  topts.resize_cb = term_resize;
+  topts.close_cb = term_close;
+  Terminal *term = terminal_open(buf, topts);
+  terminal_check_size(term);
+  chan->term = term;
+  channel_incref(chan);
+  return chan->id;
+}
+
+static void term_write(char *buf, size_t size, void *data)
+{
+  // TODO: lua callback? :)
+}
+
+static void term_resize(uint16_t width, uint16_t height, void *data)
+{
+}
+
+static void term_close(void *data)
+{
+  Channel *chan = data;
+  terminal_destroy(chan->term);
+  chan->term = NULL;
+  channel_decref(chan);
+}
+
+void nvim_chan_send(Integer id, String str, Error *err)
+  FUNC_API_SINCE(7)
+{
+  const char *error = NULL;
+  if (!str.size) {
+    return;
+  }
+
+  channel_send(id, str.data, str.size, &error);
+  if (error) {
+    api_set_error(err, kErrorTypeValidation, "%s", error);
+  }
+}
+
 /// Open a new window.
 ///
 /// Currently this is used to open floating and external windows.
