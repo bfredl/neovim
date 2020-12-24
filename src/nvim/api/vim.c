@@ -1184,7 +1184,7 @@ fail:
   return 0;
 }
 
-Integer nvim_open_term(Buffer buffer, Error *err)
+Integer nvim_open_term(Buffer buffer, DictionaryOf(LuaRef) opts, Error *err)
   FUNC_API_SINCE(7)
 {
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1192,8 +1192,25 @@ Integer nvim_open_term(Buffer buffer, Error *err)
     return 0;
   }
 
+  LuaRef cb = LUA_NOREF;
+  for (size_t i = 0; i < opts.size; i++) {
+    String k = opts.items[i].key;
+    Object *v = &opts.items[i].value;
+    if (strequal("on_input", k.data)) {
+      if (v->type != kObjectTypeLuaRef) {
+        api_set_error(err, kErrorTypeValidation,
+                      "%s is not a function", "on_input");
+        return 0;
+      }
+      cb = v->data.luaref;
+      v->data.luaref = LUA_NOREF;
+      break;
+    }
+  }
+
   TerminalOptions topts;
   Channel *chan = channel_alloc(kChannelStreamInternal);
+  chan->stream.internal.cb = cb;
   topts.data = chan;
   // NB: overriden in terminal_check_size if a window is already
   // displaying the buffer
@@ -1211,7 +1228,15 @@ Integer nvim_open_term(Buffer buffer, Error *err)
 
 static void term_write(char *buf, size_t size, void *data)
 {
-  // TODO: lua callback? :)
+  Channel *chan = data;
+  LuaRef cb = chan->stream.internal.cb;
+  FIXED_TEMP_ARRAY(args, 3);
+  args.items[0] = INTEGER_OBJ(chan->id);
+  args.items[1] = BUFFER_OBJ(terminal_buf(chan->term));
+  args.items[2] = STRING_OBJ(((String){ .data=buf, .size=size }));
+  textlock++;
+  nlua_call_ref(cb, "input", args, false, NULL);
+  textlock--;
 }
 
 static void term_resize(uint16_t width, uint16_t height, void *data)
