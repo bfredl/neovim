@@ -1307,10 +1307,11 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
   // [ vim, vim._log_keystroke, buf ]
   lua_pushlstring(lstate, (const char *)pat, STRLEN(pat));
 
-  if (lua_pcall(lstate, 1, 2, 0)) {
+  if (lua_pcall(lstate, 1, 1, 0) != 0) {
     nlua_error(
         lstate,
         _("Error executing vim._expand_pat: %.*s"));
+    return FAIL;
   }
 
   Error err = ERROR_INIT;
@@ -1318,7 +1319,6 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
   *num_results = 0;
   *results = NULL;
 
-  Integer prefix_len = nlua_pop_Integer(lstate, &err);
   if (ERROR_SET(&err)) {
     ret = FAIL;
     goto cleanup;
@@ -1330,8 +1330,6 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
     goto cleanup_array;
   }
 
-  xp->xp_pattern = xp->xp_pattern + prefix_len;
-  xp->xp_pattern_len = xp->xp_pattern_len - (unsigned long)prefix_len;
   ILOG("New xp_pattern:     %s", xp->xp_pattern);
   ILOG("New xp_pattern_len: %lu", xp->xp_pattern_len);
 

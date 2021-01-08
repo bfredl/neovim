@@ -3682,7 +3682,22 @@ const char * set_one_cmd_context(
 
   case CMD_lua:
     xp->xp_context = EXPAND_LUA;
-    xp->xp_pattern = (char_u *)arg;
+    // Drop print(, vim.inspect(, and vim. from xp->xp_pattern
+    if (STRLEN(xp->xp_pattern) >= 7) {
+      if (memcmp(xp->xp_pattern, "print(", 6) == 0) {
+        xp->xp_pattern += 6;
+      }
+    }
+    if (STRLEN(xp->xp_pattern) >= 13) {
+      if (memcmp(xp->xp_pattern, "vim.inspect(", 12) == 0) {
+        xp->xp_pattern += 12;
+      }
+    }
+    if (STRLEN(xp->xp_pattern) >= 5) {
+      if (memcmp(xp->xp_pattern, "vim.", 4) == 0) {
+        xp->xp_pattern += 4;
+      }
+    }
     break;
 
   default:

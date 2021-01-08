@@ -540,7 +540,9 @@ end
 ---     1. Can we get it to just return things in the global namespace with that name prefix
 ---     2. Can we get it to return things from global namespace even with `print(` in front.
 function vim._expand_pat(pat, env)
-  env = env or _G
+  if not env then
+    env = vim.tbl_extend("force", _G, vim)
+  end
 
   pat = string.sub(pat, 2, #pat)
 
@@ -602,15 +604,14 @@ function vim._expand_pat(pat, env)
   end
 
   local result = vim.tbl_map(function(v)
-    -- return prefix_match_pat .. v
-    return v
+    return prefix_match_pat .. v
   end, vim.tbl_filter(function(name)
     return string.find(name, match_pat) ~= nil
   end, vim.tbl_keys(final_env)))
 
   table.sort(result)
 
-  return result, #prefix_match_pat
+  return result
 end
 
 vim._expand_pat_get_parts = function(lua_string)
