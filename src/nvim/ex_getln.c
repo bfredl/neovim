@@ -3929,6 +3929,7 @@ nextwild (
   i = (int)(xp->xp_pattern - ccline.cmdbuff);
   assert(ccline.cmdpos >= i);
   xp->xp_pattern_len = (size_t)ccline.cmdpos - (size_t)i;
+  xp->xp_offset = 0;
 
   if (type == WILD_NEXT || type == WILD_PREV) {
     // Get next/previous match for a previous expanded pattern.
@@ -3946,6 +3947,8 @@ nextwild (
     p2 = ExpandOne(xp, p1, vim_strnsave(&ccline.cmdbuff[i], xp->xp_pattern_len),
                    use_options, type);
     xfree(p1);
+    xp->xp_pattern_len -= (size_t)xp->xp_offset;
+    i += xp->xp_offset;
     // Longest match: make sure it is not shorter, happens with :help.
     if (p2 != NULL && type == WILD_LONGEST) {
       for (j = 0; (size_t)j < xp->xp_pattern_len; j++) {
@@ -3960,10 +3963,10 @@ nextwild (
     }
   }
 
-
-  // TODO(tjdevries) Figure out what the heck this if statement does...
   if (p2 != NULL && !got_int) {
-    difflen = (int)STRLEN(p2) - (int)xp->xp_pattern_len;
+    xp->xp_pattern += xp->xp_offset;
+
+    difflen = (int)STRLEN(p2) - (int)(xp->xp_pattern_len);
     if (ccline.cmdlen + difflen + 4 > ccline.cmdbufflen) {
       realloc_cmdbuff(ccline.cmdlen + difflen + 4);
       xp->xp_pattern = ccline.cmdbuff + i;

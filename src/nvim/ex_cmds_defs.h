@@ -202,6 +202,7 @@ struct expand {
   char_u **xp_files;            // list of files
   char_u *xp_line;              // text being completed
   int xp_col;                   // cursor position in line
+  int xp_offset;                // offset for xp_pattern
 };
 
 // values for xp_backslash

@@ -1307,7 +1307,7 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
   // [ vim, vim._log_keystroke, buf ]
   lua_pushlstring(lstate, (const char *)pat, STRLEN(pat));
 
-  if (lua_pcall(lstate, 1, 1, 0) != 0) {
+  if (lua_pcall(lstate, 1, 2, 0) != 0) {
     nlua_error(
         lstate,
         _("Error executing vim._expand_pat: %.*s"));
@@ -1319,6 +1319,7 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
   *num_results = 0;
   *results = NULL;
 
+  int prefix_len = (int)nlua_pop_Integer(lstate, &err);
   if (ERROR_SET(&err)) {
     ret = FAIL;
     goto cleanup;
@@ -1329,9 +1330,6 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
     ret = FAIL;
     goto cleanup_array;
   }
-
-  ILOG("New xp_pattern:     %s", xp->xp_pattern);
-  ILOG("New xp_pattern_len: %lu", xp->xp_pattern_len);
 
   garray_T result_array;
   ga_init(&result_array, (int)sizeof(char *), 80);
@@ -1349,6 +1347,7 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
         vim_strsave((char_u *)v.data.string.data));
   }
 
+  xp->xp_offset = prefix_len;
   *results = result_array.ga_data;
   *num_results = result_array.ga_len;
 
