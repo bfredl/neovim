@@ -1347,7 +1347,7 @@ int nlua_expand_pat(expand_T *xp, char_u *pat, int *num_results, char_u ***resul
         vim_strsave((char_u *)v.data.string.data));
   }
 
-  xp->xp_offset = prefix_len;
+  xp->xp_pattern += prefix_len;
   *results = result_array.ga_data;
   *num_results = result_array.ga_len;
 
