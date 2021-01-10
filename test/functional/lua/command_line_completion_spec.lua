@@ -10,7 +10,7 @@ local get_completions = function(input, env)
 end
 
 local get_compl_parts = function(parts)
-  return funcs.luaeval("{vim._expand_pat_get_parts(_A)}", parts)
+  return exec_lua("return {vim._expand_pat_get_parts(...)}", parts)
 end
 
 before_each(clear)
@@ -25,14 +25,14 @@ describe('nlua_expand_pat', function()
   end)
 
   it('should return nice completions with function call prefix', function()
-    eq({'print(FOO'}, get_completions('print(F', { FOO = true, bawr = true }))
+    eq({'FOO'}, get_completions('print(F', { FOO = true, bawr = true }))
   end)
 
   it('should return keys for nested dictionaries', function()
     eq(
       {
-        'vim.api.nvim_buf_set_lines',
-        'vim.api.nvim_buf_set_option'
+        'nvim_buf_set_lines',
+        'nvim_buf_set_option'
       },
       get_completions('vim.api.nvim_buf_', {
         vim = {
@@ -50,8 +50,8 @@ describe('nlua_expand_pat', function()
   it('it should work with colons', function()
     eq(
       {
-        'MyClass:bawr',
-        'MyClass:baz',
+        'bawr',
+        'baz',
       },
       get_completions('MyClass:b', {
         MyClass = {
@@ -66,8 +66,8 @@ describe('nlua_expand_pat', function()
   it('should return keys for string reffed dictionaries', function()
     eq(
       {
-        'vim["api"].nvim_buf_set_lines',
-        'vim["api"].nvim_buf_set_option'
+        'nvim_buf_set_lines',
+        'nvim_buf_set_option'
       },
       get_completions('vim["api"].nvim_buf_', {
         vim = {
@@ -85,8 +85,8 @@ describe('nlua_expand_pat', function()
   it('should return keys for string reffed dictionaries', function()
     eq(
       {
-        'vim["nested"]["api"].nvim_buf_set_lines',
-        'vim["nested"]["api"].nvim_buf_set_option'
+        'nvim_buf_set_lines',
+        'nvim_buf_set_option'
       },
       get_completions('vim["nested"]["api"].nvim_buf_', {
         vim = {
@@ -106,8 +106,8 @@ describe('nlua_expand_pat', function()
   it('should be able to interpolate globals', function()
     eq(
       {
-        'vim[MY_VAR].nvim_buf_set_lines',
-        'vim[MY_VAR].nvim_buf_set_option'
+        'nvim_buf_set_lines',
+        'nvim_buf_set_option'
       },
       get_completions('vim[MY_VAR].nvim_buf_', {
         MY_VAR = "api",
