@@ -540,9 +540,7 @@ end
 ---     1. Can we get it to just return things in the global namespace with that name prefix
 ---     2. Can we get it to return things from global namespace even with `print(` in front.
 function vim._expand_pat(pat, env)
-  if not env then
-    env = vim.tbl_extend("force", _G, vim)
-  end
+  env = env or _G
 
   pat = string.sub(pat, 2, #pat)
 
