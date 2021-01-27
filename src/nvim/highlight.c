@@ -342,7 +342,7 @@ void update_window_hl(win_T *wp, bool invalid)
   // NOOOO! You cannot just pretend that "Normal" is just like any other
   // syntax group! It needs at least 10 layers of special casing! Noooooo!
   //
-  // haha, theme engine go brrr
+  // haha, tema engine go brrr
   int normality = syn_check_group((const char_u *)S_LEN("Normal"));
   int ns_attr = ns_get_hl(&ns_id, normality, false, false);
   if (ns_attr > 0) {
