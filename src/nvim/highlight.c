@@ -167,6 +167,7 @@ void ns_hl_def(NS ns_id, int hl_id, HlAttrs attrs, int link_id)
                    .is_default = (attrs.rgb_ae_attr & HL_DEFAULT),
                    .link_global = (attrs.rgb_ae_attr & HL_GLOBAL) };
   map_put(ColorKey, ColorItem)(ns_hl, ColorKey(ns_id, hl_id), it);
+  p->hl_cached = false;
 }
 
 int ns_get_hl(NS *hl_ns, int hl_id, bool link, bool nodefault)
@@ -247,6 +248,35 @@ int ns_get_hl(NS *hl_ns, int hl_id, bool link, bool nodefault)
     return it.attr_id;
   }
 }
+
+void hl_check_ns(void)
+{
+  int ns = 0;
+  if (ns_hl_fast >= 0) {
+    ns = ns_hl_fast;
+  //} else if (wp_d && wp->w_float_config.ns_hl >= 0) {
+  //  ns = wp->w_float_config.ns_hl;
+  } else {
+    ns = ns_hl_global;
+  }
+
+  hl_attr_active = highlight_attr;
+  if (ns > 0) {
+    DecorProvider *p = get_provider(ns, true);
+    if (!p->hl_cached) {
+      // TODO: putta in?
+      update_ns_hl(ns);
+    }
+
+    NSHlAttr *hl_def = (NSHlAttr *)pmap_get(handle_T)(ns_hl_attr, ns);
+    if (hl_def) {
+      hl_attr_active = *hl_def;
+
+    }
+  }
+
+}
+
 
 
 bool win_check_ns_hl(win_T *wp)
@@ -416,15 +446,15 @@ void update_ns_hl(int ns_id)
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int id = syn_check_group((char_u *)hlf_names[hlf],
                              (int)STRLEN(hlf_names[hlf]));
-    hl_attrs[hlf] = hl_get_ui_attr(ns_id, hlf, id, false);
+    hl_attrs[hlf] = hl_get_ui_attr(ns_id, hlf, id, hlf == (int) HLF_INACTIVE);
   }
 
   // NOOOO! You cannot just pretend that "Normal" is just like any other
   // syntax group! It needs at least 10 layers of special casing! Noooooo!
   //
-  // haha, theme engine go brrr
+  // haha, tema engine go brrr
   int normality = syn_check_group((const char_u *)S_LEN("Normal"));
-  hl_attrs[HLF_COUNT] = hl_get_ui_attr(ns_id, -1, normality, false);
+  hl_attrs[HLF_COUNT] = hl_get_ui_attr(ns_id, -1, normality, true);
 }
 
 /// Gets HL_UNDERLINE highlight.

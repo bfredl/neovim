@@ -260,6 +260,7 @@ void nvim_set_hl_ns(Integer ns_id, Error *err)
     return;
   }
   ns_hl_global = (NS)ns_id;
+  hl_check_ns();
   redraw_all_later(NOT_VALID);
 }
 
@@ -277,6 +278,7 @@ void nvim_set_hl_ns_fast(Integer ns_id, Error *err)
   FUNC_API_FAST
 {
   ns_hl_fast = (NS)ns_id;
+  hl_check_ns();
 }
 
 /// Sends input-keys to Nvim, subject to various quirks controlled by `mode`
@@ -3006,6 +3008,8 @@ void nvim_set_decoration_provider(Integer ns_id, DictionaryOf(LuaRef) opts,
   }
 
   p->active = true;
+  p->hl_valid++;
+  p->hl_cached = false;
   return;
 error:
   decor_provider_clear(p);

@@ -170,6 +170,8 @@ EXTERN RgbValue normal_fg INIT(= -1);
 EXTERN RgbValue normal_bg INIT(= -1);
 EXTERN RgbValue normal_sp INIT(= -1);
 
+EXTERN int *hl_attr_active INIT(= highlight_attr);
+
 typedef enum {
   kHlUnknown,
   kHlUI,

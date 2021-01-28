@@ -7716,6 +7716,7 @@ void highlight_changed(void)
   need_highlight_changed = FALSE;
 
   /// Translate builtin highlight groups into attributes for quick lookup.
+  /// TODO: be lybill
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     id = syn_check_group((char_u *)hlf_names[hlf], STRLEN(hlf_names[hlf]));
     if (id == 0) {
