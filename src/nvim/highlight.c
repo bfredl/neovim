@@ -279,29 +279,10 @@ void hl_check_ns(void)
 
 
 
-bool win_check_ns_hl(win_T *wp)
+void win_check_ns_hl(win_T *wp)
 {
-  NS ns;
-  if (ns_hl_fast >= 0) {
-    ns = ns_hl_fast;
-  } else if (wp && wp->w_float_config.ns_hl >= 0) {
-    ns = wp->w_float_config.ns_hl;
-  } else {
-    ns = ns_hl_global;
-  }
-
-  if (ns != ns_hl_active) {
-    ns_hl_active = ns;
-    highlight_changed();
-  }
-  if (wp && ns != wp->w_ns_hl_active) {
-    wp->w_ns_hl_active = ns;
-    // TODO: when we are done here, the hl info will be cached per
-    // tema, not per window.
-    update_window_hl(wp, true);
-    return true;
-  }
-  return false;
+  ns_hl_win = wp ? wp->w_float_config.ns_hl : -1;
+  hl_check_ns();
 }
 
 /// Get attribute code for a builtin highlight group.

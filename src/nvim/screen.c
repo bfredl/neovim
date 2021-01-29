@@ -446,8 +446,6 @@ int update_screen(int type)
   if (need_highlight_changed)
     highlight_changed();
 
-  hl_check_ns();
-
   if (type == CLEAR) {          // first clear screen
     screenclear();              // will reset clear_cmdline
     cmdline_screen_cleared();   // clear external cmdline state
@@ -492,8 +490,10 @@ int update_screen(int type)
     }
   }
 
+  win_check_ns_hl(NULL);
   // "start" callback could have changed highlights for global elements
-  if (win_check_ns_hl(NULL)) {
+  // TODO: was??
+  if (false) {
     redraw_cmdline = true;
     redraw_tabline = true;
   }
@@ -607,8 +607,11 @@ int update_screen(int type)
 
   // May need to redraw the popup menu.
   if (pum_drawn() && must_redraw_pum) {
+    win_check_ns_hl(curwin);
     pum_redraw();
   }
+
+  win_check_ns_hl(NULL);
 
   send_grid_resize = false;
 
