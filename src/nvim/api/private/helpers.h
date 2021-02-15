@@ -58,6 +58,7 @@
 
 #define NIL ((Object)OBJECT_INIT)
 #define NULL_STRING ((String)STRING_INIT)
+#define String(d,s) ((String){ .data = (d), .size = (s) })
 
 #define PUT(dict, k, v) \
   kv_push(dict, ((KeyValuePair) { .key = cstr_to_string(k), .value = v }))

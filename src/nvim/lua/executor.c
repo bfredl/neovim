@@ -1087,6 +1087,35 @@ Object nlua_exec(const String str, const Array args, Error *err)
   return nlua_pop_Object(lstate, false, err);
 }
 
+/// Evaluate lua string
+///
+/// @param[in]  str  String to execute.
+/// @param[in]  arg  Second argument to `luaeval()`.
+/// @param[out]  ret_tv  Location where result will be saved.
+///
+/// @return Result of the execution.
+Object nlua_eval(const String str, Array args, Error *err)
+  FUNC_ATTR_NONNULL_ALL
+{
+#define EVALHEADER "return "
+  const size_t lcmd_len = sizeof(EVALHEADER) - 1 + str.size;
+  char *lcmd;
+  if (lcmd_len < IOSIZE) {
+    lcmd = (char *)IObuff;
+  } else {
+    lcmd = xmalloc(lcmd_len);
+  }
+  memcpy(lcmd, EVALHEADER, sizeof(EVALHEADER) - 1);
+  memcpy(lcmd + sizeof(EVALHEADER) - 1, str.data, str.size);
+#undef EVALHEADER
+
+  return nlua_exec(String(lcmd, lcmd_len), args, err);
+
+  if (lcmd != (char *)IObuff) {
+    xfree(lcmd);
+  }
+}
+
 /// call a LuaRef as a function (or table with __call metamethod)
 ///
 /// @param ref     the reference to call (not consumed)

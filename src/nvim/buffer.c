@@ -51,6 +51,7 @@
 #include "nvim/highlight.h"
 #include "nvim/indent.h"
 #include "nvim/indent_c.h"
+#include "nvim/lua/executor.h"
 #include "nvim/main.h"
 #include "nvim/mark.h"
 #include "nvim/extmark.h"
@@ -3978,6 +3979,50 @@ int build_stl_str_hl(
       }
       break;
     }
+    case STL_LUA_EXPR:     // '|'
+    {
+      itemisflag = true;
+
+      // Attempt to copy the expression to evaluate into
+      // the output buffer as a null-terminated string.
+      char_u *e = fmt_p;
+      while (*fmt_p != '|' && *fmt_p != NUL && out_p < out_end_p) {
+        fmt_p++;
+      }
+      if (*fmt_p != '|') {          // missing '}' or out of space
+        break;
+      }
+
+      size_t elen = (size_t)(fmt_p-e);
+      fmt_p++;
+
+      // { Evaluate the expression
+
+
+      // Note: The result stored in `t` is unused.
+      Object ret = NIL;
+      if (!use_sandbox) {
+        Error err = ERROR_INIT;
+        FIXED_TEMP_ARRAY(args, 3);
+        args.items[0] = INTEGER_OBJ(wp->handle);
+        args.items[1] = INTEGER_OBJ(wp->w_buffer->handle);
+        args.items[2] = BOOLEAN_OBJ(wp == curwin);
+        ret = nlua_eval(String((char *)e,elen), args, &err);
+      }
+
+      // }
+
+      // Check if the evaluated result is a number.
+      // If so, convert the number to an int and free the string.
+      if (str != NULL && *str != 0) {
+        if (*skipdigits(str) == NUL) {
+          num = atoi((char *)str);
+          XFREE_CLEAR(str);
+          itemisflag = false;
+        }
+      }
+      break;
+    }
 
     case STL_LINE:
       num = (wp->w_buffer->b_ml.ml_flags & ML_EMPTY)
@@ -4341,7 +4386,7 @@ int build_stl_str_hl(
 
     // Only free the string buffer if we allocated it.
     // Note: This is not needed if `str` is pointing at `tmp`
-    if (opt == STL_VIM_EXPR) {
+    if (opt == STL_VIM_EXPR || opt == STL_LUA_EXPR) {
       xfree(str);
     }
 
