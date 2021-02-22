@@ -1079,6 +1079,7 @@ typedef struct {
   bool external;
   bool focusable;
   WinStyle style;
+  bool border;
 } FloatConfig;
 
 #define FLOAT_CONFIG_INIT ((FloatConfig){ .height = 0, .width = 0, \

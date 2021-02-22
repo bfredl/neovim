@@ -6153,7 +6153,8 @@ void win_grid_alloc(win_T *wp)
     wp->w_lines = xcalloc(rows+1, sizeof(wline_T));
   }
 
-  int total_rows = rows, total_cols = cols;
+  int border_adj = wp->w_floating && wp->w_float_config.border ? 1 : 0;
+  int total_rows = rows + 2*border_adj, total_cols = cols+2*border_adj;
 
   int was_resized = false;
   if (want_allocation && (!has_allocation
@@ -6178,8 +6179,8 @@ void win_grid_alloc(win_T *wp)
 
   if (want_allocation) {
     grid->target = grid_allocated;
-    grid->row_offset = 0;
-    grid->col_offset = 0;
+    grid->row_offset = border_adj;
+    grid->col_offset = border_adj;
   } else {
     grid->target = &default_grid;
     grid->row_offset = wp->w_winrow;

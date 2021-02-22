@@ -958,6 +958,11 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
                       "'focusable' key must be Boolean");
         return false;
       }
+    } else if (!strcmp(key, "border")) {
+      fconfig->border = api_object_to_bool(val, "border", false, err);
+      if (ERROR_SET(err)) {
+        return false;
+      }
     } else if (!strcmp(key, "style")) {
       if (val.type != kObjectTypeString) {
         api_set_error(err, kErrorTypeValidation,
