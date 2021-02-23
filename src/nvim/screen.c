@@ -587,6 +587,13 @@ int update_screen(int type)
       wp->w_redr_type = NOT_VALID;
     }
 
+    // reallocate grid if needed.
+    win_grid_alloc(wp);
+
+    if (wp->w_redr_border) {
+      win_redr_border(wp);
+    }
+
     if (wp->w_redr_type != 0) {
       if (!did_one) {
         did_one = TRUE;
@@ -773,8 +780,6 @@ static void win_update(win_T *wp, Providers *providers)
   buf_signcols(buf);
 
   type = wp->w_redr_type;
-
-  win_grid_alloc(wp);
 
   if (type >= NOT_VALID) {
     wp->w_redr_status = true;
@@ -5411,6 +5416,25 @@ theend:
   entered = FALSE;
 }
 
+static void win_redr_border (win_T *wp)
+{
+  wp->w_redr_border = false;
+  if (!(wp->w_floating && wp->w_float_config.border)) {
+    return;
+  }
+
+  ScreenGrid *grid = &wp->w_grid_alloc;
+  int attr = win_hl_attr(wp, HLF_C);
+
+  int endrow = grid->Rows-1, endcol = grid->Columns-1;
+  grid_fill(grid, 0, 1, 0, endcol, 0x2554, 0x2550, attr);
+  grid_putchar(grid, 0x2557, 0, endcol, attr);
+  grid_fill(grid, 1, endrow, 0, 1, 0x2551, 0, attr);
+  grid_fill(grid, 1, endrow, endcol, endcol+1, 0x2551, 0, attr);
+  grid_fill(grid, endrow, endrow+1, 0, endcol, 0x255a, 0x2550, attr);
+  grid_putchar(grid, 0x255d, endrow, endcol, attr);
+}
+
 // Low-level functions to manipulate invidual character cells on the
 // screen grid.
 
@@ -6162,6 +6186,9 @@ void win_grid_alloc(win_T *wp)
       || grid_allocated->Columns != total_cols)) {
     grid_alloc(grid_allocated, total_rows, total_cols, wp->w_grid_alloc.valid, false);
     grid_allocated->valid = true;
+    if (border_adj) {
+      wp->w_redr_border = true;
+    }
     was_resized = true;
   } else if (!want_allocation && has_allocation) {
     // Single grid mode, all rendering will be redirected to default_grid.
