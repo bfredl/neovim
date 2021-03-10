@@ -1768,6 +1768,46 @@ static bool parse_float_bufpos(Array bufpos, lpos_T *out)
   return true;
 }
 
+static void parse_border_style(Object style, schar_T chars[], int attrs[], Error *err)
+{
+  if (style.type == kObjectTypeArray) {
+    Array arr = style.data.array;
+    size_t size = arr.size;
+    if (size > 8 || (size & (size-1))) {
+      api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+      return;
+    }
+    for (size_t i = 0; i < size; i++) {
+      Object iytem = arr.items[i];
+      String string = NULL_STRING;
+      if (iytem.type == kObjectTypeArray) {
+        Array iarr = iytem.data.array;
+        if (!iarr.size || iarr.size > 2) {
+          api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+          return;
+        }
+        if (iarr.items[0].type != kObjectTypeString) {
+          api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+          return;
+        }
+        string = iarr.items[0].data.string;
+      } else if (iytem.type == kObjectTypeString) {
+        string = iytem.data.string;
+      } else {
+          api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+          return;
+      }
+      size_t len = MAX(string.size, sizeof(*chars)-1);
+      memcpy(chars[i], string.data, len);
+      chars[i][len] = NUL;
+    }
+    while (size < 8) {
+      memcpy(chars+size, chars, sizeof(*chars)*size);
+      size <<= 1;
+    }
+  }
+}
+
 bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
                         Error *err)
 {
@@ -1891,6 +1931,11 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
       }
     } else if (!strcmp(key, "border")) {
       fconfig->border = api_object_to_bool(val, "border", false, err);
+      if (ERROR_SET(err)) {
+        return false;
+      }
+    } else if (!strcmp(key, "borderstyle")) {
+      parse_border_style(val, fconfig->border_chars, fconfig->border_hl, err);
       if (ERROR_SET(err)) {
         return false;
       }
