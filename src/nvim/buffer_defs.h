@@ -1080,6 +1080,9 @@ typedef struct {
   bool focusable;
   WinStyle style;
   bool border;
+  schar_T border_chars[8];
+  int border_hl[8];
+  int border_attr[8];
 } FloatConfig;
 
 #define FLOAT_CONFIG_INIT ((FloatConfig){ .height = 0, .width = 0, \
