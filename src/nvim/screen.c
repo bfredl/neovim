@@ -5424,15 +5424,44 @@ static void win_redr_border (win_T *wp)
   }
 
   ScreenGrid *grid = &wp->w_grid_alloc;
-  int attr = win_hl_attr(wp, HLF_C);
+
+  schar_T *chars = wp->w_float_config.border_chars;
+  int *attrs = wp->w_float_config.border_attr;
 
   int endrow = grid->Rows-1, endcol = grid->Columns-1;
-  grid_fill(grid, 0, 1, 0, endcol, 0x2554, 0x2550, attr);
-  grid_putchar(grid, 0x2557, 0, endcol, attr);
-  grid_fill(grid, 1, endrow, 0, 1, 0x2551, 0, attr);
-  grid_fill(grid, 1, endrow, endcol, endcol+1, 0x2551, 0, attr);
-  grid_fill(grid, endrow, endrow+1, 0, endcol, 0x255a, 0x2550, attr);
-  grid_putchar(grid, 0x255d, endrow, endcol, attr);
+
+  grid_fill(grid, 0, 1, 0, endcol, 0x2554, 0x2550, 0);
+  grid_putchar(grid, 0x2557, 0, endcol, 0);
+  grid_fill(grid, 1, endrow, 0, 1, 0x2551, 0, 0);
+  grid_fill(grid, 1, endrow, endcol, endcol+1, 0x2551, 0, 0);
+  grid_fill(grid, endrow, endrow+1, 0, endcol, 0x255a, 0x2550, 0);
+  grid_putchar(grid, 0x255d, endrow, endcol, 0);
+
+  grid_puts_line_start(grid, 0);
+  grid_put_schar(grid, 0, 0, chars[0], attrs[0]);
+  for (int i = 1; i < endcol; i++) {
+    grid_put_schar(grid, 0, i, chars[1], attrs[1]);
+  }
+  grid_put_schar(grid, 0, endcol, chars[2], attrs[2]);
+  grid_puts_line_flush(false);
+
+  for (int i = 1; i < endrow; i++) {
+    grid_puts_line_start(grid, i);
+    grid_put_schar(grid, i, 0, chars[7], attrs[7]);
+    grid_put_schar(grid, i, endcol, chars[3], attrs[3]);
+    grid_puts_line_flush(false);
+  }
+
+  grid_puts_line_start(grid,endrow);
+  grid_put_schar(grid, endrow, 0, chars[6], attrs[6]);
+  for (int i = 1; i < endcol; i++) {
+    grid_put_schar(grid, endrow, i, chars[5], attrs[5]);
+  }
+  grid_put_schar(grid, endrow, endcol, chars[4], attrs[4]);
+  grid_puts_line_flush(false);
+
+#if 0
+#endif
 }
 
 // Low-level functions to manipulate invidual character cells on the
@@ -5570,6 +5599,21 @@ void grid_puts_line_start(ScreenGrid *grid, int row)
   assert(put_dirty_row == -1);
   put_dirty_row = row;
   put_dirty_grid = grid;
+}
+
+void grid_put_schar(ScreenGrid *grid, int row, int col, char_u *schar, int attr)
+{
+  assert(put_dirty_row == row);
+  unsigned int off = grid->line_offset[row] + col;
+  if (grid->attrs[off] != attr || schar_cmp(grid->chars[off], schar)) {
+      schar_copy(grid->chars[off], schar);
+      grid->attrs[off] = attr;
+
+      put_dirty_first = MIN(put_dirty_first, col);
+      // TODO(bfredl): Y U NO DOUBLEWIDTH?
+      put_dirty_last = MAX(put_dirty_last, col+1);
+  }
+
 }
 
 /// like grid_puts(), but output "text[len]".  When "len" is -1 output up to

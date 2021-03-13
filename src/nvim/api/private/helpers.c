@@ -1645,6 +1645,19 @@ bool api_object_to_bool(Object obj, const char *what,
   }
 }
 
+int object_to_hl_id(Object obj, const char *what, Error *err)
+{
+  if (obj.type == kObjectTypeString) {
+    String str = obj.data.string;
+    return str.size ? syn_check_group((char_u *)str.data, (int)str.size) : 0;
+  } else if(obj.type == kObjectTypeInteger) {
+    return (int)obj.data.integer;
+  } else {
+    api_set_error(err, kErrorTypeValidation, "%s is not a valid highlight", what);
+    return 0;
+  }
+}
+
 HlMessage parse_hl_msg(Array chunks, Error *err)
 {
   HlMessage hl_msg = KV_INITIAL_VALUE;
@@ -1768,7 +1781,7 @@ static bool parse_float_bufpos(Array bufpos, lpos_T *out)
   return true;
 }
 
-static void parse_border_style(Object style, schar_T chars[], int attrs[], Error *err)
+static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Error *err)
 {
   if (style.type == kObjectTypeArray) {
     Array arr = style.data.array;
@@ -1780,6 +1793,7 @@ static void parse_border_style(Object style, schar_T chars[], int attrs[], Error
     for (size_t i = 0; i < size; i++) {
       Object iytem = arr.items[i];
       String string = NULL_STRING;
+      int hl_id = 0;
       if (iytem.type == kObjectTypeArray) {
         Array iarr = iytem.data.array;
         if (!iarr.size || iarr.size > 2) {
@@ -1791,18 +1805,27 @@ static void parse_border_style(Object style, schar_T chars[], int attrs[], Error
           return;
         }
         string = iarr.items[0].data.string;
+        if (iarr.size == 2) {
+          hl_id = object_to_hl_id(iarr.items[1], "border highlight", err);
+          if (ERROR_SET(err)) {
+            return;
+          }
+        }
+
       } else if (iytem.type == kObjectTypeString) {
         string = iytem.data.string;
       } else {
-          api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
-          return;
+        api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+        return;
       }
-      size_t len = MAX(string.size, sizeof(*chars)-1);
+      size_t len = MIN(string.size, sizeof(*chars)-1);
       memcpy(chars[i], string.data, len);
       chars[i][len] = NUL;
+      hl_ids[i] = hl_id;
     }
     while (size < 8) {
       memcpy(chars+size, chars, sizeof(*chars)*size);
+      memcpy(hl_ids+size, hl_ids, sizeof(*hl_ids)*size);
       size <<= 1;
     }
   }
@@ -1934,7 +1957,7 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
       if (ERROR_SET(err)) {
         return false;
       }
-    } else if (!strcmp(key, "borderstyle")) {
+    } else if (!strcmp(key, "border_style")) {
       parse_border_style(val, fconfig->border_chars, fconfig->border_hl, err);
       if (ERROR_SET(err)) {
         return false;
