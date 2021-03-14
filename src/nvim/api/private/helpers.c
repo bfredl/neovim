@@ -1818,6 +1818,10 @@ static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Erro
         api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
         return;
       }
+      if (!string.size
+          || mb_string2cells_len(string.data) != 1) {
+        api_set_error(err, kErrorTypeValidation, "border chars must be one cell");
+      }
       size_t len = MIN(string.size, sizeof(*chars)-1);
       memcpy(chars[i], string.data, len);
       chars[i][len] = NUL;
