@@ -1783,6 +1783,17 @@ static bool parse_float_bufpos(Array bufpos, lpos_T *out)
 
 static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Error *err)
 {
+
+  struct {
+    const char *name;
+    schar_T chars[8];
+  } defaults[] = {
+    { "double", { "╔","═","╗", "║", "╝", "═", "╚", "║" } },
+    { "single", { "┌","─","┐", "│", "┘", "─", "└", "│" } },
+    { NULL, { { NUL } } },
+  };
+
+
   if (style.type == kObjectTypeArray) {
     Array arr = style.data.array;
     size_t size = arr.size;
@@ -1819,7 +1830,7 @@ static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Erro
         return;
       }
       if (!string.size
-          || mb_string2cells_len(string.data) != 1) {
+          || mb_string2cells_len((char_u *)string.data, string.size) != 1) {
         api_set_error(err, kErrorTypeValidation, "border chars must be one cell");
       }
       size_t len = MIN(string.size, sizeof(*chars)-1);
@@ -1832,6 +1843,16 @@ static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Erro
       memcpy(hl_ids+size, hl_ids, sizeof(*hl_ids)*size);
       size <<= 1;
     }
+  } else if (style.type == kObjectTypeString) {
+    char *str = style.data.string.data;
+    for (size_t i = 0; defaults[i].name; i++) {
+      if (strequal(str, defaults[i].name)) {
+        memcpy(chars, defaults[i].chars, sizeof(defaults[i].chars));
+        memset(hl_ids, 0, 8*sizeof(*hl_ids));
+        return;
+      }
+    }
+    api_set_error(err, kErrorTypeValidation, "GOOF %s", str);
   }
 }
 

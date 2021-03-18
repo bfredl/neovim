@@ -576,7 +576,7 @@ size_t mb_string2cells_len(const char_u *str, size_t size)
   size_t clen = 0;
 
   for (const char_u *p = str; *p != NUL && p < str+size;
-       p += utf_ptr2len_len(p, size+(p-str))) {
+       p += utfc_ptr2len_len(p, size+(p-str))) {
     clen += utf_ptr2cells(p);
   }
 

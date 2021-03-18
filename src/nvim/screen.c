@@ -590,7 +590,9 @@ int update_screen(int type)
     // reallocate grid if needed.
     win_grid_alloc(wp);
 
-    if (wp->w_redr_border) {
+    if (wp->w_redr_border
+       // FUUUU || wp->w_redr_type >= NOT_VALID
+        ) {
       win_redr_border(wp);
     }
 
@@ -5430,13 +5432,6 @@ static void win_redr_border (win_T *wp)
 
   int endrow = grid->Rows-1, endcol = grid->Columns-1;
 
-  grid_fill(grid, 0, 1, 0, endcol, 0x2554, 0x2550, 0);
-  grid_putchar(grid, 0x2557, 0, endcol, 0);
-  grid_fill(grid, 1, endrow, 0, 1, 0x2551, 0, 0);
-  grid_fill(grid, 1, endrow, endcol, endcol+1, 0x2551, 0, 0);
-  grid_fill(grid, endrow, endrow+1, 0, endcol, 0x255a, 0x2550, 0);
-  grid_putchar(grid, 0x255d, endrow, endcol, 0);
-
   grid_puts_line_start(grid, 0);
   grid_put_schar(grid, 0, 0, chars[0], attrs[0]);
   for (int i = 1; i < endcol; i++) {
@@ -5459,9 +5454,6 @@ static void win_redr_border (win_T *wp)
   }
   grid_put_schar(grid, endrow, endcol, chars[4], attrs[4]);
   grid_puts_line_flush(false);
-
-#if 0
-#endif
 }
 
 // Low-level functions to manipulate invidual character cells on the
