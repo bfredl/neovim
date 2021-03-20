@@ -1781,7 +1781,7 @@ static bool parse_float_bufpos(Array bufpos, lpos_T *out)
   return true;
 }
 
-static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Error *err)
+static void parse_border_style(Object style, FloatConfig *fconfig, Error *err)
 {
 
   struct {
@@ -1793,12 +1793,16 @@ static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Erro
     { NULL, { { NUL } } },
   };
 
+  schar_T *chars = fconfig->border_chars;
+  int *hl_ids = fconfig->border_hl_ids;
+
+  fconfig->border = true;
 
   if (style.type == kObjectTypeArray) {
     Array arr = style.data.array;
     size_t size = arr.size;
     if (size > 8 || (size & (size-1))) {
-      api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+      api_set_error(err, kErrorTypeValidation, "invalid number of border chars");
       return;
     }
     for (size_t i = 0; i < size; i++) {
@@ -1808,16 +1812,16 @@ static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Erro
       if (iytem.type == kObjectTypeArray) {
         Array iarr = iytem.data.array;
         if (!iarr.size || iarr.size > 2) {
-          api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+          api_set_error(err, kErrorTypeValidation, "invalid border char");
           return;
         }
         if (iarr.items[0].type != kObjectTypeString) {
-          api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+          api_set_error(err, kErrorTypeValidation, "invalid border char");
           return;
         }
         string = iarr.items[0].data.string;
         if (iarr.size == 2) {
-          hl_id = object_to_hl_id(iarr.items[1], "border highlight", err);
+          hl_id = object_to_hl_id(iarr.items[1], "border char highlight", err);
           if (ERROR_SET(err)) {
             return;
           }
@@ -1826,7 +1830,7 @@ static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Erro
       } else if (iytem.type == kObjectTypeString) {
         string = iytem.data.string;
       } else {
-        api_set_error(err, kErrorTypeValidation, "you dun GOOFED");
+        api_set_error(err, kErrorTypeValidation, "invalid border char");
         return;
       }
       if (!string.size
@@ -1844,15 +1848,19 @@ static void parse_border_style(Object style, schar_T chars[], int hl_ids[], Erro
       size <<= 1;
     }
   } else if (style.type == kObjectTypeString) {
-    char *str = style.data.string.data;
+    String str = style.data.string;
+    if (str.size == 0 || strequal(str.data, "none")) {
+      fconfig->border = false;
+      return;
+    }
     for (size_t i = 0; defaults[i].name; i++) {
-      if (strequal(str, defaults[i].name)) {
+      if (strequal(str.data, defaults[i].name)) {
         memcpy(chars, defaults[i].chars, sizeof(defaults[i].chars));
         memset(hl_ids, 0, 8*sizeof(*hl_ids));
         return;
       }
     }
-    api_set_error(err, kErrorTypeValidation, "GOOF %s", str);
+    api_set_error(err, kErrorTypeValidation, "invalid border style \"%s\"", str.data);
   }
 }
 
@@ -1978,12 +1986,7 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
         return false;
       }
     } else if (!strcmp(key, "border")) {
-      fconfig->border = api_object_to_bool(val, "border", false, err);
-      if (ERROR_SET(err)) {
-        return false;
-      }
-    } else if (!strcmp(key, "border_style")) {
-      parse_border_style(val, fconfig->border_chars, fconfig->border_hl, err);
+      parse_border_style(val, fconfig, err);
       if (ERROR_SET(err)) {
         return false;
       }

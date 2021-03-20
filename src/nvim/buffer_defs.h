@@ -1081,7 +1081,7 @@ typedef struct {
   WinStyle style;
   bool border;
   schar_T border_chars[8];
-  int border_hl[8];
+  int border_hl_ids[8];
   int border_attr[8];
 } FloatConfig;
 
