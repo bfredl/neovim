@@ -591,7 +591,7 @@ int update_screen(int type)
     win_grid_alloc(wp);
 
     if (wp->w_redr_border
-       // FUUUU || wp->w_redr_type >= NOT_VALID
+        || wp->w_redr_type >= NOT_VALID
         ) {
       win_redr_border(wp);
     }
@@ -5443,6 +5443,8 @@ static void win_redr_border (win_T *wp)
   for (int i = 1; i < endrow; i++) {
     grid_puts_line_start(grid, i);
     grid_put_schar(grid, i, 0, chars[7], attrs[7]);
+    grid_puts_line_flush(false);
+    grid_puts_line_start(grid, i);
     grid_put_schar(grid, i, endcol, chars[3], attrs[3]);
     grid_puts_line_flush(false);
   }
@@ -6203,6 +6205,8 @@ void win_grid_alloc(win_T *wp)
 
   int rows = wp->w_height_inner;
   int cols = wp->w_width_inner;
+  int total_rows = wp->w_height_outer;
+  int total_cols = wp->w_width_outer;
 
   bool want_allocation = ui_has(kUIMultigrid) || wp->w_floating;
   bool has_allocation = (grid_allocated->chars != NULL);
@@ -6213,16 +6217,13 @@ void win_grid_alloc(win_T *wp)
     wp->w_lines = xcalloc(rows+1, sizeof(wline_T));
   }
 
-  int border_adj = wp->w_floating && wp->w_float_config.border ? 1 : 0;
-  int total_rows = rows + 2*border_adj, total_cols = cols+2*border_adj;
-
   int was_resized = false;
   if (want_allocation && (!has_allocation
       || grid_allocated->Rows != total_rows
       || grid_allocated->Columns != total_cols)) {
     grid_alloc(grid_allocated, total_rows, total_cols, wp->w_grid_alloc.valid, false);
     grid_allocated->valid = true;
-    if (border_adj) {
+    if (wp->w_border_adj) {
       wp->w_redr_border = true;
     }
     was_resized = true;
@@ -6242,8 +6243,8 @@ void win_grid_alloc(win_T *wp)
 
   if (want_allocation) {
     grid->target = grid_allocated;
-    grid->row_offset = border_adj;
-    grid->col_offset = border_adj;
+    grid->row_offset = wp->w_border_adj;
+    grid->col_offset = wp->w_border_adj;
   } else {
     grid->target = &default_grid;
     grid->row_offset = wp->w_winrow;

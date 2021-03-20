@@ -605,6 +605,7 @@ win_T *win_new_float(win_T *wp, FloatConfig fconfig, Error *err)
   wp->w_vsep_width = 0;
 
   win_config_float(wp, fconfig);
+  win_set_inner_size(wp);
   wp->w_pos_changed = true;
   redraw_later(wp, VALID);
   return wp;
@@ -759,8 +760,8 @@ void ui_ext_win_position(win_T *wp)
       wp->w_wincol = comp_col;
       bool valid = (wp->w_redr_type == 0);
       bool on_top = (curwin == wp) || !curwin->w_floating;
-      ui_comp_put_grid(&wp->w_grid_alloc, comp_row, comp_col, wp->w_height,
-                       wp->w_width, valid, on_top);
+      ui_comp_put_grid(&wp->w_grid_alloc, comp_row, comp_col,
+                       wp->w_height_outer, wp->w_width_outer, valid, on_top);
       ui_check_cursor_grid(wp->w_grid_alloc.handle);
       wp->w_grid_alloc.focusable = wp->w_float_config.focusable;
       if (!valid) {
@@ -5697,6 +5698,11 @@ void win_set_inner_size(win_T *wp)
   if (wp->w_buffer->terminal) {
     terminal_check_size(wp->w_buffer->terminal);
   }
+
+  wp->w_border_adj = wp->w_floating && wp->w_float_config.border ? 1 : 0;
+  wp->w_height_outer = wp->w_height_inner + 2*wp->w_border_adj;
+  wp->w_width_outer = wp->w_width_inner + 2*wp->w_border_adj;
+
 }
 
 /// Set the width of a window.

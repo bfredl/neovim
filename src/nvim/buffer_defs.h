@@ -1260,6 +1260,10 @@ struct window_S {
   int w_height_request;
   int w_width_request;
 
+  int w_border_adj;
+  // outer size of window grid, including border
+  int w_height_outer;
+  int w_width_outer;
   /*
    * === start of cached values ====
    */
