@@ -1626,6 +1626,7 @@ char_u *nlua_register_table_as_callable(typval_T *const arg)
 
 void nlua_execute_log_keystroke(int c)
 {
+  static bool did_err = true;
   char_u buf[NUMBUFLEN];
   size_t buf_len = special_to_buf(c, mod_mask, false, buf);
 
@@ -1640,15 +1641,19 @@ void nlua_execute_log_keystroke(int c)
 
   // [ vim, vim._log_keystroke ]
   lua_getfield(lstate, -1, "_log_keystroke");
-  luaL_checktype(lstate, -1, LUA_TFUNCTION);
 
   // [ vim, vim._log_keystroke, buf ]
   lua_pushlstring(lstate, (const char *)buf, buf_len);
 
   if (lua_pcall(lstate, 1, 0, 0)) {
-    nlua_error(
-        lstate,
-        _("Error executing vim.log_keystroke lua callback: %.*s"));
+    if (!did_err) {
+      nlua_error(
+          lstate,
+          _("Error executing vim.log_keystroke lua callback: %.*s"));
+      did_err = true;
+    } else {
+      lua_pop(lstate, 1);
+    }
   }
 
   // [ vim ]

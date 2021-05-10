@@ -33,6 +33,7 @@
 --    - https://github.com/bakpakin/Fennel (pretty print, repl)
 --    - https://github.com/howl-editor/howl/tree/master/lib/howl/util
 
+error "blork"
 local vim = vim
 assert(vim)
 
