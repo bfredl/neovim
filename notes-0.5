@@ -1,0 +1,38 @@
+
+NVIM v0.5.0
+
+This release represents ~4000 commits since v0.4.4, the previous
+non-maintenance release.  Highlights include builtin support
+for LSP and tree-sitter, as well as vast improvements to lua
+as a plugin and configuration language.
+
+
+
+FEATURES:
+
+New API functions:
+  nvim_exec: execute multiline vim script blocks
+  nvim_get_hl_id_by_name: Gets a highight definition by name
+  nvim_exec_lua: new name for nvim_execute_lua
+  nvim_notify: Notify the user with a message
+  nvim_get_runtime_file: Find files in runtime directories
+  nvim_get_all_options_info: Get option information for all options
+  nvim_get_option_info: Get option information for one option
+  nvim_echo: Echo a message with highlights
+  nvim_open_term: Open a virtual terminal in a buffer
+  nvim_chan_send: send data to a channel. (like chansend() but supports lua strings)
+  nvim_set_decoration_provider: callback driven decoration API for a namespace
+
+  nvim_buf_set_text: Set/replace a character range in a buffer
+  nvim_buf_delete: Delete the buffer. |:bwipeout|
+  nvim_buf_get_extmark_by_id: Returns position for a given extmark id.
+  nvim_buf_get_extmarks: get extmarks in traversal order.
+  nvim_buf_set_extmark: Creates or updates an extmark.
+
+  nvim_buf_del_extmark: Removes an extmark.
+  nvim_buf_call: call a function with buffer as temporary current buffer
+
+  nvim_win_hide: Closes the window and hide the buffer it contains |:hide|
+  nvim_win_call: Calls a function with window as temporary current window.
+
+
