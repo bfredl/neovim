@@ -46,6 +46,23 @@ Lua:
            syntax/ ftdetect/ indent/ ftplugin/ compiler/ colors/
     bc86f76c0 api/buffer: add "on_bytes" callback to nvim_buf_attach
     43956dea5 #13479 lua: Add vim.opt and fix scopes of vim.o
+1407899c3 #12268 lua: Add buffer, window and tab accessors
+    be662fe5c lua: vim.wait implementation
+    2b663c061 #14213 viml: embed Lua syntax highlighting
+    901dd79f6 feat: add completion to ':lua'
+    d82688973 lua: complete methods in metatables
+    342148525 runtime: propagate lua parsing errors while using "require"
+    aaca2c1c4 #13276 feat(lua): improve error message to make it actionable
+    c60c7375f startup: handle autoload and lua packages during startup
+3ccdbc570 #12536 lua: add vim.register_keystroke_callback
+    971a191c4 lua: Add ability to pass lua functions directly to vimL
+91e41c857 #12401 lua: add vim.highlight.range
+ae5bd0454 #11969 lua: add tbl_deep_extend
+    ea4127e9a lua: metatable for empty dict value
+    dab40f43b Add v:lua.func() vimL syntax for calling lua
+    678a51b1d Lua: vim.validate()
+    474d0bcbf lua: vim.rpcrequest, vim.rpcnotify, vim.NIL
+    8ee7c94a9 lua: add vim.fn.{func} for direct access to vimL function
 
 Tree-sitter:
   Note: tree-sitter is considered experimental for 0.5. There's remaining
@@ -79,4 +96,20 @@ f559e5249 #11607 LSP: Add textDocument/codeAction support
 0d83a1c43 #12638 LSP: Feature/add workspace folders
 fd507e278 #13641 LSP: window/showMessageRequest
     e467d2939 LSP: Move workspace/configuration handler from nvim-lspconfig to core
+
+UI:
+    f8134f2fd screen.c: remove fold_line special case
+    87afc9031 screen.c: fix an issue with wrap and folds
+    b419e39a2 screen.c: fix last character on foldtext
+    2ea312769 #13688 screen.c: fix display of signcolumn=auto in diffs
+    c146eddc8 experimental support for per-window color schemes
+    a1508c9f6 nvim__screenshot (dump TUI state to file)
+    c2d288e29 Fix screen terminal family issues
+    08fe10010 terminal: enable pass through indexed colors to TUI in rgb mode
+    5a8569942 tests/ui: make screen.lua use "linegrid" representation internally
+    8fe19d9d8 screen: make ui_compositor aware of the intended size of a float
+
+vim patches:
+  more than X vim patches and runtime updates got merged. Hooray!
+  TODO: mention affected areas, such as qflist, etc, etc
   
