@@ -2,10 +2,11 @@
 NVIM v0.5.0
 
 This release represents ~4000 commits since v0.4.4, the previous
-non-maintenance release.  Highlights include builtin support
-for LSP and tree-sitter, as well as vast improvements to lua
-as a plugin and configuration language.
-
+non-maintenance release. Highlights include builtin support for LSP, new APIs
+for extended marks (with byte resolution tracking of changes) and buffer
+decorations, as well as vast improvements to lua as a plugin and configuration
+language. Experimental support for tree-sitter as a syntax engine is also
+included, building on the new core APIs for byte tracking and decorations.
 
 
 FEATURES:
@@ -40,29 +41,29 @@ New UI events:
   redraw.win_viewport
 
 Lua:
-    767cd8b17 #12235 startup: add init.lua as an alternative user config
-    687eb0b39 #14686 feat(startup): Source runtime/plugin/**/*.lua at startup
-    #14686 runtime: allow lua in various runtime search paths such as
-           syntax/ ftdetect/ indent/ ftplugin/ compiler/ colors/
-    bc86f76c0 api/buffer: add "on_bytes" callback to nvim_buf_attach
-    43956dea5 #13479 lua: Add vim.opt and fix scopes of vim.o
-1407899c3 #12268 lua: Add buffer, window and tab accessors
-    be662fe5c lua: vim.wait implementation
-    2b663c061 #14213 viml: embed Lua syntax highlighting
-    901dd79f6 feat: add completion to ':lua'
-    d82688973 lua: complete methods in metatables
-    342148525 runtime: propagate lua parsing errors while using "require"
-    aaca2c1c4 #13276 feat(lua): improve error message to make it actionable
-    c60c7375f startup: handle autoload and lua packages during startup
-3ccdbc570 #12536 lua: add vim.register_keystroke_callback
-    971a191c4 lua: Add ability to pass lua functions directly to vimL
-91e41c857 #12401 lua: add vim.highlight.range
-ae5bd0454 #11969 lua: add tbl_deep_extend
-    ea4127e9a lua: metatable for empty dict value
-    dab40f43b Add v:lua.func() vimL syntax for calling lua
-    678a51b1d Lua: vim.validate()
-    474d0bcbf lua: vim.rpcrequest, vim.rpcnotify, vim.NIL
-    8ee7c94a9 lua: add vim.fn.{func} for direct access to vimL function
+  767cd8b17 #12235 startup: add init.lua as an alternative user config
+  687eb0b39 #14686 feat(startup): Source runtime/plugin/**/*.lua at startup
+  #14686 runtime: allow lua in various runtime search paths such as
+         syntax/ ftdetect/ indent/ ftplugin/ compiler/ colors/
+  43956dea5 #13479 lua: Add vim.opt and fix scopes of vim.o
+  1407899c3 #12268 lua: Add buffer, window and tab accessors
+  be662fe5c lua: vim.wait implementation
+  2b663c061 #14213 viml: embed Lua syntax highlighting
+  901dd79f6 feat: add completion to ':lua'
+  82688973 lua: complete methods in metatables
+  342148525 runtime: propagate lua parsing errors while using "require"
+  aaca2c1c4 #13276 feat(lua): improve error message to make it actionable
+  c60c7375f startup: handle autoload and lua packages during startup
+  3ccdbc570 #12536 lua: add vim.register_keystroke_callback
+  971a191c4 lua: Add ability to pass lua functions directly to vimL
+  91e41c857 #12401 lua: add vim.highlight.range
+  ae5bd0454 #11969 lua: add tbl_deep_extend
+  ea4127e9a lua: metatable for empty dict value
+  dab40f43b Add v:lua.func() vimL syntax for calling lua
+  678a51b1d Lua: vim.validate()
+  474d0bcbf lua: vim.rpcrequest, vim.rpcnotify, vim.NIL
+  8ee7c94a9 lua: add vim.fn.{func} for direct access to vimL function
+  d0d38fc36 #11442 Lua: vim.env, vim.{g,v,w,bo,wo}
 
 Tree-sitter:
   Note: tree-sitter is considered experimental for 0.5. There's remaining
@@ -70,6 +71,7 @@ Tree-sitter:
   large files and injected (nested) languages.
 
   e93342629 #10124 Tree-sitter API for lua
+  440695c29 tree-sitter: implement query functionality and highlighting prototype
   8bea39f37 feat(treesitter): allow injections to be configured through directives
   929f19414 feat(treesitter): add offset predicate for language injection
   cd75d3289 #14200 feat: treesitter checkhealth
@@ -78,39 +80,83 @@ Tree-sitter:
   3c5141d2c #13008 treesitter: add string parser
   9437327d5 treesitter: use new on_bytes interface
   e4b5efa51 treesitter: use decoration provider API
+  d6209a7b8 fix: Add a test and it is so pretty
+  836c31032 feat(ts): bump tree-sitter to v0.20.0
 
 LSP client:
-00dc12c5d #11336 lua LSP client: initial implementation
-d5aaad14e #11430 Followup improvements to LSP
-ee7ac469c #11578 LSP: Use async completion for omnifunc.
-070bd3ea2 #11604 LSP: shrink API, improve docs
-25afa10f9 #11669 Merge 'LSP: differentiate diagnostic underline by severity'
-e956ea767 #11777 LSP: show diagnostic in qf/loclist
-dd8b29cfe #11838 LSP: set InitializeParams.rootPath value
-0c5d2ffeb #11837 Merge 'LSP: fixes, improve test visibility'
-ca8699378 #11638 LSP: implement documentHighlight
-    220a2b05c LSP/references: Add context to locations returned by server
-    ccb038dc6 LSP/completion: add textEdit support
-da6f38ab3 #12313 LSP: Add workspace.applyEdit client capabilities
-f559e5249 #11607 LSP: Add textDocument/codeAction support
-0d83a1c43 #12638 LSP: Feature/add workspace folders
-fd507e278 #13641 LSP: window/showMessageRequest
-    e467d2939 LSP: Move workspace/configuration handler from nvim-lspconfig to core
+  00dc12c5d #11336 lua LSP client: initial implementation
+  d5aaad14e #11430 Followup improvements to LSP
+  ee7ac469c #11578 LSP: Use async completion for omnifunc.
+  070bd3ea2 #11604 LSP: shrink API, improve docs
+  25afa10f9 #11669 Merge 'LSP: differentiate diagnostic underline by severity'
+  e956ea767 #11777 LSP: show diagnostic in qf/loclist
+  dd8b29cfe #11838 LSP: set InitializeParams.rootPath value
+  0c5d2ffeb #11837 Merge 'LSP: fixes, improve test visibility'
+  ca8699378 #11638 LSP: implement documentHighlight
+  220a2b05c LSP/references: Add context to locations returned by server
+  ccb038dc6 LSP/completion: add textEdit support
+  da6f38ab3 #12313 LSP: Add workspace.applyEdit client capabilities
+  f559e5249 #11607 LSP: Add textDocument/codeAction support
+  0d83a1c43 #12638 LSP: Feature/add workspace folders
+  fd507e278 #13641 LSP: window/showMessageRequest
+  e467d2939 LSP: Move workspace/configuration handler from nvim-lspconfig to core
+  2bdd553c9 feat(lsp): Add codelens support
 
 UI:
-    f8134f2fd screen.c: remove fold_line special case
-    87afc9031 screen.c: fix an issue with wrap and folds
-    b419e39a2 screen.c: fix last character on foldtext
-    2ea312769 #13688 screen.c: fix display of signcolumn=auto in diffs
-    c146eddc8 experimental support for per-window color schemes
-    a1508c9f6 nvim__screenshot (dump TUI state to file)
-    c2d288e29 Fix screen terminal family issues
-    08fe10010 terminal: enable pass through indexed colors to TUI in rgb mode
-    5a8569942 tests/ui: make screen.lua use "linegrid" representation internally
-    8fe19d9d8 screen: make ui_compositor aware of the intended size of a float
+  f8134f2fd screen.c: remove fold_line special case
+  c146eddc8 experimental support for per-window color schemes
+  a1508c9f6 nvim__screenshot (dump TUI state to file)
+  08fe10010 terminal: enable pass through indexed colors to TUI in rgb mode
+  5a8569942 tests/ui: make screen.lua use "linegrid" representation internally
+  8fe19d9d8 screen: make ui_compositor aware of the intended size of a float
+  54ce1010e extmark: add new flexible "decorations" abstraction
+  4781333a7 decorations: allow virt_text overlay at any column
+  bdebe8516 decorations: use extmark column adjustments for buffer highlights
+  7b488314d decorations: Allow highlights beyond end of line hl_eol
+  425bc438a decorations: add additional styling of virt_text overlays
+  edb5864a2 floats: z-index
+  243820ebd floats: add borders (MS-DOS MODE)
+  5b6edc852 feat(float): add rounded borders preset
+  4a36ec6da #14310 float: add "solid" border style
 
 vim patches:
   around ~1000 vim patches and runtime updates got merged. Hooray!
   Changes include improvements to quickfix, prompt buffers, incsearch,
   display of search counts, and much much more.
-  
+
+various features and changes:
+  858c05613 #12809 Support for :perl, :perlfile, :perldo and perleval()
+  bc86f76c0 api/buffer: add "on_bytes" callback to nvim_buf_attach
+  19b623708 jobstart now supports env/clear_env
+  ef7c6b972 Support specifying "env" option for termopen()
+  7c4f34966 #13287 switch from travis to github actions
+  24db59ca8 feat: implement BufModified autocmd
+  b83d8223f implement Scroll autocommand
+  8caf84130 Lower "closed by the client" message level to INFO
+  7de276b87 bump libvterm to 0.1.4
+  097ec71bd #14096 aarch64/linux: fix build by updating LuaJIT
+  bd5f0e969 #12531 support autoread using tui focus tracking
+  8a1276005 #12382 Add v:event.visual during `TextYankPost`
+  802f8429d api(nvim_open_win): add "noautocmd" option
+
+
+FIXES:
+  21444552c BugFix(clipboard): Fix block paste not working properly
+  01493e799 #14413 api: fix nvim_exec() silencing behaviour
+  9699f3be1 fix(doc): Add '/site' to stdpath('data') example in `:help 'rtp'`
+  581b2bcde screen: fix problem with p_ch
+  eae4b1e5c luaref: fix leaks for global luarefs
+  409b2711f fix: segfault when pasting in term with empty buffer
+  cf6c23fb0 #14273 fix plenty of errors discovered by clang
+  21035cff9 #14500 fix plenty of errors discovered by coverity
+  bca19138b #13987 tui: fix possibility of evaluating uninitialized variables
+  9f2335937 fix_cursor: do not change line number when edit will not impact cursor row
+  33f92fe02 fix(pty): Always use $TERM from the job's env dict
+  6249059d4 checkhealth: fix terminfo problems on Windows
+  397be5d38 #12811 UI: fix cursor not displayed after hiding and un-hiding
+  87afc9031 screen.c: fix an issue with wrap and folds
+  b419e39a2 screen.c: fix last character on foldtext
+  2ea312769 #13688 screen.c: fix display of signcolumn=auto in diffs
+  c2d288e29 Fix screen terminal family issues
+  314b222c2 #14127 Fix click on foldcolumn with vsplit
+  e65d0e53b vim.fn: throw error when trying to use API function
