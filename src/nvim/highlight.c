@@ -337,29 +337,21 @@ void update_window_hl(win_T *wp, bool invalid)
 
   // If a floating window is blending it always have a named
   // wp->w_hl_attr_normal group. HL_ATTR(HLF_NFLOAT) is always named.
-  bool has_blend = wp->w_floating && wp->w_p_winbl != 0;
+
+  int *hl_def = *(NSHlAttr *)pmap_get(handle_T)(ns_hl_attr, ns_id);
+  if (!hl_def) {
+    hl_def = highlight_attr; //TODO: what the hell
+  }
+
 
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
-  if (float_win && wp->w_hl_ids[HLF_NFLOAT] != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(ns_id, HLF_NFLOAT,
-                                          wp->w_hl_ids[HLF_NFLOAT], !has_blend);
-  } else if (wp->w_hl_id_normal != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(ns_id, -1, wp->w_hl_id_normal,
-                                          !has_blend);
+  if (float_win && hl_def[HLF_NFLOAT] != 0) {
+    wp->w_hl_attr_normal = hl_def[HLF_NFLOAT];
+  } else if (hl_def[HLF_COUNT] > 0) {
+    wp->w_hl_attr_normal = hl_def[HLF_COUNT];
   } else {
     wp->w_hl_attr_normal = float_win ? HL_ATTR(HLF_NFLOAT) : 0;
-  }
-
-  // NOOOO! You cannot just pretend that "Normal" is just like any other
-  // syntax group! It needs at least 10 layers of special casing! Noooooo!
-  //
-  // haha, tema engine go brrr
-  int normality = syn_check_group((const char_u *)S_LEN("Normal"));
-  int ns_attr = ns_get_hl(&ns_id, normality, false, false);
-  if (ns_attr > 0) {
-    // TODO(bfredl): hantera NormalNC and so on
-    wp->w_hl_attr_normal = ns_attr;
   }
 
   // if blend= attribute is not set, 'winblend' value overrides it.
@@ -372,25 +364,10 @@ void update_window_hl(win_T *wp, bool invalid)
   }
 
 
-  for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
-    int attr;
-    if (ns_id > 0 || wp->w_hl_ids[hlf] != 0) {
-      int id = wp->w_hl_ids[hlf];
-      if (id == 0) {
-        id = syn_check_group((char_u *)hlf_names[hlf],
-                             (int)STRLEN(hlf_names[hlf]));
-      }
-      attr = hl_get_ui_attr(ns_id, hlf, id, false);
-    } else {
-      attr = HL_ATTR(hlf);
-    }
-    wp->w_hl_attrs[hlf] = attr;
-  }
-
   wp->w_float_config.shadow = false;
   if (wp->w_floating && wp->w_float_config.border) {
     for (int i = 0; i < 8; i++) {
-      int attr = wp->w_hl_attrs[HLF_BORDER];
+      int attr = hl_def[HLF_BORDER];
       if (wp->w_float_config.border_hl_ids[i]) {
         attr = hl_get_ui_attr(ns_id, HLF_BORDER,
                               wp->w_float_config.border_hl_ids[i], false);
@@ -406,12 +383,13 @@ void update_window_hl(win_T *wp, bool invalid)
   // shadow might cause blending
   check_blending(wp);
 
-  // TODO: not the correct check with ns
-  if (wp->w_hl_ids[HLF_INACTIVE] == 0) {
+  // TODO: what's up with all this _ad-hoc_ logic? why not specifiy it
+  // in luaaa.
+  if (hl_def[HLF_INACTIVE] == 0) {
     wp->w_hl_attr_normalnc = hl_combine_attr(HL_ATTR(HLF_INACTIVE),
                                              wp->w_hl_attr_normal);
   } else {
-    wp->w_hl_attr_normalnc = wp->w_hl_attrs[HLF_INACTIVE];
+    wp->w_hl_attr_normalnc = hl_def[HLF_INACTIVE];
   }
 
   wp->w_hl_attr_bg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;

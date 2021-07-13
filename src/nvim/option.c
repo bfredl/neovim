@@ -3749,7 +3749,8 @@ static bool parse_winhl_opt(win_T *wp)
   }
 
   wp->w_hl_id_normal = w_hl_id_normal;
-  memcpy(wp->w_hl_ids, w_hl_ids, sizeof(w_hl_ids));
+  // TODO: grugggg
+  //memcpy(wp->w_hl_ids, w_hl_ids, sizeof(w_hl_ids));
   wp->w_hl_needs_update = true;
   return true;
 }
