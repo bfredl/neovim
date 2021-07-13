@@ -731,7 +731,9 @@ void win_set_minimal_style(win_T *wp)
                    : concat_str(old, (char_u *)",eob: "));
     xfree(old);
   }
-  if (wp->w_hl_ids[HLF_EOB] != -1) {
+
+  // TODO: GRUGGG
+  if (false) {
     char_u *old = wp->w_p_winhl;
     wp->w_p_winhl = ((*old == NUL)
                      ? (char_u *)xstrdup("EndOfBuffer:")
