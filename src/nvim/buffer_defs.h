@@ -1461,8 +1461,8 @@ struct window_S {
 
 static inline int win_hl_attr(win_T *wp, int hlf)
 {
-  // TODO: are you the man? - aaaah, aaaaaa!
-  return ((true || hl_attr_active != highlight_attr) ? hl_attr_active : NULL)[hlf];
+  // TODO: the former should newer be null!
+  return (wp->w_ns_hl_attr ? wp->w_ns_hl_attr : hl_attr_active)[hlf];
 }
 
 /// Macros defined in Vim, but not in Neovim

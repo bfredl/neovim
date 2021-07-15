@@ -326,6 +326,8 @@ void update_window_hl(win_T *wp, bool invalid)
   if (ns_hl_fast) {
     ns_id = ns_hl_fast;
   }
+
+  update_ns_hl(ns_id); // TODO: always???
   if (ns_id != wp->w_ns_hl_active) {
     wp->w_ns_hl_active = ns_id;
 
