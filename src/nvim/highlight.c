@@ -249,6 +249,11 @@ int ns_get_hl(NS *hl_ns, int hl_id, bool link, bool nodefault)
   }
 }
 
+void hl_update_ns(void)
+{
+
+}
+
 void hl_check_ns(void)
 {
   int ns = 0;
@@ -263,11 +268,6 @@ void hl_check_ns(void)
 
   hl_attr_active = highlight_attr;
   if (ns > 0) {
-    DecorProvider *p = get_decor_provider(ns, true);
-    if (!p->hl_cached) {
-      // TODO: putta in?
-      update_ns_hl(ns);
-    }
 
     NSHlAttr *hl_def = (NSHlAttr *)pmap_get(handle_T)(ns_hl_attr, ns);
     if (hl_def) {
@@ -322,14 +322,31 @@ int hl_get_ui_attr(int ns_id, int idx, int final_id, bool optional)
 
 void update_window_hl(win_T *wp, bool invalid)
 {
-  int ns_id = wp->w_ns_hl_active;
+  int ns_id = wp->w_ns_hl;
+  if (ns_hl_fast) {
+    ns_id = ns_hl_fast;
+  }
+  if (ns_id != wp->w_ns_hl_active) {
+    wp->w_ns_hl_active = ns_id;
+
+    wp->w_ns_hl_attr = *(NSHlAttr *)pmap_get(handle_T)(ns_hl_attr, ns_id);
+    if (!wp->w_ns_hl_attr) {
+      wp->w_ns_hl_attr = highlight_attr; //TODO: what the hell
+    }
+  }
+
+  int *hl_def = wp->w_ns_hl_attr;
+
   if (!wp->w_hl_needs_update && !invalid) {
     int newbg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
     if (newbg != wp->w_hl_attr_bg) {
       wp->w_hl_attr_bg = newbg;
       // TODO(bfredl): eventually we should be smart enough
       // to only recompose the window, not redraw it.
-      redraw_later(wp, NOT_VALID);
+      // TODO: bazinga!
+      if (!ns_hl_fast) {
+        redraw_later(wp, NOT_VALID);
+      }
     }
     return;
   }
@@ -338,12 +355,7 @@ void update_window_hl(win_T *wp, bool invalid)
   // If a floating window is blending it always have a named
   // wp->w_hl_attr_normal group. HL_ATTR(HLF_NFLOAT) is always named.
 
-  int *hl_def = *(NSHlAttr *)pmap_get(handle_T)(ns_hl_attr, ns_id);
-  if (!hl_def) {
-    hl_def = highlight_attr; //TODO: what the hell
-  }
-
-
+  // TODO: functionalize w_hl_attr_bg
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
   if (float_win && hl_def[HLF_NFLOAT] != 0) {
@@ -397,6 +409,11 @@ void update_window_hl(win_T *wp, bool invalid)
 
 void update_ns_hl(int ns_id)
 {
+  DecorProvider *p = get_decor_provider(ns_id, true);
+  if (p->hl_cached) {
+    return;
+  }
+
   NSHlAttr **alloc = (NSHlAttr **)pmap_ref(handle_T)(ns_hl_attr, ns_id, true);
   if (*alloc == NULL) {
     *alloc = xmalloc(sizeof(**alloc));
@@ -415,6 +432,7 @@ void update_ns_hl(int ns_id)
   // haha, tema engine go brrr
   int normality = syn_check_group((const char_u *)S_LEN("Normal"));
   hl_attrs[HLF_COUNT] = hl_get_ui_attr(ns_id, -1, normality, true);
+  p->hl_cached = true;
 }
 
 /// Gets HL_UNDERLINE highlight.

@@ -1163,6 +1163,7 @@ struct window_S {
 
   int w_ns_hl;
   int w_ns_hl_active;
+  int *w_ns_hl_attr;
 
   int w_hl_id_normal;               ///< 'winhighlight' normal id
   int w_hl_attr_normal;             ///< 'winhighlight' normal final attrs
