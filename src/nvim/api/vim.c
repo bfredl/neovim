@@ -485,7 +485,7 @@ Object nvim_notify(String msg, Integer log_level, Dictionary opts, Error *err)
   ADD_C(args, INTEGER_OBJ(log_level));
   ADD_C(args, DICTIONARY_OBJ(opts));
 
-  return nlua_exec(STATIC_CSTR_AS_STRING("return vim.notify(...)"), args, err);
+  return NLUA_EXEC_STATIC("return vim.notify(...)", args, err);
 }
 
 /// Calculates the number of display cells occupied by `text`.
@@ -1838,11 +1838,9 @@ Array nvim_get_proc_children(Integer pid, Error *err)
   if (rv == 2) {
     // syscall failed (possibly because of kernel options), try shelling out.
     DLOG("fallback to vim._os_proc_children()");
-    Array a = ARRAY_DICT_INIT;
+    MAXSIZE_TEMP_ARRAY(a, 1);
     ADD(a, INTEGER_OBJ(pid));
-    String s = STATIC_CSTR_AS_STRING("return vim._os_proc_children(...)");
-    Object o = nlua_exec(s, a, err);
-    api_free_array(a);
+    Object o = NLUA_EXEC_STATIC("return vim._os_proc_children(...)", a, err);
     if (o.type == kObjectTypeArray) {
       rvobj = o.data.array;
     } else if (!ERROR_SET(err)) {
@@ -1883,12 +1881,9 @@ Object nvim_get_proc(Integer pid, Error *err)
   }
 #else
   // Cross-platform process info APIs are miserable, so use `ps` instead.
-  Array a = ARRAY_DICT_INIT;
+  FIXED_TEMP_ARRAY(a, 1);
   ADD(a, INTEGER_OBJ(pid));
-  String s = cstr_to_string("return vim._os_proc_info(select(1, ...))");
-  Object o = nlua_exec(s, a, err);
-  api_free_string(s);
-  api_free_array(a);
+  Object o = NLUA_EXEC_STATIC("return vim._os_proc_info(...)", a, err);
   if (o.type == kObjectTypeArray && o.data.array.size == 0) {
     return NIL;  // Process not found.
   } else if (o.type == kObjectTypeDictionary) {
