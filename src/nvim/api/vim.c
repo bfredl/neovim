@@ -818,6 +818,15 @@ ArrayOf(String) nvim_get_runtime_file(String name, Boolean all, Error *err)
 {
   Array rv = ARRAY_DICT_INIT;
 
+  // start measuring lua load time if --startuptime was passed and
+  // time_fd was successfully opened afterwards.
+  proftime_T rel_time;
+  proftime_T start_time;
+  if (time_fd != NULL) {
+    time_push(&rel_time, &start_time);
+  }
+  
+
   int flags = DIP_START | (all ? DIP_ALL : 0);
 
   if (name.size == 0 || name.data[name.size-1] == '/') {
@@ -826,6 +835,14 @@ ArrayOf(String) nvim_get_runtime_file(String name, Boolean all, Error *err)
 
   do_in_runtimepath((char_u *)(name.size ? name.data : ""),
                     flags, find_runtime_cb, &rv);
+
+
+  if (time_fd != NULL) {
+    time_msg((char *)(name.size ? name.data : "LUL"), &start_time);
+    time_pop(rel_time);
+  }
+
+
   return rv;
 }
 
