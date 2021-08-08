@@ -1506,6 +1506,10 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
   bool end_right_gravity = false;
   bool end_gravity_set = false;
 
+  VirtLines virt_lines = KV_INITIAL_VALUE;
+  bool virt_lines_above = false;
+  bool virt_lines_signcol = false;
+
   for (size_t i = 0; i < opts.size; i++) {
     String k = opts.items[i].key;
     Object *v = &opts.items[i].value;
@@ -1601,6 +1605,39 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
     } else if (strequal("virt_text_hide", k.data)) {
       decor.virt_text_hide = api_object_to_bool(*v,
                                                 "virt_text_hide", false, err);
+      if (ERROR_SET(err)) {
+        goto error;
+      }
+    } else if (strequal("virt_lines", k.data)) {
+      if (v->type != kObjectTypeArray) {
+        api_set_error(err, kErrorTypeValidation,
+                      "virt_lines is not an Array");
+        goto error;
+      }
+      Array a = v->data.array;
+      for (size_t j = 0; j < a.size; j++) {
+
+        if (a.items[j].type != kObjectTypeArray) {
+          api_set_error(err, kErrorTypeValidation,
+                        "virt_text_line item is not an Array");
+          goto error;
+        }
+        int dummig;
+        VirtText jtem = parse_virt_text(a.items[j].data.array, err, &dummig);
+        kv_push(virt_lines, jtem);
+        if (ERROR_SET(err)) {
+          goto error;
+        }
+      }
+    } else if (strequal("virt_lines_above", k.data)) {
+      virt_lines_above = api_object_to_bool(*v, "virt_lines_above", false, err);
+      if (ERROR_SET(err)) {
+        goto error;
+      }
+    } else if (strequal("virt_lines_signcol", k.data)) {
+      // TODO: maybe generic horizonal pos arg?
+      virt_lines_signcol = api_object_to_bool(*v, "virt_lines_sign_col",
+                                              false, err);
       if (ERROR_SET(err)) {
         goto error;
       }
@@ -1742,9 +1779,28 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
       goto error;
     }
 
-    id = extmark_set(buf, (uint64_t)ns_id, id, (int)line, (colnr_T)col,
-                     line2, col2, d, right_gravity,
-                     end_right_gravity, kExtmarkNoUndo);
+    if (kv_size(virt_lines) && buf->b_virt_line_mark) {
+      mtpos_t pos = marktree_lookup(buf->b_marktree, buf->b_virt_line_mark, NULL);
+      if (pos.row >= 0) {
+        redraw_buf_line_later(buf, pos.row+1+1); // TODO: abovebelow
+      }
+      // TODO: if set redraw old b_virt_line_mark
+    }
+
+    uint64_t mark = extmark_set(buf, (uint64_t)ns_id, &id, (int)line, (colnr_T)col,
+                                line2, col2, d, right_gravity,
+                                end_right_gravity, kExtmarkNoUndo);
+
+    if (kv_size(virt_lines)) {
+      // TODO: if set redraw old b_virt_line_mark
+      kv_destroy(buf->b_virt_lines); // TODO: lol what is memleak
+      buf->b_virt_lines = virt_lines;
+      buf->b_virt_line_mark = mark;
+      buf->b_virt_line_pos = -1;
+      buf->b_virt_line_above = virt_lines_above;
+      buf->b_virt_line_signcol = virt_lines_signcol;
+      redraw_buf_line_later(buf, line+1+1); // TODO: abovebelow
+    }
   }
 
   return (Integer)id;
@@ -1856,7 +1912,7 @@ Integer nvim_buf_add_highlight(Buffer buffer,
     end_line++;
   }
 
-  extmark_set(buf, ns, 0,
+  extmark_set(buf, ns, NULL,
               (int)line, (colnr_T)col_start,
               end_line, (colnr_T)col_end,
               decor_hl(hl_id), true, false, kExtmarkNoUndo);

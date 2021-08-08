@@ -1003,8 +1003,7 @@ static void win_update(win_T *wp, Providers *providers)
         i = plines_m_win(wp, wp->w_topline, wp->w_lines[0].wl_lnum - 1);
         // insert extra lines for previously invisible filler lines
         if (wp->w_lines[0].wl_lnum != wp->w_topline) {
-          i += diff_check_fill(wp, wp->w_lines[0].wl_lnum)
-               - wp->w_old_topfill;
+          i += win_get_fill(wp, wp->w_lines[0].wl_lnum) - wp->w_old_topfill;
         }
         if (i != 0 && i < wp->w_grid.Rows - 2) {  // less than a screen off
           // Try to insert the correct number of lines.
@@ -1067,7 +1066,7 @@ static void win_update(win_T *wp, Providers *providers)
         if (wp->w_lines[0].wl_lnum == wp->w_topline) {
           row += wp->w_old_topfill;
         } else {
-          row += diff_check_fill(wp, wp->w_topline);
+          row += win_get_fill(wp, wp->w_topline);
         }
         // ... but don't delete new filler lines.
         row -= wp->w_topfill;
@@ -1101,12 +1100,12 @@ static void win_update(win_T *wp, Providers *providers)
               break;
             }
           }
-          /* Correct the first entry for filler lines at the top
-           * when it won't get updated below. */
-          if (wp->w_p_diff && bot_start > 0) {
-            wp->w_lines[0].wl_size =
-              plines_win_nofill(wp, wp->w_topline, true)
-              + wp->w_topfill;
+
+          // Correct the first entry for filler lines at the top
+          // when it won't get updated below.
+          if (win_may_fill(wp) && bot_start > 0) {
+            wp->w_lines[0].wl_size = (plines_win_nofill(wp, wp->w_topline, true)
+                                      + wp->w_topfill);
           }
         }
       }
@@ -1564,7 +1563,7 @@ static void win_update(win_T *wp, Providers *providers)
           && lnum > wp->w_topline
           && !(dy_flags & (DY_LASTLINE | DY_TRUNCATE))
           && srow + wp->w_lines[idx].wl_size > wp->w_grid.Rows
-          && diff_check_fill(wp, lnum) == 0) {
+          && win_get_fill(wp, lnum) == 0) {
         // This line is not going to fit.  Don't draw anything here,
         // will draw "@  " lines below.
         row = wp->w_grid.Rows + 1;
@@ -1664,7 +1663,7 @@ static void win_update(win_T *wp, Providers *providers)
        * Don't overwrite it, it can be edited.
        */
       wp->w_botline = lnum + 1;
-    } else if (diff_check_fill(wp, lnum) >= wp->w_grid.Rows - srow) {
+    } else if (win_get_fill(wp, lnum) >= wp->w_grid.Rows - srow) {
       // Window ends in filler lines.
       wp->w_botline = lnum;
       wp->w_filler_rows = wp->w_grid.Rows - srow;
@@ -1691,7 +1690,7 @@ static void win_update(win_T *wp, Providers *providers)
   } else {
     if (eof) {  // we hit the end of the file
       wp->w_botline = buf->b_ml.ml_line_count + 1;
-      j = diff_check_fill(wp, wp->w_botline);
+      j = win_get_fill(wp, wp->w_botline);
       if (j > 0 && !wp->w_botfill) {
         // Display filler text below last line. win_line() will check
         // for ml_line_count+1 and only draw filler lines
@@ -2364,8 +2363,12 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
     filler_lines = 0;
     area_highlighting = true;
   }
+  int virtual_lines = decor_virtual_lines(wp, lnum);
+  filler_lines += virtual_lines;
   if (lnum == wp->w_topline) {
     filler_lines = wp->w_topfill;
+    // TODO: garmonbozia
+    virtual_lines = MIN(virtual_lines, filler_lines);
   }
   filler_todo = filler_lines;
 
@@ -2892,7 +2895,16 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
 
       if (draw_state == WL_SBR - 1 && n_extra == 0) {
         draw_state = WL_SBR;
-        if (filler_todo > 0) {
+        if (filler_todo > filler_lines - virtual_lines) {
+          c_extra = ' ';
+          c_final = NUL;
+          if (wp->w_p_rl) {
+            n_extra = col + 1;
+          } else {
+            n_extra = grid->Columns - col;
+          }
+          char_attr = 0;
+        } else if (filler_todo > 0) {
           // draw "deleted" diff line(s)
           if (char2cells(wp->w_p_fcs_chars.diff) > 1) {
             c_extra = '-';
@@ -4380,7 +4392,19 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
                   && !wp->w_p_rl;              // Not right-to-left.
 
       int draw_col = col - boguscols;
-      draw_virt_text(buf, win_col_offset, &draw_col, grid->Columns);
+      if (filler_todo > 0) {
+        int index = filler_todo - (filler_lines - virtual_lines);
+        if (index > 0) {
+          int fpos = kv_size(buf->b_virt_lines) - index;
+          assert(fpos >= 0);
+          int offset = buf->b_virt_line_signcol ? 0 : win_col_offset;
+          draw_virt_text_item(offset, kv_A(buf->b_virt_lines, fpos), kHlModeReplace, grid->Columns);
+
+        }
+      } else {
+        draw_virt_text(buf, win_col_offset, &draw_col, grid->Columns);
+      }
+
       grid_put_linebuf(grid, row, 0, draw_col, grid->Columns, wp->w_p_rl,
                        wp, wp->w_hl_attr_normal, wrap);
       if (wrap) {
@@ -4463,67 +4487,74 @@ void draw_virt_text(buf_T *buf, int col_off, int *end_col, int max_col)
   bool do_eol = state->eol_col > -1;
   for (size_t i = 0; i < kv_size(state->active); i++) {
     DecorRange *item = &kv_A(state->active, i);
-    if (item->start_row == state->row && kv_size(item->decor.virt_text)) {
-      if (item->win_col == -1) {
-        if (item->decor.virt_text_pos == kVTRightAlign) {
-          right_pos -= item->decor.virt_text_width;
-          item->win_col = right_pos;
-        } else if (item->decor.virt_text_pos == kVTEndOfLine && do_eol) {
-          item->win_col = state->eol_col;
-          state->eol_col += item->decor.virt_text_width;
-        } else if (item->decor.virt_text_pos == kVTWinCol) {
-          item->win_col = MAX(item->decor.col+col_off, 0);
-        }
+    if (!(item->start_row == state->row && kv_size(item->decor.virt_text))) {
+      continue;
+    }
+    if (item->win_col == -1) {
+      if (item->decor.virt_text_pos == kVTRightAlign) {
+        right_pos -= item->decor.virt_text_width;
+        item->win_col = right_pos;
+      } else if (item->decor.virt_text_pos == kVTEndOfLine && do_eol) {
+        item->win_col = state->eol_col;
+        state->eol_col += item->decor.virt_text_width;
+      } else if (item->decor.virt_text_pos == kVTWinCol) {
+        item->win_col = MAX(item->decor.col+col_off, 0);
       }
-      if (item->win_col < 0) {
-        continue;
-      }
-      VirtText vt = item->decor.virt_text;
-      HlMode hl_mode = item->decor.hl_mode;
-      LineState s = LINE_STATE("");
-      int virt_attr = 0;
-      int col = item->win_col;
-      size_t virt_pos = 0;
-      item->win_col = -2;  // deactivate
+    }
+    if (item->win_col < 0) {
+      continue;
+    }
 
-      while (col < max_col) {
-        if (!*s.p) {
-          if (virt_pos >= kv_size(vt)) {
-            break;
-          }
-          virt_attr = 0;
-          do {
-            s.p = kv_A(vt, virt_pos).text;
-            int hl_id = kv_A(vt, virt_pos).hl_id;
-            virt_attr = hl_combine_attr(virt_attr,
-                                        hl_id > 0 ? syn_id2attr(hl_id) : 0);
-            virt_pos++;
-          } while (!s.p && virt_pos < kv_size(vt));
-          if (!s.p) {
-            break;
-          }
-        }
-        int attr;
-        bool through = false;
-        if (hl_mode == kHlModeCombine) {
-          attr = hl_combine_attr(linebuf_attr[col], virt_attr);
-        } else if (hl_mode == kHlModeBlend) {
-          through = (*s.p == ' ');
-          attr = hl_blend_attrs(linebuf_attr[col], virt_attr, &through);
-        } else {
-          attr = virt_attr;
-        }
-        schar_T dummy[2];
-        int cells = line_putchar(&s, through ? dummy : &linebuf_char[col],
-                                 max_col-col, false);
-        linebuf_attr[col++] = attr;
-        if (cells > 1) {
-          linebuf_attr[col++] = attr;
-        }
+    int col = draw_virt_text_item(item->win_col, item->decor.virt_text,
+                                  item->decor.hl_mode, max_col);
+    item->win_col = -2;  // deactivate
+
+    *end_col = MAX(*end_col, col);
+  }
+}
+
+static int draw_virt_text_item(int col, VirtText vt, HlMode hl_mode, int max_col)
+{
+  LineState s = LINE_STATE("");
+  int virt_attr = 0;
+  size_t virt_pos = 0;
+
+  while (col < max_col) {
+    if (!*s.p) {
+      if (virt_pos >= kv_size(vt)) {
+        break;
       }
-      *end_col = MAX(*end_col, col);
+      virt_attr = 0;
+      do {
+        s.p = kv_A(vt, virt_pos).text;
+        int hl_id = kv_A(vt, virt_pos).hl_id;
+        virt_attr = hl_combine_attr(virt_attr,
+                                    hl_id > 0 ? syn_id2attr(hl_id) : 0);
+        virt_pos++;
+      } while (!s.p && virt_pos < kv_size(vt));
+      if (!s.p) {
+        break;
+      }
+    }
+    int attr;
+    bool through = false;
+    if (hl_mode == kHlModeCombine) {
+      attr = hl_combine_attr(linebuf_attr[col], virt_attr);
+    } else if (hl_mode == kHlModeBlend) {
+      through = (*s.p == ' ');
+      attr = hl_blend_attrs(linebuf_attr[col], virt_attr, &through);
+    } else {
+      attr = virt_attr;
+    }
+    schar_T dummy[2];
+    int cells = line_putchar(&s, through ? dummy : &linebuf_char[col],
+                             max_col-col, false);
+    linebuf_attr[col++] = attr;
+    if (cells > 1) {
+      linebuf_attr[col++] = attr;
     }
   }
+  return col;
 }
 
 /// Determine if dedicated window grid should be used or the default_grid

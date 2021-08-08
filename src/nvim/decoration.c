@@ -63,7 +63,7 @@ void bufhl_add_hl_pos_offset(buf_T *buf,
       hl_start = pos_start.col + offset;
       hl_end = pos_end.col + offset;
     }
-    (void)extmark_set(buf, (uint64_t)src_id, 0,
+    (void)extmark_set(buf, (uint64_t)src_id, NULL,
                       (int)lnum-1, hl_start, (int)lnum-1+end_off, hl_end,
                       decor, true, false, kExtmarkNoUndo);
   }
@@ -417,4 +417,21 @@ void decor_free_all_mem(void)
     decor_provider_clear(&kv_A(decor_providers, i));
   }
   kv_destroy(decor_providers);
+}
+
+
+int decor_virtual_lines(win_T *wp, linenr_T lnum) {
+  buf_T *buf = wp->w_buffer;
+  if (!buf->b_virt_line_mark) {
+    return 0;
+  }
+  if (buf->b_virt_line_pos < 0) {
+      mtpos_t pos = marktree_lookup(buf->b_marktree, buf->b_virt_line_mark, NULL);
+      if (pos.row < 0) {
+        buf->b_virt_line_mark = 0;
+      }
+      buf->b_virt_line_pos = pos.row + (buf->b_virt_line_above ? 0 : 1);
+  }
+
+  return (lnum-1 == buf->b_virt_line_pos) ? (int)kv_size(buf->b_virt_lines) : 0;
 }

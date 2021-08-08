@@ -197,7 +197,7 @@ void update_topline(win_T *wp)
       }
     }
     // Check if there are more filler lines than allowed.
-    if (!check_topline && wp->w_topfill > diff_check_fill(wp, wp->w_topline)) {
+    if (!check_topline && wp->w_topfill > win_get_fill(wp, wp->w_topline)) {
       check_topline = true;
     }
 
@@ -578,9 +578,7 @@ static void curs_rows(win_T *wp)
         --i;                            /* hold at inserted lines */
       }
     }
-    if (valid
-        && (lnum != wp->w_topline || !wp->w_p_diff)
-        ) {
+    if (valid && (lnum != wp->w_topline || !win_may_fill(wp))) {
       lnum = wp->w_lines[i].wl_lastlnum + 1;
       /* Cursor inside folded lines, don't count this row */
       if (lnum > wp->w_cursor.lnum)
@@ -852,7 +850,7 @@ void curs_columns(
   if (wp->w_cursor.lnum == wp->w_topline) {
     wp->w_wrow += wp->w_topfill;
   } else {
-    wp->w_wrow += diff_check_fill(wp, wp->w_cursor.lnum);
+    wp->w_wrow += win_get_fill(wp, wp->w_cursor.lnum);
   }
 
   prev_skipcol = wp->w_skipcol;
@@ -1040,7 +1038,7 @@ bool scrolldown(long line_count, int byfold)
   (void)hasFolding(curwin->w_topline, &curwin->w_topline, NULL);
   validate_cursor();            /* w_wrow needs to be valid */
   while (line_count-- > 0) {
-    if (curwin->w_topfill < diff_check(curwin, curwin->w_topline)
+    if (curwin->w_topfill < win_get_fill(curwin, curwin->w_topline)
         && curwin->w_topfill < curwin->w_height_inner - 1) {
       curwin->w_topfill++;
       done++;
@@ -1118,7 +1116,7 @@ bool scrollup(long line_count, int byfold)
   linenr_T botline = curwin->w_botline;
 
   if ((byfold && hasAnyFolding(curwin))
-      || curwin->w_p_diff) {
+      || win_may_fill(curwin)) {
     // count each sequence of folded lines as one logical line
     linenr_T lnum = curwin->w_topline;
     while (line_count--) {
@@ -1130,7 +1128,7 @@ bool scrollup(long line_count, int byfold)
         if (lnum >= curbuf->b_ml.ml_line_count)
           break;
         ++lnum;
-        curwin->w_topfill = diff_check_fill(curwin, lnum);
+        curwin->w_topfill = win_get_fill(curwin, lnum);
       }
     }
     /* approximate w_botline */
@@ -1202,7 +1200,7 @@ static void max_topfill(void)
   if (n >= curwin->w_height_inner) {
     curwin->w_topfill = 0;
   } else {
-    curwin->w_topfill = diff_check_fill(curwin, curwin->w_topline);
+    curwin->w_topfill = win_get_fill(curwin, curwin->w_topline);
     if (curwin->w_topfill + n > curwin->w_height_inner) {
       curwin->w_topfill = curwin->w_height_inner - n;
     }
@@ -1215,8 +1213,7 @@ static void max_topfill(void)
  */
 void scrolldown_clamp(void)
 {
-  int can_fill = (curwin->w_topfill
-                  < diff_check_fill(curwin, curwin->w_topline));
+  int can_fill = (curwin->w_topfill < win_get_fill(curwin, curwin->w_topline));
 
   if (curwin->w_topline <= 1
       && !can_fill
@@ -1297,7 +1294,7 @@ void scrollup_clamp(void)
  */
 static void topline_back(win_T *wp, lineoff_T *lp)
 {
-  if (lp->fill < diff_check_fill(wp, lp->lnum)) {
+  if (lp->fill < win_get_fill(wp, lp->lnum)) {
     // Add a filler line
     lp->fill++;
     lp->height = 1;
@@ -1323,7 +1320,7 @@ static void topline_back(win_T *wp, lineoff_T *lp)
  */
 static void botline_forw(win_T *wp, lineoff_T *lp)
 {
-  if (lp->fill < diff_check_fill(wp, lp->lnum + 1)) {
+  if (lp->fill < win_get_fill(wp, lp->lnum + 1)) {
     // Add a filler line.
     lp->fill++;
     lp->height = 1;
@@ -1351,7 +1348,7 @@ static void botline_topline(lineoff_T *lp)
 {
   if (lp->fill > 0) {
     ++lp->lnum;
-    lp->fill = diff_check_fill(curwin, lp->lnum) - lp->fill + 1;
+    lp->fill = win_get_fill(curwin, lp->lnum) - lp->fill + 1;
   }
 }
 
@@ -1363,7 +1360,7 @@ static void botline_topline(lineoff_T *lp)
 static void topline_botline(lineoff_T *lp)
 {
   if (lp->fill > 0) {
-    lp->fill = diff_check_fill(curwin, lp->lnum) - lp->fill + 1;
+    lp->fill = win_get_fill(curwin, lp->lnum) - lp->fill + 1;
     --lp->lnum;
   }
 }
@@ -1411,7 +1408,7 @@ void scroll_cursor_top(int min_scroll, int always)
   // "used" already contains the number of filler lines above, don't add it
   // again.
   // Hide filler lines above cursor line by adding them to "extra".
-  int extra = diff_check_fill(curwin, curwin->w_cursor.lnum);
+  int extra = win_get_fill(curwin, curwin->w_cursor.lnum);
 
   /*
    * Check if the lines from "top" to "bot" fit in the window.  If they do,
@@ -1466,7 +1463,7 @@ void scroll_cursor_top(int min_scroll, int always)
       curwin->w_topline = new_topline;
     if (curwin->w_topline > curwin->w_cursor.lnum)
       curwin->w_topline = curwin->w_cursor.lnum;
-    curwin->w_topfill = diff_check_fill(curwin, curwin->w_topline);
+    curwin->w_topfill = win_get_fill(curwin, curwin->w_topline);
     if (curwin->w_topfill > 0 && extra > off) {
       curwin->w_topfill -= extra - off;
       if (curwin->w_topfill < 0)
@@ -1495,7 +1492,7 @@ void set_empty_rows(win_T *wp, int used)
   } else {
     wp->w_empty_rows = wp->w_height_inner - used;
     if (wp->w_botline <= wp->w_buffer->b_ml.ml_line_count) {
-      wp->w_filler_rows = diff_check_fill(wp, wp->w_botline);
+      wp->w_filler_rows = win_get_fill(wp, wp->w_botline);
       if (wp->w_empty_rows > wp->w_filler_rows)
         wp->w_empty_rows -= wp->w_filler_rows;
       else {
@@ -1579,7 +1576,7 @@ void scroll_cursor_bot(int min_scroll, int set_topbot)
   }
   loff.fill = 0;
   boff.fill = 0;
-  fill_below_window = diff_check_fill(curwin, curwin->w_botline)
+  fill_below_window = win_get_fill(curwin, curwin->w_botline)
                       - curwin->w_filler_rows;
 
   while (loff.lnum > 1) {
@@ -1824,7 +1821,7 @@ void cursor_correct(void)
 
       /* Count filler lines below this line as context. */
       if (topline < botline)
-        above += diff_check_fill(curwin, topline + 1);
+        above += win_get_fill(curwin, topline + 1);
       ++topline;
     }
   }
@@ -1878,7 +1875,7 @@ int onepage(Direction dir, long count)
            && curwin->w_botline > curbuf->b_ml.ml_line_count)
         : (curwin->w_topline == 1
            && curwin->w_topfill ==
-           diff_check_fill(curwin, curwin->w_topline)
+           win_get_fill(curwin, curwin->w_topline)
            )) {
       beep_flush();
       retval = FAIL;
@@ -1905,7 +1902,7 @@ int onepage(Direction dir, long count)
         /* For the overlap, start with the line just below the window
          * and go upwards. */
         loff.lnum = curwin->w_botline;
-        loff.fill = diff_check_fill(curwin, loff.lnum)
+        loff.fill = win_get_fill(curwin, loff.lnum)
                     - curwin->w_filler_rows;
         get_scroll_overlap(&loff, -1);
         curwin->w_topline = loff.lnum;
@@ -1939,8 +1936,7 @@ int onepage(Direction dir, long count)
        * line at the bottom of the window.  Make sure this results in
        * the same line as before doing CTRL-F. */
       loff.lnum = curwin->w_topline - 1;
-      loff.fill = diff_check_fill(curwin, loff.lnum + 1)
-                  - curwin->w_topfill;
+      loff.fill = win_get_fill(curwin, loff.lnum + 1) - curwin->w_topfill;
       get_scroll_overlap(&loff, 1);
 
       if (loff.lnum >= curbuf->b_ml.ml_line_count) {
@@ -1984,8 +1980,7 @@ int onepage(Direction dir, long count)
           /* First try using the maximum number of filler lines.  If
            * that's not enough, backup one line. */
           loff.fill = curwin->w_topfill;
-          if (curwin->w_topfill < diff_check_fill(curwin,
-                  curwin->w_topline))
+          if (curwin->w_topfill < win_get_fill(curwin, curwin->w_topline))
             max_topfill();
           if (curwin->w_topfill == loff.fill) {
             --curwin->w_topline;
@@ -2128,7 +2123,7 @@ void halfpage(bool flag, linenr_T Prenum)
           break;
         (void)hasFolding(curwin->w_topline, NULL, &curwin->w_topline);
         ++curwin->w_topline;
-        curwin->w_topfill = diff_check_fill(curwin, curwin->w_topline);
+        curwin->w_topfill = win_get_fill(curwin, curwin->w_topline);
 
         if (curwin->w_cursor.lnum < curbuf->b_ml.ml_line_count) {
           ++curwin->w_cursor.lnum;
@@ -2139,13 +2134,11 @@ void halfpage(bool flag, linenr_T Prenum)
       curwin->w_valid &= ~(VALID_CROW|VALID_WROW);
       scrolled += i;
 
-      /*
-       * Correct w_botline for changed w_topline.
-       * Won't work when there are filler lines.
-       */
-      if (curwin->w_p_diff)
+      // Correct w_botline for changed w_topline.
+      // Won't work when there are filler lines.
+      if (win_may_fill(curwin)) {
         curwin->w_valid &= ~(VALID_BOTLINE|VALID_BOTLINE_AP);
-      else {
+      } else {
         room += i;
         do {
           i = plines_win(curwin, curwin->w_botline, true);
@@ -2177,7 +2170,7 @@ void halfpage(bool flag, linenr_T Prenum)
      * scroll the text down
      */
     while (n > 0 && curwin->w_topline > 1) {
-      if (curwin->w_topfill < diff_check_fill(curwin, curwin->w_topline)) {
+      if (curwin->w_topfill < win_get_fill(curwin, curwin->w_topline)) {
         i = 1;
         n--;
         curwin->w_topfill++;
