@@ -14,6 +14,7 @@
 #include "nvim/plines.h"
 #include "nvim/charset.h"
 #include "nvim/cursor.h"
+#include "nvim/decoration.h"
 #include "nvim/diff.h"
 #include "nvim/func_attr.h"
 #include "nvim/fold.h"
@@ -42,6 +43,31 @@ int plines_win(win_T *wp, linenr_T lnum, bool winheight)
   // Check for filler lines above this buffer line.  When folded the result
   // is one line anyway.
   return plines_win_nofill(wp, lnum, winheight) + diff_check_fill(wp, lnum);
+}
+
+
+/// Return the number of filler lines above "lnum".
+///
+/// TODO: this is now win_check_fill
+///
+/// @param wp
+/// @param lnum
+///
+/// @return Number of filler lines above lnum
+int diff_check_fill(win_T *wp, linenr_T lnum)
+{
+  int extra = decor_virtual_lines(wp, lnum);
+
+  // be quick when there are no filler lines
+  if (!diffopt_filler()) {
+    return extra;
+  }
+  int n = diff_check(wp, lnum);
+
+  if (n <= 0) {
+    return extra;
+  }
+  return n+extra;
 }
 
 /// @param winheight when true limit to window height

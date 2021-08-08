@@ -2369,6 +2369,8 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
     filler_lines = 0;
     area_highlighting = TRUE;
   }
+  int virtual_lines = decor_virtual_lines(wp, lnum);
+  filler_lines += virtual_lines;
   if (lnum == wp->w_topline)
     filler_lines = wp->w_topfill;
   filler_todo = filler_lines;
@@ -2883,7 +2885,16 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
 
       if (draw_state == WL_SBR - 1 && n_extra == 0) {
         draw_state = WL_SBR;
-        if (filler_todo > 0) {
+        if (filler_todo > filler_lines - virtual_lines) {
+          c_extra = '0'+filler_todo;
+          c_final = '!';
+          if (wp->w_p_rl) {
+            n_extra = col + 1;
+          } else {
+            n_extra = grid->Columns - col;
+          }
+          char_attr = win_hl_attr(wp, HLF_SC+filler_todo-2);
+        } else if (filler_todo > 0) {
           // draw "deleted" diff line(s)
           if (char2cells(wp->w_p_fcs_chars.diff) > 1) {
             c_extra = '-';

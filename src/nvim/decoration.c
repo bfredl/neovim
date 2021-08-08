@@ -423,3 +423,8 @@ void decor_free_all_mem(void)
   }
   kv_destroy(decor_providers);
 }
+
+
+int decor_virtual_lines(win_T *wp, linenr_T lnum) {
+  return (lnum == 10) ? 3 : 0;
+}
