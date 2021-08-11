@@ -1089,6 +1089,9 @@ static void win_update(win_T *wp, Providers *providers)
               wp->w_lines_valid = idx;
               break;
             }
+
+
+
           }
           /* Correct the first entry for filler lines at the top
            * when it won't get updated below. */
@@ -2371,8 +2374,11 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow,
   }
   int virtual_lines = decor_virtual_lines(wp, lnum);
   filler_lines += virtual_lines;
-  if (lnum == wp->w_topline)
+  if (lnum == wp->w_topline) {
     filler_lines = wp->w_topfill;
+    // TODO: garmonbozia
+    virtual_lines = MIN(virtual_lines, filler_lines);
+  }
   filler_todo = filler_lines;
 
   // Cursor line highlighting for 'cursorline' in the current window.
