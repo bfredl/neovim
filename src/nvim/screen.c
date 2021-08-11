@@ -994,7 +994,7 @@ static void win_update(win_T *wp, Providers *providers)
         i = plines_m_win(wp, wp->w_topline, wp->w_lines[0].wl_lnum - 1);
         /* insert extra lines for previously invisible filler lines */
         if (wp->w_lines[0].wl_lnum != wp->w_topline)
-          i += diff_check_fill(wp, wp->w_lines[0].wl_lnum)
+          i += win_get_fill(wp, wp->w_lines[0].wl_lnum)
                - wp->w_old_topfill;
         if (i != 0 && i < wp->w_grid.Rows - 2) {  // less than a screen off
           // Try to insert the correct number of lines.
@@ -1057,7 +1057,7 @@ static void win_update(win_T *wp, Providers *providers)
         if (wp->w_lines[0].wl_lnum == wp->w_topline)
           row += wp->w_old_topfill;
         else
-          row += diff_check_fill(wp, wp->w_topline);
+          row += win_get_fill(wp, wp->w_topline);
         /* ... but don't delete new filler lines. */
         row -= wp->w_topfill;
         if (row > 0) {
@@ -1532,7 +1532,7 @@ static void win_update(win_T *wp, Providers *providers)
           && lnum > wp->w_topline
           && !(dy_flags & (DY_LASTLINE | DY_TRUNCATE))
           && srow + wp->w_lines[idx].wl_size > wp->w_grid.Rows
-          && diff_check_fill(wp, lnum) == 0
+          && win_get_fill(wp, lnum) == 0
           ) {
         // This line is not going to fit.  Don't draw anything here,
         // will draw "@  " lines below.
@@ -1630,7 +1630,7 @@ static void win_update(win_T *wp, Providers *providers)
        * Don't overwrite it, it can be edited.
        */
       wp->w_botline = lnum + 1;
-    } else if (diff_check_fill(wp, lnum) >= wp->w_grid.Rows - srow) {
+    } else if (win_get_fill(wp, lnum) >= wp->w_grid.Rows - srow) {
       // Window ends in filler lines.
       wp->w_botline = lnum;
       wp->w_filler_rows = wp->w_grid.Rows - srow;
@@ -1657,7 +1657,7 @@ static void win_update(win_T *wp, Providers *providers)
   } else {
     if (eof) {  // we hit the end of the file
       wp->w_botline = buf->b_ml.ml_line_count + 1;
-      j = diff_check_fill(wp, wp->w_botline);
+      j = win_get_fill(wp, wp->w_botline);
       if (j > 0 && !wp->w_botfill) {
         // display filler lines at the end of the file
         if (char2cells(wp->w_p_fcs_chars.diff) > 1) {

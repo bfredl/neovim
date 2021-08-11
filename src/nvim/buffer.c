@@ -4677,7 +4677,7 @@ void get_rel_pos(win_T *wp, char_u *buf, int buflen)
   long below;          // number of lines below window
 
   above = wp->w_topline - 1;
-  above += diff_check_fill(wp, wp->w_topline) - wp->w_topfill;
+  above += win_get_fill(wp, wp->w_topline) - wp->w_topfill;
   if (wp->w_topline == 1 && wp->w_topfill >= 1) {
     // All buffer lines are displayed and there is an indication
     // of filler lines, that can be considered seeing all lines.
