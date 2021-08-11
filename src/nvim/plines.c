@@ -70,6 +70,12 @@ int diff_check_fill(win_T *wp, linenr_T lnum)
   return n+extra;
 }
 
+bool win_may_fill(win_T *wp)
+{
+  // TODO: can into diffop_filler() ?????
+  return wp->w_p_diff || TRUE;
+}
+
 /// @param winheight when true limit to window height
 int plines_win_nofill(win_T *wp, linenr_T lnum, bool winheight)
 {

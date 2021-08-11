@@ -578,9 +578,7 @@ static void curs_rows(win_T *wp)
         --i;                            /* hold at inserted lines */
       }
     }
-    if (valid
-        && (lnum != wp->w_topline || !wp->w_p_diff)
-        ) {
+    if (valid && (lnum != wp->w_topline || !win_may_fill(wp))) {
       lnum = wp->w_lines[i].wl_lastlnum + 1;
       /* Cursor inside folded lines, don't count this row */
       if (lnum > wp->w_cursor.lnum)
@@ -1039,7 +1037,7 @@ bool scrolldown(long line_count, int byfold)
   (void)hasFolding(curwin->w_topline, &curwin->w_topline, NULL);
   validate_cursor();            /* w_wrow needs to be valid */
   while (line_count-- > 0) {
-    if (curwin->w_topfill < diff_check(curwin, curwin->w_topline)
+    if (curwin->w_topfill < diff_check_fill(curwin, curwin->w_topline)
         && curwin->w_topfill < curwin->w_height_inner - 1) {
       curwin->w_topfill++;
       done++;
@@ -1117,7 +1115,7 @@ bool scrollup(long line_count, int byfold)
   linenr_T botline = curwin->w_botline;
 
   if ((byfold && hasAnyFolding(curwin))
-      || curwin->w_p_diff) {
+      || win_may_fill(curwin)) {
     // count each sequence of folded lines as one logical line
     linenr_T lnum = curwin->w_topline;
     while (line_count--) {
@@ -2138,13 +2136,11 @@ void halfpage(bool flag, linenr_T Prenum)
       curwin->w_valid &= ~(VALID_CROW|VALID_WROW);
       scrolled += i;
 
-      /*
-       * Correct w_botline for changed w_topline.
-       * Won't work when there are filler lines.
-       */
-      if (curwin->w_p_diff)
+      // Correct w_botline for changed w_topline.
+      // Won't work when there are filler lines.
+      if (win_may_fill(curwin)) {
         curwin->w_valid &= ~(VALID_BOTLINE|VALID_BOTLINE_AP);
-      else {
+      } else {
         room += i;
         do {
           i = plines_win(curwin, curwin->w_botline, true);

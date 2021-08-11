@@ -237,7 +237,7 @@ retnomove:
     if (row < 0) {
       count = 0;
       for (first = true; curwin->w_topline > 1; ) {
-        if (curwin->w_topfill < diff_check(curwin, curwin->w_topline)) {
+        if (curwin->w_topfill < diff_check_fill(curwin, curwin->w_topline)) {
           count++;
         } else {
           count += plines_win(curwin, curwin->w_topline - 1, true);
@@ -247,8 +247,8 @@ retnomove:
         }
         first = false;
         (void)hasFolding(curwin->w_topline, &curwin->w_topline, NULL);
-        if (curwin->w_topfill < diff_check(curwin, curwin->w_topline)) {
-          ++curwin->w_topfill;
+        if (curwin->w_topfill < diff_check_fill(curwin, curwin->w_topline)) {
+          curwin->w_topfill++;
         } else {
           --curwin->w_topline;
           curwin->w_topfill = 0;
@@ -369,7 +369,7 @@ bool mouse_comp_pos(win_T *win, int *rowp, int *colp, linenr_T *lnump)
 
   while (row > 0) {
     // Don't include filler lines in "count"
-    if (win->w_p_diff
+    if (win_may_fill(win)
         && !hasFoldingWin(win, lnum, NULL, NULL, true, NULL)) {
       if (lnum == win->w_topline) {
         row -= win->w_topfill;

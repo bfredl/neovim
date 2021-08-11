@@ -1089,16 +1089,14 @@ static void win_update(win_T *wp, Providers *providers)
               wp->w_lines_valid = idx;
               break;
             }
-
-
-
           }
-          /* Correct the first entry for filler lines at the top
-           * when it won't get updated below. */
-          if (wp->w_p_diff && bot_start > 0)
-            wp->w_lines[0].wl_size =
-              plines_win_nofill(wp, wp->w_topline, true)
-              + wp->w_topfill;
+
+          // Correct the first entry for filler lines at the top
+          // when it won't get updated below.
+          if (win_may_fill(wp) && bot_start > 0) {
+            wp->w_lines[0].wl_size = (plines_win_nofill(wp, wp->w_topline, true)
+                                      + wp->w_topfill);
+          }
         }
       }
     }

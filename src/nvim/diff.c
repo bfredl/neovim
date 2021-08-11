@@ -2002,6 +2002,7 @@ void diff_set_topline(win_T *fromwin, win_T *towin)
   }
   towin->w_topfill = 0;
 
+
   // search for a change that includes "lnum" in the list of diffblocks.
   for (dp = curtab->tp_first_diff; dp != NULL; dp = dp->df_next) {
     if (lnum <= dp->df_lnum[fromidx] + dp->df_count[fromidx]) {
