@@ -263,6 +263,25 @@ for len,strs in pairs(buckets) do
       minlen = maxlen
     end
   end
-  print("pos = "..minpos..", maxlen="..minlen)
+  unilen = minlen
+  for p1 = 1,len-1 do for p2 = p1+1,len do
+    subbuck = defaultdict()
+    for _,str in ipairs(strs) do
+      c1 = string.sub(str, p1, p1)
+      c2 = string.sub(str, p2, p2)
+      --print(str, thechar)
+      table.insert(subbuck[c1..c2], str)
+    end
+    maxlen = 1
+    for c,strs2 in pairs(subbuck) do
+      maxlen = math.max(maxlen, #strs2)
+    end
+    --print("pos = "..pos..", maxlen="..maxlen)
+    if maxlen < minlen and (maxlen == 1 or maxlen <= unilen-2) then
+      minpos = {p1,p2}
+      minlen = maxlen
+    end
+  end end
+  print("pos = "..vim.inspect(minpos)..", maxlen="..minlen)
   print()
 end
