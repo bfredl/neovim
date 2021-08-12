@@ -68,8 +68,8 @@ static ExtmarkNs *buf_ns_ref(buf_T *buf, uint64_t ns_id, bool put) {
 /// Create or update an extmark
 ///
 /// must not be used during iteration!
-/// @returns the mark id
-uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
+/// @returns the internal mark id
+uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp,
                      int row, colnr_T col, int end_row, colnr_T end_col,
                      Decoration *decor, bool right_gravity,
                      bool end_right_gravity, ExtmarkOp op)
@@ -78,6 +78,7 @@ uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t id,
   assert(ns != NULL);
   mtpos_t old_pos;
   uint64_t mark = 0;
+  uint64_t id = idp ? *idp : 0;
 
   if (id == 0) {
     id = ns->free_id++;
@@ -131,7 +132,11 @@ revised:
   if (decor) {
     decor_redraw(buf, row, end_row > -1 ? end_row : row, decor);
   }
-  return id;
+
+  if (idp) {
+    *idp = id;
+  }
+  return mark;
 }
 
 static bool extmark_setraw(buf_T *buf, uint64_t mark, int row, colnr_T col)
@@ -520,6 +525,7 @@ void extmark_apply_undo(ExtmarkUndoObject undo_info, bool undo)
                           kExtmarkNoUndo);
     }
   }
+  curbuf->b_virt_line_pos = -1;
 }
 
 
@@ -606,7 +612,8 @@ void extmark_splice_impl(buf_T *buf,
                          int new_row, colnr_T new_col, bcount_t new_byte,
                          ExtmarkOp undo)
 {
-  curbuf->deleted_bytes2 = 0;
+  buf->deleted_bytes2 = 0;
+  buf->b_virt_line_pos = -1;
   buf_updates_send_splice(buf, start_row, start_col, start_byte,
                           old_row, old_col, old_byte,
                           new_row, new_col, new_byte);
@@ -702,7 +709,8 @@ void extmark_move_region(
     int new_row, colnr_T new_col, bcount_t new_byte,
     ExtmarkOp undo)
 {
-  curbuf->deleted_bytes2 = 0;
+  buf->deleted_bytes2 = 0;
+  buf->b_virt_line_pos = -1;
   // TODO(bfredl): this is not synced to the buffer state inside the callback.
   // But unless we make the undo implementation smarter, this is not ensured
   // anyway.

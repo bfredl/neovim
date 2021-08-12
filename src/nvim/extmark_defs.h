@@ -13,6 +13,7 @@ typedef struct {
 
 typedef kvec_t(VirtTextChunk) VirtText;
 #define VIRTTEXT_EMPTY ((VirtText)KV_INITIAL_VALUE)
+typedef kvec_t(VirtText) VirtLines;
 
 
 typedef struct
