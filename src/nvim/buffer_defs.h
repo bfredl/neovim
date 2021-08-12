@@ -866,6 +866,10 @@ struct file_buffer {
   Map(uint64_t, ExtmarkItem) *b_extmark_index;
   Map(uint64_t, ExtmarkNs) *b_extmark_ns;         // extmark namespaces
 
+  kvec_t(VirtText) b_virt_lines;
+  uint64_t b_virt_line_mark;
+  int b_virt_line_pos;
+
   // array of channel_id:s which have asked to receive updates for this
   // buffer.
   kvec_t(uint64_t) update_channels;
