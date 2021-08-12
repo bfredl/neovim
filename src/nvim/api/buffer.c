@@ -1765,6 +1765,14 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
       goto error;
     }
 
+    if (kv_size(virt_lines) && buf->b_virt_line_mark) {
+      mtpos_t pos = marktree_lookup(buf->b_marktree, buf->b_virt_line_mark, NULL);
+      if (pos.row >= 0) {
+        redraw_buf_line_later(buf, pos.row+1+1); // TODO: abovebelow
+      }
+      // TODO: if set redraw old b_virt_line_mark
+    }
+
     uint64_t mark = extmark_set(buf, (uint64_t)ns_id, &id, (int)line, (colnr_T)col,
                                 line2, col2, d, right_gravity,
                                 end_right_gravity, kExtmarkNoUndo);

@@ -187,6 +187,11 @@ bool extmark_del(buf_T *buf, uint64_t ns_id, uint64_t id)
     decor_free(item.decor);
   }
 
+  if (mark == buf->b_virt_line_mark) {
+    buf->b_virt_line_mark = 0;
+    redraw_buf_line_later(buf, pos.row+1+1); // TODO: HAÏIIII
+  }
+
   map_del(uint64_t, uint64_t)(ns->map, id);
   map_del(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark);
 
@@ -250,6 +255,10 @@ bool extmark_clear(buf_T *buf, uint64_t ns_id,
     }
 
     uint64_t start_id = mark.id & ~MARKTREE_END_FLAG;
+    if (start_id == buf->b_virt_line_mark) {
+      buf->b_virt_line_mark = 0;
+      redraw_buf_line_later(buf, mark.row+1+1); // TODO: HAÏIIII
+    }
     ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index,
                                                       start_id);
 
