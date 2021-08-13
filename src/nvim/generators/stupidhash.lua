@@ -232,8 +232,110 @@ instrings = {
   "window_is_valid";
 }
 
-local metadict = {__index=function (s,k) local v = defaultdict() s[k] = v return v end}
-function defaultdict() return setmetatable({}, metadict) end
+function setdefault(table, key)
+  local val = table[key]
+  if val == nil then
+    val = {}
+    table[key] = val
+  end
+  return val
+end
+
+function buckify(strings)
+  local lenbucks = {}
+  local maxlen = 0
+  for _,s in ipairs(strings) do
+    table.insert(setdefault(lenbucks, #s),s)
+    if #s > maxlen then maxlen = #s end
+  end
+
+  local lenposbucks = {}
+  local maxbucksize = 0
+
+  for len = 1,maxlen do
+    local strs = lenbucks[len]
+    if strs then
+      print("len = "..len..", strs="..#strs)
+      local minpos, minsize, buck = nil, #strs*2, nil
+      for pos = 1,len do
+        local posbucks = {}
+        for _,str in ipairs(strs) do
+          thechar = string.sub(str, pos, pos)
+          --print(str, thechar)
+          table.insert(setdefault(posbucks, thechar), str)
+        end
+        local maxsize = 1
+        for c,strs2 in pairs(posbucks) do
+          maxsize = math.max(maxsize, #strs2)
+        end
+        --print("pos = "..pos..", maxsize="..maxsize)
+        if maxsize < minsize then
+          minpos = pos
+          minsize = maxsize
+          buck = posbucks
+        end
+      end
+      lenposbucks[len] = {minpos, buck}
+      maxbucksize = math.max(maxbucksize, minsize)
+    end
+  end
+  return maxlen, lenposbucks, maxbucksize
+end
+
+function switcher(tab, maxlen)
+  local neworder = {}
+  local stats = {}
+  local put = function(str) table.insert(stats, str) end
+  put "switch (len) {"
+  for len = 1,maxlen do
+    local vals = tab[len]
+    if vals then
+      put("case "..len..":\n")
+      local pos, posbuck = unpack(vals)
+      local keys = vim.tbl_keys(posbuck)
+      table.sort(keys)
+      put("  switch (str["..(pos-1).."]) {\n")
+      for _,c in ipairs(keys) do
+        local buck = posbuck[c]
+        local startidx = #neworder
+        vim.list_extend(neworder, buck)
+        local endidx = #neworder
+        put("    case '"..c.."': ")
+        put("low = "..startidx.."; high = "..endidx.."; ")
+        put "break;\n"
+      end
+      put "  }\n"
+      put "  break;\n"
+    end
+  end
+  put "default: break;"
+  put "}"
+  return neworder, table.concat(stats)
+end
+x,y = switcher(b, a)
+print(y)
+
+function fakelookup(tab, strings) 
+  local count, cmps = 0, 0
+  for _, str in pairs(strings) do
+    local pos, posbuck = unpack(tab[#str])
+    local thechar = string.sub(str, pos, pos)
+    local buck = posbuck[thechar]
+    cmps = cmps + 1 + (#buck-1)/2.0
+    count = count + 1
+  end
+  return count, cmps
+end
+
+c
+a,b,c = buckify(instrings)
+print(fakelookup(b, instrings))
+
+
+print(
+387/226
+
+if false then
 
 x = defaultdict()
 x.y.z = 3
@@ -284,4 +386,5 @@ for len,strs in pairs(buckets) do
   end end
   print("pos = "..vim.inspect(minpos)..", maxlen="..minlen)
   print()
+end
 end
