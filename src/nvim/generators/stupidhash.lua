@@ -232,7 +232,7 @@ instrings = {
   "window_is_valid";
 }
 
-ninstrings = {
+instrings = {
 "id";
 "end_line";
 "end_col";
@@ -296,14 +296,15 @@ function buckify(strings)
       maxbucksize = math.max(maxbucksize, minsize)
     end
   end
-  return maxlen, lenposbucks, maxbucksize
+  return lenposbucks, maxlen, maxbucksize
 end
 
-function switcher(tab, maxlen)
+function switcher(tab, maxlen, maxbucksize)
   local neworder = {}
   local stats = {}
   local put = function(str) table.insert(stats, str) end
   put "switch (len) {\n"
+  local bucky = maxbucksize > 1
   for len = 1,maxlen do
     local vals = tab[len]
     if vals then
@@ -319,7 +320,8 @@ function switcher(tab, maxlen)
           vim.list_extend(neworder, buck)
           local endidx = #neworder
           put("    case '"..c.."': ")
-          put("low = "..startidx.."; high = "..endidx.."; ")
+          put("low = "..startidx.."; ")
+          if bucky then put("high = "..endidx.."; ") end
           put "break;\n"
         end
         put "    default: break;\n"
@@ -328,7 +330,8 @@ function switcher(tab, maxlen)
           local startidx = #neworder
           table.insert(neworder, posbuck[keys[1]][1])
           local endidx = #neworder
-          put("low = "..startidx.."; high = "..endidx.."; ")
+          put("low = "..startidx.."; ")
+          if bucky then put("high = "..endidx.."; ") end
       end
       put "break;\n"
     end
@@ -338,7 +341,7 @@ function switcher(tab, maxlen)
   return neworder, table.concat(stats)
 end
 a,b,c = buckify(instrings)
-x,y = switcher(b, a)
+x,y = switcher(a, b, c)
 require 'luadev'.print(y)
 
 function fakelookup(tab, strings) 
@@ -354,7 +357,7 @@ function fakelookup(tab, strings)
 end
 
 --c
-print(fakelookup(b, instrings))
+print(fakelookup(a, instrings))
 
 
 --387/226
