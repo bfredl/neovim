@@ -232,6 +232,23 @@ instrings = {
   "window_is_valid";
 }
 
+ninstrings = {
+"id";
+"end_line";
+"end_col";
+"hl_group";
+"virt_text";
+"virt_text_pos";
+"virt_text_win_col";
+"virt_text_hide";
+"hl_eol";
+"hl_mode";
+"ephemeral";
+"priority";
+"right_gravity";
+"end_right_gravity";
+}
+
 function setdefault(table, key)
   local val = table[key]
   if val == nil then
@@ -255,7 +272,7 @@ function buckify(strings)
   for len = 1,maxlen do
     local strs = lenbucks[len]
     if strs then
-      print("len = "..len..", strs="..#strs)
+      --print("len = "..len..", strs="..#strs)
       local minpos, minsize, buck = nil, #strs*2, nil
       for pos = 1,len do
         local posbucks = {}
@@ -286,34 +303,43 @@ function switcher(tab, maxlen)
   local neworder = {}
   local stats = {}
   local put = function(str) table.insert(stats, str) end
-  put "switch (len) {"
+  put "switch (len) {\n"
   for len = 1,maxlen do
     local vals = tab[len]
     if vals then
-      put("case "..len..":\n")
+      put("  case "..len..": ")
       local pos, posbuck = unpack(vals)
       local keys = vim.tbl_keys(posbuck)
-      table.sort(keys)
-      put("  switch (str["..(pos-1).."]) {\n")
-      for _,c in ipairs(keys) do
-        local buck = posbuck[c]
-        local startidx = #neworder
-        vim.list_extend(neworder, buck)
-        local endidx = #neworder
-        put("    case '"..c.."': ")
-        put("low = "..startidx.."; high = "..endidx.."; ")
-        put "break;\n"
+      if #keys > 1 then
+        table.sort(keys)
+        put("switch (str["..(pos-1).."]) {\n")
+        for _,c in ipairs(keys) do
+          local buck = posbuck[c]
+          local startidx = #neworder
+          vim.list_extend(neworder, buck)
+          local endidx = #neworder
+          put("    case '"..c.."': ")
+          put("low = "..startidx.."; high = "..endidx.."; ")
+          put "break;\n"
+        end
+        put "    default: break;\n"
+        put "  }\n  "
+      else
+          local startidx = #neworder
+          table.insert(neworder, posbuck[keys[1]][1])
+          local endidx = #neworder
+          put("low = "..startidx.."; high = "..endidx.."; ")
       end
-      put "  }\n"
-      put "  break;\n"
+      put "break;\n"
     end
   end
-  put "default: break;"
+  put "  default: break;\n"
   put "}"
   return neworder, table.concat(stats)
 end
+a,b,c = buckify(instrings)
 x,y = switcher(b, a)
-print(y)
+require 'luadev'.print(y)
 
 function fakelookup(tab, strings) 
   local count, cmps = 0, 0
@@ -327,13 +353,11 @@ function fakelookup(tab, strings)
   return count, cmps
 end
 
-c
-a,b,c = buckify(instrings)
+--c
 print(fakelookup(b, instrings))
 
 
-print(
-387/226
+--387/226
 
 if false then
 
