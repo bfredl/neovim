@@ -44,6 +44,7 @@ typedef struct {
 # include "api/private/helpers.c.generated.h"
 # include "api/private/funcs_metadata.generated.h"
 # include "api/private/ui_events_metadata.generated.h"
+# include "keysets.generated.h"
 #endif
 
 /// Start block that may cause VimL exceptions while evaluating another code
