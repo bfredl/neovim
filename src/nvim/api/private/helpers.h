@@ -137,7 +137,18 @@ typedef struct {
     msg_list = saved_msg_list;  /* Restore the exception context. */ \
   } while (0)
 
+typedef Object *(*field_hash)(void *retval, const char *str, size_t len);
+typedef struct {
+  char *str;
+  size_t ptr_off;
+} KeySetLink;
+
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
+# include "keysets_defs.generated.h"
+# include "keysets.h.generated.h"
 # include "api/private/helpers.h.generated.h"
 #endif
+
+
 #endif  // NVIM_API_PRIVATE_HELPERS_H

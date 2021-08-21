@@ -1481,7 +1481,7 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 /// @return Id of the created/updated extmark
 Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
                              Integer line, Integer col,
-                             Dictionary opts, Error *err)
+                             Dict(set_extmark) *opts, Error *err)
   FUNC_API_SINCE(7)
 {
   buf_T *buf = find_buffer_by_handle(buffer, err);
@@ -1494,178 +1494,171 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
     return 0;
   }
 
-  bool ephemeral = false;
 
   uint64_t id = 0;
-  int line2 = -1;
-  Decoration decor = DECORATION_INIT;
-  colnr_T col2 = -1;
-
-  bool right_gravity = true;
-  bool end_right_gravity = false;
-  bool end_gravity_set = false;
-
-  for (size_t i = 0; i < opts.size; i++) {
-    String k = opts.items[i].key;
-    Object *v = &opts.items[i].value;
-    if (strequal("id", k.data)) {
-      if (v->type != kObjectTypeInteger || v->data.integer <= 0) {
-        api_set_error(err, kErrorTypeValidation,
-                      "id is not a positive integer");
-        goto error;
-      }
-
-      id = (uint64_t)v->data.integer;
-    } else if (strequal("end_line", k.data)) {
-      if (v->type != kObjectTypeInteger) {
-        api_set_error(err, kErrorTypeValidation,
-                      "end_line is not an integer");
-        goto error;
-      }
-      if (v->data.integer < 0 || v->data.integer > buf->b_ml.ml_line_count) {
-        api_set_error(err, kErrorTypeValidation,
-                      "end_line value outside range");
-        goto error;
-      }
-
-      line2 = (int)v->data.integer;
-    } else if (strequal("end_col", k.data)) {
-      if (v->type != kObjectTypeInteger) {
-        api_set_error(err, kErrorTypeValidation,
-                      "end_col is not an integer");
-        goto error;
-      }
-      if (v->data.integer < 0 || v->data.integer > MAXCOL) {
-        api_set_error(err, kErrorTypeValidation,
-                      "end_col value outside range");
-        goto error;
-      }
-
-      col2 = (colnr_T)v->data.integer;
-    } else if (strequal("hl_group", k.data)) {
-      String hl_group;
-      switch (v->type) {
-        case kObjectTypeString:
-          hl_group = v->data.string;
-          decor.hl_id = syn_check_group(
-              (char_u *)(hl_group.data),
-              (int)hl_group.size);
-          break;
-        case kObjectTypeInteger:
-          decor.hl_id = (int)v->data.integer;
-          break;
-        default:
-          api_set_error(err, kErrorTypeValidation,
-                        "hl_group is not valid.");
-          goto error;
-      }
-    } else if (strequal("virt_text", k.data)) {
-      if (v->type != kObjectTypeArray) {
-        api_set_error(err, kErrorTypeValidation,
-                      "virt_text is not an Array");
-        goto error;
-      }
-      decor.virt_text = parse_virt_text(v->data.array, err,
-                                        &decor.virt_text_width);
-      if (ERROR_SET(err)) {
-        goto error;
-      }
-    } else if (strequal("virt_text_pos", k.data)) {
-      if (v->type != kObjectTypeString) {
-        api_set_error(err, kErrorTypeValidation,
-                      "virt_text_pos is not a String");
-        goto error;
-      }
-      String str = v->data.string;
-      if (strequal("eol", str.data)) {
-        decor.virt_text_pos = kVTEndOfLine;
-      } else if (strequal("overlay", str.data)) {
-        decor.virt_text_pos = kVTOverlay;
-      } else if (strequal("right_align", str.data)) {
-        decor.virt_text_pos = kVTRightAlign;
-      } else {
-        api_set_error(err, kErrorTypeValidation,
-                      "virt_text_pos: invalid value");
-        goto error;
-      }
-    } else if (strequal("virt_text_win_col",  k.data)) {
-      if (v->type != kObjectTypeInteger) {
-        api_set_error(err, kErrorTypeValidation,
-                      "virt_text_win_col is not a Number of the correct size");
-        goto error;
-      }
-
-      decor.col = (int)v->data.integer;
-      decor.virt_text_pos = kVTWinCol;
-    } else if (strequal("virt_text_hide", k.data)) {
-      decor.virt_text_hide = api_object_to_bool(*v,
-                                                "virt_text_hide", false, err);
-      if (ERROR_SET(err)) {
-        goto error;
-      }
-    } else if (strequal("hl_eol", k.data)) {
-      decor.hl_eol = api_object_to_bool(*v, "hl_eol", false, err);
-      if (ERROR_SET(err)) {
-        goto error;
-      }
-    } else if (strequal("hl_mode", k.data)) {
-      if (v->type != kObjectTypeString) {
-        api_set_error(err, kErrorTypeValidation,
-                      "hl_mode is not a String");
-        goto error;
-      }
-      String str = v->data.string;
-      if (strequal("replace", str.data)) {
-        decor.hl_mode = kHlModeReplace;
-      } else if (strequal("combine", str.data)) {
-        decor.hl_mode = kHlModeCombine;
-      } else if (strequal("blend", str.data)) {
-        decor.hl_mode = kHlModeBlend;
-      } else {
-        api_set_error(err, kErrorTypeValidation,
-                      "virt_text_pos: invalid value");
-        goto error;
-      }
-    } else if (strequal("ephemeral", k.data)) {
-      ephemeral = api_object_to_bool(*v, "ephemeral", false, err);
-      if (ERROR_SET(err)) {
-        goto error;
-      }
-    } else if (strequal("priority",  k.data)) {
-      if (v->type != kObjectTypeInteger) {
-        api_set_error(err, kErrorTypeValidation,
-                      "priority is not a Number of the correct size");
-        goto error;
-      }
-
-      if (v->data.integer < 0 || v->data.integer > UINT16_MAX) {
-        api_set_error(err, kErrorTypeValidation,
-                      "priority is not a valid value");
-        goto error;
-      }
-      decor.priority = (DecorPriority)v->data.integer;
-    } else if (strequal("right_gravity", k.data)) {
-      if (v->type != kObjectTypeBoolean) {
-        api_set_error(err, kErrorTypeValidation,
-                      "right_gravity must be a boolean");
-        goto error;
-      }
-      right_gravity = v->data.boolean;
-    } else if (strequal("end_right_gravity", k.data)) {
-      if (v->type != kObjectTypeBoolean) {
-        api_set_error(err, kErrorTypeValidation,
-                      "end_right_gravity must be a boolean");
-        goto error;
-      }
-      end_right_gravity = v->data.boolean;
-      end_gravity_set = true;
-    } else {
-      api_set_error(err, kErrorTypeValidation, "unexpected key: %s", k.data);
+  if (opts->id.type == kObjectTypeInteger && opts->id.data.integer > 0) {
+    id = (uint64_t)opts->id.data.integer;
+  } else if (opts->id.type != kObjectTypeNil) {
+      api_set_error(err, kErrorTypeValidation,
+                    "id is not a positive integer");
       goto error;
-    }
   }
 
+  int line2 = -1;
+  if (opts->end_line.type == kObjectTypeInteger) {
+    Integer val = opts->end_line.data.integer;
+    if (val < 0 || val > buf->b_ml.ml_line_count) {
+      api_set_error(err, kErrorTypeValidation,
+                    "end_line value outside range");
+      goto error;
+    } else {
+      line2 = (int)val;
+    }
+  } else if (opts->end_line.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation,
+                  "end_line is not an integer");
+    goto error;
+  }
+
+  colnr_T col2 = -1;
+  if (opts->end_col.type == kObjectTypeInteger) {
+    Integer val = opts->end_col.data.integer;
+    if (val < 0 || val > MAXCOL) {
+      api_set_error(err, kErrorTypeValidation,
+                    "end_col value outside range");
+      goto error;
+    } else {
+      col2 = (int)val;
+    }
+  } else if (opts->end_col.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation,
+                  "end_col is not an integer");
+    goto error;
+  }
+
+  Decoration decor = DECORATION_INIT;
+
+  String hl_group;
+  switch (opts->hl_group.type) {
+    case kObjectTypeString:
+      hl_group = opts->hl_group.data.string;
+      decor.hl_id = syn_check_group((char_u *)(hl_group.data), (int)hl_group.size);
+      break;
+    case kObjectTypeInteger:
+      decor.hl_id = (int)opts->hl_group.data.integer;
+      break;
+    case kObjectTypeNil:
+      break;
+    default:
+      api_set_error(err, kErrorTypeValidation,
+                    "hl_group is not valid.");
+      goto error;
+  }
+
+  if (opts->virt_text.type == kObjectTypeArray) {
+    decor.virt_text = parse_virt_text(opts->virt_text.data.array, err,
+                                      &decor.virt_text_width);
+    if (ERROR_SET(err)) {
+      goto error;
+    }
+  } else if (opts->virt_text.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation,
+                  "virt_text is not an Array");
+    goto error;
+  }
+
+  if (opts->virt_text_pos.type == kObjectTypeString) {
+    String str = opts->virt_text_pos.data.string;
+    if (strequal("eol", str.data)) {
+      decor.virt_text_pos = kVTEndOfLine;
+    } else if (strequal("overlay", str.data)) {
+      decor.virt_text_pos = kVTOverlay;
+    } else if (strequal("right_align", str.data)) {
+      decor.virt_text_pos = kVTRightAlign;
+    } else {
+      api_set_error(err, kErrorTypeValidation,
+                    "virt_text_pos: invalid value");
+      goto error;
+    }
+  } else if (opts->virt_text_pos.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation,
+                  "virt_text_pos is not a String");
+    goto error;
+  }
+
+  if (opts->virt_text_win_col.type == kObjectTypeInteger) {
+    decor.col = (int)opts->virt_text_win_col.data.integer;
+    decor.virt_text_pos = kVTWinCol;
+  } else if (opts->virt_text_win_col.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation,
+                  "virt_text_win_col is not a Number of the correct size");
+    goto error;
+  }
+
+#define OPTION_TO_BOOL(target, name, val) \
+    target = api_object_to_bool(opts-> name, #name, val, err); \
+    if (ERROR_SET(err)) { \
+      goto error; \
+    }
+
+  OPTION_TO_BOOL(decor.virt_text_hide, virt_text_hide, false);
+  OPTION_TO_BOOL(decor.hl_eol, hl_eol, false);
+
+  if (opts->hl_mode.type == kObjectTypeString) {
+    String str = opts->hl_mode.data.string;
+    if (strequal("replace", str.data)) {
+      decor.hl_mode = kHlModeReplace;
+    } else if (strequal("combine", str.data)) {
+      decor.hl_mode = kHlModeCombine;
+    } else if (strequal("blend", str.data)) {
+      decor.hl_mode = kHlModeBlend;
+    } else {
+      api_set_error(err, kErrorTypeValidation,
+                    "virt_text_pos: invalid value");
+      goto error;
+    }
+  } else if (opts->hl_mode.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation, "hl_mode is not a String");
+    goto error;
+  }
+
+
+
+  if (opts->priority.type == kObjectTypeInteger) {
+    Integer val = opts->priority.data.integer;
+
+    if (val < 0 || val > UINT16_MAX) {
+      api_set_error(err, kErrorTypeValidation,
+                    "priority is not a valid value");
+      goto error;
+    }
+    decor.priority = (DecorPriority)val;
+  } else if (opts->priority.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation,
+                  "priority is not a Number of the correct size");
+    goto error;
+  }
+
+  bool right_gravity = true;
+  OPTION_TO_BOOL(right_gravity, right_gravity, true);
+
+  // Only error out if they try to set end_right_gravity without
+  // setting end_col or end_line
+  if (line2 == -1 && col2 == -1 && opts->end_right_gravity.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation,
+                  "cannot set end_right_gravity "
+                  "without setting end_line or end_col");
+    goto error;
+  }
+
+  bool end_right_gravity = false;
+  OPTION_TO_BOOL(end_right_gravity, end_right_gravity, false);
+
   size_t len = 0;
+
+  bool ephemeral = false;
+  OPTION_TO_BOOL(ephemeral, ephemeral, false);
+
   if (line < 0 || line > buf->b_ml.ml_line_count) {
     api_set_error(err, kErrorTypeValidation, "line value outside range");
     return 0;
@@ -1680,14 +1673,6 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
     return 0;
   }
 
-
-  // Only error out if they try to set end_right_gravity without
-  // setting end_col or end_line
-  if (line2 == -1 && col2 == -1 && end_gravity_set) {
-    api_set_error(err, kErrorTypeValidation,
-                  "cannot set end_right_gravity "
-                  "without setting end_line or end_col");
-  }
 
   if (col2 >= 0) {
     if (line2 >= 0 && line2 < buf->b_ml.ml_line_count) {
@@ -1707,15 +1692,6 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
   } else if (line2 >= 0) {
     col2 = 0;
   }
-
-  if (decor.virt_text_pos == kVTRightAlign) {
-    decor.col = 0;
-    for (size_t i = 0; i < kv_size(decor.virt_text); i++) {
-      decor.col
-          += (int)mb_string2cells((char_u *)kv_A(decor.virt_text, i).text);
-    }
-  }
-
 
   Decoration *d = NULL;
 

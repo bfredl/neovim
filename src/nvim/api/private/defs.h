@@ -19,6 +19,7 @@
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # define ArrayOf(...) Array
 # define DictionaryOf(...) Dictionary
+# define Dict(name) KeyDict_##name
 #endif
 
 // Basic types

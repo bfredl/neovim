@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "nvim/api/private/defs.h"
+#include "nvim/api/private/helpers.h" // TODO: NEJ
 #include "nvim/func_attr.h"
 #include "nvim/eval.h"
 

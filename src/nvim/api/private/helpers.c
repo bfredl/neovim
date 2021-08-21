@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/private/defs.h"
@@ -2095,3 +2096,29 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
   }
   return true;
 }
+
+bool api_dictionary_to_keydict(void *rv, field_hash hashy,
+                               Dictionary dict, Error *err)
+{
+  for (size_t i = 0; i < dict.size; i++) {
+    String k = dict.items[i].key;
+    Object *field = hashy(rv, k.data, k.size);
+    if (!field) {
+      api_set_error(err, kErrorTypeValidation, "ERRRRRRORRRR"); // TODO
+      api_free_keydict_set_extmark(rv);
+      return false;
+    }
+
+    *field = dict.items[i].value;
+  }
+
+  return true;
+}
+
+void api_free_keydict(void *dict, KeySetLink *table)
+{
+  for (size_t i = 0; table[i].str; i++) {
+    api_free_object(*(Object *)((char *)dict + set_extmark_table[i].ptr_off));
+  }
+}
+
