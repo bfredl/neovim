@@ -1,7 +1,9 @@
-local mpack = require('mpack')
 
 local nvimsrcdir = arg[1]
-local funcs_file = arg[2]
+local shared_file = arg[2]
+local funcs_file = arg[3]
+
+_G.vim = loadfile(shared_file)()
 
 if nvimsrcdir == '--help' then
   print([[
@@ -15,13 +17,17 @@ static const array.
 end
 
 package.path = nvimsrcdir .. '/?.lua;' .. package.path
+local hashy = require'generators.hashy'
 
 local funcspipe = io.open(funcs_file, 'wb')
 
 local keysets = require'api.keyset'
 
+local name, keys = next(keysets)
+neworder, hashfun = hashy.hashy_hash(name, keys)
 
-funcspipe:write((next(keysets)))
+
+funcspipe:write(hashfun)
 
 
 funcspipe:close()
