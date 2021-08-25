@@ -58,12 +58,12 @@ end
 
 function M.switcher(put, tab, maxlen, worst_buck_size)
   local neworder = {}
-  put "switch (len) {\n"
+  put "  switch (len) {\n"
   local bucky = worst_buck_size > 1
   for len = 1,maxlen do
     local vals = tab[len]
     if vals then
-      put("  case "..len..": ")
+      put("    case "..len..": ")
       local pos, posbuck = unpack(vals)
       local keys = vim.tbl_keys(posbuck)
       if #keys > 1 then
@@ -74,13 +74,13 @@ function M.switcher(put, tab, maxlen, worst_buck_size)
           local startidx = #neworder
           vim.list_extend(neworder, buck)
           local endidx = #neworder
-          put("    case '"..c.."': ")
+          put("      case '"..c.."': ")
           put("low = "..startidx.."; ")
           if bucky then put("high = "..endidx.."; ") end
           put "break;\n"
         end
-        put "    default: break;\n"
-        put "  }\n  "
+        put "      default: break;\n"
+        put "    }\n  "
       else
           local startidx = #neworder
           table.insert(neworder, posbuck[keys[1]][1])
@@ -88,15 +88,15 @@ function M.switcher(put, tab, maxlen, worst_buck_size)
           put("low = "..startidx.."; ")
           if bucky then put("high = "..endidx.."; ") end
       end
-      put "break;\n"
+      put "  break;\n"
     end
   end
-  put "  default: break;\n"
-  put "}\n"
+  put "    default: break;\n"
+  put "  }\n"
   return neworder
 end
 
-function M.hashy_hash(name, strings)
+function M.hashy_hash(name, strings, access)
   local stats = {}
   local put = function(str) table.insert(stats, str) end
   local len_pos_buckets, maxlen, worst_buck_size = M.build_pos_hash(strings)
@@ -115,9 +115,9 @@ function M.hashy_hash(name, strings)
     return -1;
   }
   ]]
-    put("if(memcmp(str, "..name.."_table[low], len)) {\n    return -1;\n  }\n")
+    put("if(memcmp(str, "..access("low")..", len)) {\n    return -1;\n  }\n")
     put "  return low;\n"
-    put "}\n"
+    put "}\n\n"
   end
   return neworder, table.concat(stats)
 end

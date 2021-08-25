@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/private/defs.h"
@@ -39,6 +40,11 @@
 typedef struct {
   kvec_t(Object) stack;  ///< Object stack.
 } EncodedData;
+
+typedef struct {
+  char *str;
+  size_t ptr_off;
+} KeySetLink;
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/private/helpers.c.generated.h"
