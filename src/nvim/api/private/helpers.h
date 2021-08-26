@@ -3,6 +3,11 @@
 
 #include <stdbool.h>
 
+// TODO: delet this
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 #include "nvim/api/private/defs.h"
 #include "nvim/vim.h"
 #include "nvim/getchar.h"
@@ -147,4 +152,10 @@ typedef struct {
 # include "api/private/helpers.h.generated.h"
 # include "keysets.generated.h"
 #endif
+
+static inline KeyDictionary(set_extmark) nlua_pop_KeyDict_set_extmark(lua_State *L, Error *err) {
+  KeyDictionary(set_extmark) retval = {0};
+  return retval;
+}
+
 #endif  // NVIM_API_PRIVATE_HELPERS_H
