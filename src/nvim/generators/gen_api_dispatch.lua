@@ -152,6 +152,8 @@ for _,f in ipairs(functions) do
     for i,param in ipairs(f.parameters) do
       if param[1] == "DictionaryOf(LuaRef)" then
         param = {"Dictionary", param[2]}
+      elseif startswith(param[1], "KeyDictionary(") then
+        param = {"Dictionary", param[2]}
       end
       f_exported.parameters[i] = param
     end
@@ -173,7 +175,10 @@ local output = io.open(dispatch_outputf, 'wb')
 
 local function real_type(type)
   local rv = type
-  if c_grammar.typed_container:match(rv) then
+  local rmatch = string.match(type, "KeyDictionary%(([_%w]+)%)")
+  if rmatch then
+    return "KeyDict_"..rmatch
+  elseif c_grammar.typed_container:match(rv) then
     if rv:match('Array') then
       rv = 'Array'
     else

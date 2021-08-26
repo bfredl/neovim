@@ -1481,7 +1481,7 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 /// @return Id of the created/updated extmark
 Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
                              Integer line, Integer col,
-                             Dictionary opts, Error *err)
+                             KeyDictionary(set_extmark) opts, Error *err)
   FUNC_API_SINCE(7)
 {
   buf_T *buf = find_buffer_by_handle(buffer, err);

@@ -8,9 +8,9 @@ _G.vim = loadfile(shared_file)()
 if nvimsrcdir == '--help' then
   print([[
 Usage:
-  lua gen_eval.lua src/nvim build/src/nvim/auto
+  lua gen_keyset.lua TODOFIXUPDATETHIS
 
-Will generate build/src/nvim/auto/funcs.generated.h with definition of functions
+Will generate build/src/nvim/auto/keyset.generated.h with definition of functions
 static const array.
 ]])
   os.exit(0)
@@ -31,16 +31,16 @@ end)
 
 funcspipe:write("typedef struct {\n")
 for _, key in ipairs(neworder) do
-  funcspipe:write("  Object *"..key..";\n")
+  funcspipe:write("  Object "..key..";\n")
 end
-funcspipe:write("} KeyDict_"..name.."_t;\n\n")
+funcspipe:write("} KeyDict_"..name..";\n\n")
 
 funcspipe:write("KeySetLink "..name.."_table[] = {\n")
 for _, key in ipairs(neworder) do
-  funcspipe:write('  {"'..key..'", offsetof(KeyDict_'..name.."_t, "..key..")},\n")
+  funcspipe:write('  {"'..key..'", offsetof(KeyDict_'..name..", "..key..")},\n")
 end
 funcspipe:write("};\n\n")
 
-funcspipe:write(hashfun)
+funcspipe:write("static inline "..hashfun)
 
 funcspipe:close()

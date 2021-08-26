@@ -41,16 +41,10 @@ typedef struct {
   kvec_t(Object) stack;  ///< Object stack.
 } EncodedData;
 
-typedef struct {
-  char *str;
-  size_t ptr_off;
-} KeySetLink;
-
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/private/helpers.c.generated.h"
 # include "api/private/funcs_metadata.generated.h"
 # include "api/private/ui_events_metadata.generated.h"
-# include "keysets.generated.h"
 #endif
 
 /// Start block that may cause VimL exceptions while evaluating another code
