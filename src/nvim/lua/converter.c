@@ -1318,3 +1318,34 @@ void nlua_init_types(lua_State *const lstate)
 
   lua_rawset(lstate, -3);
 }
+
+KeyDictionary(set_extmark) nlua_pop_KeyDict_set_extmark(lua_State *L, Error *err) {
+  KeyDictionary(set_extmark) retval = {0};
+
+  lua_pushnil(L); // [dict, nil]
+  while (lua_next(L, -1)) {
+    // [dict, key, value]
+    size_t len;
+    const char *s = lua_tolstring(L, -2, &len);
+    int hashish = set_extmark_hash(s, len);
+    if (hashish == -1) {
+      api_set_error(err, kErrorTypeValidation, "ERRRRRRORRRR"); // TODO
+      lua_pop(L, 3); // []
+      api_free_keydict_set_extmark(retval);
+      return retval;
+    }
+
+    Object value = nlua_pop_Object(L, true, err);
+    *(Object *)((char *)&retval + set_extmark_table[hashish].ptr_off) = value;
+  }
+  // [dict, nil]
+  lua_pop(L, 2);
+
+  // TODO: check lua_gettop
+
+  return retval;
+}
+
+void api_free_keydict_set_extmark(KeyDictionary(set_extmark) dict) {
+  (void)dict;
+}
