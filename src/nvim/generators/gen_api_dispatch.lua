@@ -253,7 +253,7 @@ for i = 1, #functions do
           output:write('\n    '..converted..' = (Float)args.items['..(j - 1)..'].data.integer;')
         end
         -- accept empty lua tables as empty dictionaries
-        if rt:match('^Dictionary') then
+        if rt:match('^Dictionary') or rt:match('^KeyDict_') then
           output:write('\n  } else if (args.items['..(j - 1)..'].type == kObjectTypeArray && args.items['..(j - 1)..'].data.array.size == 0) {') --luacheck: ignore 631
           output:write('\n    '..converted..' = (Dictionary)ARRAY_DICT_INIT;')
         end
