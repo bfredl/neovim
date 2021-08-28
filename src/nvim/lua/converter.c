@@ -1060,15 +1060,16 @@ Object nlua_pop_Object(lua_State *const lstate, bool ref, Error *const err)
 {
   Object ret = NIL;
   const int initial_size = lua_gettop(lstate);
-  kvec_t(ObjPopStackItem) stack = KV_INITIAL_VALUE;
-  kv_push(stack, ((ObjPopStackItem) { &ret, false }));
+  kvec_withinit_t(ObjPopStackItem, 2) stack = KV_INITIAL_VALUE;
+  kvi_init(stack);
+  kvi_push(stack, ((ObjPopStackItem) { &ret, false }));
   while (!ERROR_SET(err) && kv_size(stack)) {
-    if (!lua_checkstack(lstate, lua_gettop(lstate) + 3)) {
-      api_set_error(err, kErrorTypeException, "Lua failed to grow stack");
-      break;
-    }
     ObjPopStackItem cur = kv_pop(stack);
     if (cur.container) {
+      if (!lua_checkstack(lstate, lua_gettop(lstate) + 3)) {
+        api_set_error(err, kErrorTypeException, "Lua failed to grow stack");
+        break;
+      }
       if (cur.obj->type == kObjectTypeDictionary) {
         // stack: …, dict, key
         if (cur.obj->data.dictionary.size
@@ -1095,7 +1096,7 @@ Object nlua_pop_Object(lua_State *const lstate, bool ref, Error *const err)
             .data = xmemdupz(s, len),
             .size = len,
           };
-          kv_push(stack, cur);
+          kvi_push(stack, cur);
           cur = (ObjPopStackItem) {
             .obj = &cur.obj->data.dictionary.items[idx].value,
             .container = false,
@@ -1117,7 +1118,7 @@ Object nlua_pop_Object(lua_State *const lstate, bool ref, Error *const err)
           lua_pop(lstate, 2);
           continue;
         }
-        kv_push(stack, cur);
+        kvi_push(stack, cur);
         cur = (ObjPopStackItem) {
           .obj = &cur.obj->data.array.items[idx],
           .container = false,
@@ -1169,7 +1170,7 @@ Object nlua_pop_Object(lua_State *const lstate, bool ref, Error *const err)
                           sizeof(cur.obj->data.array.items[0]));
               cur.obj->data.array.capacity = table_props.maxidx;
               cur.container = true;
-              kv_push(stack, cur);
+              kvi_push(stack, cur);
             }
             break;
           }
@@ -1185,7 +1186,7 @@ Object nlua_pop_Object(lua_State *const lstate, bool ref, Error *const err)
                           sizeof(cur.obj->data.dictionary.items[0]));
               cur.obj->data.dictionary.capacity = table_props.string_keys_num;
               cur.container = true;
-              kv_push(stack, cur);
+              kvi_push(stack, cur);
               lua_pushnil(lstate);
             }
             break;
@@ -1239,7 +1240,7 @@ type_error:
       lua_pop(lstate, 1);
     }
   }
-  kv_destroy(stack);
+  kvi_destroy(stack);
   if (ERROR_SET(err)) {
     api_free_object(ret);
     ret = NIL;
