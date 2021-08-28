@@ -230,7 +230,20 @@ for i = 1, #functions do
       param = fn.parameters[j]
       converted = 'arg_'..j
       local rt = real_type(param[1])
-      if rt ~= 'Object' then
+      if rt == 'Object' then
+        output:write('\n  '..converted..' = args.items['..(j - 1)..'];\n')
+      elseif rt:match('^KeyDict_') then
+          output:write('\n  if (args.items['..(j - 1)..'].type == kObjectTypeDictionary) {') --luacheck: ignore 631
+        output:write('\n    BÅÅÅÅ!;')
+          output:write('\n  } else if (args.items['..(j - 1)..'].type == kObjectTypeArray && args.items['..(j - 1)..'].data.array.size == 0) {') --luacheck: ignore 631
+        output:write('\n    zero_it();')
+
+        output:write('\n  } else {')
+        output:write('\n    api_set_error(error, kErrorTypeException, \
+          "Wrong type for argument '..j..' when calling '..fn.name..', expecting '..param[1]..'");')
+        output:write('\n    goto cleanup;')
+        output:write('\n  }\n')
+      else
         if rt:match('^Buffer$') or rt:match('^Window$') or rt:match('^Tabpage$') then
           -- Buffer, Window, and Tabpage have a specific type, but are stored in integer
           output:write('\n  if (args.items['..
@@ -253,7 +266,7 @@ for i = 1, #functions do
           output:write('\n    '..converted..' = (Float)args.items['..(j - 1)..'].data.integer;')
         end
         -- accept empty lua tables as empty dictionaries
-        if rt:match('^Dictionary') or rt:match('^KeyDict_') then
+        if rt:match('^Dictionary') then
           output:write('\n  } else if (args.items['..(j - 1)..'].type == kObjectTypeArray && args.items['..(j - 1)..'].data.array.size == 0) {') --luacheck: ignore 631
           output:write('\n    '..converted..' = (Dictionary)ARRAY_DICT_INIT;')
         end
@@ -262,10 +275,7 @@ for i = 1, #functions do
           "Wrong type for argument '..j..' when calling '..fn.name..', expecting '..param[1]..'");')
         output:write('\n    goto cleanup;')
         output:write('\n  }\n')
-      else
-        output:write('\n  '..converted..' = args.items['..(j - 1)..'];\n')
       end
-
       args[#args + 1] = converted
     end
 
