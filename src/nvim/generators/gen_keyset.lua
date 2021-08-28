@@ -35,7 +35,7 @@ for _, key in ipairs(neworder) do
 end
 funcspipe:write("} KeyDict_"..name..";\n\n")
 
-funcspipe:write("KeySetLink "..name.."_table[] = {\n")
+funcspipe:write("static KeySetLink "..name.."_table[] = {\n")
 for _, key in ipairs(neworder) do
   funcspipe:write('  {"'..key..'", offsetof(KeyDict_'..name..", "..key..")},\n")
 end

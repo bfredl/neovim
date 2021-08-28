@@ -1482,7 +1482,7 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
                              Integer line, Integer col,
                              KeyDictionary(set_extmark) opts, Error *err)
-  FUNC_API_SINCE(7)
+  FUNC_API_SINCE(7) FUNC_API_LUA_ONLY
 {
   buf_T *buf = find_buffer_by_handle(buffer, err);
   if (!buf) {

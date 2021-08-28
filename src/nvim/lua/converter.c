@@ -1323,7 +1323,7 @@ KeyDictionary(set_extmark) nlua_pop_KeyDict_set_extmark(lua_State *L, Error *err
   KeyDictionary(set_extmark) retval = {0};
 
   lua_pushnil(L); // [dict, nil]
-  while (lua_next(L, -1)) {
+  while (lua_next(L, -2)) {
     // [dict, key, value]
     size_t len;
     const char *s = lua_tolstring(L, -2, &len);
@@ -1332,16 +1332,16 @@ KeyDictionary(set_extmark) nlua_pop_KeyDict_set_extmark(lua_State *L, Error *err
       api_set_error(err, kErrorTypeValidation, "ERRRRRRORRRR"); // TODO
       lua_pop(L, 3); // []
       api_free_keydict_set_extmark(retval);
+      // TODO: check lua_gettop
       return retval;
     }
 
     Object value = nlua_pop_Object(L, true, err);
     *(Object *)((char *)&retval + set_extmark_table[hashish].ptr_off) = value;
   }
-  // [dict, nil]
-  lua_pop(L, 2);
-
-  // TODO: check lua_gettop
+  // [dict]
+  lua_pop(L, 1);
+  // []
 
   return retval;
 }
