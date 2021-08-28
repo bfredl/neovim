@@ -2098,3 +2098,31 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
   }
   return true;
 }
+
+
+void api_free_keydict_set_extmark(KeyDictionary(set_extmark) dict) {
+  (void)dict;
+  for (size_t i = 0; i < ARRAY_SIZE(set_extmark_table); i++) {
+    api_free_object(*(Object *)((char *)&dict + set_extmark_table[i].ptr_off));
+  }
+}
+
+bool api_dictionary_to_KeyDict_set_extmark(KeyDictionary(set_extmark) *rv, Dictionary dict, Error *err)
+{
+  memset(rv, 0, sizeof *rv); // TODO: HAIII
+
+  for (size_t i = 0; i < dict.size; i++) {
+    String k = dict.items[i].key;
+    int hashish = set_extmark_hash(k.data, k.size);
+    if (hashish == -1) {
+      api_set_error(err, kErrorTypeValidation, "ERRRRRRORRRR"); // TODO
+      api_free_keydict_set_extmark(*rv);
+      // TODO: check lua_gettop
+      return false;
+    }
+
+    *(Object *)((char *)rv + set_extmark_table[hashish].ptr_off) = dict.items[i].value;
+  }
+
+  return true;
+}

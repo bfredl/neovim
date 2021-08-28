@@ -233,10 +233,12 @@ for i = 1, #functions do
       if rt == 'Object' then
         output:write('\n  '..converted..' = args.items['..(j - 1)..'];\n')
       elseif rt:match('^KeyDict_') then
-          output:write('\n  if (args.items['..(j - 1)..'].type == kObjectTypeDictionary) {') --luacheck: ignore 631
-        output:write('\n    BÅÅÅÅ!;')
+        output:write('\n  if (args.items['..(j - 1)..'].type == kObjectTypeDictionary) {') --luacheck: ignore 631
+        output:write('\n    if (!api_dictionary_to_'..rt..'(&'..converted..', args.items['..(j - 1)..'].data.dictionary, error)) {')
+        output:write('\n      goto cleanup;')
+        output:write('\n    }')
           output:write('\n  } else if (args.items['..(j - 1)..'].type == kObjectTypeArray && args.items['..(j - 1)..'].data.array.size == 0) {') --luacheck: ignore 631
-        output:write('\n    zero_it();')
+        output:write('\n    memset(&'..converted..', 0, sizeof('..converted..'));')
 
         output:write('\n  } else {')
         output:write('\n    api_set_error(error, kErrorTypeException, \

@@ -1345,7 +1345,3 @@ KeyDictionary(set_extmark) nlua_pop_KeyDict_set_extmark(lua_State *L, Error *err
 
   return retval;
 }
-
-void api_free_keydict_set_extmark(KeyDictionary(set_extmark) dict) {
-  (void)dict;
-}
