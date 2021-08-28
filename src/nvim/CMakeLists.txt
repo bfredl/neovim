@@ -336,7 +336,7 @@ add_custom_command(
 )
 
 list(APPEND NVIM_GENERATED_SOURCES
-  "${MSGPACK_LUA_C_BINDINGS}"
+  "${LUA_API_C_BINDINGS}"
 )
 
 add_custom_command(
