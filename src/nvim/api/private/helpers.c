@@ -2097,15 +2097,13 @@ bool parse_float_config(Dictionary config, FloatConfig *fconfig, bool reconf,
   return true;
 }
 
-bool api_dictionary_to_keydict(void *rv, field_hash hashy,
-                               Dictionary dict, Error *err)
+bool api_dict_to_keydict(void *rv, field_hash hashy, Dictionary dict, Error *err)
 {
   for (size_t i = 0; i < dict.size; i++) {
     String k = dict.items[i].key;
     Object *field = hashy(rv, k.data, k.size);
     if (!field) {
-      api_set_error(err, kErrorTypeValidation, "ERRRRRRORRRR"); // TODO
-      api_free_keydict_set_extmark(rv);
+      api_set_error(err, kErrorTypeValidation, "unexpeced key: %.*s", (int)k.size, k.data); // TODO
       return false;
     }
 
@@ -2118,7 +2116,7 @@ bool api_dictionary_to_keydict(void *rv, field_hash hashy,
 void api_free_keydict(void *dict, KeySetLink *table)
 {
   for (size_t i = 0; table[i].str; i++) {
-    api_free_object(*(Object *)((char *)dict + set_extmark_table[i].ptr_off));
+    api_free_object(*(Object *)((char *)dict + table[i].ptr_off));
   }
 }
 

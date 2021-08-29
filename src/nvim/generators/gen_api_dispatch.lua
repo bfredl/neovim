@@ -237,7 +237,7 @@ for i = 1, #functions do
         converted = '&' .. converted
         output:write('\n  if (args.items['..(j - 1)..'].type == kObjectTypeDictionary) {') --luacheck: ignore 631
         output:write('\n    memset('..converted..', 0, sizeof(*'..converted..'));') -- TODO: neeeee
-        output:write('\n    if (!api_dictionary_to_keydict('..converted..', '..rt..'_get_field, args.items['..(j - 1)..'].data.dictionary, error)) {')
+        output:write('\n    if (!api_dict_to_keydict('..converted..', '..rt..'_get_field, args.items['..(j - 1)..'].data.dictionary, error)) {')
         output:write('\n      goto cleanup;')
         output:write('\n    }')
           output:write('\n  } else if (args.items['..(j - 1)..'].type == kObjectTypeArray && args.items['..(j - 1)..'].data.array.size == 0) {') --luacheck: ignore 631
@@ -443,10 +443,12 @@ local function process_function(fn)
     if param[1] == "DictionaryOf(LuaRef)" then
       extra = "true, "
     end
+    local errshift = 0
     if string.match(param_type, '^KeyDict_') then
       write_shifted_output(output, string.format([[
       %s %s = { 0 }; nlua_pop_keydict(lstate, &%s, %s_get_field, %s&err);]], param_type, cparam, cparam, param_type, extra))
       cparam = '&'..cparam
+      errshift = 1 -- free incomplete dict on error
     else
       write_shifted_output(output, string.format([[
       const %s %s = nlua_pop_%s(lstate, %s&err);]], param[1], cparam, param_type, extra))
@@ -458,7 +460,7 @@ local function process_function(fn)
       goto exit_%u;
     }
 
-    ]], #fn.parameters - j))
+    ]], #fn.parameters - j + errshift))
     free_code[#free_code + 1] = ('api_free_%s(%s);'):format(
       lc_param_type, cparam)
     cparams = cparam .. ', ' .. cparams
@@ -475,7 +477,7 @@ local function process_function(fn)
   for i = 1, #free_code do
     local rev_i = #free_code - i + 1
     local code = free_code[rev_i]
-    if i == 1 then
+    if i == 1 and not string.match(real_type(fn.parameters[1][1]), '^KeyDict_') then
       free_at_exit_code = free_at_exit_code .. ('\n    %s'):format(code)
     else
       free_at_exit_code = free_at_exit_code .. ('\n  exit_%u:\n    %s'):format(

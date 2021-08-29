@@ -1,4 +1,7 @@
 return {
+  context = {
+    "types";
+  };
   set_extmark = {
     "id";
     "end_line";

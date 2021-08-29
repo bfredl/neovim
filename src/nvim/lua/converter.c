@@ -1330,9 +1330,8 @@ void nlua_pop_keydict(lua_State *L, void *retval, field_hash hashy, Error *err) 
     const char *s = lua_tolstring(L, -2, &len);
     Object *field = hashy(retval, s, len);
     if (!field) {
-      api_set_error(err, kErrorTypeValidation, "ERRRRRRORRRR"); // TODO
+      api_set_error(err, kErrorTypeValidation, "unexpected key: %.*s", (int)len, s);
       lua_pop(L, 3); // []
-      api_free_keydict_set_extmark(retval);
       // TODO: check lua_gettop
       return;
     }

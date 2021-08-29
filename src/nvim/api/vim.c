@@ -1803,24 +1803,15 @@ Dictionary nvim_get_color_map(void)
 /// @param[out]  err  Error details, if any
 ///
 /// @return map of global |context|.
-Dictionary nvim_get_context(Dictionary opts, Error *err)
+Dictionary nvim_get_context(Dict(context) *opts, Error *err)
   FUNC_API_SINCE(6)
 {
   Array types = ARRAY_DICT_INIT;
-  for (size_t i = 0; i < opts.size; i++) {
-    String k = opts.items[i].key;
-    Object v = opts.items[i].value;
-    if (strequal("types", k.data)) {
-      if (v.type != kObjectTypeArray) {
-        api_set_error(err, kErrorTypeValidation, "invalid value for key: %s",
-                      k.data);
-        return (Dictionary)ARRAY_DICT_INIT;
-      }
-      types = v.data.array;
-    } else {
-      api_set_error(err, kErrorTypeValidation, "unexpected key: %s", k.data);
-      return (Dictionary)ARRAY_DICT_INIT;
-    }
+  if (opts->types.type == kObjectTypeArray) {
+    types = opts->types.data.array;
+  } else if (opts->types.type != kObjectTypeNil) {
+    api_set_error(err, kErrorTypeValidation, "invalid value for key: types");
+    return (Dictionary)ARRAY_DICT_INIT;
   }
 
   int int_types = types.size > 0 ? 0 : kCtxAll;
