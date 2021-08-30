@@ -67,7 +67,7 @@
       return INITIALIZER(T, U); \
     } \
     \
-    return kh_val(&map->table, k); \
+    return kh_val(U, &map->table, k); \
   } \
   \
   bool map_##T##_##U##_has(Map(T, U) *map, T key) \
@@ -92,10 +92,10 @@
     khiter_t k = kh_put(T##_##U##_map, &map->table, key, &ret); \
     \
     if (!ret) { \
-      rv = kh_val(&map->table, k); \
+      rv = kh_val(U, &map->table, k); \
     } \
     \
-    kh_val(&map->table, k) = value; \
+    kh_val(U, &map->table, k) = value; \
     return rv; \
   } \
   \
@@ -106,7 +106,7 @@
     if (put) { \
       k = kh_put(T##_##U##_map, &map->table, key, &ret); \
       if (ret) { \
-        kh_val(&map->table, k) = INITIALIZER(T, U); \
+        kh_val(U, &map->table, k) = INITIALIZER(T, U); \
       } \
     } else { \
       k = kh_get(T##_##U##_map, &map->table, key); \
@@ -115,7 +115,7 @@
       } \
     } \
     \
-    return &kh_val(&map->table, k); \
+    return &kh_val(U, &map->table, k); \
   } \
   \
   U map_##T##_##U##_del(Map(T, U) *map, T key) \
@@ -124,7 +124,7 @@
     khiter_t k; \
     \
     if ((k = kh_get(T##_##U##_map, &map->table, key)) != kh_end(&map->table)) { \
-      rv = kh_val(&map->table, k); \
+      rv = kh_val(U, &map->table, k); \
       kh_del(T##_##U##_map, &map->table, k); \
     } \
     \
