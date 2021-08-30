@@ -50,20 +50,22 @@
 #define DEFAULT_INITIALIZER { 0 }
 #define SSIZE_INITIALIZER { -1 }
 
+#define KEY_IMPL(T) \
+  __KHASH_IMPL(T,, T, 1, T##_hash, T##_eq) \
+
 #define MAP_IMPL(T, U, ...) \
   INITIALIZER_DECLARE(T, U, __VA_ARGS__); \
-  __KHASH_IMPL(T##_##U##_map,, T, U, 1, T##_hash, T##_eq) \
   \
   void map_##T##_##U##_destroy(Map(T, U) *map) \
   { \
-    kh_dealloc(T##_##U##_map, &map->table); \
+    kh_dealloc(T, &map->table); \
   } \
   \
   U map_##T##_##U##_get(Map(T, U) *map, T key) \
   { \
     khiter_t k; \
     \
-    if ((k = kh_get(T##_##U##_map, &map->table, key)) == kh_end(&map->table)) { \
+    if ((k = kh_get(T, &map->table, key)) == kh_end(&map->table)) { \
       return INITIALIZER(T, U); \
     } \
     \
@@ -72,14 +74,14 @@
   \
   bool map_##T##_##U##_has(Map(T, U) *map, T key) \
   { \
-    return kh_get(T##_##U##_map, &map->table, key) != kh_end(&map->table); \
+    return kh_get(T, &map->table, key) != kh_end(&map->table); \
   } \
   \
   T map_##T##_##U##_key(Map(T, U) *map, T key) \
   { \
     khiter_t k; \
     \
-    if ((k = kh_get(T##_##U##_map, &map->table, key)) == kh_end(&map->table)) { \
+    if ((k = kh_get(T, &map->table, key)) == kh_end(&map->table)) { \
       abort();  /* Caller must check map_has(). */ \
     } \
     \
@@ -89,7 +91,7 @@
   { \
     int ret; \
     U rv = INITIALIZER(T, U); \
-    khiter_t k = kh_put(T##_##U##_map, &map->table, key, &ret); \
+    khiter_t k = kh_put(T, &map->table, key, &ret, sizeof(U)); \
     \
     if (!ret) { \
       rv = kh_val(U, &map->table, k); \
@@ -104,12 +106,12 @@
     int ret; \
     khiter_t k; \
     if (put) { \
-      k = kh_put(T##_##U##_map, &map->table, key, &ret); \
+      k = kh_put(T, &map->table, key, &ret, sizeof(U)); \
       if (ret) { \
         kh_val(U, &map->table, k) = INITIALIZER(T, U); \
       } \
     } else { \
-      k = kh_get(T##_##U##_map, &map->table, key); \
+      k = kh_get(T, &map->table, key); \
       if (k == kh_end(&map->table)) { \
         return NULL; \
       } \
@@ -123,9 +125,9 @@
     U rv = INITIALIZER(T, U); \
     khiter_t k; \
     \
-    if ((k = kh_get(T##_##U##_map, &map->table, key)) != kh_end(&map->table)) { \
+    if ((k = kh_get(T, &map->table, key)) != kh_end(&map->table)) { \
       rv = kh_val(U, &map->table, k); \
-      kh_del(T##_##U##_map, &map->table, k); \
+      kh_del(T, &map->table, k); \
     } \
     \
     return rv; \
@@ -133,7 +135,7 @@
   \
   void map_##T##_##U##_clear(Map(T, U) *map) \
   { \
-    kh_clear(T##_##U##_map, &map->table); \
+    kh_clear(T, &map->table); \
   }
 
 static inline khint_t String_hash(String s)
@@ -183,6 +185,7 @@ static inline bool ColorKey_eq(ColorKey ae1, ColorKey ae2)
   return memcmp(&ae1, &ae2, sizeof(ae1)) == 0;
 }
 
+KEY_IMPL(int)
 
 MAP_IMPL(int, int, DEFAULT_INITIALIZER)
 MAP_IMPL(cstr_t, ptr_t, DEFAULT_INITIALIZER)

@@ -200,12 +200,12 @@ typedef khint_t khiter_t;
   extern void kh_destroy_##name(kh_##name##_t *h); \
   extern void kh_clear_##name(kh_##name##_t *h); \
   extern khint_t kh_get_##name(const kh_##name##_t *h, khkey_t key); \
-  extern void kh_resize_##name(kh_##name##_t *h, khint_t new_n_buckets); \
-  extern khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret); \
+  extern void kh_resize_##name(kh_##name##_t *h, khint_t new_n_buckets, size_t val_size); \
+  extern khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret, size_t val_size); \
   extern void kh_del_##name(kh_##name##_t *h, khint_t x);
 
 #define kh_bval(h, x) (&(h)->vals_buf[val_size*(x)])
-#define kh_copyval(to, from) memcopy(to, from, val_size)
+#define kh_copyval(to, from) memcpy(to, from, val_size)
 
 #define __KHASH_IMPL(name, SCOPE, khkey_t, kh_is_map, __hash_func, \
                      __hash_equal) \
@@ -286,8 +286,8 @@ typedef khint_t khiter_t;
               (void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
           h->keys = new_keys; \
           if (kh_is_map) { \
-            char *new_vals = krealloc( h->vals, new_n_buckets * val_size); \
-            h->vals = new_vals; \
+            char *new_vals = krealloc( h->vals_buf, new_n_buckets * val_size); \
+            h->vals_buf = new_vals; \
           } \
         } /* otherwise shrink */ \
       } \
@@ -356,16 +356,16 @@ typedef khint_t khiter_t;
       h->upper_bound = (khint_t)(h->n_buckets * __ac_HASH_UPPER + 0.5); \
     } \
   } \
-  SCOPE khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret) \
+  SCOPE khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret, size_t val_size) \
     REAL_FATTR_UNUSED; \
-  SCOPE khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret) \
+  SCOPE khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret, size_t val_size) \
   { \
     khint_t x; \
     if (h->n_occupied >= h->upper_bound) { /* update the hash table */ \
       if (h->n_buckets > (h->size << 1)) { \
-        kh_resize_##name(h, h->n_buckets - 1); /* clear "deleted" elements */ \
+        kh_resize_##name(h, h->n_buckets - 1, val_size); /* clear "deleted" elements */ \
       } else { \
-        kh_resize_##name(h, h->n_buckets + 1); /* expand the hash table */ \
+        kh_resize_##name(h, h->n_buckets + 1, val_size); /* expand the hash table */ \
       } \
     } /* TODO: implement automatically shrinking; */ \
       /* resize() already support shrinking */ \
@@ -426,7 +426,7 @@ typedef khint_t khiter_t;
   }
 
 #define KHASH_DECLARE(khkey_t)		 					\
-	__KHASH_TYPE(name, khkey_t, khval_t) 								\
+	__KHASH_TYPE(khkey_t, khkey_t) 								\
 	__KHASH_PROTOTYPES(khkey_t, khkey_t)
 
 #define KHASH_INIT2(name, SCOPE, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal) \
@@ -549,7 +549,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
                 the bucket has been deleted [int*]
   @return       Iterator to the inserted element [khint_t]
  */
-#define kh_put(name, h, k, r) kh_put_##name(h, k, r)
+#define kh_put(name, h, k, r, vs) kh_put_##name(h, k, r, vs)
 
 /*! @function
   @abstract     Retrieve a key from the hash table.
@@ -591,7 +591,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @return       Value [type of values]
   @discussion   For hash sets, calling this results in segfault.
  */
-#define kh_val(type, h, x) (*((type) *)(&(h)->vals[(x)*(sizeof (type))]))
+#define kh_val(type, h, x) (*(type *)(&(h)->vals_buf[(x)*(sizeof (type))]))
 
 /*! @function
   @abstract     Get the start iterator
@@ -628,11 +628,11 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @param  vvar  Variable to which value will be assigned
   @param  code  Block of code to execute
  */
-#define kh_foreach(h, kvar, vvar, code) { khint_t __i;		\
+#define kh_foreach(type, h, kvar, vvar, code) { khint_t __i;		\
 	for (__i = kh_begin(h); __i != kh_end(h); ++__i) {		\
 		if (!kh_exist(h,__i)) continue;						\
 		(kvar) = kh_key(h,__i);								\
-		(vvar) = kh_val(h,__i);								\
+		(vvar) = kh_val(type, h,__i);								\
 		code;												\
 	} }
 
@@ -642,10 +642,10 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @param  vvar  Variable to which value will be assigned
   @param  code  Block of code to execute
  */
-#define kh_foreach_value(h, vvar, code) { khint_t __i;		\
+#define kh_foreach_value(type, h, vvar, code) { khint_t __i;		\
 	for (__i = kh_begin(h); __i != kh_end(h); ++__i) {		\
 		if (!kh_exist(h,__i)) continue;						\
-		(vvar) = kh_val(h,__i);								\
+		(vvar) = kh_val(type, h,__i);								\
 		code;												\
 	} }
 
@@ -727,6 +727,6 @@ typedef const char *kh_cstr_t;
     .upper_bound = 0, \
     .flags = NULL, \
     .keys = NULL, \
-    .vals = NULL, \
+    .vals_buf = NULL, \
   })
 #endif  // NVIM_LIB_KHASH_H

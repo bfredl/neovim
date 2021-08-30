@@ -1253,7 +1253,7 @@ static void refresh_timer_cb(TimeWatcher *watcher, void *data)
   void *stub; (void)(stub);
   // don't process autocommands while updating terminal buffers
   block_autocmds();
-  map_foreach(&invalidated_terminals, term, stub, {
+  pmap_foreach(&invalidated_terminals, term, stub, {
     refresh_terminal(term);
   });
   pmap_clear(ptr_t)(&invalidated_terminals);

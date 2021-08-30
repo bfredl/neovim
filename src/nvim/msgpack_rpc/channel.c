@@ -495,7 +495,7 @@ static void broadcast_event(const char *name, Array args)
   kvec_t(Channel *) subscribed = KV_INITIAL_VALUE;
   Channel *channel;
 
-  map_foreach_value(&channels, channel, {
+  pmap_foreach_value(&channels, channel, {
     if (channel->is_rpc
         && pmap_has(cstr_t)(channel->rpc.subscribed_events, name)) {
       kv_push(subscribed, channel);
@@ -534,7 +534,7 @@ static void unsubscribe(Channel *channel, char *event)
   }
   pmap_del(cstr_t)(channel->rpc.subscribed_events, event_string);
 
-  map_foreach_value(&channels, channel, {
+  pmap_foreach_value(&channels, channel, {
     if (channel->is_rpc
         && pmap_has(cstr_t)(channel->rpc.subscribed_events, event_string)) {
       return;
@@ -577,7 +577,7 @@ void rpc_free(Channel *channel)
 
   // Unsubscribe from all events
   char *event_string;
-  map_foreach_value(channel->rpc.subscribed_events, event_string, {
+  pmap_foreach_value(channel->rpc.subscribed_events, event_string, {
     unsubscribe(channel, event_string);
   });
 

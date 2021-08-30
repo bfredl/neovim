@@ -74,8 +74,6 @@ typedef enum {
   kSomeMatchStrPos,  ///< Data for matchstrpos().
 } SomeMatchType;
 
-KHASH_MAP_INIT_STR(functions, VimLFuncDef)
-
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "eval/funcs.c.generated.h"

@@ -5095,7 +5095,7 @@ bool garbage_collect(bool testing)
   // Channels
   {
     Channel *data;
-    map_foreach_value(&channels, data, {
+    pmap_foreach_value(&channels, data, {
       set_ref_in_callback_reader(&data->on_data, copyID, NULL, NULL);
       set_ref_in_callback_reader(&data->on_stderr, copyID, NULL, NULL);
       set_ref_in_callback(&data->on_exit, copyID, NULL, NULL);
@@ -5105,7 +5105,7 @@ bool garbage_collect(bool testing)
   // Timers
   {
     timer_T *timer;
-    map_foreach_value(&timers, timer, {
+    pmap_foreach_value(&timers, timer, {
       set_ref_in_callback(&timer->callback, copyID, NULL, NULL);
     })
   }
@@ -7547,7 +7547,7 @@ void add_timer_info_all(typval_T *rettv)
 {
   tv_list_alloc_ret(rettv, map_size(&timers));
   timer_T *timer;
-  map_foreach_value(&timers, timer, {
+  pmap_foreach_value(&timers, timer, {
     if (!timer->stopped) {
       add_timer_info(rettv, timer);
     }
@@ -7663,7 +7663,7 @@ static void timer_decref(timer_T *timer)
 void timer_stop_all(void)
 {
   timer_T *timer;
-  map_foreach_value(&timers, timer, {
+  pmap_foreach_value(&timers, timer, {
     timer_stop(timer);
   })
 }

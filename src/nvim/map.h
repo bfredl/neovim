@@ -15,10 +15,8 @@
 #endif
 
 #define MAP_DECLS(T, U) \
-  KHASH_DECLARE(T##_##U##_map, T, U) \
-  \
   typedef struct { \
-    khash_t(T##_##U##_map) table; \
+    khash_t(T) table; \
   } Map(T, U); \
   \
   Map(T, U) *map_##T##_##U##_new(void); \
@@ -35,6 +33,16 @@
 //
 // NOTE: Keys AND values must be allocated! khash.h does not make a copy.
 //
+
+KHASH_DECLARE(int)
+KHASH_DECLARE(cstr_t)
+KHASH_DECLARE(ptr_t)
+KHASH_DECLARE(uint64_t)
+KHASH_DECLARE(handle_T) // TODO: lol this is an int
+KHASH_DECLARE(String)
+KHASH_DECLARE(HlEntry)
+KHASH_DECLARE(ColorKey)
+
 MAP_DECLS(int, int)
 MAP_DECLS(cstr_t, ptr_t)
 MAP_DECLS(cstr_t, int)
@@ -84,11 +92,14 @@ MAP_DECLS(ColorKey, ColorItem)
 #define pmap_clear(T) map_clear(T, ptr_t)
 #define pmap_init(k, map) map_init(k, ptr_t, map)
 
-#define map_foreach(map, key, value, block) \
-  kh_foreach(&(map)->table, key, value, block)
+#define map_foreach(U, map, key, value, block) \
+  kh_foreach(U, &(map)->table, key, value, block)
 
-#define map_foreach_value(map, value, block) \
-  kh_foreach_value(&(map)->table, value, block)
+#define map_foreach_value(U, map, value, block) \
+  kh_foreach_value(U, &(map)->table, value, block)
+
+#define pmap_foreach_value(map, value, block) map_foreach_value(void *, map, value, block)
+#define pmap_foreach(map, key, value, block) map_foreach(void *, map, key, value, block)
 
 void pmap_del2(PMap(cstr_t) *map, const char *key);
 

@@ -34,7 +34,7 @@ void channel_teardown(void)
 {
   Channel *channel;
 
-  map_foreach_value(&channels, channel, {
+  pmap_foreach_value(&channels, channel, {
     channel_close(channel->id, kChannelPartAll, NULL);
   });
 }
@@ -894,7 +894,7 @@ Array channel_all_info(void)
 {
   Channel *channel;
   Array ret = ARRAY_DICT_INIT;
-  map_foreach_value(&channels, channel, {
+  pmap_foreach_value(&channels, channel, {
     ADD(ret, DICTIONARY_OBJ(channel_info(channel->id)));
   });
   return ret;
