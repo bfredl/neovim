@@ -454,8 +454,8 @@ describe('nvim_set_keymap, nvim_del_keymap', function()
     -- note: need '%' to escape hyphens, which have special meaning in lua
     it('throws an error when given non-boolean value for '..opt, function()
       local opts = {}
-      opts[opt] = 2
-      eq('Gave non-boolean value for an opt: '..opt,
+      opts[opt] = 'fooo'
+      eq(opt..' is not a boolean',
         pcall_err(meths.set_keymap, 'n', 'lhs', 'rhs', opts))
     end)
   end

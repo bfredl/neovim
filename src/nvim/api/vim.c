@@ -1922,7 +1922,7 @@ ArrayOf(Dictionary) nvim_get_keymap(String mode)
 ///               Values are Booleans. Unknown key is an error.
 /// @param[out]   err   Error details, if any.
 void nvim_set_keymap(String mode, String lhs, String rhs,
-                     Dictionary opts, Error *err)
+                     Dict(keymap) *opts, Error *err)
   FUNC_API_SINCE(6)
 {
   modify_keymap(-1, false, mode, lhs, rhs, opts, err);

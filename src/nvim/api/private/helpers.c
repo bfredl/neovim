@@ -808,7 +808,7 @@ Array string_to_array(const String input, bool crlf)
 ///                   buffer, or -1 to signify global behavior ("all buffers")
 /// @param  is_unmap  When true, removes the mapping that matches {lhs}.
 void modify_keymap(Buffer buffer, bool is_unmap, String mode, String lhs,
-                   String rhs, Dictionary opts, Error *err)
+                   String rhs, Dict(keymap) *opts, Error *err)
 {
   char *err_msg = NULL;  // the error message to report, if any
   char *err_arg = NULL;  // argument for the error message format string
@@ -828,9 +828,22 @@ void modify_keymap(Buffer buffer, bool is_unmap, String mode, String lhs,
   }
 
   MapArguments parsed_args;
+  // TODO: make me an initializer
   memset(&parsed_args, 0, sizeof(parsed_args));
-  if (parse_keymap_opts(opts, &parsed_args, err)) {
-    goto fail_and_free;
+  if (opts) {
+#define KEY_TO_BOOL(name) \
+    parsed_args. name = api_object_to_bool(opts-> name, #name, false, err); \
+    if (ERROR_SET(err)) { \
+      goto fail_and_free; \
+    }
+
+    KEY_TO_BOOL(nowait);
+    KEY_TO_BOOL(noremap);
+    KEY_TO_BOOL(silent);
+    KEY_TO_BOOL(script);
+    KEY_TO_BOOL(expr);
+    KEY_TO_BOOL(unique);
+#undef KEY_TO_BOOL
   }
   parsed_args.buffer = !global;
 
@@ -939,95 +952,6 @@ fail_and_free:
   xfree(parsed_args.rhs);
   xfree(parsed_args.orig_rhs);
   return;
-}
-
-/// Read in the given opts, setting corresponding flags in `out`.
-///
-/// @param opts A dictionary passed to @ref nvim_set_keymap or
-///             @ref nvim_buf_set_keymap.
-/// @param[out]   out  MapArguments object in which to set parsed
-///                    |:map-arguments| flags.
-/// @param[out]   err  Error details, if any.
-///
-/// @returns Zero on success, nonzero on failure.
-Integer parse_keymap_opts(Dictionary opts, MapArguments *out, Error *err)
-{
-  char *err_msg = NULL;  // the error message to report, if any
-  char *err_arg = NULL;  // argument for the error message format string
-  ErrorType err_type = kErrorTypeNone;
-
-  out->buffer = false;
-  out->nowait = false;
-  out->silent = false;
-  out->script = false;
-  out->expr = false;
-  out->unique = false;
-
-  for (size_t i = 0; i < opts.size; i++) {
-    KeyValuePair *key_and_val = &opts.items[i];
-    char *optname = key_and_val->key.data;
-
-    if (key_and_val->value.type != kObjectTypeBoolean) {
-      err_msg = "Gave non-boolean value for an opt: %s";
-      err_arg = optname;
-      err_type = kErrorTypeValidation;
-      goto fail_with_message;
-    }
-
-    bool was_valid_opt = false;
-    switch (optname[0]) {
-      // note: strncmp up to and including the null terminator, so that
-      // "nowaitFoobar" won't match against "nowait"
-
-      // don't recognize 'buffer' as a key; user shouldn't provide <buffer>
-      // when calling nvim_set_keymap or nvim_buf_set_keymap, since it can be
-      // inferred from which function they called
-      case 'n':
-        if (STRNCMP(optname, "noremap", 8) == 0) {
-          was_valid_opt = true;
-          out->noremap = key_and_val->value.data.boolean;
-        } else if (STRNCMP(optname, "nowait", 7) == 0) {
-          was_valid_opt = true;
-          out->nowait = key_and_val->value.data.boolean;
-        }
-        break;
-      case 's':
-        if (STRNCMP(optname, "silent", 7) == 0) {
-          was_valid_opt = true;
-          out->silent = key_and_val->value.data.boolean;
-        } else if (STRNCMP(optname, "script", 7) == 0) {
-          was_valid_opt = true;
-          out->script = key_and_val->value.data.boolean;
-        }
-        break;
-      case 'e':
-        if (STRNCMP(optname, "expr", 5) == 0) {
-          was_valid_opt = true;
-          out->expr = key_and_val->value.data.boolean;
-        }
-        break;
-      case 'u':
-        if (STRNCMP(optname, "unique", 7) == 0) {
-          was_valid_opt = true;
-          out->unique = key_and_val->value.data.boolean;
-        }
-        break;
-      default:
-        break;
-    }  // switch
-    if (!was_valid_opt) {
-      err_msg = "Invalid key: %s";
-      err_arg = optname;
-      err_type = kErrorTypeValidation;
-      goto fail_with_message;
-    }
-  }  // for
-
-  return 0;
-
-fail_with_message:
-  api_set_error(err, err_type, err_msg, err_arg);
-  return 1;
 }
 
 /// Collects `n` buffer lines into array `l`, optionally replacing newlines
@@ -2103,7 +2027,7 @@ bool api_dict_to_keydict(void *rv, field_hash hashy, Dictionary dict, Error *err
     String k = dict.items[i].key;
     Object *field = hashy(rv, k.data, k.size);
     if (!field) {
-      api_set_error(err, kErrorTypeValidation, "unexpeced key: %.*s", (int)k.size, k.data); // TODO
+      api_set_error(err, kErrorTypeValidation, "Invalid key: %.*s", (int)k.size, k.data); // TODO
       return false;
     }
 

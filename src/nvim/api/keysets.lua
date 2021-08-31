@@ -18,5 +18,13 @@ return {
     "right_gravity";
     "end_right_gravity";
   };
+  keymap = {
+    "noremap";
+    "nowait";
+    "silent";
+    "script";
+    "expr";
+    "unique";
+  };
 }
 

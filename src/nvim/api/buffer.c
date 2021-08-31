@@ -873,7 +873,7 @@ ArrayOf(Dictionary) nvim_buf_get_keymap(Buffer buffer, String mode, Error *err)
 ///
 /// @param  buffer  Buffer handle, or 0 for current buffer
 void nvim_buf_set_keymap(Buffer buffer, String mode, String lhs, String rhs,
-                         Dictionary opts, Error *err)
+                         Dict(keymap) *opts, Error *err)
   FUNC_API_SINCE(6)
 {
   modify_keymap(buffer, false, mode, lhs, rhs, opts, err);
@@ -888,8 +888,7 @@ void nvim_buf_del_keymap(Buffer buffer, String mode, String lhs, Error *err)
   FUNC_API_SINCE(6)
 {
   String rhs = { .data = "", .size = 0 };
-  Dictionary opts = ARRAY_DICT_INIT;
-  modify_keymap(buffer, true, mode, lhs, rhs, opts, err);
+  modify_keymap(buffer, true, mode, lhs, rhs, NULL, err);
 }
 
 /// Gets a map of buffer-local |user-commands|.
