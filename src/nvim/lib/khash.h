@@ -285,7 +285,7 @@ typedef khint_t khiter_t;
           khkey_t *new_keys = (khkey_t*)krealloc( \
               (void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
           h->keys = new_keys; \
-          if (kh_is_map) { \
+          if (kh_is_map && val_size) { \
             char *new_vals = krealloc( h->vals_buf, new_n_buckets * val_size); \
             h->vals_buf = new_vals; \
           } \
@@ -300,7 +300,7 @@ typedef khint_t khiter_t;
           khkey_t key = h->keys[j]; \
           khint_t new_mask; \
           new_mask = new_n_buckets - 1; \
-          if (kh_is_map) { \
+          if (kh_is_map && val_size) { \
             /* val = h->vals[j]; */ \
             kh_copyval(cval, kh_bval(h, j)); \
           } \
@@ -321,7 +321,7 @@ typedef khint_t khiter_t;
                 h->keys[i] = key; \
                 key = tmp; \
               } \
-              if (kh_is_map) { \
+              if (kh_is_map && val_size) { \
                 /* khval_t tmp = h->vals[i]; */ \
                 /* h->vals[i] = val; */ \
                 /* val = tmp; */\
@@ -333,7 +333,7 @@ typedef khint_t khiter_t;
               __ac_set_isdel_true(h->flags, i); \
             } else { /* write the element and jump out of the loop */ \
               h->keys[i] = key; \
-              if (kh_is_map) { \
+              if (kh_is_map && val_size) { \
                 /* h->vals[i] = val; */ \
                 kh_copyval(kh_bval(h, i), cval); \
               } \
@@ -345,7 +345,7 @@ typedef khint_t khiter_t;
       if (h->n_buckets > new_n_buckets) { /* shrink the hash table */ \
         h->keys = (khkey_t*)krealloc((void *)h->keys, \
                                      new_n_buckets * sizeof(khkey_t)); \
-        if (kh_is_map) { \
+        if (kh_is_map && val_size) { \
           h->vals_buf = krealloc((void *)h->vals_buf, new_n_buckets * val_size); \
         } \
       } \

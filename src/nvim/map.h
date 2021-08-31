@@ -34,6 +34,9 @@
 // NOTE: Keys AND values must be allocated! khash.h does not make a copy.
 //
 
+
+#define Set(type) khash_t(type)
+
 KHASH_DECLARE(int)
 KHASH_DECLARE(cstr_t)
 KHASH_DECLARE(ptr_t)

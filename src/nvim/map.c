@@ -186,6 +186,13 @@ static inline bool ColorKey_eq(ColorKey ae1, ColorKey ae2)
 }
 
 KEY_IMPL(int)
+KEY_IMPL(cstr_t)
+KEY_IMPL(ptr_t)
+KEY_IMPL(uint64_t)
+KEY_IMPL(handle_T)
+KEY_IMPL(String)
+KEY_IMPL(HlEntry)
+KEY_IMPL(ColorKey)
 
 MAP_IMPL(int, int, DEFAULT_INITIALIZER)
 MAP_IMPL(cstr_t, ptr_t, DEFAULT_INITIALIZER)

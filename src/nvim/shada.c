@@ -53,18 +53,6 @@
 # include ENDIAN_INCLUDE_FILE
 #endif
 
-// Note: when using bufset hash pointers are intentionally casted to uintptr_t
-// and not to khint32_t or khint64_t: this way compiler must give a warning
-// (-Wconversion) when types change.
-#ifdef ARCH_32
-KHASH_SET_INIT_INT(bufset)
-#elif defined(ARCH_64)
-KHASH_SET_INIT_INT64(bufset)
-#else
-# error Not a 64- or 32-bit architecture
-#endif
-KHASH_MAP_INIT_STR(fnamebufs, buf_T *)
-KHASH_SET_INIT_STR(strset)
 
 #define copy_option_part(src, dest, ...) \
     ((char *) copy_option_part((char_u **) src, (char_u *) dest, __VA_ARGS__))
@@ -318,8 +306,6 @@ typedef struct hm_llist_entry {
   struct hm_llist_entry *prev;  ///< Pointer to previous entry or NULL.
 } HMLListEntry;
 
-KHASH_MAP_INIT_STR(hmll_entries, HMLListEntry *)
-
 /// Sized linked list structure for history merger
 typedef struct {
   HMLListEntry *entries;  ///< Pointer to the start of the allocated array of
@@ -331,7 +317,7 @@ typedef struct {
   HMLListEntry *last_free_entry;  ///< Last unused element in entries array.
   size_t size;            ///< Number of allocated entries.
   size_t num_entries;     ///< Number of entries already used.
-  khash_t(hmll_entries) contained_entries;  ///< Hash mapping all history entry
+  khash_t(cstr_t) contained_entries;  ///< Hash mapping all history entry
                                             ///< strings to corresponding entry
                                             ///< pointers.
 } HMLList;
@@ -361,8 +347,6 @@ typedef struct {
   Timestamp greatest_timestamp;  ///< Greatest timestamp among marks.
 } FileMarks;
 
-KHASH_MAP_INIT_STR(file_marks, FileMarks)
-
 /// State structure used by shada_write
 ///
 /// Before actually writing most of the data is read to this structure.
@@ -376,8 +360,8 @@ typedef struct {
   PossiblyFreedShadaEntry search_pattern;  ///< Last search pattern.
   PossiblyFreedShadaEntry sub_search_pattern;  ///< Last s/ search pattern.
   PossiblyFreedShadaEntry replacement;  ///< Last s// replacement string.
-  khash_t(strset) dumped_variables;  ///< Names of already dumped variables.
-  khash_t(file_marks) file_marks;  ///< All file marks.
+  Set(cstr_t) dumped_variables;  ///< Names of already dumped variables.
+  khash_t(cstr_t) file_marks;  ///< All file marks.
 } WriteMergerState;
 
 struct sd_read_def;
@@ -520,7 +504,7 @@ static inline void hmll_init(HMLList *const hmll, const size_t size)
     .free_entry = NULL,
     .size = size,
     .num_entries = 0,
-    .contained_entries = KHASH_EMPTY_TABLE(hmll_entries),
+    .contained_entries = KHASH_EMPTY_TABLE(cstr_t),
   };
   hmll->last_free_entry = hmll->entries;
 }
@@ -552,10 +536,10 @@ static inline void hmll_remove(HMLList *const hmll,
     assert(hmll->free_entry == NULL);
     hmll->free_entry = hmll_entry;
   }
-  const khiter_t k = kh_get(hmll_entries, &hmll->contained_entries,
+  const khiter_t k = kh_get(cstr_t, &hmll->contained_entries,
                             hmll_entry->data.data.history_item.string);
   assert(k != kh_end(&hmll->contained_entries));
-  kh_del(hmll_entries, &hmll->contained_entries, k);
+  kh_del(cstr_t, &hmll->contained_entries, k);
   if (hmll_entry->next == NULL) {
     hmll->last = hmll_entry->prev;
   } else {
@@ -607,10 +591,10 @@ static inline void hmll_insert(HMLList *const hmll,
   target_entry->data = data;
   target_entry->can_free_entry = can_free_entry;
   int kh_ret;
-  const khiter_t k = kh_put(hmll_entries, &hmll->contained_entries,
-                            data.data.history_item.string, &kh_ret);
+  const khiter_t k = kh_put(cstr_t, &hmll->contained_entries,
+                            data.data.history_item.string, &kh_ret, sizeof (void *));
   if (kh_ret > 0) {
-    kh_val(&hmll->contained_entries, k) = target_entry;
+    kh_val(void *, &hmll->contained_entries, k) = target_entry;
   }
   hmll->num_entries++;
   target_entry->prev = hmll_entry;
@@ -648,7 +632,7 @@ static inline void hmll_insert(HMLList *const hmll,
 static inline void hmll_dealloc(HMLList *const hmll)
   FUNC_ATTR_NONNULL_ALL
 {
-  kh_dealloc(hmll_entries, &hmll->contained_entries);
+  kh_dealloc(cstr_t, &hmll->contained_entries);
   xfree(hmll->entries);
 }
 
@@ -816,10 +800,10 @@ static void close_file(void *cookie)
 /// @param[in]  buf  Buffer to find.
 ///
 /// @return true or false.
-static inline bool in_bufset(const khash_t(bufset) *const set, const buf_T *buf)
+static inline bool in_bufset(const Set(ptr_t) *const set, const buf_T *buf)
   FUNC_ATTR_PURE
 {
-  return kh_get(bufset, set, (uintptr_t) buf) != kh_end(set);
+  return kh_get(ptr_t, set, (ptr_t)buf) != kh_end(set);
 }
 
 /// Check whether string is in the given set
@@ -828,10 +812,10 @@ static inline bool in_bufset(const khash_t(bufset) *const set, const buf_T *buf)
 /// @param[in]  buf  Buffer to find.
 ///
 /// @return true or false.
-static inline bool in_strset(const khash_t(strset) *const set, char *str)
+static inline bool in_strset(const Set(cstr_t) *const set, char *str)
   FUNC_ATTR_PURE
 {
-  return kh_get(strset, set, str) != kh_end(set);
+  return kh_get(cstr_t, set, str) != kh_end(set);
 }
 
 /// Msgpack callback for writing to ShaDaWriteDef*
@@ -971,10 +955,10 @@ static void hms_insert(HistoryMergerState *const hms_p, const ShadaEntry entry,
     }
   }
   HMLList *const hmll = &hms_p->hmll;
-  const khiter_t k = kh_get(hmll_entries, &hms_p->hmll.contained_entries,
+  const khiter_t k = kh_get(cstr_t, &hms_p->hmll.contained_entries,
                             entry.data.history_item.string);
   if (k != kh_end(&hmll->contained_entries)) {
-    HMLListEntry *const existing_entry = kh_val(&hmll->contained_entries, k);
+    HMLListEntry *const existing_entry = kh_val(void *, &hmll->contained_entries, k);
     if (entry.timestamp > existing_entry->data.timestamp) {
       hmll_remove(hmll, existing_entry);
     } else if (!do_iter && entry.timestamp == existing_entry->data.timestamp) {
@@ -1209,9 +1193,9 @@ static void shada_read(ShaDaReadDef *const sd_reader, const int flags)
     }
   }
   ShadaEntry cur_entry;
-  khash_t(bufset) cl_bufs = KHASH_EMPTY_TABLE(bufset);
+  Set(ptr_t) cl_bufs = KHASH_EMPTY_TABLE(ptr_t);
   PMap(cstr_t) fname_bufs = MAP_INIT;
-  khash_t(strset) oldfiles_set = KHASH_EMPTY_TABLE(strset);
+  Set(cstr_t) oldfiles_set = KHASH_EMPTY_TABLE(cstr_t);
   if (get_old_files && (oldfiles_list == NULL || force)) {
     oldfiles_list = tv_list_alloc(kListLenUnknown);
     set_vim_var_list(VV_OLDFILES, oldfiles_list);
@@ -1422,7 +1406,7 @@ static void shada_read(ShaDaReadDef *const sd_reader, const int flags)
             fname = xstrdup(fname);
           }
           int kh_ret;
-          (void)kh_put(strset, &oldfiles_set, fname, &kh_ret);
+          (void)kh_put(cstr_t, &oldfiles_set, fname, &kh_ret, 0);
           tv_list_append_allocated_string(oldfiles_list, fname);
           if (!want_marks) {
             // Avoid free because this string was already used.
@@ -1451,7 +1435,7 @@ static void shada_read(ShaDaReadDef *const sd_reader, const int flags)
           }
         } else {
           int kh_ret;
-          (void) kh_put(bufset, &cl_bufs, (uintptr_t) buf, &kh_ret);
+          (void) kh_put(ptr_t, &cl_bufs, (ptr_t)buf, &kh_ret, 0);
 #define SDE_TO_FMARK(entry) fm
 #define AFTERFREE(entry) (entry).data.filemark.fname = NULL
 #define DUMMY_IDX_ADJ(i)
@@ -1497,14 +1481,14 @@ shada_read_main_cycle_end:
       }
     }
   }
-  kh_dealloc(bufset, &cl_bufs);
+  kh_dealloc(ptr_t, &cl_bufs);
   const char *key;
   void *val;
-  map_foreach(&fname_bufs, key, val, {
+  pmap_foreach(&fname_bufs, key, val, {
     xfree((char *)key);
   })
   pmap_destroy(cstr_t)(&fname_bufs);
-  kh_dealloc(strset, &oldfiles_set);
+  kh_dealloc(cstr_t, &oldfiles_set);
 }
 
 /// Default shada file location: cached path
@@ -2289,8 +2273,8 @@ static inline ShaDaWriteResult shada_read_when_writing(
         const char *const fname = (const char *) entry.data.filemark.fname;
         khiter_t k;
         int kh_ret;
-        k = kh_put(file_marks, &wms->file_marks, fname, &kh_ret);
-        FileMarks *const filemarks = &kh_val(&wms->file_marks, k);
+        k = kh_put(cstr_t, &wms->file_marks, fname, &kh_ret, sizeof(FileMarks));
+        FileMarks *const filemarks = &kh_val(FileMarks, &wms->file_marks, k);
         if (kh_ret > 0) {
           memset(filemarks, 0, sizeof(*filemarks));
         }
@@ -2368,7 +2352,7 @@ static inline ShaDaWriteResult shada_read_when_writing(
 ///
 /// @return true or false.
 static inline bool ignore_buf(const buf_T *const buf,
-                              khash_t(bufset) *const removable_bufs)
+                              Set(ptr_t) *const removable_bufs)
   FUNC_ATTR_PURE FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_ALWAYS_INLINE
 {
   return (buf->b_ffname == NULL || !buf->b_p_bl || bt_quickfix(buf) \
@@ -2380,8 +2364,7 @@ static inline bool ignore_buf(const buf_T *const buf,
 /// @param[in]  removable_bufs  Buffers which are ignored
 ///
 /// @return  ShadaEntry  List of buffers to save, kSDItemBufferList entry.
-static inline ShadaEntry shada_get_buflist(
-    khash_t(bufset) *const removable_bufs)
+static inline ShadaEntry shada_get_buflist(Set(ptr_t) *const removable_bufs)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_ALWAYS_INLINE
 {
   int max_bufs = get_shada_parameter('%');
@@ -2552,12 +2535,12 @@ static inline void replace_numbered_mark(WriteMergerState *const wms,
 /// Find buffers ignored due to their location.
 ///
 /// @param[out]  removable_bufs  Cache of buffers ignored due to their location.
-static inline void find_removable_bufs(khash_t(bufset) *removable_bufs)
+static inline void find_removable_bufs(Set(ptr_t) *removable_bufs)
 {
   FOR_ALL_BUFFERS(buf) {
     if (buf->b_ffname != NULL && shada_removable((char *)buf->b_ffname)) {
       int kh_ret;
-      (void)kh_put(bufset, removable_bufs, (uintptr_t)buf, &kh_ret);
+      (void)kh_put(ptr_t, removable_bufs, (ptr_t)buf, &kh_ret, 0);
     }
   }
 }
@@ -2589,7 +2572,7 @@ static ShaDaWriteResult shada_write(ShaDaWriteDef *const sd_writer,
     max_reg_lines = get_shada_parameter('"');
   }
   const bool dump_registers = (max_reg_lines != 0);
-  khash_t(bufset) removable_bufs = KHASH_EMPTY_TABLE(bufset);
+  Set(ptr_t) removable_bufs = KHASH_EMPTY_TABLE(ptr_t);
   const size_t max_kbyte = (size_t) max_kbyte_i;
   const size_t num_marked_files = (size_t) get_shada_parameter('\'');
   const bool dump_global_marks = get_shada_parameter('f') != 0;
@@ -2735,7 +2718,7 @@ static ShaDaWriteResult shada_write(ShaDaWriteDef *const sd_writer,
       tv_clear(&tgttv);
       if (spe_ret == kSDWriteSuccessfull) {
         int kh_ret;
-        (void) kh_put(strset, &wms->dumped_variables, name, &kh_ret);
+        (void) kh_put(cstr_t, &wms->dumped_variables, name, &kh_ret, 0);
       }
     } while (var_iter != NULL);
   }
@@ -2840,8 +2823,8 @@ static ShaDaWriteResult shada_write(ShaDaWriteDef *const sd_writer,
       const char *const fname = (const char *) buf->b_ffname;
       khiter_t k;
       int kh_ret;
-      k = kh_put(file_marks, &wms->file_marks, fname, &kh_ret);
-      FileMarks *const filemarks = &kh_val(&wms->file_marks, k);
+      k = kh_put(cstr_t, &wms->file_marks, fname, &kh_ret, sizeof(FileMarks));
+      FileMarks *const filemarks = &kh_val(FileMarks, &wms->file_marks, k);
       if (kh_ret > 0) {
         memset(filemarks, 0, sizeof(*filemarks));
       }
@@ -2968,7 +2951,7 @@ static ShaDaWriteResult shada_write(ShaDaWriteDef *const sd_writer,
   for (khint_t i = kh_begin(&wms->file_marks); i != kh_end(&wms->file_marks);
        i++) {
     if (kh_exist(&wms->file_marks, i)) {
-      *cur_file_marks++ = &kh_val(&wms->file_marks, i);
+      *cur_file_marks++ = &kh_val(FileMarks, &wms->file_marks, i);
     }
   }
   qsort((void *) all_file_markss, file_markss_size, sizeof(*all_file_markss),
@@ -3024,10 +3007,10 @@ shada_write_exit:
       hms_dealloc(&wms->hms[i]);
     }
   }
-  kh_dealloc(file_marks, &wms->file_marks);
-  kh_dealloc(bufset, &removable_bufs);
+  kh_dealloc(cstr_t, &wms->file_marks);
+  kh_dealloc(ptr_t, &removable_bufs);
   msgpack_packer_free(packer);
-  kh_dealloc(strset, &wms->dumped_variables);
+  kh_dealloc(cstr_t, &wms->dumped_variables);
   xfree(wms);
   return ret;
 }
@@ -4121,7 +4104,7 @@ static bool shada_removable(const char *name)
 ///
 /// @return number of jumplist entries
 static inline size_t shada_init_jumps(
-    PossiblyFreedShadaEntry *jumps, khash_t(bufset) *const removable_bufs)
+    PossiblyFreedShadaEntry *jumps, Set(ptr_t) *const removable_bufs)
 {
   if (!curwin->w_jumplistlen) {
     return 0;
@@ -4200,7 +4183,7 @@ void shada_encode_regs(msgpack_sbuffer *const sbuf)
 void shada_encode_jumps(msgpack_sbuffer *const sbuf)
   FUNC_ATTR_NONNULL_ALL
 {
-  khash_t(bufset) removable_bufs = KHASH_EMPTY_TABLE(bufset);
+  Set(ptr_t) removable_bufs = KHASH_EMPTY_TABLE(ptr_t);
   find_removable_bufs(&removable_bufs);
   PossiblyFreedShadaEntry jumps[JUMPLISTSIZE];
   cleanup_jumplist(curwin, true);
@@ -4220,7 +4203,7 @@ void shada_encode_jumps(msgpack_sbuffer *const sbuf)
 void shada_encode_buflist(msgpack_sbuffer *const sbuf)
   FUNC_ATTR_NONNULL_ALL
 {
-  khash_t(bufset) removable_bufs = KHASH_EMPTY_TABLE(bufset);
+  Set(ptr_t) removable_bufs = KHASH_EMPTY_TABLE(ptr_t);
   find_removable_bufs(&removable_bufs);
   ShadaEntry buflist_entry = shada_get_buflist(&removable_bufs);
   msgpack_packer packer;
