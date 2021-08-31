@@ -1091,25 +1091,26 @@ static inline void hms_dealloc(HistoryMergerState *const hms_p)
 /// @param[in]      fname       File name to find.
 ///
 /// @return Pointer to the buffer or NULL.
-static buf_T *find_buffer(khash_t(fnamebufs) *const fname_bufs,
+static buf_T *find_buffer(PMap(cstr_t) *const fname_bufs,
                           const char *const fname)
   FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ALL
 {
-  int kh_ret;
-  khint_t k = kh_put(fnamebufs, fname_bufs, fname, &kh_ret);
-  if (!kh_ret) {
-    return kh_val(fname_bufs, k);
+  // TODO: add a pmap_refstr variant to avoid the double lookup
+  buf_T *bufval = pmap_get(cstr_t)(fname_bufs, fname);
+  if (bufval) {
+    return bufval;
   }
-  kh_key(fname_bufs, k) = xstrdup(fname);
+  buf_T **ref = (buf_T **)pmap_ref(cstr_t)(fname_bufs, xstrdup(fname), true);
+
   FOR_ALL_BUFFERS(buf) {
     if (buf->b_ffname != NULL) {
       if (fnamecmp(fname, buf->b_ffname) == 0) {
-        kh_val(fname_bufs, k) = buf;
+        *ref = buf;
         return buf;
       }
     }
   }
-  kh_val(fname_bufs, k) = NULL;
+  *ref = NULL;
   return NULL;
 }
 
@@ -1209,7 +1210,7 @@ static void shada_read(ShaDaReadDef *const sd_reader, const int flags)
   }
   ShadaEntry cur_entry;
   khash_t(bufset) cl_bufs = KHASH_EMPTY_TABLE(bufset);
-  khash_t(fnamebufs) fname_bufs = KHASH_EMPTY_TABLE(fnamebufs);
+  PMap(cstr_t) fname_bufs = MAP_INIT;
   khash_t(strset) oldfiles_set = KHASH_EMPTY_TABLE(strset);
   if (get_old_files && (oldfiles_list == NULL || force)) {
     oldfiles_list = tv_list_alloc(kListLenUnknown);
@@ -1498,10 +1499,11 @@ shada_read_main_cycle_end:
   }
   kh_dealloc(bufset, &cl_bufs);
   const char *key;
-  kh_foreach_key(&fname_bufs, key, {
-    xfree((void *) key);
+  void *val;
+  map_foreach(&fname_bufs, key, val, {
+    xfree((char *)key);
   })
-  kh_dealloc(fnamebufs, &fname_bufs);
+  pmap_destroy(cstr_t)(&fname_bufs);
   kh_dealloc(strset, &oldfiles_set);
 }
 
