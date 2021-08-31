@@ -1948,7 +1948,7 @@ void nvim_del_keymap(String mode, String lhs, Error *err)
 /// @param[out]  err   Error details, if any.
 ///
 /// @returns Map of maps describing commands.
-Dictionary nvim_get_commands(Dictionary opts, Error *err)
+Dictionary nvim_get_commands(Dict(get_commands) *opts, Error *err)
   FUNC_API_SINCE(4)
 {
   return nvim_buf_get_commands(-1, opts, err);

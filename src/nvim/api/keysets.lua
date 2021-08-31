@@ -26,5 +26,8 @@ return {
     "expr";
     "unique";
   };
+  get_commands = {
+    "builtin";
+  };
 }
 
