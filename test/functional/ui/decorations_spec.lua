@@ -795,13 +795,15 @@ describe('decorations: virtual lines', function()
   local screen, ns
   before_each(function()
     clear()
-    screen = Screen.new(50, 10)
+    screen = Screen.new(50, 12)
     screen:attach()
     screen:set_default_attr_ids {
       [1] = {bold=true, foreground=Screen.colors.Blue};
       [2] = {foreground = Screen.colors.Cyan4};
       [3] = {background = Screen.colors.Yellow1};
       [4] = {bold = true};
+      [5] = {background = Screen.colors.Yellow, foreground = Screen.colors.Blue};
+      [6] = {foreground = Screen.colors.Blue};
     }
 
     ns = meths.create_namespace 'test'
@@ -818,7 +820,7 @@ if (h->n_buckets < new_n_buckets) { // expand
 }
 end]]
 
-  it('works with one line', function()
+  it('works with one line #thetest', function()
     insert(example_text)
     feed 'gg'
     meths.buf_set_extmark(0, ns, 1, 33, {
@@ -836,6 +838,8 @@ end]]
           char *new_vals = krealloc( h->vals_buf, new_n_|
       buckets * val_size);                              |
           h->vals_buf = new_vals;                       |
+        }                                               |
+      }                                                 |
                                                         |
     ]]}
 
@@ -850,6 +854,8 @@ end]]
           char *new_vals = {3:krealloc}( h->vals_buf, new_n_|
       buckets * val_size);                              |
           h->vals_buf = new_vals;                       |
+        }                                               |
+      }                                                 |
       /krealloc                                         |
     ]]}
 
@@ -865,7 +871,45 @@ end]]
         if (kh_is_map && val_size) {                    |
           char *new_vals = {3:krealloc}( h->vals_buf, new_n_|
       buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
       {4:-- INSERT --}                                      |
     ]]}
+
+    feed '<esc>3+'
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)                 |
+      {1:>> }{2:krealloc}: change the size of an allocation     |
+      {3:krealloc}((void *)h->keys, new_n_buckets * sizeof(k|
+      hkey_t));                                         |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          ^char *new_vals = {3:krealloc}( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+                                                        |
+    ]]}
+
+    meths.buf_set_extmark(0, ns, 5, 0, {
+      virt_lines = {{{"^^ REVIEW:", "Todo"}, {" new_vals variable seems unneccesary?", "Comment"}}};
+    })
+    -- TODO: doesn't match intermediate semantics (only one block!)
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)                 |
+      {1:>> }{2:krealloc}: change the size of an allocation     |
+      {3:krealloc}((void *)h->keys, new_n_buckets * sizeof(k|
+      hkey_t));                                         |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          ^char *new_vals = {3:krealloc}( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+      {5:^^ REVIEW:}{6: new_vals variable seems unneccesary?}   |
+          h->vals_buf = new_vals;                       |
+                                                        |
+    ]]}
+
   end)
 end)
