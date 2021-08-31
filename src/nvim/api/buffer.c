@@ -1799,7 +1799,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
       buf->b_virt_line_pos = -1;
       buf->b_virt_line_above = virt_lines_above;
       buf->b_virt_line_signcol = virt_lines_signcol;
-      redraw_buf_line_later(buf, line+1+1); // TODO: abovebelow
+      redraw_buf_line_later(buf, line+1+(virt_lines_above?0:1));
     }
   }
 

@@ -790,3 +790,82 @@ end]]
     helpers.assert_alive()
   end)
 end)
+
+describe('decorations: virtual lines', function()
+  local screen, ns
+  before_each(function()
+    clear()
+    screen = Screen.new(50, 10)
+    screen:attach()
+    screen:set_default_attr_ids {
+      [1] = {bold=true, foreground=Screen.colors.Blue};
+      [2] = {foreground = Screen.colors.Cyan4};
+      [3] = {background = Screen.colors.Yellow1};
+      [4] = {bold = true};
+    }
+
+    ns = meths.create_namespace 'test'
+  end)
+
+  local example_text = [[
+if (h->n_buckets < new_n_buckets) { // expand
+  khkey_t *new_keys = (khkey_t *)krealloc((void *)h->keys, new_n_buckets * sizeof(khkey_t));
+  h->keys = new_keys;
+  if (kh_is_map && val_size) {
+    char *new_vals = krealloc( h->vals_buf, new_n_buckets * val_size);
+    h->vals_buf = new_vals;
+  }
+}
+end]]
+
+  it('works with one line', function()
+    insert(example_text)
+    feed 'gg'
+    meths.buf_set_extmark(0, ns, 1, 33, {
+      virt_lines={ {{">> ", "NonText"}, {"krealloc", "Identifier"}, {": change the size of an allocation"}}};
+      virt_lines_above=true;
+    })
+
+    screen:expect{grid=[[
+      ^if (h->n_buckets < new_n_buckets) { // expand     |
+      {1:>> }{2:krealloc}: change the size of an allocation     |
+        khkey_t *new_keys = (khkey_t *)krealloc((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = krealloc( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+                                                        |
+    ]]}
+
+    feed '/krealloc<cr>'
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+      {1:>> }{2:krealloc}: change the size of an allocation     |
+        khkey_t *new_keys = (khkey_t *){3:^krealloc}((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = {3:krealloc}( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+      /krealloc                                         |
+    ]]}
+
+    -- virtual line remains anchored to the extmark
+    feed 'i<cr>'
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)                 |
+      {1:>> }{2:krealloc}: change the size of an allocation     |
+      {3:^krealloc}((void *)h->keys, new_n_buckets * sizeof(k|
+      hkey_t));                                         |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = {3:krealloc}( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+      {4:-- INSERT --}                                      |
+    ]]}
+  end)
+end)
