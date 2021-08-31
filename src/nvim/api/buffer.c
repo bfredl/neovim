@@ -1782,7 +1782,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
     if (kv_size(virt_lines) && buf->b_virt_line_mark) {
       mtpos_t pos = marktree_lookup(buf->b_marktree, buf->b_virt_line_mark, NULL);
       if (pos.row >= 0) {
-        redraw_buf_line_later(buf, pos.row+1+1); // TODO: abovebelow
+        redraw_buf_line_later(buf, pos.row+1+(buf->b_virt_line_above?0:1));
       }
       // TODO: if set redraw old b_virt_line_mark
     }
