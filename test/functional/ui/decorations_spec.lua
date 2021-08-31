@@ -791,7 +791,7 @@ end]]
   end)
 end)
 
-describe('decorations: virtual lines', function()
+describe('decorations: virtual lines #thetest', function()
   local screen, ns
   before_each(function()
     clear()
@@ -804,6 +804,7 @@ describe('decorations: virtual lines', function()
       [4] = {bold = true};
       [5] = {background = Screen.colors.Yellow, foreground = Screen.colors.Blue};
       [6] = {foreground = Screen.colors.Blue};
+      [7] = {foreground = Screen.colors.SlateBlue};
     }
 
     ns = meths.create_namespace 'test'
@@ -817,10 +818,9 @@ if (h->n_buckets < new_n_buckets) { // expand
     char *new_vals = krealloc( h->vals_buf, new_n_buckets * val_size);
     h->vals_buf = new_vals;
   }
-}
-end]]
+}]]
 
-  it('works with one line #thetest', function()
+  it('works with one line', function()
     insert(example_text)
     feed 'gg'
     meths.buf_set_extmark(0, ns, 1, 33, {
@@ -911,5 +911,94 @@ end]]
                                                         |
     ]]}
 
+  end)
+
+
+  it('works with text at the beginning of the buffer', function()
+    insert(example_text)
+    feed 'gg'
+
+    screen:expect{grid=[[
+      ^if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)krealloc((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = krealloc( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+      }                                                 |
+      {1:~                                                 }|
+                                                        |
+    ]]}
+
+    meths.buf_set_extmark(0, ns, 0, 0, {
+      virt_lines={
+        {{"refactor(khash): ", "Special"}, {"take size of values as parameter"}};
+        {{"Author: Dev Devsson, "}, {"Tue Aug 31 10:13:37 2021", "Comment"}}; };
+      virt_lines_above=true;
+      right_gravity=false;
+    })
+
+    -- placing virt_text on topline does not automatically cause a scroll
+    screen:expect{grid=[[
+      ^if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)krealloc((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = krealloc( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+      }                                                 |
+      {1:~                                                 }|
+                                                        |
+    ]], unchanged=true}
+
+    feed '<c-b>'
+    screen:expect{grid=[[
+      {7:refactor(khash): }take size of values as parameter |
+      Author: Dev Devsson, {6:Tue Aug 31 10:13:37 2021}     |
+      ^if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)krealloc((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = krealloc( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+                                                        |
+    ]]}
+  end)
+
+  it('works with text et the end of the buffer', function()
+    insert(example_text)
+    feed 'G'
+
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)krealloc((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = krealloc( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+      ^}                                                 |
+      {1:~                                                 }|
+                                                        |
+    ]]}
+
+    meths.buf_set_extmark(0, ns, 7, 0, {
+      virt_lines={{{"Grugg"}}};
+      right_gravity=false;
+    })
+
+    -- TODO: it doesn't work!
+    screen:snapshot_util()
   end)
 end)
