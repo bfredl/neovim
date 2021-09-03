@@ -791,7 +791,7 @@ end]]
   end)
 end)
 
-describe('decorations: virtual lines #thetest', function()
+describe('decorations: virtual lines', function()
   local screen, ns
   before_each(function()
     clear()
@@ -1000,5 +1000,155 @@ if (h->n_buckets < new_n_buckets) { // expand
 
     -- TODO: it doesn't work!
     screen:snapshot_util()
+  end)
+
+  it('works with a block scrolling up #thetest', function()
+    screen:try_resize(30, 7)
+    insert("aa\nbb\ncc\ndd\nee\nff\ngg\nhh")
+    feed 'gg'
+
+    meths.buf_set_extmark(0, ns, 6, 0, {
+      virt_lines={
+        {{"they see me"}};
+        {{"scrolling", "Special"}};
+        {{"they"}};
+        {{"hatin'", "Special"}};
+      };
+    })
+
+    screen:expect{grid=[[
+      ^aa                            |
+      bb                            |
+      cc                            |
+      dd                            |
+      ee                            |
+      ff                            |
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      ^bb                            |
+      cc                            |
+      dd                            |
+      ee                            |
+      ff                            |
+      gg                            |
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      ^cc                            |
+      dd                            |
+      ee                            |
+      ff                            |
+      gg                            |
+      they see me                   |
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      ^dd                            |
+      ee                            |
+      ff                            |
+      gg                            |
+      they see me                   |
+      {7:scrolling}                     |
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      ^ee                            |
+      ff                            |
+      gg                            |
+      they see me                   |
+      {7:scrolling}                     |
+      they                          |
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      ^ff                            |
+      gg                            |
+      they see me                   |
+      {7:scrolling}                     |
+      they                          |
+      {7:hatin'}                        |
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      ^gg                            |
+      they see me                   |
+      {7:scrolling}                     |
+      they                          |
+      {7:hatin'}                        |
+      hh                            |
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      they see me                   |
+      {7:scrolling}                     |
+      they                          |
+      {7:hatin'}                        |
+      ^hh                            |
+      {1:~                             }|
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      {7:scrolling}                     |
+      they                          |
+      {7:hatin'}                        |
+      ^hh                            |
+      {1:~                             }|
+      {1:~                             }|
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      they                          |
+      {7:hatin'}                        |
+      ^hh                            |
+      {1:~                             }|
+      {1:~                             }|
+      {1:~                             }|
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      {7:hatin'}                        |
+      ^hh                            |
+      {1:~                             }|
+      {1:~                             }|
+      {1:~                             }|
+      {1:~                             }|
+                                    |
+    ]]}
+
+    feed '<c-e>'
+    screen:expect{grid=[[
+      ^hh                            |
+      {1:~                             }|
+      {1:~                             }|
+      {1:~                             }|
+      {1:~                             }|
+      {1:~                             }|
+                                    |
+    ]]}
+  end)
+
+  it('works with sign and numbercolumns', function()
+    error 'lel'
   end)
 end)
