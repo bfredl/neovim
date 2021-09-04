@@ -998,8 +998,20 @@ if (h->n_buckets < new_n_buckets) { // expand
       right_gravity=false;
     })
 
-    -- TODO: it doesn't work!
-    screen:snapshot_util()
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)krealloc((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = krealloc( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+      ^}                                                 |
+      Grugg                                             |
+                                                        |
+    ]]}
   end)
 
   it('works with a block scrolling up #thetest', function()

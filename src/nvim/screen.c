@@ -2896,6 +2896,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
       if (draw_state == WL_SBR - 1 && n_extra == 0) {
         draw_state = WL_SBR;
         if (filler_todo > filler_lines - virtual_lines) {
+          // TODO: check this doesn't inhibit TUI-style CLE
           c_extra = ' ';
           c_final = NUL;
           if (wp->w_p_rl) {

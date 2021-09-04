@@ -1782,7 +1782,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
     if (kv_size(virt_lines) && buf->b_virt_line_mark) {
       mtpos_t pos = marktree_lookup(buf->b_marktree, buf->b_virt_line_mark, NULL);
       if (pos.row >= 0) {
-        redraw_buf_line_later(buf, pos.row+1+(buf->b_virt_line_above?0:1));
+        redraw_buf_line_later(buf, MIN(buf->b_ml.ml_line_count, pos.row+1+(buf->b_virt_line_above?0:1)));
       }
       // TODO: if set redraw old b_virt_line_mark
     }
@@ -1799,7 +1799,8 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
       buf->b_virt_line_pos = -1;
       buf->b_virt_line_above = virt_lines_above;
       buf->b_virt_line_signcol = virt_lines_signcol;
-      redraw_buf_line_later(buf, line+1+(virt_lines_above?0:1));
+      // TODO: formalize the "below end of buffer" trickery
+      redraw_buf_line_later(buf, MIN(buf->b_ml.ml_line_count, line+1+(virt_lines_above?0:1)));
     }
   }
 
