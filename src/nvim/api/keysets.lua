@@ -29,5 +29,21 @@ return {
   get_commands = {
     "builtin";
   };
+  float_config = {
+    "row";
+    "col";
+    "width";
+    "height";
+    "anchor";
+    "relative";
+    "win";
+    "bufpos";
+    "external";
+    "focusable";
+    "zindex";
+    "border";
+    "style";
+    "noautocmd";
+  };
 }
 
