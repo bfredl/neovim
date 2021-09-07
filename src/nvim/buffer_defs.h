@@ -872,7 +872,7 @@ struct file_buffer {
   uint64_t b_virt_line_mark;
   int b_virt_line_pos;
   bool b_virt_line_above;
-  bool b_virt_line_signcol;
+  bool b_virt_line_leftcol;
 
   // array of channel_id:s which have asked to receive updates for this
   // buffer.

@@ -4398,7 +4398,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
         if (index > 0) {
           int fpos = kv_size(buf->b_virt_lines) - index;
           assert(fpos >= 0);
-          int offset = buf->b_virt_line_signcol ? 0 : win_col_offset;
+          int offset = buf->b_virt_line_leftcol ? 0 : win_col_offset;
           draw_virt_text_item(offset, kv_A(buf->b_virt_lines, fpos), kHlModeReplace, grid->Columns);
 
         }

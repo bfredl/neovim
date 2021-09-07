@@ -805,6 +805,8 @@ describe('decorations: virtual lines', function()
       [5] = {background = Screen.colors.Yellow, foreground = Screen.colors.Blue};
       [6] = {foreground = Screen.colors.Blue};
       [7] = {foreground = Screen.colors.SlateBlue};
+      [8] = {background = Screen.colors.WebGray, foreground = Screen.colors.DarkBlue};
+      [9] = {foreground = Screen.colors.Brown};
     }
 
     ns = meths.create_namespace 'test'
@@ -936,7 +938,8 @@ if (h->n_buckets < new_n_buckets) { // expand
     meths.buf_set_extmark(0, ns, 0, 0, {
       virt_lines={
         {{"refactor(khash): ", "Special"}, {"take size of values as parameter"}};
-        {{"Author: Dev Devsson, "}, {"Tue Aug 31 10:13:37 2021", "Comment"}}; };
+        {{"Author: Dev Devsson, "}, {"Tue Aug 31 10:13:37 2021", "Comment"}};
+      };
       virt_lines_above=true;
       right_gravity=false;
     })
@@ -1014,7 +1017,7 @@ if (h->n_buckets < new_n_buckets) { // expand
     ]]}
   end)
 
-  it('works with a block scrolling up #thetest', function()
+  it('works with a block scrolling up', function()
     screen:try_resize(30, 7)
     insert("aa\nbb\ncc\ndd\nee\nff\ngg\nhh")
     feed 'gg'
@@ -1161,6 +1164,66 @@ if (h->n_buckets < new_n_buckets) { // expand
   end)
 
   it('works with sign and numbercolumns', function()
-    error 'lel'
+    insert(example_text)
+    feed 'gg'
+    command 'set number signcolumn=yes'
+    screen:expect{grid=[[
+      {8:  }{9:  1 }^if (h->n_buckets < new_n_buckets) { // expan|
+      {8:  }{9:    }d                                           |
+      {8:  }{9:  2 }  khkey_t *new_keys = (khkey_t *)krealloc((v|
+      {8:  }{9:    }oid *)h->keys, new_n_buckets * sizeof(khkey_|
+      {8:  }{9:    }t));                                        |
+      {8:  }{9:  3 }  h->keys = new_keys;                       |
+      {8:  }{9:  4 }  if (kh_is_map && val_size) {              |
+      {8:  }{9:  5 }    char *new_vals = krealloc( h->vals_buf, |
+      {8:  }{9:    }new_n_buckets * val_size);                  |
+      {8:  }{9:  6 }    h->vals_buf = new_vals;                 |
+      {8:  }{9:  7 }  }                                         |
+                                                        |
+    ]]}
+
+    meths.buf_set_extmark(0, ns, 2, 0, {
+      virt_lines={
+        {{"Some special", "Special"}};
+        {{"remark about codes", "Comment"}};
+      };
+    })
+
+    screen:expect{grid=[[
+      {8:  }{9:  1 }^if (h->n_buckets < new_n_buckets) { // expan|
+      {8:  }{9:    }d                                           |
+      {8:  }{9:  2 }  khkey_t *new_keys = (khkey_t *)krealloc((v|
+      {8:  }{9:    }oid *)h->keys, new_n_buckets * sizeof(khkey_|
+      {8:  }{9:    }t));                                        |
+      {8:  }{9:  3 }  h->keys = new_keys;                       |
+      {8:  }{9:    }{7:Some special}                                |
+      {8:  }{9:    }{6:remark about codes}                          |
+      {8:  }{9:  4 }  if (kh_is_map && val_size) {              |
+      {8:  }{9:  5 }    char *new_vals = krealloc( h->vals_buf, |
+      {8:  }{9:    }new_n_buckets * val_size);                  |
+                                                        |
+    ]]}
+
+    meths.buf_set_extmark(0, ns, 2, 0, {
+      virt_lines={
+        {{"Some special", "Special"}};
+        {{"remark about codes", "Comment"}};
+      };
+      virt_lines_leftcol=true;
+    })
+    screen:expect{grid=[[
+      {8:  }{9:  1 }^if (h->n_buckets < new_n_buckets) { // expan|
+      {8:  }{9:    }d                                           |
+      {8:  }{9:  2 }  khkey_t *new_keys = (khkey_t *)krealloc((v|
+      {8:  }{9:    }oid *)h->keys, new_n_buckets * sizeof(khkey_|
+      {8:  }{9:    }t));                                        |
+      {8:  }{9:  3 }  h->keys = new_keys;                       |
+      {7:Some special}                                      |
+      {6:remark about codes}                                |
+      {8:  }{9:  4 }  if (kh_is_map && val_size) {              |
+      {8:  }{9:  5 }    char *new_vals = krealloc( h->vals_buf, |
+      {8:  }{9:    }new_n_buckets * val_size);                  |
+                                                        |
+    ]]}
   end)
 end)

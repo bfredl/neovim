@@ -1508,7 +1508,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
 
   VirtLines virt_lines = KV_INITIAL_VALUE;
   bool virt_lines_above = false;
-  bool virt_lines_signcol = false;
+  bool virt_lines_leftcol = false;
 
   for (size_t i = 0; i < opts.size; i++) {
     String k = opts.items[i].key;
@@ -1634,9 +1634,9 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
       if (ERROR_SET(err)) {
         goto error;
       }
-    } else if (strequal("virt_lines_signcol", k.data)) {
+    } else if (strequal("virt_lines_leftcol", k.data)) {
       // TODO: maybe generic horizonal pos arg?
-      virt_lines_signcol = api_object_to_bool(*v, "virt_lines_sign_col",
+      virt_lines_leftcol = api_object_to_bool(*v, "virt_lines_leftcol",
                                               false, err);
       if (ERROR_SET(err)) {
         goto error;
@@ -1798,7 +1798,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id,
       buf->b_virt_line_mark = mark;
       buf->b_virt_line_pos = -1;
       buf->b_virt_line_above = virt_lines_above;
-      buf->b_virt_line_signcol = virt_lines_signcol;
+      buf->b_virt_line_leftcol = virt_lines_leftcol;
       // TODO: formalize the "below end of buffer" trickery
       redraw_buf_line_later(buf, MIN(buf->b_ml.ml_line_count, line+1+(virt_lines_above?0:1)));
     }
