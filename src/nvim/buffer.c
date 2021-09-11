@@ -3286,7 +3286,7 @@ void maketitle(void)
         buf_p += MIN(size, SPACE_FOR_FNAME);
       } else {
         buf_p += transstr_buf((const char *)path_tail(curbuf->b_fname),
-                              buf_p, SPACE_FOR_FNAME + 1);
+                              buf_p, SPACE_FOR_FNAME + 1, true);
       }
 
       switch (bufIsChanged(curbuf)
@@ -3328,7 +3328,7 @@ void maketitle(void)
         // room for the server name.  When there is no room (very long
         // file name) use (...).
         if ((size_t)(buf_p - buf) < SPACE_FOR_DIR) {
-          char *const tbuf = transstr(buf_p);
+          char *const tbuf = transstr(buf_p, true);
           const size_t free_space = SPACE_FOR_DIR - (size_t)(buf_p - buf) + 1;
           const size_t dir_len = xstrlcpy(buf_p, tbuf, free_space);
           buf_p += MIN(dir_len, free_space - 1);

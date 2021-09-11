@@ -1865,7 +1865,7 @@ static int compute_foldcolumn(win_T *wp, int col)
 /// Put a single char from an UTF-8 buffer into a line buffer.
 ///
 /// Handles composing chars and arabic shaping state.
-static int line_putchar(LineState *s, schar_T *dest, int maxcells, bool rl)
+static int line_putchar(buf_T *buf, LineState *s, schar_T *dest, int maxcells, bool rl, int vcol)
 {
   const char_u *p = (char_u *)s->p;
   int cells = utf_ptr2cells(p);
@@ -1875,7 +1875,13 @@ static int line_putchar(LineState *s, schar_T *dest, int maxcells, bool rl)
     return -1;
   }
   u8c = utfc_ptr2char(p, u8cc);
-  if (*p < 0x80 && u8cc[0] == 0) {
+  if (*p == TAB) {
+    cells = MIN(tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array), maxcells);
+    for (int c = 0; c < cells; c++) {
+      schar_from_ascii(dest[c], ' ');
+    }
+    goto done;
+  } else if (*p < 0x80 && u8cc[0] == 0) {
     schar_from_ascii(dest[0], *p);
     s->prev_c = u8c;
   } else {
@@ -1908,6 +1914,7 @@ static int line_putchar(LineState *s, schar_T *dest, int maxcells, bool rl)
   if (cells > 1) {
     dest[1][0] = 0;
   }
+done:
   s->p += c_len;
   return cells;
 }
@@ -4399,7 +4406,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
           int fpos = kv_size(buf->b_virt_lines) - index;
           assert(fpos >= 0);
           int offset = buf->b_virt_line_leftcol ? 0 : win_col_offset;
-          draw_virt_text_item(offset, kv_A(buf->b_virt_lines, fpos), kHlModeReplace, grid->Columns);
+          draw_virt_text_item(buf, offset, kv_A(buf->b_virt_lines, fpos), kHlModeReplace, grid->Columns, offset);
 
         }
       } else {
@@ -4497,7 +4504,6 @@ void draw_virt_text(buf_T *buf, int col_off, int *end_col, int max_col)
         item->win_col = right_pos;
       } else if (item->decor.virt_text_pos == kVTEndOfLine && do_eol) {
         item->win_col = state->eol_col;
-        state->eol_col += item->decor.virt_text_width;
       } else if (item->decor.virt_text_pos == kVTWinCol) {
         item->win_col = MAX(item->decor.col+col_off, 0);
       }
@@ -4506,15 +4512,18 @@ void draw_virt_text(buf_T *buf, int col_off, int *end_col, int max_col)
       continue;
     }
 
-    int col = draw_virt_text_item(item->win_col, item->decor.virt_text,
-                                  item->decor.hl_mode, max_col);
+    int col = draw_virt_text_item(buf, item->win_col, item->decor.virt_text,
+                                  item->decor.hl_mode, max_col, item->win_col-col_off);
     item->win_col = -2;  // deactivate
+    if (item->decor.virt_text_pos == kVTEndOfLine && do_eol) {
+      state->eol_col = col+1;
+    }
 
     *end_col = MAX(*end_col, col);
   }
 }
 
-static int draw_virt_text_item(int col, VirtText vt, HlMode hl_mode, int max_col)
+static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode, int max_col, int vcol)
 {
   LineState s = LINE_STATE("");
   int virt_attr = 0;
@@ -4548,12 +4557,13 @@ static int draw_virt_text_item(int col, VirtText vt, HlMode hl_mode, int max_col
       attr = virt_attr;
     }
     schar_T dummy[2];
-    int cells = line_putchar(&s, through ? dummy : &linebuf_char[col],
-                             max_col-col, false);
-    linebuf_attr[col++] = attr;
-    if (cells > 1) {
+    int cells = line_putchar(buf, &s, through ? dummy : &linebuf_char[col],
+                             max_col-col, false, vcol);
+
+    for (int c = 0; c < cells; c++) {
       linebuf_attr[col++] = attr;
     }
+    vcol += cells;
   }
   return col;
 }
@@ -5499,7 +5509,7 @@ static void win_redr_custom(win_T *wp, bool draw_ruler)
   ewp->w_p_crb = p_crb_save;
 
   // Make all characters printable.
-  p = (char_u *)transstr((const char *)buf);
+  p = (char_u *)transstr((const char *)buf, true);
   len = STRLCPY(buf, p, sizeof(buf));
   len = (size_t)len < sizeof(buf) ? len : (int)sizeof(buf) - 1;
   xfree(p);
