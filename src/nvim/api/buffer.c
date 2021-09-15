@@ -1433,6 +1433,10 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 ///               - end_col : ending col of the mark, 0-based exclusive.
 ///               - hl_group : name of the highlight group used to highlight
 ///                   this mark.
+///               - hl_eol : when true, for a multiline highlight covering the
+///                          EOL of a line, continue the highlight for the rest
+///                          of the screen line (just like for diff and
+///                          cursorline highlight).
 ///               - virt_text : virtual text to link to this mark.
 ///                   A list of [text, highlight] tuples, each representing a
 ///                   text chunk with specified highlight. `highlight` element
@@ -1460,10 +1464,25 @@ Array nvim_buf_get_extmarks(Buffer buffer, Integer ns_id,
 ///                              default
 ///                 - "combine": combine with background text color
 ///                 - "blend": blend with background text color.
-///               - hl_eol : when true, for a multiline highlight covering the
-///                          EOL of a line, continue the highlight for the rest
-///                          of the screen line (just like for diff and
-///                          cursorline highlight).
+///
+///               - virt_lines : virtual lines to add next to this mark
+///                   This should be an array over lines, where each line in
+///                   turn is an array over [text, highlight] tuples. 'wrap'
+///                   and 'linebreak' options do not take effect. Thus
+///                   the number of extra screen lines will always match
+///                   the size of the array. By default lines are placed
+///                   below the buffer line containing the mark.
+///
+///                   Note: currently virtual lines are limited to one block per
+///                   buffer. Thus setting a new mark disables any previous
+///                   `virt_lines` decoration. However plugins should not rely
+///                   on this behaviour, as this limitation is planned to be
+///                   removed.
+///
+///               - virt_lines_above: place virtual lines above instead.
+///               - virt_lines_leftcol: Place extmarks in the leftmost
+///                                     column of the window, bypassing
+///                                     sign and number columns.
 ///
 ///               - ephemeral : for use with |nvim_set_decoration_provider|
 ///                   callbacks. The mark will only be used for the current

@@ -1226,4 +1226,8 @@ if (h->n_buckets < new_n_buckets) { // expand
                                                         |
     ]]}
   end)
+
+  it('can be deleted with extmark_del and ns_clear', function()
+    error "NOOOOOOO!"
+  end)
 end)
