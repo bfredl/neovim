@@ -895,7 +895,7 @@ if (h->n_buckets < new_n_buckets) { // expand
     ]]}
 
     meths.buf_set_extmark(0, ns, 5, 0, {
-      virt_lines = {{{"^^ REVIEW:", "Todo"}, {" new_vals variable seems unneccesary?", "Comment"}}};
+      virt_lines = { {{"^^ REVIEW:", "Todo"}, {" new_vals variable seems unneccesary?", "Comment"}} };
     })
     -- TODO: what about the cursor??
     screen:expect{grid=[[
@@ -913,6 +913,21 @@ if (h->n_buckets < new_n_buckets) { // expand
                                                         |
     ]]}
 
+    meths.buf_clear_namespace(0, ns, 0, -1)
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)                 |
+      {3:krealloc}((void *)h->keys, new_n_buckets * sizeof(k|
+      hkey_t));                                         |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = {3:krealloc}( h->vals_buf, new_n_|
+      buck^ets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+      }                                                 |
+                                                        |
+    ]]}
   end)
 
 
@@ -996,11 +1011,27 @@ if (h->n_buckets < new_n_buckets) { // expand
                                                         |
     ]]}
 
-    meths.buf_set_extmark(0, ns, 7, 0, {
+    local id = meths.buf_set_extmark(0, ns, 7, 0, {
       virt_lines={{{"Grugg"}}};
       right_gravity=false;
     })
 
+    screen:expect{grid=[[
+      if (h->n_buckets < new_n_buckets) { // expand     |
+        khkey_t *new_keys = (khkey_t *)krealloc((void *)|
+      h->keys, new_n_buckets * sizeof(khkey_t));        |
+        h->keys = new_keys;                             |
+        if (kh_is_map && val_size) {                    |
+          char *new_vals = krealloc( h->vals_buf, new_n_|
+      buckets * val_size);                              |
+          h->vals_buf = new_vals;                       |
+        }                                               |
+      ^}                                                 |
+      Grugg                                             |
+                                                        |
+    ]]}
+
+    meths.buf_del_extmark(0, ns, id)
     screen:expect{grid=[[
       if (h->n_buckets < new_n_buckets) { // expand     |
         khkey_t *new_keys = (khkey_t *)krealloc((void *)|
@@ -1225,9 +1256,5 @@ if (h->n_buckets < new_n_buckets) { // expand
       {8:  }{9:    }new_n_buckets * val_size);                  |
                                                         |
     ]]}
-  end)
-
-  it('can be deleted with extmark_del and ns_clear', function()
-    error "NOOOOOOO!"
   end)
 end)
