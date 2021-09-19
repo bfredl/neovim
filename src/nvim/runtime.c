@@ -229,14 +229,40 @@ int do_in_path_and_pp(char_u *path, char_u *name, int flags,
   return done;
 }
 
+static void expand_pack_entry(SearchPath *search_path, SearchPath *after_path, char_u *pack_entry)
+{
+  static char_u buf[MAXPATHL], buf2[MAXPATHL];
+  char *start_dir = "/pack/*/start/*/";  // NOLINT
+  if (STRLEN(pack_entry) + STRLEN(start_dir) + 1 < MAXPATHL) {
+    STRNCPY(buf, pack_entry, MAXPATHL);
+    STRNCPY(buf2, pack_entry, MAXPATHL);
+    strcat((char *)buf, start_dir);
+    strcat((char *)buf2, "/start/*/");
+    int num_files;
+    char_u **files;
+
+    char_u *(pat[]) = {buf, buf2};
+    if (gen_expand_wildcards(2, pat, &num_files, &files, EW_DIR) == OK) {
+      for (int i = 0; i < num_files; i++) {
+        kv_push(*search_path, strdup((char *)files[i]));
+        char *after = xmallocz(STRLEN(files[i])+6);
+        strcpy(after, (char *)files[i]);
+        strcat(after, "after/");
+        kv_push(*after_path, after);
+      }
+    }
+  }
+}
 
 SearchPath build_runtime_search_path(void)
 {
   kvec_t(String) pack_entries = KV_INITIAL_VALUE;
   Map(String,handle_T) pack_used = MAP_INIT;
+  // TODO: add a set of existing rtp entries to not duplicate those
   SearchPath search_path = KV_INITIAL_VALUE;
+  SearchPath after_path = KV_INITIAL_VALUE;
 
-  static char_u buf[MAXPATHL], buf2[MAXPATHL];
+  static char_u buf[MAXPATHL];
   for (char *entry = (char *)p_pp; *entry != NUL; ) {
     char *cur_entry = entry;
     copy_option_part((char_u **)&entry, buf, MAXPATHL, ",");
@@ -247,31 +273,45 @@ SearchPath build_runtime_search_path(void)
     map_put(String, handle_T)(&pack_used, the_entry, 0);
   }
 
-  for (char *entry = (char *)p_rtp; *entry != NUL; ) {
-    copy_option_part((char_u **)&entry, buf, MAXPATHL, ",");
+
+  char *rtp_entry;
+  for (rtp_entry = (char *)p_rtp; *rtp_entry != NUL; ) {
+    char *cur_entry = rtp_entry;
+    copy_option_part((char_u **)&rtp_entry, buf, MAXPATHL, ",");
     size_t buflen = STRLEN(buf);
+
+    if (!memcmp(buf+(buflen-5), "after", 5) && vim_ispathsep(buf[buflen-6])) {
+      rtp_entry = cur_entry;
+      break;
+    }
+
     kv_push(search_path, strdup((char *)buf));
 
     handle_T *h = map_ref(String, handle_T)(&pack_used, cstr_as_string((char *)buf), false);
     if (h) {
       (*h)++;
-      char *start_dir = "/pack/*/start/*/";  // NOLINT
-      if (buflen + STRLEN(start_dir) + 1 < MAXPATHL) {
-        STRNCPY(buf2, buf, MAXPATHL);
-        strcat((char *)buf, start_dir);
-        strcat((char *)buf2, "/start/*/");
-        int num_files;
-        char_u **files;
-
-        char_u *(pat[]) = {buf, buf2};
-        if (gen_expand_wildcards(2, pat, &num_files, &files, EW_DIR) == OK) {
-          for (int i = 0; i < num_files; i++) {
-            kv_push(search_path, strdup((char *)files[i]));
-          }
-        }
-      }
+      expand_pack_entry(&search_path, &after_path, buf);
     }
   }
+
+  for (size_t i = 0; i < kv_size(pack_entries); i++) {
+    handle_T h = map_get(String, handle_T)(&pack_used, cstr_as_string((char *)buf));
+    if (h == 0) {
+      expand_pack_entry(&search_path, &after_path, (char_u *)kv_A(pack_entries, i).data);
+    }
+  }
+
+  // "after" packages
+  for (size_t i = 0; i < kv_size(after_path); i++) {
+    kv_push(search_path, kv_A(after_path,i));
+  }
+
+  // "after" dirs in rtp
+  for (; *rtp_entry != NUL; ) {
+    copy_option_part((char_u **)&rtp_entry, buf, MAXPATHL, ",");
+    kv_push(search_path, strdup((char *)buf));
+  }
+
   return search_path;
 }
 
