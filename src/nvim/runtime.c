@@ -248,7 +248,11 @@ static void expand_pack_entry(SearchPath *search_path, SearchPath *after_path, c
         char *after = xmallocz(STRLEN(files[i])+6);
         strcpy(after, (char *)files[i]);
         strcat(after, "after/");
-        kv_push(*after_path, after);
+        if (os_isdir((char_u *)after)) {
+          kv_push(*after_path, after);
+        } else {
+          xfree(after);
+        }
       }
     }
   }
