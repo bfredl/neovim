@@ -758,6 +758,21 @@ ArrayOf(String) nvim_list_runtime_paths(Error *err)
   return nvim_get_runtime_file(NULL_STRING, true, err);
 }
 
+/// Gets the paths contained in 'runtimepath'.
+///
+/// @return List of paths
+ArrayOf(String) nvim__rtp(Error *err)
+{
+  Array rv = ARRAY_DICT_INIT;
+  SearchPath path = build_runtime_search_path();
+  for (size_t i = 0; i < kv_size(path); i++) {
+    ADD(rv, STRING_OBJ(cstr_as_string(kv_A(path,i))));
+  }
+  kv_destroy(path);
+
+  return rv;
+}
+
 /// Find files in runtime directories
 ///
 /// 'name' can contain wildcards. For example

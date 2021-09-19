@@ -7,6 +7,7 @@
 
 #include "nvim/vim.h"
 #include "nvim/ascii.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/charset.h"
 #include "nvim/eval.h"
 #include "nvim/option.h"
@@ -227,6 +228,51 @@ int do_in_path_and_pp(char_u *path, char_u *name, int flags,
 
   return done;
 }
+
+
+SearchPath build_runtime_search_path(void)
+{
+  kvec_t(String) pack_entries = KV_INITIAL_VALUE;
+  Map(String,handle_T) pack_used = MAP_INIT;
+  SearchPath search_path = KV_INITIAL_VALUE;
+
+  static char_u buf[MAXPATHL];
+  for (char *entry = (char *)p_pp; *entry != NUL; ) {
+    char *cur_entry = entry;
+    copy_option_part((char_u **)&entry, buf, MAXPATHL, ",");
+
+    String the_entry = {.data = cur_entry, .size = STRLEN(buf)};
+
+    kv_push(pack_entries, the_entry);
+    map_put(String, handle_T)(&pack_used, the_entry, 0);
+  }
+
+  for (char *entry = (char *)p_rtp; *entry != NUL; ) {
+    copy_option_part((char_u **)&entry, buf, MAXPATHL, ",");
+    size_t buflen = STRLEN(buf);
+    kv_push(search_path, strdup((char *)buf));
+
+    handle_T *h = map_ref(String, handle_T)(&pack_used, cstr_as_string((char *)buf), false);
+    if (h) {
+      (*h)++;
+      char *start_dir = "/pack/*/start/*/";  // NOLINT
+      if (buflen + STRLEN(start_dir) + 1 < MAXPATHL) {
+        strcat((char *)buf, start_dir);
+        int num_files;
+        char_u **files;
+
+        char_u *(pat[]) = {buf};
+        if (gen_expand_wildcards(1, pat, &num_files, &files, EW_DIR) == OK) {
+          for (int i = 0; i < num_files; i++) {
+            kv_push(search_path, strdup((char *)files[i]));
+          }
+        }
+      }
+    }
+  }
+  return search_path;
+}
+
 
 /// Just like do_in_path_and_pp(), using 'runtimepath' for "path".
 int do_in_runtimepath(char_u *name, int flags, DoInRuntimepathCB callback, void *cookie)

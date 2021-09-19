@@ -7,6 +7,8 @@
 
 typedef void (*DoInRuntimepathCB)(char_u *, void *);
 
+typedef kvec_t(char *) SearchPath;
+
 // last argument for do_source()
 #define DOSO_NONE       0
 #define DOSO_VIMRC      1       // loading vimrc file
