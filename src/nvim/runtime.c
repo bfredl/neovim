@@ -236,7 +236,7 @@ SearchPath build_runtime_search_path(void)
   Map(String,handle_T) pack_used = MAP_INIT;
   SearchPath search_path = KV_INITIAL_VALUE;
 
-  static char_u buf[MAXPATHL];
+  static char_u buf[MAXPATHL], buf2[MAXPATHL];
   for (char *entry = (char *)p_pp; *entry != NUL; ) {
     char *cur_entry = entry;
     copy_option_part((char_u **)&entry, buf, MAXPATHL, ",");
@@ -257,12 +257,14 @@ SearchPath build_runtime_search_path(void)
       (*h)++;
       char *start_dir = "/pack/*/start/*/";  // NOLINT
       if (buflen + STRLEN(start_dir) + 1 < MAXPATHL) {
+        STRNCPY(buf2, buf, MAXPATHL);
         strcat((char *)buf, start_dir);
+        strcat((char *)buf2, "/start/*/");
         int num_files;
         char_u **files;
 
-        char_u *(pat[]) = {buf};
-        if (gen_expand_wildcards(1, pat, &num_files, &files, EW_DIR) == OK) {
+        char_u *(pat[]) = {buf, buf2};
+        if (gen_expand_wildcards(2, pat, &num_files, &files, EW_DIR) == OK) {
           for (int i = 0; i < num_files; i++) {
             kv_push(search_path, strdup((char *)files[i]));
           }
