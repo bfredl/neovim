@@ -21,6 +21,8 @@
 # include "runtime.c.generated.h"
 #endif
 
+static bool search_path_valid = false;
+static SearchPath runtime_search_path;
 
 /// ":runtime [what] {name}"
 void ex_runtime(exarg_T *eap)
@@ -157,6 +159,102 @@ int do_in_path(char_u *path, char_u *name, int flags,
   return did_one ? OK : FAIL;
 }
 
+/// Find the file "name" in all directories in "path" and invoke
+/// "callback(fname, cookie)".
+/// "name" can contain wildcards.
+/// When "flags" has DIP_ALL: source all files, otherwise only the first one.
+/// When "flags" has DIP_DIR: find directories instead of files.
+/// When "flags" has DIP_ERR: give an error message if there is no match.
+///
+/// return FAIL when no file could be sourced, OK otherwise.
+int do_in_cached_path(char_u *name, int flags, DoInRuntimepathCB callback, void *cookie)
+{
+  validate_search_path();
+  char_u      *tail;
+  int num_files;
+  char_u      **files;
+  int i;
+  bool did_one = false;
+
+  static char_u buf[MAXPATHL];
+
+  if (p_verbose > 10 && name != NULL) {
+    verbose_enter();
+    smsg(_("Searching for \"%s\" in runtime path"), (char *)name);
+    verbose_leave();
+  }
+
+  // Loop over all entries in 'runtimepath'.
+  for (size_t j = 0; j < kv_size(runtime_search_path); j++) {
+    char *entry = kv_A(runtime_search_path, j);
+    size_t buflen = strlen(entry);
+
+    // Skip after or non-after directories.
+    if (flags & (DIP_NOAFTER | DIP_AFTER)) {
+      bool is_after = buflen >= 5
+        && STRCMP(entry + buflen - 5, "after") == 0;
+
+      if ((is_after && (flags & DIP_NOAFTER))
+          || (!is_after && (flags & DIP_AFTER))) {
+        continue;
+      }
+    }
+
+    if (name == NULL) {
+      (*callback)((char_u *)entry, cookie);
+      did_one = true;
+    } else if (buflen + STRLEN(name) + 2 < MAXPATHL) {
+      STRCPY(buf, entry);
+      add_pathsep((char *)buf);
+      tail = buf + STRLEN(buf);
+
+      // Loop over all patterns in "name"
+      char_u *np = name;
+      while (*np != NUL && ((flags & DIP_ALL) || !did_one)) {
+        // Append the pattern from "name" to buf[].
+        assert(MAXPATHL >= (tail - buf));
+        copy_option_part(&np, tail, (size_t)(MAXPATHL - (tail - buf)),
+                         "\t ");
+
+        if (p_verbose > 10) {
+          verbose_enter();
+          smsg(_("Searching for \"%s\""), buf);
+          verbose_leave();
+        }
+
+        int ew_flags = ((flags & DIP_DIR) ? EW_DIR : EW_FILE)
+                       | (flags & DIP_DIRFILE) ? (EW_DIR|EW_FILE) : 0;
+
+        // Expand wildcards, invoke the callback for each match.
+        char_u *(pat[]) = {buf};
+        if (gen_expand_wildcards(1, pat, &num_files, &files, ew_flags) == OK) {
+          for (i = 0; i < num_files; i++) {
+            (*callback)(files[i], cookie);
+            did_one = true;
+            if (!(flags & DIP_ALL)) {
+              break;
+            }
+          }
+          FreeWild(num_files, files);
+        }
+      }
+    }
+  }
+
+  if (!did_one && name != NULL) {
+
+    if (flags & DIP_ERR) {
+      EMSG3(_(e_dirnotf), "runtime path", name);
+    } else if (p_verbose > 0) {
+      verbose_enter();
+      smsg(_("not found in runtime path: \"%s\""), name);
+      verbose_leave();
+    }
+  }
+
+
+  return did_one ? OK : FAIL;
+}
 /// Find "name" in "path".  When found, invoke the callback function for
 /// it: callback(fname, "cookie")
 /// When "flags" has DIP_ALL repeat for all matches, otherwise only the first
@@ -319,11 +417,27 @@ SearchPath build_runtime_search_path(void)
   return search_path;
 }
 
+void invalidate_search_path(void)
+{
+  search_path_valid = false;
+}
+
+void validate_search_path(void)
+{
+  if (!search_path_valid) {
+    runtime_search_path = build_runtime_search_path();
+    search_path_valid = true;
+  }
+}
+
+
 
 /// Just like do_in_path_and_pp(), using 'runtimepath' for "path".
 int do_in_runtimepath(char_u *name, int flags, DoInRuntimepathCB callback, void *cookie)
 {
-  return do_in_path_and_pp(p_rtp, name, flags | DIP_START, callback, cookie);
+  return do_in_cached_path((name && !*name) ? NULL : name, flags, callback, cookie);
+  // TODO: DIP_OPT ?????
+  //return do_in_path_and_pp(p_rtp, name, flags | DIP_START, callback, cookie);
 }
 
 /// Source the file "name" from all directories in 'runtimepath'.
@@ -333,6 +447,10 @@ int do_in_runtimepath(char_u *name, int flags, DoInRuntimepathCB callback, void 
 /// return FAIL when no file could be sourced, OK otherwise.
 int source_runtime(char_u *name, int flags)
 {
+  if (!(flags & DIP_NORTP)) {
+    return do_in_cached_path(name, flags, source_callback, NULL);
+    // TODO: DIP_OPT ?????
+  }
   flags |= (flags & DIP_NORTP) ? 0 : DIP_START;
   return source_in_path(p_rtp, name, flags);
 }
