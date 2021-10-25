@@ -43,8 +43,27 @@ typedef struct {
 // "space before (row,col)"
 typedef struct {
   mtpos_t pos;
-  uint64_t id;
+  uint32_t ns;
+  uint32_t foo_id; // TODO: putta tillbaka when all id usages checked
+  int32_t hl_id;
+  int16_t flags;
+  int16_t prio;
 } mtkey_t;
+
+#define MARKTREE_END_FLAG (((uint64_t)1) << 63)
+
+#define MT_FLAG_END (((uint16_t)1) << 0)
+#define MT_FLAG_PAIRED (((uint16_t)1) << 1)
+// _must_ be last to preserve ordering of marks
+#define MT_FLAG_RIGHT_GRAVITY (((uint16_t)1) << 15)
+
+static inline uint64_t mt_lookup_id(uint32_t ns, uint32_t id, bool enda) {
+  return (uint64_t)ns << 32 | id | (enda?MARKTREE_END_FLAG:0);
+}
+
+static inline uint64_t mt_lookup_key(mtkey_t key) {
+  return mt_lookup_id(key.ns, key.foo_id, key.flags & MT_FLAG_END);
+}
 
 struct mtnode_s {
   int32_t n;
@@ -72,14 +91,11 @@ typedef struct {
 # include "marktree.h.generated.h"
 #endif
 
-#define MARKTREE_PAIRED_FLAG (((uint64_t)1) << 1)
-#define MARKTREE_END_FLAG (((uint64_t)1) << 0)
-
 #define DECOR_LEVELS 4
 #define DECOR_OFFSET 61
 #define DECOR_MASK (((uint64_t)(DECOR_LEVELS-1)) << DECOR_OFFSET)
 
-static inline uint8_t marktree_decor_level(uint64_t id)
+static inline uint8_t marktree_decor_level(mtkey_t key)
 {
   return (uint8_t)((id&DECOR_MASK) >> DECOR_OFFSET);
 }

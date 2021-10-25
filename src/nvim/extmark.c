@@ -48,7 +48,7 @@
 # include "extmark.c.generated.h"
 #endif
 
-static ExtmarkNs *buf_ns_ref(buf_T *buf, uint64_t ns_id, bool put) {
+static uint64_t *buf_ns_ref(buf_T *buf, uint64_t ns_id, bool put) {
   return map_ref(uint64_t, ExtmarkNs)(buf->b_extmark_ns, ns_id, put);
 }
 
@@ -61,37 +61,33 @@ uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T
                      colnr_T end_col, Decoration *decor, bool right_gravity, bool end_right_gravity,
                      ExtmarkOp op)
 {
-  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, true);
-  assert(ns != NULL);
-  mtpos_t old_pos;
+  uint64_t *ns = buf_ns_ref(buf, ns_id, true);
+  mtkey_t old_pos;
   uint64_t mark = 0;
   uint64_t id = idp ? *idp : 0;
 
   if (id == 0) {
-    id = ns->free_id++;
+    id = ++*ns;
   } else {
-    uint64_t old_mark = map_get(uint64_t, uint64_t)(ns->map, id);
+    MarkTreeIter itr[1] = { 0 };
+    mt_key_t old_pos = marktree_lookup_ns(buf->b_marktree, ns_id, id, itr);
     if (old_mark) {
-      if (old_mark & MARKTREE_PAIRED_FLAG || end_row > -1) {
+      if (mt_paired(old_pos) || end_row > -1) {
         extmark_del(buf, ns_id, id);
       } else {
         // TODO(bfredl): we need to do more if "revising" a decoration mark.
-        MarkTreeIter itr[1] = { 0 };
-        old_pos = marktree_lookup(buf->b_marktree, old_mark, itr);
         assert(itr->node);
-        if (old_pos.row == row && old_pos.col == col) {
-          ExtmarkItem it = map_del(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                          old_mark);
-          if (it.decor) {
-            decor_remove(buf, row, row, it.decor);
-          }
+        if (old_pos.pos.row == row && old_pos.pos.col == col) {
+          //if (it.decor) {
+          //  decor_remove(buf, row, row, it.decor);
+          //}
           mark = marktree_revise(buf->b_marktree, itr);
           goto revised;
         }
         marktree_del_itr(buf->b_marktree, itr, false);
       }
     } else {
-      ns->free_id = MAX(ns->free_id, id+1);
+      *ns = MAX(*ns, id+1);
     }
   }
 
@@ -112,10 +108,6 @@ uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T
   }
 
 revised:
-  map_put(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark,
-                                 (ExtmarkItem){ ns_id, id, decor });
-  map_put(uint64_t, uint64_t)(ns->map, id, mark);
-
   if (op != kExtmarkNoUndo) {
     // TODO(bfredl): this doesn't cover all the cases and probably shouldn't
     // be done "prematurely". Any movement in undo history might necessitate
@@ -123,12 +115,12 @@ revised:
     u_extmark_set(buf, mark, row, col);
   }
 
-  if (decor) {
-    if (kv_size(decor->virt_lines)) {
-      buf->b_virt_line_blocks++;
-    }
-    decor_redraw(buf, row, end_row > -1 ? end_row : row, decor);
-  }
+  //if (decor) {
+  //  if (kv_size(decor->virt_lines)) {
+  //    buf->b_virt_line_blocks++;
+  //  }
+  //  decor_redraw(buf, row, end_row > -1 ? end_row : row, decor);
+  //}
 
   if (idp) {
     *idp = id;

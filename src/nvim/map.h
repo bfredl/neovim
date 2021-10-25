@@ -41,15 +41,6 @@ MAP_DECLS(uint64_t, ptr_t)
 MAP_DECLS(uint64_t, ssize_t)
 MAP_DECLS(uint64_t, uint64_t)
 
-// NB: this is the only way to define a struct both containing and contained
-// in a map...
-typedef struct ExtmarkNs {  // For namespacing extmarks
-  Map(uint64_t, uint64_t) map[1];  // For fast lookup
-  uint64_t free_id;         // For automatically assigning id's
-} ExtmarkNs;
-
-MAP_DECLS(uint64_t, ExtmarkNs)
-MAP_DECLS(uint64_t, ExtmarkItem)
 MAP_DECLS(handle_T, ptr_t)
 MAP_DECLS(String, MsgpackRpcRequestHandler)
 MAP_DECLS(HlEntry, int)

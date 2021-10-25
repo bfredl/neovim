@@ -119,7 +119,7 @@ static int key_cmp(mtkey_t a, mtkey_t b)
   }
   // NB: keeping the events at the same pos sorted by id is actually not
   // necessary only make sure that START is before END etc.
-  return mt_generic_cmp(a.id, b.id);
+  return mt_generic_cmp(a.flags, b.flags);
 }
 
 static inline int marktree_getp_aux(const mtnode_t *x, mtkey_t k, int *r)
@@ -1030,24 +1030,31 @@ void marktree_move_region(MarkTree *b, int start_row, colnr_T start_col, int ext
 }
 
 /// @param itr OPTIONAL. set itr to pos.
-mtpos_t marktree_lookup(MarkTree *b, uint64_t id, MarkTreeIter *itr)
+mtkey_t marktree_lookup_ns(MarkTree *b, uint32_t ns, uint32_t id, MarkTreeIter *itr)
+{
+  return marktree_lookup(b, mt_lookup_id(ns, id, false));
+
+}
+
+/// @param itr OPTIONAL. set itr to pos.
+mtkey_t marktree_lookup(MarkTree *b, uint64_t id, MarkTreeIter *itr)
 {
   mtnode_t *n = pmap_get(uint64_t)(b->id2node, id);
   if (n == NULL) {
     if (itr) {
       itr->node = NULL;
     }
-    return (mtpos_t){ -1, -1 };
+    return (mtkey_t){ { -1, -1 } };
   }
   int i = 0;
   for (i = 0; i < n->n; i++) {
-    if (ANTIGRAVITY(n->key[i].id) == id) {
+    if (mt_lookup_key(n->key[i]) == id) {
       goto found;
     }
   }
   abort();
 found: {}
-  mtpos_t pos = n->key[i].pos;
+  mtkey_t key = n->key[i];
   if (itr) {
     itr->i = i;
     itr->node = n;
@@ -1066,14 +1073,14 @@ found_node:
       itr->s[b->root->level-p->level].i = i;
     }
     if (i > 0) {
-      unrelative(p->key[i-1].pos, &pos);
+      unrelative(p->key[i-1].pos, &key.pos);
     }
     n = p;
   }
   if (itr) {
     marktree_itr_fix_pos(b, itr);
   }
-  return pos;
+  return key;
 }
 
 static void marktree_itr_fix_pos(MarkTree *b, MarkTreeIter *itr)
