@@ -49,7 +49,7 @@
 #endif
 
 static uint64_t *buf_ns_ref(buf_T *buf, uint64_t ns_id, bool put) {
-  return map_ref(uint64_t, ExtmarkNs)(buf->b_extmark_ns, ns_id, put);
+  return map_ref(uint64_t, uint64_t)(buf->b_extmark_ns, ns_id, put);
 }
 
 
@@ -148,7 +148,7 @@ static bool extmark_setraw(buf_T *buf, uint64_t mark, int row, colnr_T col)
 // Returns 0 on missing id
 bool extmark_del(buf_T *buf, uint64_t ns_id, uint64_t id)
 {
-  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, false);
+  uint64_t *ns = buf_ns_ref(buf, ns_id, false);
   if (!ns) {
     return false;
   }
