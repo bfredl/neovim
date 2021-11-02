@@ -70,9 +70,9 @@ uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T
     id = ++*ns;
   } else {
     MarkTreeIter itr[1] = { 0 };
-    mt_key_t old_pos = marktree_lookup_ns(buf->b_marktree, ns_id, id, itr);
-    if (old_mark) {
-      if (mt_paired(old_pos) || end_row > -1) {
+    mtkey_t old_mark = marktree_lookup_ns(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, false, itr);
+    if (old_mark.foo_id) {
+      if (mt_paired(old_mark) || end_row > -1) {
         extmark_del(buf, ns_id, id);
       } else {
         // TODO(bfredl): we need to do more if "revising" a decoration mark.
@@ -131,12 +131,12 @@ revised:
 static bool extmark_setraw(buf_T *buf, uint64_t mark, int row, colnr_T col)
 {
   MarkTreeIter itr[1] = { 0 };
-  mtpos_t pos = marktree_lookup(buf->b_marktree, mark, itr);
-  if (pos.row == -1) {
+  mtkey_t key = marktree_lookup(buf->b_marktree, mark, itr);
+  if (key.pos.row == -1) {
     return false;
   }
 
-  if (pos.row == row && pos.col == col) {
+  if (key.pos.row == row && key.pos.col == col) {
     return true;
   }
 
@@ -148,35 +148,26 @@ static bool extmark_setraw(buf_T *buf, uint64_t mark, int row, colnr_T col)
 // Returns 0 on missing id
 bool extmark_del(buf_T *buf, uint64_t ns_id, uint64_t id)
 {
-  uint64_t *ns = buf_ns_ref(buf, ns_id, false);
-  if (!ns) {
-    return false;
-  }
-
-  uint64_t mark = map_get(uint64_t, uint64_t)(ns->map, id);
-  if (!mark) {
-    return false;
-  }
 
   MarkTreeIter itr[1] = { 0 };
-  mtpos_t pos = marktree_lookup(buf->b_marktree, mark, itr);
-  assert(pos.row >= 0);
+  mtkey_t key = marktree_lookup_ns(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, false, itr);
+  if (!key.foo_id) {
+    return false;
+  }
+  assert(key.pos.row >= 0);
   marktree_del_itr(buf->b_marktree, itr, false);
-  ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark);
-  mtpos_t pos2 = pos;
 
-  if (mark & MARKTREE_PAIRED_FLAG) {
-    pos2 = marktree_lookup(buf->b_marktree, mark|MARKTREE_END_FLAG, itr);
-    assert(pos2.row >= 0);
+  mtkey_t key2 = key;
+
+  if (mt_paired(key)) {
+    key2 = marktree_lookup_ns(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, true, itr);
+    assert(key2.pos.row >= 0);
     marktree_del_itr(buf->b_marktree, itr, false);
   }
 
-  if (item.decor) {
-    decor_remove(buf, pos.row, pos2.row, item.decor);
-  }
-
-  map_del(uint64_t, uint64_t)(ns->map, id);
-  map_del(uint64_t, ExtmarkItem)(buf->b_extmark_index, mark);
+  //if (item.decor) {
+  //  decor_remove(buf, pos.row, pos2.row, item.decor);
+ // }
 
   // TODO(bfredl): delete it from current undo header, opportunistically?
   return true;
@@ -193,16 +184,13 @@ bool extmark_clear(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_col, int u_r
   bool marks_cleared = false;
 
   bool all_ns = (ns_id == 0);
-  ExtmarkNs *ns = NULL;
+  uint64_t *ns = NULL;
   if (!all_ns) {
     ns = buf_ns_ref(buf, ns_id, false);
     if (!ns) {
       // nothing to do
       return false;
     }
-
-    // TODO(bfredl): if map_size(ns->map) << buf->b_marktree.n_nodes
-    // it could be faster to iterate over the map instead
   }
 
   // the value is either zero or the lnum (row+1) if highlight was present.
@@ -213,10 +201,10 @@ bool extmark_clear(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_col, int u_r
   MarkTreeIter itr[1] = { 0 };
   marktree_itr_get(buf->b_marktree, l_row, l_col, itr);
   while (true) {
-    mtmark_t mark = marktree_itr_current(itr);
-    if (mark.row < 0
-        || mark.row > u_row
-        || (mark.row == u_row && mark.col > u_col)) {
+    mtkey_t mark = marktree_itr_current(itr);
+    if (mark.pos.row < 0
+        || mark.pos.row > u_row
+        || (mark.pos.row == u_row && mark.pos.col > u_col)) {
       break;
     }
     ssize_t *del_status = map_ref(uint64_t, ssize_t)(&delete_set, mark.id,
@@ -232,8 +220,6 @@ bool extmark_clear(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_col, int u_r
     }
 
     uint64_t start_id = mark.id & ~MARKTREE_END_FLAG;
-    ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                      start_id);
 
     assert(item.ns_id > 0 && item.mark_id > 0);
     if (item.mark_id > 0 && (item.ns_id == ns_id || all_ns)) {

@@ -15,13 +15,6 @@ typedef struct {
   int32_t col;
 } mtpos_t;
 
-typedef struct {
-  int32_t row;
-  int32_t col;
-  uint64_t id;
-  bool right_gravity;
-} mtmark_t;
-
 typedef struct mtnode_s mtnode_t;
 typedef struct {
   int oldcol;
@@ -49,6 +42,7 @@ typedef struct {
   int16_t flags;
   int16_t prio;
 } mtkey_t;
+#define MT_INVALID_KEY (mtkey_t){ { -1, -1 }, 0, 0, 0, 0, 0 }
 
 #define MARKTREE_END_FLAG (((uint64_t)1) << 63)
 
@@ -57,12 +51,19 @@ typedef struct {
 // _must_ be last to preserve ordering of marks
 #define MT_FLAG_RIGHT_GRAVITY (((uint16_t)1) << 15)
 
+#define TODO_uint32_t uint32_t
+
 static inline uint64_t mt_lookup_id(uint32_t ns, uint32_t id, bool enda) {
   return (uint64_t)ns << 32 | id | (enda?MARKTREE_END_FLAG:0);
 }
 
 static inline uint64_t mt_lookup_key(mtkey_t key) {
   return mt_lookup_id(key.ns, key.foo_id, key.flags & MT_FLAG_END);
+}
+
+static inline bool mt_paired(mtkey_t key)
+{
+  return key.flags & MT_FLAG_PAIRED;
 }
 
 struct mtnode_s {
@@ -97,7 +98,8 @@ typedef struct {
 
 static inline uint8_t marktree_decor_level(mtkey_t key)
 {
-  return (uint8_t)((id&DECOR_MASK) >> DECOR_OFFSET);
+  //return (uint8_t)((id&DECOR_MASK) >> DECOR_OFFSET);
+  return 0;
 }
 
 #endif  // NVIM_MARKTREE_H

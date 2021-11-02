@@ -816,18 +816,14 @@ mtpos_t marktree_itr_pos(MarkTreeIter *itr)
   return pos;
 }
 
-mtmark_t marktree_itr_current(MarkTreeIter *itr)
+mtkey_t marktree_itr_current(MarkTreeIter *itr)
 {
   if (itr->node) {
-    uint64_t keyid = rawkey(itr).id;
-    mtpos_t pos = marktree_itr_pos(itr);
-    mtmark_t mark = { .row = pos.row,
-                      .col = pos.col,
-                      .id = ANTIGRAVITY(keyid),
-                      .right_gravity = keyid & RIGHT_GRAVITY };
-    return mark;
+    mtkey_t key = rawkey(itr);
+    key.pos = marktree_itr_pos(itr);
+    return key;
   }
-  return (mtmark_t){ -1, -1, 0, false };
+  return MT_INVALID_KEY;
 }
 
 static void swap_id(uint64_t *id1, uint64_t *id2)
@@ -1030,9 +1026,9 @@ void marktree_move_region(MarkTree *b, int start_row, colnr_T start_col, int ext
 }
 
 /// @param itr OPTIONAL. set itr to pos.
-mtkey_t marktree_lookup_ns(MarkTree *b, uint32_t ns, uint32_t id, MarkTreeIter *itr)
+mtkey_t marktree_lookup_ns(MarkTree *b, uint32_t ns, uint32_t id, bool end, MarkTreeIter *itr)
 {
-  return marktree_lookup(b, mt_lookup_id(ns, id, false));
+  return marktree_lookup(b, mt_lookup_id(ns, id, end));
 
 }
 

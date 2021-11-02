@@ -131,21 +131,20 @@ void clear_virttext(VirtText *text)
 
 Decoration *decor_find_virttext(buf_T *buf, int row, uint64_t ns_id)
 {
+  return NULL; // TODO
   MarkTreeIter itr[1] = { 0 };
   marktree_itr_get(buf->b_marktree, row, 0,  itr);
   while (true) {
-    mtmark_t mark = marktree_itr_current(itr);
-    if (mark.row < 0 || mark.row > row) {
+    mtkey_t mark = marktree_itr_current(itr);
+    if (mark.pos.row < 0 || mark.pos.row > row) {
       break;
-    } else if (marktree_decor_level(mark.id) < kDecorLevelVisible) {
+    } else if (marktree_decor_level(mark) < kDecorLevelVisible) {
       goto next_mark;
     }
-    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                       mark.id, false);
-    if (item && (ns_id == 0 || ns_id == item->ns_id)
-        && item->decor && kv_size(item->decor->virt_text)) {
-      return item->decor;
-    }
+    //if (item && (ns_id == 0 || ns_id == item->ns_id)
+    //    && item->decor && kv_size(item->decor->virt_text)) {
+    //  return item->decor;
+    //}
 next_mark:
     marktree_itr_next(buf->b_marktree, itr);
   }
