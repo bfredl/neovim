@@ -162,7 +162,7 @@ bool decor_redraw_reset(buf_T *buf, DecorState *state)
     }
   }
   kv_size(state->active) = 0;
-  return map_size(buf->b_extmark_index);
+  return buf->b_marktree->n_keys;
 }
 
 
