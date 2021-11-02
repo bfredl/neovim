@@ -57,7 +57,6 @@
 #define ILEN (sizeof(mtnode_t)+(2 * T) * sizeof(void *))
 
 #define RIGHT_GRAVITY (((uint64_t)1) << 63)
-#define ANTIGRAVITY(id) ((id)&(RIGHT_GRAVITY-1))
 #define IS_RIGHT(id) ((id)&RIGHT_GRAVITY)
 
 #define PAIRED MARKTREE_PAIRED_FLAG
@@ -148,7 +147,7 @@ static inline int marktree_getp_aux(const mtnode_t *x, mtkey_t k, int *r)
 
 static inline void refkey(MarkTree *b, mtnode_t *x, int i)
 {
-  pmap_put(uint64_t)(b->id2node, ANTIGRAVITY(x->key[i].id), x);
+  pmap_put(uint64_t)(b->id2node, mt_lookup_key(x->key[i]), x);
 }
 
 // put functions
@@ -223,7 +222,7 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
 
 uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity, uint8_t decor_level)
 {
-  uint64_t id = (b->next_id+=ID_INCR);
+  // uint64_t id = (b->next_id+=ID_INCR);
   assert(decor_level < DECOR_LEVELS);
   id = id | ((uint64_t)decor_level << DECOR_OFFSET);
   uint64_t keyid = id;
@@ -239,7 +238,7 @@ uint64_t marktree_put(MarkTree *b, int row, int col, bool right_gravity, uint8_t
 uint64_t marktree_put_pair(MarkTree *b, int start_row, int start_col, bool start_right, int end_row,
                            int end_col, bool end_right, uint8_t decor_level)
 {
-  uint64_t id = (b->next_id+=ID_INCR)|PAIRED;
+  // uint64_t id = (b->next_id+=ID_INCR)|PAIRED;
   assert(decor_level < DECOR_LEVELS);
   id = id | ((uint64_t)decor_level << DECOR_OFFSET);
   uint64_t start_id = id|(start_right?RIGHT_GRAVITY:0);
@@ -302,7 +301,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
 
   mtnode_t *cur = itr->node;
   int curi = itr->i;
-  uint64_t id = cur->key[curi].id;
+  uint64_t id = mt_lookup_key(cur->key[curi]);
   // fprintf(stderr, "\nDELET %lu\n", id);
 
   if (itr->node->level) {
@@ -364,7 +363,7 @@ void marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   }
 
   b->n_keys--;
-  pmap_del(uint64_t)(b->id2node, ANTIGRAVITY(id));
+  pmap_del(uint64_t)(b->id2node, id);
 
   // 5.
   bool itr_dirty = false;
@@ -569,6 +568,7 @@ void marktree_free_node(mtnode_t *x)
   xfree(x);
 }
 
+/* TODO: ???
 /// NB: caller must check not pair!
 uint64_t marktree_revise(MarkTree *b, MarkTreeIter *itr)
 {
@@ -579,13 +579,15 @@ uint64_t marktree_revise(MarkTree *b, MarkTreeIter *itr)
   refkey(b, itr->node, itr->i);
   return new_id;
 }
+*/
 
 void marktree_move(MarkTree *b, MarkTreeIter *itr, int row, int col)
 {
-  uint64_t old_id = rawkey(itr).id;
+  mtkey_t old_key = rawkey(itr);
   // TODO(bfredl): optimize when moving a mark within a leaf without moving it
   // across neighbours!
   marktree_del_itr(b, itr, false);
+
   marktree_put_key(b, row, col, old_id);
   itr->node = NULL;  // itr might become invalid by put
 }

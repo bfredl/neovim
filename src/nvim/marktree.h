@@ -81,7 +81,6 @@ struct mtnode_s {
 typedef struct {
   mtnode_t *root;
   size_t n_keys, n_nodes;
-  uint64_t next_id;
   // TODO(bfredl): the pointer to node could be part of the larger
   // Map(uint64_t, ExtmarkItem) essentially;
   PMap(uint64_t) id2node[1];
