@@ -207,40 +207,35 @@ bool extmark_clear(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_col, int u_r
         || (mark.pos.row == u_row && mark.pos.col > u_col)) {
       break;
     }
-    ssize_t *del_status = map_ref(uint64_t, ssize_t)(&delete_set, mark.id,
+    ssize_t *del_status = map_ref(uint64_t, ssize_t)(&delete_set, mt_lookup_key(mark),
                                                      false);
     if (del_status) {
       marktree_del_itr(buf->b_marktree, itr, false);
       if (*del_status >= 0) {  // we had a decor_id
         DecorItem it = kv_A(decors, *del_status);
-        decor_remove(buf, it.row1, mark.row, it.decor);
+        decor_remove(buf, it.row1, mark.pos.row, it.decor);
       }
-      map_del(uint64_t, ssize_t)(&delete_set, mark.id);
+      map_del(uint64_t, ssize_t)(&delete_set, mt_lookup_key(mark));
       continue;
     }
 
-    uint64_t start_id = mark.id & ~MARKTREE_END_FLAG;
-
-    assert(item.ns_id > 0 && item.mark_id > 0);
-    if (item.mark_id > 0 && (item.ns_id == ns_id || all_ns)) {
+    assert(mark.ns > 0 && mark.foo_id > 0);
+    if (mark.ns == ns_id || all_ns) {
       marks_cleared = true;
-      if (mark.id & MARKTREE_PAIRED_FLAG) {
-        uint64_t other = mark.id ^ MARKTREE_END_FLAG;
+      if (mt_paired(mark)) {
+        uint64_t other = mt_lookup_id(mark.ns, mark.foo_id, !(mark.flags & MARKTREE_END_FLAG));
         ssize_t decor_id = -1;
-        if (item.decor) {
-          // Save the decoration and the first pos. Clear the decoration
-          // later when we know the full range.
-          decor_id = (ssize_t)kv_size(decors);
-          kv_push(decors,
-                  ((DecorItem) { .decor = item.decor, .row1 = mark.row }));
-        }
+        //if (item.decor) {
+        //  // Save the decoration and the first pos. Clear the decoration
+        //  // later when we know the full range.
+        //  decor_id = (ssize_t)kv_size(decors);
+        //  kv_push(decors,
+        //          ((DecorItem) { .decor = item.decor, .row1 = mark.row }));
+        //}
         map_put(uint64_t, ssize_t)(&delete_set, other, decor_id);
-      } else if (item.decor) {
-        decor_remove(buf, mark.row, mark.row, item.decor);
+      //} else if (item.decor) {
+      //  decor_remove(buf, mark.row, mark.row, item.decor);
       }
-      ExtmarkNs *my_ns = all_ns ? buf_ns_ref(buf, item.ns_id, false) : ns;
-      map_del(uint64_t, uint64_t)(my_ns->map, item.mark_id);
-      map_del(uint64_t, ExtmarkItem)(buf->b_extmark_index, start_id);
       marktree_del_itr(buf->b_marktree, itr, false);
     } else {
       marktree_itr_next(buf->b_marktree, itr);
@@ -249,12 +244,12 @@ bool extmark_clear(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_col, int u_r
   uint64_t id;
   ssize_t decor_id;
   map_foreach(&delete_set, id, decor_id, {
-    mtpos_t pos = marktree_lookup(buf->b_marktree, id, itr);
+    mtkey_t mark = marktree_lookup(buf->b_marktree, id, itr);
     assert(itr->node);
     marktree_del_itr(buf->b_marktree, itr, false);
     if (decor_id >= 0) {
       DecorItem it = kv_A(decors, decor_id);
-      decor_remove(buf, it.row1, pos.row, it.decor);
+      decor_remove(buf, it.row1, mark.pos.row, it.decor);
     }
   });
   map_clear(uint64_t, ssize_t)(&delete_set);
@@ -278,30 +273,29 @@ ExtmarkInfoArray extmark_get(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_co
                        itr, reverse, false, NULL);
   int order = reverse ? -1 : 1;
   while ((int64_t)kv_size(array) < amount) {
-    mtmark_t mark = marktree_itr_current(itr);
-    mtpos_t endpos = { -1, -1 };
-    if (mark.row < 0
-        || (mark.row - u_row) * order > 0
-        || (mark.row == u_row && (mark.col - u_col) * order > 0)) {
+    mtkey_t mark = marktree_itr_current(itr);
+    mtkey_t end = MT_INVALID_KEY;
+    if (mark.pos.row < 0
+        || (mark.pos.row - u_row) * order > 0
+        || (mark.pos.row == u_row && (mark.pos.col - u_col) * order > 0)) {
       break;
     }
-    if (mark.id & MARKTREE_END_FLAG) {
+    if (mark.flags & MARKTREE_END_FLAG) {
       goto next_mark;
-    } else if (mark.id & MARKTREE_PAIRED_FLAG) {
-      endpos = marktree_lookup(buf->b_marktree, mark.id | MARKTREE_END_FLAG,
+    } else if (mt_paired(mark)) {
+      // TODO: this should only be done for mark.ns == ns_id??
+      end = marktree_lookup_ns(buf->b_marktree, mark.ns, mark.foo_id, true,
                                NULL);
     }
 
 
-    ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                      mark.id);
-    if (item.ns_id == ns_id) {
-      kv_push(array, ((ExtmarkInfo) { .ns_id = item.ns_id,
-                                      .mark_id = item.mark_id,
-                                      .row = mark.row, .col = mark.col,
-                                      .end_row = endpos.row,
-                                      .end_col = endpos.col,
-                                      .decor = item.decor }));
+    if (mark.ns == ns_id) {
+      kv_push(array, ((ExtmarkInfo) { .ns_id = mark.ns,
+                                      .mark_id = mark.foo_id,
+                                      .row = mark.pos.row, .col = mark.pos.col,
+                                      .end_row = end.pos.row,
+                                      .end_col = end.pos.col,
+                                      .decor = NULL })); // TODO
     }
 next_mark:
     if (reverse) {
@@ -316,34 +310,23 @@ next_mark:
 // Lookup an extmark by id
 ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
 {
-  ExtmarkNs *ns = buf_ns_ref(buf, ns_id, false);
   ExtmarkInfo ret = { 0, 0, -1, -1, -1, -1, NULL };
-  if (!ns) {
-    return ret;
+  mtkey_t mark = marktree_lookup_ns(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, false, NULL);
+  mtkey_t end = MT_INVALID_KEY;
+  // TODO: endpos = marktree_lookup_end(buf->b_marktree, mark, NULL) ??
+  if (mt_paired(mark)) {
+    end = marktree_lookup_ns(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, true, NULL);
   }
+  assert(mark.pos.row >= 0);
 
-  uint64_t mark = map_get(uint64_t, uint64_t)(ns->map, id);
-  if (!mark) {
-    return ret;
-  }
-
-  mtpos_t pos = marktree_lookup(buf->b_marktree, mark, NULL);
-  mtpos_t endpos = { -1, -1 };
-  if (mark & MARKTREE_PAIRED_FLAG) {
-    endpos = marktree_lookup(buf->b_marktree, mark | MARKTREE_END_FLAG, NULL);
-  }
-  assert(pos.row >= 0);
-
-  ExtmarkItem item = map_get(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                    mark);
 
   ret.ns_id = ns_id;
   ret.mark_id = id;
-  ret.row = pos.row;
-  ret.col = pos.col;
-  ret.end_row = endpos.row;
-  ret.end_col = endpos.col;
-  ret.decor = item.decor;
+  ret.row = mark.pos.row;
+  ret.col = mark.pos.col;
+  ret.end_row = end.pos.row;
+  ret.end_col = end.pos.col;
+  ret.decor = NULL; // TODO
 
   return ret;
 }
@@ -356,25 +339,10 @@ void extmark_free_all(buf_T *buf)
     return;
   }
 
-  uint64_t id;
-  ExtmarkNs ns;
-  ExtmarkItem item;
-
   marktree_clear(buf->b_marktree);
 
-  map_foreach(buf->b_extmark_ns, id, ns, {
-    (void)id;
-    map_destroy(uint64_t, uint64_t)(ns.map);
-  });
-  map_destroy(uint64_t, ExtmarkNs)(buf->b_extmark_ns);
-  map_init(uint64_t, ExtmarkNs, buf->b_extmark_ns);
-
-  map_foreach(buf->b_extmark_index, id, item, {
-    (void)id;
-    decor_free(item.decor);
-  });
-  map_destroy(uint64_t, ExtmarkItem)(buf->b_extmark_index);
-  map_init(uint64_t, ExtmarkItem, buf->b_extmark_index);
+  map_destroy(uint64_t, uint64_t)(buf->b_extmark_ns);
+  map_init(uint64_t, uint64_t, buf->b_extmark_ns);
 }
 
 
@@ -415,16 +383,16 @@ void u_extmark_copy(buf_T *buf, int l_row, colnr_T l_col, int u_row, colnr_T u_c
   MarkTreeIter itr[1] = { 0 };
   marktree_itr_get(buf->b_marktree, l_row, l_col, itr);
   while (true) {
-    mtmark_t mark = marktree_itr_current(itr);
-    if (mark.row < 0
-        || mark.row > u_row
-        || (mark.row == u_row && mark.col > u_col)) {
+    mtkey_t mark = marktree_itr_current(itr);
+    if (mark.pos.row < 0
+        || mark.pos.row > u_row
+        || (mark.pos.row == u_row && mark.pos.col > u_col)) {
       break;
     }
     ExtmarkSavePos pos;
-    pos.mark = mark.id;
-    pos.old_row = mark.row;
-    pos.old_col = mark.col;
+    pos.mark = mt_lookup_key(mark);
+    pos.old_row = mark.pos.row;
+    pos.old_col = mark.pos.col;
     pos.row = -1;
     pos.col = -1;
 

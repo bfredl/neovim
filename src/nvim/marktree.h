@@ -39,7 +39,7 @@ typedef struct {
   uint32_t ns;
   uint32_t foo_id; // TODO: putta tillbaka when all id usages checked
   int32_t hl_id;
-  int16_t flags;
+  uint16_t flags;
   int16_t prio;
 } mtkey_t;
 #define MT_INVALID_KEY (mtkey_t){ { -1, -1 }, 0, 0, 0, 0, 0 }

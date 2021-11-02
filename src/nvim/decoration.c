@@ -168,6 +168,8 @@ bool decor_redraw_reset(buf_T *buf, DecorState *state)
 
 bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
 {
+  return false;
+  /*
   state->top_row = top_row;
   marktree_itr_get(buf->b_marktree, top_row, 0, state->itr);
   if (!state->itr->node) {
@@ -222,6 +224,7 @@ next_mark:
   }
 
   return true;  // TODO(bfredl): check if available in the region
+  */
 }
 
 bool decor_redraw_line(buf_T *buf, int row, DecorState *state)
@@ -258,6 +261,8 @@ static void decor_add(DecorState *state, int start_row, int start_col, int end_r
 
 int decor_redraw_col(buf_T *buf, int col, int win_col, bool hidden, DecorState *state)
 {
+  return 0;
+  /*
   if (col <= state->col_until) {
     return state->current;
   }
@@ -347,6 +352,7 @@ next_mark:
   kv_size(state->active) = j;
   state->current = attr;
   return attr;
+  */
 }
 
 void decor_redraw_end(DecorState *state)
@@ -438,6 +444,8 @@ void decor_free_all_mem(void)
 
 int decor_virt_lines(win_T *wp, linenr_T lnum, VirtLines *lines)
 {
+  return 0;
+  /*
   buf_T *buf = wp->w_buffer;
   if (!buf->b_virt_line_blocks) {
     // Only pay for what you use: in case virt_lines feature is not active
@@ -470,4 +478,5 @@ next_mark:
   }
 
   return virt_lines;
+  */
 }
