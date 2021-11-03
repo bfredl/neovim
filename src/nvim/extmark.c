@@ -274,7 +274,6 @@ ExtmarkInfoArray extmark_get(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_co
   int order = reverse ? -1 : 1;
   while ((int64_t)kv_size(array) < amount) {
     mtkey_t mark = marktree_itr_current(itr);
-    mtkey_t end = MT_INVALID_KEY;
     if (mark.pos.row < 0
         || (mark.pos.row - u_row) * order > 0
         || (mark.pos.row == u_row && (mark.pos.col - u_col) * order > 0)) {
@@ -282,19 +281,15 @@ ExtmarkInfoArray extmark_get(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_co
     }
     if (mark.flags & MARKTREE_END_FLAG) {
       goto next_mark;
-    } else if (mt_paired(mark)) {
-      // TODO: this should only be done for mark.ns == ns_id??
-      end = marktree_lookup_ns(buf->b_marktree, mark.ns, mark.foo_id, true,
-                               NULL);
     }
 
-
     if (mark.ns == ns_id) {
+      mtpos_t endpos = get_endpos(buf->b_marktree, mark);
       kv_push(array, ((ExtmarkInfo) { .ns_id = mark.ns,
                                       .mark_id = mark.foo_id,
                                       .row = mark.pos.row, .col = mark.pos.col,
-                                      .end_row = end.pos.row,
-                                      .end_col = end.pos.col,
+                                      .end_row = endpos.row,
+                                      .end_col = endpos.col,
                                       .decor = NULL })); // TODO
     }
 next_mark:
@@ -307,6 +302,15 @@ next_mark:
   return array;
 }
 
+static mtpos_t get_endpos(MarkTree *b, mtkey_t mark)
+{
+  mtkey_t end = MT_INVALID_KEY;
+  if (mt_paired(mark)) {
+    end = marktree_lookup_ns(b, mark.ns, mark.foo_id, true, NULL);
+  }
+  return end.pos;
+}
+
 // Lookup an extmark by id
 ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
 {
@@ -315,20 +319,15 @@ ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
   if (!mark.foo_id) {
     return ret;
   }
-  mtkey_t end = MT_INVALID_KEY;
-  // TODO: endpos = marktree_lookup_end(buf->b_marktree, mark, NULL) ??
-  if (mt_paired(mark)) {
-    end = marktree_lookup_ns(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, true, NULL);
-  }
   assert(mark.pos.row >= 0);
-
+  mtpos_t endpos = get_endpos(buf->b_marktree, mark);
 
   ret.ns_id = ns_id;
   ret.mark_id = id;
   ret.row = mark.pos.row;
   ret.col = mark.pos.col;
-  ret.end_row = end.pos.row;
-  ret.end_col = end.pos.col;
+  ret.end_row = endpos.row;
+  ret.end_col = endpos.col;
   ret.decor = NULL; // TODO
 
   return ret;
