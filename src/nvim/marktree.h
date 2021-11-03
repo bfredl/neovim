@@ -48,8 +48,10 @@ typedef struct {
 
 #define MT_FLAG_END (((uint16_t)1) << 0)
 #define MT_FLAG_PAIRED (((uint16_t)1) << 1)
-// _must_ be last to preserve ordering of marks
-#define MT_FLAG_RIGHT_GRAVITY (((uint16_t)1) << 15)
+
+// These _must_ be last to preserve ordering of marks
+#define MT_FLAG_RIGHT_GRAVITY (((uint16_t)1) << 14)
+#define MT_FLAG_LAST (((uint16_t)1) << 15)
 
 #define TODO_uint32_t uint32_t
 
@@ -64,6 +66,16 @@ static inline uint64_t mt_lookup_key(mtkey_t key) {
 static inline bool mt_paired(mtkey_t key)
 {
   return key.flags & MT_FLAG_PAIRED;
+}
+
+static inline bool mt_end(mtkey_t key)
+{
+  return key.flags & MT_FLAG_END;
+}
+
+static inline bool mt_right(mtkey_t key)
+{
+  return key.flags & MT_FLAG_RIGHT_GRAVITY;
 }
 
 struct mtnode_s {

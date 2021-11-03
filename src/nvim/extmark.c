@@ -56,8 +56,7 @@ static uint64_t *buf_ns_ref(buf_T *buf, uint64_t ns_id, bool put) {
 /// Create or update an extmark
 ///
 /// must not be used during iteration!
-/// @returns the internal mark id
-uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col, int end_row,
+void extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col, int end_row,
                      colnr_T end_col, Decoration *decor, bool right_gravity, bool end_right_gravity,
                      ExtmarkOp op)
 {
@@ -100,11 +99,11 @@ uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T
   }
 
   if (end_row > -1) {
-    mark = marktree_put_pair(buf->b_marktree,  ns_id, id, 
+    marktree_put_pair(buf->b_marktree, ns_id, id, 
                              row, col, right_gravity,
                              end_row, end_col, end_right_gravity, decor_level);
   } else {
-    mark = marktree_put(buf->b_marktree, ns_id, id, row, col, right_gravity, decor_level);
+    marktree_put(buf->b_marktree, ns_id, id, row, col, right_gravity, decor_level);
   }
 
 revised:
@@ -125,7 +124,6 @@ revised:
   if (idp) {
     *idp = id;
   }
-  return mark;
 }
 
 static bool extmark_setraw(buf_T *buf, uint64_t mark, int row, colnr_T col)

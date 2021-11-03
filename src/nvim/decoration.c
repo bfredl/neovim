@@ -59,9 +59,9 @@ void bufhl_add_hl_pos_offset(buf_T *buf, int src_id, int hl_id, lpos_T pos_start
       hl_start = pos_start.col + offset;
       hl_end = pos_end.col + offset;
     }
-    (void)extmark_set(buf, (uint64_t)src_id, NULL,
-                      (int)lnum-1, hl_start, (int)lnum-1+end_off, hl_end,
-                      decor, true, false, kExtmarkNoUndo);
+    extmark_set(buf, (uint64_t)src_id, NULL,
+                (int)lnum-1, hl_start, (int)lnum-1+end_off, hl_end,
+                decor, true, false, kExtmarkNoUndo);
   }
 }
 
