@@ -86,7 +86,7 @@ void extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col
         marktree_del_itr(buf->b_marktree, itr, false);
       }
     } else {
-      *ns = MAX(*ns, id+1);
+      *ns = MAX(*ns, id);
     }
   }
 
@@ -310,6 +310,9 @@ ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
 {
   ExtmarkInfo ret = { 0, 0, -1, -1, -1, -1, NULL };
   mtkey_t mark = marktree_lookup_ns(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, false, NULL);
+  if (!mark.foo_id) {
+    return ret;
+  }
   mtkey_t end = MT_INVALID_KEY;
   // TODO: endpos = marktree_lookup_end(buf->b_marktree, mark, NULL) ??
   if (mt_paired(mark)) {
