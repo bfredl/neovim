@@ -62,7 +62,6 @@ void extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col
 {
   uint64_t *ns = buf_ns_ref(buf, ns_id, true);
   mtkey_t old_pos;
-  uint64_t mark = 0;
   uint64_t id = idp ? *idp : 0;
 
   if (id == 0) {
@@ -99,11 +98,11 @@ void extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col
   }
 
   if (end_row > -1) {
-    marktree_put_pair(buf->b_marktree, ns_id, id, 
+    marktree_put_pair(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, 
                              row, col, right_gravity,
                              end_row, end_col, end_right_gravity, decor_level);
   } else {
-    marktree_put(buf->b_marktree, ns_id, id, row, col, right_gravity, decor_level);
+    marktree_put(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, row, col, right_gravity, decor_level);
   }
 
 revised:
@@ -111,7 +110,10 @@ revised:
     // TODO(bfredl): this doesn't cover all the cases and probably shouldn't
     // be done "prematurely". Any movement in undo history might necessitate
     // adding new marks to old undo headers.
-    // u_extmark_set(buf, mark, row, col);
+    // TODO: add a test case for this (doesn't fail extmark_spec.lua, and it
+    // should)
+    uint64_t mark = mt_lookup_id((TODO_uint32_t)ns_id, (TODO_uint32_t)id, false);
+    u_extmark_set(buf, mark, row, col);
   }
 
   //if (decor) {
