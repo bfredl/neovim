@@ -599,7 +599,7 @@ bool marktree_itr_get_ext(MarkTree *b, mtpos_t p, MarkTreeIter *itr, bool last, 
 
   mtkey_t k = { .pos = p, .flags = gravity ? MT_FLAG_RIGHT_GRAVITY : 0 };
   if (last && !gravity) {
-    k.flags = MT_FLAG_END;
+    k.flags = MT_FLAG_LAST;
   }
   itr->pos = (mtpos_t){ 0, 0 };
   itr->node = b->root;
@@ -815,13 +815,6 @@ mtkey_t marktree_itr_current(MarkTreeIter *itr)
     return key;
   }
   return MT_INVALID_KEY;
-}
-
-static void swap_id(uint64_t *id1, uint64_t *id2)
-{
-  uint64_t temp = *id1;
-  *id1 = *id2;
-  *id2 = temp;
 }
 
 static bool itr_eq(MarkTreeIter *itr1, MarkTreeIter *itr2)
