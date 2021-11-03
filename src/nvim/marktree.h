@@ -46,8 +46,10 @@ typedef struct {
 
 #define MARKTREE_END_FLAG (((uint64_t)1) << 63)
 
-#define MT_FLAG_END (((uint16_t)1) << 0)
-#define MT_FLAG_PAIRED (((uint16_t)1) << 1)
+// TODO: delet this
+#define MT_FLAG_REAL (((uint16_t)1) << 0)
+#define MT_FLAG_END (((uint16_t)1) << 1)
+#define MT_FLAG_PAIRED (((uint16_t)1) << 2)
 
 // These _must_ be last to preserve ordering of marks
 #define MT_FLAG_RIGHT_GRAVITY (((uint16_t)1) << 14)

@@ -238,6 +238,7 @@ void marktree_put_pair(MarkTree *b, uint32_t ns, uint32_t foo_id, int start_row,
 
 void marktree_put_key(MarkTree *b, mtkey_t k)
 {
+  k.flags |= MT_FLAG_REAL;  // TODO: Haiii!
   if (!b->root) {
     b->root = (mtnode_t *)xcalloc(1, ILEN);
     b->n_nodes++;
