@@ -81,7 +81,7 @@ uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T
           //if (it.decor) {
           //  decor_remove(buf, row, row, it.decor);
           //}
-          mark = marktree_revise(buf->b_marktree, itr);
+          // mark = marktree_revise(buf->b_marktree, itr);
           goto revised;
         }
         marktree_del_itr(buf->b_marktree, itr, false);
@@ -100,11 +100,11 @@ uint64_t extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T
   }
 
   if (end_row > -1) {
-    mark = marktree_put_pair(buf->b_marktree,
+    mark = marktree_put_pair(buf->b_marktree,  ns_id, id, 
                              row, col, right_gravity,
                              end_row, end_col, end_right_gravity, decor_level);
   } else {
-    mark = marktree_put(buf->b_marktree, row, col, right_gravity, decor_level);
+    mark = marktree_put(buf->b_marktree, ns_id, id, row, col, right_gravity, decor_level);
   }
 
 revised:
@@ -112,7 +112,7 @@ revised:
     // TODO(bfredl): this doesn't cover all the cases and probably shouldn't
     // be done "prematurely". Any movement in undo history might necessitate
     // adding new marks to old undo headers.
-    u_extmark_set(buf, mark, row, col);
+    // u_extmark_set(buf, mark, row, col);
   }
 
   //if (decor) {

@@ -248,10 +248,8 @@ uint64_t marktree_put_pair(MarkTree *b, int start_row, int start_col, bool start
   return id;
 }
 
-void marktree_put_key(MarkTree *b, int row, int col, uint64_t id)
+void marktree_put_key(MarkTree *b, mtkey_t k)
 {
-  mtkey_t k = { .pos = { .row = row, .col = col }, .id = id };
-
   if (!b->root) {
     b->root = (mtnode_t *)xcalloc(1, ILEN);
     b->n_nodes++;
