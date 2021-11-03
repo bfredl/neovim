@@ -1079,6 +1079,15 @@ found_node:
   return key;
 }
 
+mtpos_t marktree_get_endpos(MarkTree *b, mtkey_t mark)
+{
+  mtkey_t end = MT_INVALID_KEY;
+  if (mt_paired(mark)) {
+    end = marktree_lookup_ns(b, mark.ns, mark.foo_id, true, NULL);
+  }
+  return end.pos;
+}
+
 static void marktree_itr_fix_pos(MarkTree *b, MarkTreeIter *itr)
 {
   itr->pos = (mtpos_t){ 0, 0 };
