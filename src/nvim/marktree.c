@@ -218,20 +218,23 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
 void marktree_put(MarkTree *b, uint32_t ns, uint32_t foo_id, int row, int col, bool right_gravity, uint8_t decor_level)
 {
   uint16_t flags = right_gravity ? MT_FLAG_RIGHT_GRAVITY : 0;
-  mtkey_t k = { .pos = {row, col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = flags, .prio = 0 };
   assert(decor_level < DECOR_LEVELS);
+  flags |= (uint16_t)(decor_level << MT_FLAG_DECOR_OFFSET);
+  mtkey_t k = { .pos = {row, col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = flags, .prio = 0 };
   marktree_put_key(b, k);
 }
 
 void marktree_put_pair(MarkTree *b, uint32_t ns, uint32_t foo_id, int start_row, int start_col, bool start_right, int end_row,
                        int end_col, bool end_right, uint8_t decor_level)
 {
-  uint16_t flags = MT_FLAG_PAIRED | (start_right ? MT_FLAG_RIGHT_GRAVITY : 0);
+  assert(decor_level < DECOR_LEVELS);
+  uint16_t base_flags = MT_FLAG_PAIRED | (uint16_t)(decor_level << MT_FLAG_DECOR_OFFSET);
+
+  uint16_t flags = base_flags | (start_right ? MT_FLAG_RIGHT_GRAVITY : 0);
   mtkey_t k = { .pos = {start_row, start_col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = flags, .prio = 0 };
-  uint16_t end_flags = MT_FLAG_PAIRED | MT_FLAG_END | (end_right ? MT_FLAG_RIGHT_GRAVITY : 0);
+  uint16_t end_flags = base_flags | MT_FLAG_END | (end_right ? MT_FLAG_RIGHT_GRAVITY : 0);
   mtkey_t end_k = { .pos = {end_row, end_col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = end_flags, .prio = 0 };
 
-  assert(decor_level < DECOR_LEVELS);
   marktree_put_key(b, k);
   marktree_put_key(b, end_k);
 }

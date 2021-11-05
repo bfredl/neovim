@@ -32,7 +32,7 @@ typedef struct {
 
 // Internal storage
 //
-// NB: actual marks have id > 0, so we can use (row,col,0) pseudo-key for
+// NB: actual marks have flags > 0, so we can use (row,col,0) pseudo-key for
 // "space before (row,col)"
 typedef struct {
   mtpos_t pos;
@@ -41,6 +41,7 @@ typedef struct {
   int32_t hl_id;
   uint16_t flags;
   int16_t prio;
+  void *ptr;
 } mtkey_t;
 #define MT_INVALID_KEY (mtkey_t){ { -1, -1 }, 0, 0, 0, 0, 0 }
 
@@ -50,6 +51,12 @@ typedef struct {
 #define MT_FLAG_REAL (((uint16_t)1) << 0)
 #define MT_FLAG_END (((uint16_t)1) << 1)
 #define MT_FLAG_PAIRED (((uint16_t)1) << 2)
+
+#define DECOR_LEVELS 4
+#define MT_FLAG_DECOR_OFFSET 3
+#define MT_FLAG_DECOR_MASK (((uint16_t)(DECOR_LEVELS-1)) << DECOR_OFFSET)
+
+// next flag is (((uint16_t)1) << 5)
 
 // These _must_ be last to preserve ordering of marks
 #define MT_FLAG_RIGHT_GRAVITY (((uint16_t)1) << 14)
@@ -80,6 +87,12 @@ static inline bool mt_right(mtkey_t key)
   return key.flags & MT_FLAG_RIGHT_GRAVITY;
 }
 
+static inline uint8_t marktree_decor_level(mtkey_t key)
+{
+  return (uint8_t)((key.flags&MT_FLAG_DECOR_MASK) >> MT_FLAG_DECOR_OFFSET);
+}
+
+
 struct mtnode_s {
   int32_t n;
   int32_t level;
@@ -104,15 +117,5 @@ typedef struct {
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "marktree.h.generated.h"
 #endif
-
-#define DECOR_LEVELS 4
-#define DECOR_OFFSET 61
-#define DECOR_MASK (((uint64_t)(DECOR_LEVELS-1)) << DECOR_OFFSET)
-
-static inline uint8_t marktree_decor_level(mtkey_t key)
-{
-  //return (uint8_t)((id&DECOR_MASK) >> DECOR_OFFSET);
-  return 0;
-}
 
 #endif  // NVIM_MARKTREE_H
