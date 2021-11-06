@@ -131,7 +131,6 @@ void clear_virttext(VirtText *text)
 
 Decoration *decor_find_virttext(buf_T *buf, int row, uint64_t ns_id)
 {
-  return NULL; // TODO
   MarkTreeIter itr[1] = { 0 };
   marktree_itr_get(buf->b_marktree, row, 0,  itr);
   while (true) {
