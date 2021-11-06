@@ -61,7 +61,6 @@ void extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col
                      ExtmarkOp op)
 {
   uint64_t *ns = buf_ns_ref(buf, ns_id, true);
-  mtkey_t old_pos;
   uint64_t id = idp ? *idp : 0;
 
   if (id == 0) {
@@ -75,10 +74,11 @@ void extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col
       } else {
         // TODO(bfredl): we need to do more if "revising" a decoration mark.
         assert(itr->node);
-        if (old_pos.pos.row == row && old_pos.pos.col == col) {
-          //if (it.decor) {
-          //  decor_remove(buf, row, row, it.decor);
-          //}
+        if (old_mark.pos.row == row && old_mark.pos.col == col) {
+          if (old_mark.datta) {
+            decor_remove(buf, row, row, old_mark.datta);
+          }
+          // TODO:
           // mark = marktree_revise(buf->b_marktree, itr);
           goto revised;
         }
@@ -100,9 +100,9 @@ void extmark_set(buf_T *buf, uint64_t ns_id, uint64_t *idp, int row, colnr_T col
   if (end_row > -1) {
     marktree_put_pair(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, 
                              row, col, right_gravity,
-                             end_row, end_col, end_right_gravity, decor_level);
+                             end_row, end_col, end_right_gravity, decor_level, decor);
   } else {
-    marktree_put(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, row, col, right_gravity, decor_level);
+    marktree_put(buf->b_marktree, (TODO_uint32_t)ns_id, (TODO_uint32_t)id, row, col, right_gravity, decor_level, decor);
   }
 
 revised:
@@ -116,12 +116,12 @@ revised:
     u_extmark_set(buf, mark, row, col);
   }
 
-  //if (decor) {
-  //  if (kv_size(decor->virt_lines)) {
-  //    buf->b_virt_line_blocks++;
-  //  }
-  //  decor_redraw(buf, row, end_row > -1 ? end_row : row, decor);
-  //}
+  if (decor) {
+    if (kv_size(decor->virt_lines)) {
+      buf->b_virt_line_blocks++;
+    }
+    decor_redraw(buf, row, end_row > -1 ? end_row : row, decor);
+  }
 
   if (idp) {
     *idp = id;
@@ -165,9 +165,9 @@ bool extmark_del(buf_T *buf, uint64_t ns_id, uint64_t id)
     marktree_del_itr(buf->b_marktree, itr, false);
   }
 
-  //if (item.decor) {
-  //  decor_remove(buf, pos.row, pos2.row, item.decor);
- // }
+  if (key.datta) {
+    decor_remove(buf, key.pos.row, key2.pos.row, key.datta);
+  }
 
   // TODO(bfredl): delete it from current undo header, opportunistically?
   return true;
@@ -225,16 +225,16 @@ bool extmark_clear(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_col, int u_r
       if (mt_paired(mark)) {
         uint64_t other = mt_lookup_id(mark.ns, mark.foo_id, !(mark.flags & MARKTREE_END_FLAG));
         ssize_t decor_id = -1;
-        //if (item.decor) {
-        //  // Save the decoration and the first pos. Clear the decoration
-        //  // later when we know the full range.
-        //  decor_id = (ssize_t)kv_size(decors);
-        //  kv_push(decors,
-        //          ((DecorItem) { .decor = item.decor, .row1 = mark.row }));
-        //}
+        if (mark.datta) {
+          // Save the decoration and the first pos. Clear the decoration
+          // later when we know the full range.
+          decor_id = (ssize_t)kv_size(decors);
+          kv_push(decors,
+                  ((DecorItem) { .decor = mark.datta, .row1 = mark.pos.row }));
+        }
         map_put(uint64_t, ssize_t)(&delete_set, other, decor_id);
-      //} else if (item.decor) {
-      //  decor_remove(buf, mark.row, mark.row, item.decor);
+      } else if (mark.datta) {
+        decor_remove(buf, mark.pos.row, mark.pos.row, mark.datta);
       }
       marktree_del_itr(buf->b_marktree, itr, false);
     } else {
@@ -284,7 +284,7 @@ ExtmarkInfoArray extmark_get(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_co
     }
 
     if (mark.ns == ns_id) {
-      mtpos_t endpos = marktree_get_endpos(buf->b_marktree, mark);
+      mtpos_t endpos = marktree_get_altpos(buf->b_marktree, mark, NULL);
       kv_push(array, ((ExtmarkInfo) { .ns_id = mark.ns,
                                       .mark_id = mark.foo_id,
                                       .row = mark.pos.row, .col = mark.pos.col,
@@ -311,7 +311,7 @@ ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
     return ret;
   }
   assert(mark.pos.row >= 0);
-  mtpos_t endpos = marktree_get_endpos(buf->b_marktree, mark);
+  mtpos_t endpos = marktree_get_altpos(buf->b_marktree, mark, NULL);
 
   ret.ns_id = ns_id;
   ret.mark_id = id;

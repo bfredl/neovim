@@ -169,7 +169,6 @@ bool decor_redraw_reset(buf_T *buf, DecorState *state)
 bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
 {
   return false;
-  /*
   state->top_row = top_row;
   marktree_itr_get(buf->b_marktree, top_row, 0, state->itr);
   if (!state->itr->node) {
@@ -177,41 +176,37 @@ bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
   }
   marktree_itr_rewind(buf->b_marktree, state->itr);
   while (true) {
-    mtmark_t mark = marktree_itr_current(state->itr);
-    if (mark.row < 0) {  // || mark.row > end_row
+    mtkey_t mark = marktree_itr_current(state->itr);
+    if (mark.pos.row < 0) {  // || mark.row > end_row
       break;
     }
-    if ((mark.row < top_row && mark.id&MARKTREE_END_FLAG)
-        || marktree_decor_level(mark.id) < kDecorLevelVisible) {
+    if ((mark.pos.row < top_row && mt_end(mark))
+        || marktree_decor_level(mark) < kDecorLevelVisible) {
       goto next_mark;
     }
 
-    uint64_t start_id = mark.id & ~MARKTREE_END_FLAG;
-    ExtmarkItem *item = map_ref(uint64_t, ExtmarkItem)(buf->b_extmark_index,
-                                                       start_id, false);
-    if (!item || !item->decor) {
+    if (!mark.datta) {
       goto next_mark;
     }
-    Decoration *decor = item->decor;
+    Decoration *decor = mark.datta;
 
-    mtpos_t altpos = marktree_lookup(buf->b_marktree,
-                                     mark.id^MARKTREE_END_FLAG, NULL);
+    mtpos_t altpos = marktree_get_altpos(buf->b_marktree, mark, NULL);
 
-    if ((!(mark.id&MARKTREE_END_FLAG) && altpos.row < top_row
+    if ((!mt_end(mark) && altpos.row < top_row
          && !kv_size(decor->virt_text))
-        || ((mark.id&MARKTREE_END_FLAG) && altpos.row >= top_row)) {
+        || (mt_end(mark) && altpos.row >= top_row)) {
       goto next_mark;
     }
 
-    if (mark.id&MARKTREE_END_FLAG) {
-      decor_add(state, altpos.row, altpos.col, mark.row, mark.col,
+    if (mt_end(mark)) {
+      decor_add(state, altpos.row, altpos.col, mark.pos.row, mark.pos.col,
                 decor, false);
     } else {
       if (altpos.row == -1) {
-        altpos.row = mark.row;
-        altpos.col = mark.col;
+        altpos.row = mark.pos.row;
+        altpos.col = mark.pos.col;
       }
-      decor_add(state, mark.row, mark.col, altpos.row, altpos.col,
+      decor_add(state, mark.pos.row, mark.pos.col, altpos.row, altpos.col,
                 decor, false);
     }
 
@@ -224,7 +219,6 @@ next_mark:
   }
 
   return true;  // TODO(bfredl): check if available in the region
-  */
 }
 
 bool decor_redraw_line(buf_T *buf, int row, DecorState *state)

@@ -215,25 +215,26 @@ static inline void marktree_putp_aux(MarkTree *b, mtnode_t *x, mtkey_t k)
   }
 }
 
-void marktree_put(MarkTree *b, uint32_t ns, uint32_t foo_id, int row, int col, bool right_gravity, uint8_t decor_level)
+// merge into marktree_put_pair?
+void marktree_put(MarkTree *b, uint32_t ns, uint32_t foo_id, int row, int col, bool right_gravity, uint8_t decor_level, void *datta)
 {
   uint16_t flags = right_gravity ? MT_FLAG_RIGHT_GRAVITY : 0;
   assert(decor_level < DECOR_LEVELS);
   flags |= (uint16_t)(decor_level << MT_FLAG_DECOR_OFFSET);
-  mtkey_t k = { .pos = {row, col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = flags, .prio = 0 };
+  mtkey_t k = { .pos = {row, col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = flags, .prio = 0, .datta = datta };
   marktree_put_key(b, k);
 }
 
 void marktree_put_pair(MarkTree *b, uint32_t ns, uint32_t foo_id, int start_row, int start_col, bool start_right, int end_row,
-                       int end_col, bool end_right, uint8_t decor_level)
+                       int end_col, bool end_right, uint8_t decor_level, void *datta)
 {
   assert(decor_level < DECOR_LEVELS);
   uint16_t base_flags = MT_FLAG_PAIRED | (uint16_t)(decor_level << MT_FLAG_DECOR_OFFSET);
 
   uint16_t flags = base_flags | (start_right ? MT_FLAG_RIGHT_GRAVITY : 0);
-  mtkey_t k = { .pos = {start_row, start_col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = flags, .prio = 0 };
-  uint16_t end_flags = base_flags | MT_FLAG_END | (end_right ? MT_FLAG_RIGHT_GRAVITY : 0);
-  mtkey_t end_k = { .pos = {end_row, end_col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = end_flags, .prio = 0 };
+  mtkey_t k = { .pos = {start_row, start_col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = flags, .prio = 0, .datta = datta };
+  uint16_t end_flags = base_flags | MT_FLAG_END | (uint16_t)(end_right ? MT_FLAG_RIGHT_GRAVITY : 0);
+  mtkey_t end_k = { .pos = {end_row, end_col}, .ns = ns, .foo_id = foo_id, .hl_id = 0, .flags = end_flags, .prio = 0, .datta = datta };
 
   marktree_put_key(b, k);
   marktree_put_key(b, end_k);
@@ -1082,11 +1083,11 @@ found_node:
   return key;
 }
 
-mtpos_t marktree_get_endpos(MarkTree *b, mtkey_t mark)
+mtpos_t marktree_get_altpos(MarkTree *b, mtkey_t mark, MarkTreeIter *itr)
 {
   mtkey_t end = MT_INVALID_KEY;
   if (mt_paired(mark)) {
-    end = marktree_lookup_ns(b, mark.ns, mark.foo_id, true, NULL);
+    end = marktree_lookup_ns(b, mark.ns, mark.foo_id, !mt_end(mark), itr);
   }
   return end.pos;
 }

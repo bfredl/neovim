@@ -41,9 +41,9 @@ typedef struct {
   int32_t hl_id;
   uint16_t flags;
   int16_t prio;
-  void *ptr;
+  void *datta;
 } mtkey_t;
-#define MT_INVALID_KEY (mtkey_t){ { -1, -1 }, 0, 0, 0, 0, 0 }
+#define MT_INVALID_KEY (mtkey_t){ { -1, -1 }, 0, 0, 0, 0, 0, NULL }
 
 #define MARKTREE_END_FLAG (((uint64_t)1) << 63)
 
@@ -54,7 +54,7 @@ typedef struct {
 
 #define DECOR_LEVELS 4
 #define MT_FLAG_DECOR_OFFSET 3
-#define MT_FLAG_DECOR_MASK (((uint16_t)(DECOR_LEVELS-1)) << DECOR_OFFSET)
+#define MT_FLAG_DECOR_MASK (((uint16_t)(DECOR_LEVELS-1)) << MT_FLAG_DECOR_OFFSET)
 
 // next flag is (((uint16_t)1) << 5)
 
