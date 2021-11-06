@@ -687,7 +687,7 @@ uint64_t src2ns(Integer *src_id)
     *src_id = nvim_create_namespace((String)STRING_INIT);
   }
   if (*src_id < 0) {
-    return UINT64_MAX;
+    return (((uint32_t)1) << 31) - 1; // TODO: HAAIII
   } else {
     return (uint64_t)(*src_id);
   }

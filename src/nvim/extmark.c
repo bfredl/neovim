@@ -290,7 +290,7 @@ ExtmarkInfoArray extmark_get(buf_T *buf, uint64_t ns_id, int l_row, colnr_T l_co
                                       .row = mark.pos.row, .col = mark.pos.col,
                                       .end_row = endpos.row,
                                       .end_col = endpos.col,
-                                      .decor = NULL })); // TODO
+                                      .decor = mark.datta })); // TODO
     }
 next_mark:
     if (reverse) {
@@ -319,7 +319,7 @@ ExtmarkInfo extmark_from_id(buf_T *buf, uint64_t ns_id, uint64_t id)
   ret.col = mark.pos.col;
   ret.end_row = endpos.row;
   ret.end_col = endpos.col;
-  ret.decor = NULL; // TODO
+  ret.decor = mark.datta; // TODO
 
   return ret;
 }
