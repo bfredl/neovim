@@ -3425,6 +3425,9 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
       } // }}}
       ptr++;
 
+      bool decor_conceal = false;
+      int decor_cchar = 0;
+
       if (extra_check) {
         bool can_spell = true;
 

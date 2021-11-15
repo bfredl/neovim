@@ -175,6 +175,7 @@ bool decor_redraw_start(buf_T *buf, int top_row, DecorState *state)
     return false;
   }
   marktree_itr_rewind(buf->b_marktree, state->itr);
+  // TODO(bfredl): merge with decor_advance_col?
   while (true) {
     mtmark_t mark = marktree_itr_current(state->itr);
     if (mark.row < 0) {  // || mark.row > end_row
@@ -231,7 +232,8 @@ bool decor_redraw_line(buf_T *buf, int row, DecorState *state)
     decor_redraw_start(buf, row, state);
   }
   state->row = row;
-  state->col_until = -1;
+  state->next_mark_col = 0;
+  state->current_attr_end = 0;
   state->eol_col = -1;
   return true;  // TODO(bfredl): be more precise
 }
@@ -257,20 +259,21 @@ static void decor_add(DecorState *state, int start_row, int start_col, int end_r
   kv_A(state->active, index) = range;
 }
 
-int decor_redraw_col(buf_T *buf, int col, int win_col, bool hidden, DecorState *state)
+void decor_advance_col(buf_T *buf, int col, DecorState *state)
 {
-  if (col <= state->col_until) {
-    return state->current;
+  if (state->next_mark_col > col) {
+    return;
   }
-  state->col_until = MAXCOL;
+
   while (true) {
     // TODO(bfredl): check duplicate entry in "intersection"
     // branch
     mtmark_t mark = marktree_itr_current(state->itr);
     if (mark.row < 0 || mark.row > state->row) {
+      state->next_mark_col = MAXCOL;
       break;
     } else if (mark.row == state->row && mark.col > col) {
-      state->col_until = mark.col-1;
+      state->next_mark_col = mark.col;
       break;
     }
 
@@ -308,6 +311,17 @@ next_mark:
     marktree_itr_next(buf->b_marktree, state->itr);
   }
 
+}
+
+int decor_get_attr(buf_T *buf, int col, int win_col, bool hidden, DecorState *state)
+{
+  if (col < state->current_attr_end) {
+    return state->current_attr;
+  }
+
+  decor_advance_col(buf, col, state);
+  state->current_attr_end = state->next_mark_col;
+
   int attr = 0;
   size_t j = 0;
   for (size_t i = 0; i < kv_size(state->active); i++) {
@@ -323,11 +337,11 @@ next_mark:
           || (item.start_row == state->row && item.start_col <= col)) {
         active = true;
         if (item.end_row == state->row && item.end_col > col) {
-          state->col_until = MIN(state->col_until, item.end_col-1);
+          state->current_attr_end = MIN(state->current_attr_end, item.end_col);
         }
       } else {
         if (item.start_row == state->row) {
-          state->col_until = MIN(state->col_until, item.start_col-1);
+          state->current_attr_end = MIN(state->current_attr_end, item.start_col);
         }
       }
     }
@@ -346,7 +360,7 @@ next_mark:
     }
   }
   kv_size(state->active) = j;
-  state->current = attr;
+  state->current_attr = attr;
   return attr;
 }
 
@@ -357,7 +371,7 @@ void decor_redraw_end(DecorState *state)
 
 bool decor_redraw_eol(buf_T *buf, DecorState *state, int *eol_attr, int eol_col)
 {
-  decor_redraw_col(buf, MAXCOL, MAXCOL, false, state);
+  decor_advance_col(buf, MAXCOL, state);
   state->eol_col = eol_col;
   bool has_virttext = false;
   for (size_t i = 0; i < kv_size(state->active); i++) {

@@ -69,8 +69,9 @@ typedef struct {
   buf_T *buf;
   int top_row;
   int row;
-  int col_until;
-  int current;
+  int next_mark_col;
+  int current_attr_end;
+  int current_attr;
   int eol_col;
 } DecorState;
 
