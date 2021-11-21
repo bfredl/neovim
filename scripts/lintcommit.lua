@@ -82,8 +82,9 @@ local function validate_commit(commit_message)
   end
 
   -- Check if scope is empty
+  local scope = ''
   if before_colon:match("%(") then
-    local scope = vim.trim(before_colon:match("%((.*)%)"))
+    scope = vim.trim(before_colon:match("%((.*)%)"))
     if scope == '' then
       return [[Scope can't be empty.]]
     end
@@ -100,6 +101,7 @@ local function validate_commit(commit_message)
     return [[There should be one whitespace after the colon and the first letter should lowercase.]]
   end
 
+  p(vim.json.encode({type, scope, after_colon}))
   return nil
 end
 
@@ -112,6 +114,7 @@ function M.main(opt)
   if not ancestor then
     ancestor = run({'git', 'merge-base', 'upstream/master', branch})
   end
+  ancestor = 'v0.5.0'
   local commits_str = run({'git', 'rev-list', ancestor..'..'..branch}, true)
 
   local commits = {}
@@ -128,17 +131,14 @@ function M.main(opt)
       local invalid_msg = validate_commit(msg)
       if invalid_msg then
         failed = failed + 1
+        if false then
         p(string.format([[
 Invalid commit message: "%s"
-    Commit: %s
-    %s
-    See also:
-        https://github.com/neovim/neovim/blob/master/CONTRIBUTING.md#commit-messages
-        https://www.conventionalcommits.org/en/v1.0.0/
+    %s: %s
 ]],
           msg,
           commit_id,
-          invalid_msg))
+          invalid_msg)) end
       end
     end
   end
