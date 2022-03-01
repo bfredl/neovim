@@ -52,6 +52,12 @@ typedef struct {
   String lua_err_str;
 } LuaError;
 
+typedef struct {
+  char *name;
+  const uint8_t *data;
+  size_t size;
+} ModuleDef;
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "lua/executor.c.generated.h"
 # include "lua/vim_module.generated.h"
@@ -518,9 +524,27 @@ static void nlua_common_vim_init(lua_State *lstate, bool is_thread)
   lua_pop(lstate, 3);
 }
 
+static void nlua_preload_modules(lua_State *lstate) {
+  lua_getglobal(lstate, "package");  // [package]
+  lua_getfield(lstate, -1, "preload");  // [package, preload]
+  for (size_t i = 0; i < ARRAY_SIZE(builtin_modules); i++) {
+    ModuleDef def = builtin_modules[i];
+    if (luaL_loadbuffer(lstate, (const char *)def.data, def.size - 1, "@FAILNAME.lua")) {
+      nlua_error(lstate, _("E5106: Error while preloading module: %.*s\n"));
+      return;
+    } // [package, preload, loader]
+    lua_setfield(lstate, -2, def.name); // [package, preload]
+  }
+
+  lua_pop(lstate, 2); // []
+}
+
 static void nlua_common_package_init(lua_State *lstate)
   FUNC_ATTR_NONNULL_ALL
 {
+  nlua_preload_modules(lstate);
+
+
   {
     const char *code = (char *)&shared_module[0];
     if (luaL_loadbuffer(lstate, code, sizeof(shared_module) - 1, "@vim/shared.lua")
@@ -539,20 +563,8 @@ static void nlua_common_package_init(lua_State *lstate)
     }
   }
 
-  {
-    lua_getglobal(lstate, "package");  // [package]
-    lua_getfield(lstate, -1, "loaded");  // [package, loaded]
-
-    const char *code = (char *)&inspect_module[0];
-    if (luaL_loadbuffer(lstate, code, sizeof(inspect_module) - 1, "@vim/inspect.lua")
-        || nlua_pcall(lstate, 0, 1)) {
-      nlua_error(lstate, _("E5106: Error while creating inspect module: %.*s\n"));
-      return;
-    }
-
-    // [package, loaded, inspect]
-    lua_setfield(lstate, -2, "vim.inspect");  // [package, loaded]
-  }
+  lua_getglobal(lstate, "package");  // [package]
+  lua_getfield(lstate, -1, "loaded");  // [package, loaded]
 
   {
     const char *code = (char *)&lua_F_module[0];

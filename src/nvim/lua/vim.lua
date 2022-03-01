@@ -37,7 +37,7 @@
 local vim = vim
 assert(vim)
 
-vim.inspect = package.loaded['vim.inspect']
+vim.inspect = require('vim.inspect')
 assert(vim.inspect)
 
 vim.filetype = package.loaded['vim.filetype']
