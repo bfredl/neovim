@@ -36,11 +36,9 @@
 
 local vim = vim
 assert(vim)
-
-vim.inspect = require('vim.inspect')
 assert(vim.inspect)
 
-vim.filetype = package.loaded['vim.filetype']
+vim.filetype = require('vim.filetype')
 assert(vim.filetype)
 
 -- These are for loading runtime modules lazily since they aren't available in
@@ -662,4 +660,7 @@ function vim.pretty_print(...)
   return ...
 end
 
-return module
+
+require('vim._meta')
+
+return vim
