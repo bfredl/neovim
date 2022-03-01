@@ -331,13 +331,13 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E env
       "LUAC_PRG=${LUAC_PRG}"
       ${LUA_PRG} ${CHAR_BLOB_GENERATOR} -c ${VIM_MODULE_FILE}
-      ${LUA_VIM_MODULE_SOURCE} vim_module "vim"
-      ${LUA_SHARED_MODULE_SOURCE} shared_module "vim.shared"
-      ${LUA_INSPECT_MODULE_SOURCE} inspect_module "vim.inspect"
-      ${LUA_F_MODULE_SOURCE} lua_F_module "vim.F"
-      ${LUA_META_MODULE_SOURCE} lua_meta_module "vim._meta"
-      ${LUA_FILETYPE_MODULE_SOURCE} lua_filetype_module "vim.filetype"
-      ${LUA_LOAD_PACKAGE_MODULE_SOURCE} lua_load_package_module "vim._load_package"
+      ${LUA_VIM_MODULE_SOURCE} "vim"
+      ${LUA_SHARED_MODULE_SOURCE} "vim.shared"
+      ${LUA_INSPECT_MODULE_SOURCE} "vim.inspect"
+      ${LUA_F_MODULE_SOURCE} "vim.F"
+      ${LUA_META_MODULE_SOURCE} "vim._meta"
+      ${LUA_FILETYPE_MODULE_SOURCE} "vim.filetype"
+      ${LUA_LOAD_PACKAGE_MODULE_SOURCE} "vim._load_package"
   DEPENDS
     ${CHAR_BLOB_GENERATOR}
     ${LUA_VIM_MODULE_SOURCE}

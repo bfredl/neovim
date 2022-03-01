@@ -21,7 +21,7 @@ while true do
   table.remove(arg, 1)
 end
 
-assert(#arg >= 3 and (#arg - 1) % 3 == 0)
+assert(#arg >= 3 and (#arg - 1) % 2 == 0)
 
 local target_file = arg[1] or error('Need a target file')
 local target = io.open(target_file, 'w')
@@ -31,16 +31,16 @@ target:write('#include <stdint.h>\n\n')
 index_items = {}
 
 local warn_on_missing_compiler = true
-local varnames = {}
-for argi = 2, #arg, 3 do
+local modnames = {}
+for argi = 2, #arg, 2 do
   local source_file = arg[argi]
-  local varname = arg[argi + 1]
-  local modname = arg[argi + 2]
-  if varnames[varname] then
-    error(string.format("varname %q is already specified for file %q", varname, varnames[varname]))
+  local modname = arg[argi + 1]
+  if modnames[modname] then
+    error(string.format("modname %q is already specified for file %q", modname, modnames[modname]))
   end
-  varnames[varname] = source_file
+  modnames[modname] = source_file
 
+  local varname = string.gsub(modname,'%.','_dot_').."_module"
   target:write(('static const uint8_t %s[] = {\n'):format(varname))
 
   local output
@@ -82,11 +82,11 @@ for argi = 2, #arg, 3 do
 
   target:write('  0};\n')
   if modname ~= "_" then
-    table.insert(index_items, '  { "'..modname..'", '..varname..', sizeof '..varname..' },\n')
+    table.insert(index_items, '  { "'..modname..'", '..varname..', sizeof '..varname..' },\n\n')
   end
 end
 
-target:write('\nstatic ModuleDef builtin_modules[] = {\n')
+target:write('static ModuleDef builtin_modules[] = {\n')
 target:write(table.concat(index_items))
 target:write('};\n')
 
