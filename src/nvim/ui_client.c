@@ -18,6 +18,11 @@
 
 static Map(String, UIClientHandler) ui_client_handlers = MAP_INIT;
 
+// Temporary buffer for converting a single grid_line event
+static size_t buf_size = 0;
+static schar_T *buf_char = NULL;
+static sattr_T *buf_attr = NULL;
+
 static void add_ui_client_event_handler(String method, UIClientHandler handler)
 {
   map_put(String, UIClientHandler)(&ui_client_handlers, method, handler);
@@ -123,8 +128,6 @@ void ui_client_event_grid_line(Array args)
   Integer endcol, clearcol, clearattr;
   // TODO(hlpr98): Accomodate other LineFlags when included in grid_line
   LineFlags lineflags = 0;
-  schar_T *chunk;
-  sattr_T *attrs;
   size_t no_of_cells = cells.size;
   endcol = startcol;
 
@@ -155,9 +158,13 @@ void ui_client_event_grid_line(Array args)
   }
 
   size_t ncells = (size_t)(endcol - startcol);
-  // TODO: shared buffer
-  chunk = xmalloc(ncells * sizeof(schar_T) + 1);
-  attrs = xmalloc(ncells * sizeof(sattr_T) + 1);
+  if (buf_size < ncells) {
+    xfree(buf_char);
+    xfree(buf_attr);
+    buf_char = xmalloc(ncells * sizeof(schar_T));
+    buf_attr = xmalloc(ncells * sizeof(sattr_T));
+    buf_size = ncells;
+  }
 
   size_t j = 0;
   size_t k = 0;
@@ -166,26 +173,26 @@ void ui_client_event_grid_line(Array args)
       goto error;
     }
     Array cell = cells.items[i].data.array;
-    STRCPY(chunk[j++], cell.items[0].data.string.data);
+    STRCPY(buf_char[j++], cell.items[0].data.string.data);
     if (cell.size == 3) {
       // repeat present
       for (size_t rep = 1; rep < (size_t)cell.items[2].data.integer; rep++) {
-        STRCPY(chunk[j++], cell.items[0].data.string.data);
-        attrs[k++] = (sattr_T)cell.items[1].data.integer;
+        STRCPY(buf_char[j++], cell.items[0].data.string.data);
+        buf_attr[k++] = (sattr_T)cell.items[1].data.integer;
       }
     } else if (cell.size == 2) {
       // repeat = 1 but attrs != last_hl
-      attrs[k++] = (sattr_T)cell.items[1].data.integer;
+      buf_attr[k++] = (sattr_T)cell.items[1].data.integer;
     }
     if (j > k) {
       // attrs == last_hl
-      attrs[k] = attrs[k-1];
+      buf_attr[k] = buf_attr[k-1];
       k++;
     }
   }
 
   ui_call_raw_line(grid, row, startcol, endcol, clearcol, clearattr, lineflags,
-                   (const schar_T *)chunk, (const sattr_T *)attrs);
+                   buf_char, buf_attr);
   return;
 
 error:
