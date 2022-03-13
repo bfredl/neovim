@@ -107,24 +107,32 @@ static HlAttrs ui_client_dict2hlattrs(Dictionary d, bool rgb)
 
 void ui_client_event_grid_line(Array args)
 {
+  if (args.size < 4
+      || args.items[0].type != kObjectTypeInteger
+      || args.items[1].type != kObjectTypeInteger
+      || args.items[2].type != kObjectTypeInteger
+      || args.items[3].type != kObjectTypeArray) {
+    goto error;
+  }
+
   Integer grid = args.items[0].data.integer;
   Integer row = args.items[1].data.integer;
   Integer startcol = args.items[2].data.integer;
   Array cells = args.items[3].data.array;
+
   Integer endcol, clearcol, clearattr;
   // TODO(hlpr98): Accomodate other LineFlags when included in grid_line
   LineFlags lineflags = 0;
   schar_T *chunk;
   sattr_T *attrs;
-  size_t size_of_cells = cells.size;
-  size_t no_of_cells = size_of_cells;
+  size_t no_of_cells = cells.size;
   endcol = startcol;
 
   // checking if clearcol > endcol
-  if (!STRCMP(cells.items[size_of_cells-1].data.array
+  if (!STRCMP(cells.items[cells.size-1].data.array
               .items[0].data.string.data, " ")
-      && cells.items[size_of_cells-1].data.array.size == 3) {
-    no_of_cells = size_of_cells - 1;
+      && cells.items[cells.size-1].data.array.size == 3) {
+    no_of_cells = cells.size - 1;
   }
 
   // getting endcol
@@ -135,11 +143,11 @@ void ui_client_event_grid_line(Array args)
     }
   }
 
-  if (!STRCMP(cells.items[size_of_cells-1].data.array
+  if (!STRCMP(cells.items[cells.size-1].data.array
               .items[0].data.string.data, " ")
-      && cells.items[size_of_cells-1].data.array.size == 3) {
-    clearattr = cells.items[size_of_cells-1].data.array.items[1].data.integer;
-    clearcol = endcol + cells.items[size_of_cells-1].data.array
+      && cells.items[cells.size-1].data.array.size == 3) {
+    clearattr = cells.items[cells.size-1].data.array.items[1].data.integer;
+    clearcol = endcol + cells.items[cells.size-1].data.array
                                                       .items[2].data.integer;
   } else {
     clearattr = 0;
@@ -147,24 +155,27 @@ void ui_client_event_grid_line(Array args)
   }
 
   size_t ncells = (size_t)(endcol - startcol);
+  // TODO: shared buffer
   chunk = xmalloc(ncells * sizeof(schar_T) + 1);
   attrs = xmalloc(ncells * sizeof(sattr_T) + 1);
 
   size_t j = 0;
   size_t k = 0;
   for (size_t i = 0; i < no_of_cells; i++) {
-    STRCPY(chunk[j++], cells.items[i].data.array.items[0].data.string.data);
-    if (cells.items[i].data.array.size == 3) {
+    if (cells.items[i].type != kObjectTypeArray) {
+      goto error;
+    }
+    Array cell = cells.items[i].data.array;
+    STRCPY(chunk[j++], cell.items[0].data.string.data);
+    if (cell.size == 3) {
       // repeat present
-      for (size_t i_intr = 1;
-           i_intr < (size_t)cells.items[i].data.array.items[2].data.integer;
-           i_intr++) {
-        STRCPY(chunk[j++], cells.items[i].data.array.items[0].data.string.data);
-        attrs[k++] = (sattr_T)cells.items[i].data.array.items[1].data.integer;
+      for (size_t rep = 1; rep < (size_t)cell.items[2].data.integer; rep++) {
+        STRCPY(chunk[j++], cell.items[0].data.string.data);
+        attrs[k++] = (sattr_T)cell.items[1].data.integer;
       }
-    } else if (cells.items[i].data.array.size == 2) {
+    } else if (cell.size == 2) {
       // repeat = 1 but attrs != last_hl
-      attrs[k++] = (sattr_T)cells.items[i].data.array.items[1].data.integer;
+      attrs[k++] = (sattr_T)cell.items[1].data.integer;
     }
     if (j > k) {
       // attrs == last_hl
@@ -175,4 +186,8 @@ void ui_client_event_grid_line(Array args)
 
   ui_call_raw_line(grid, row, startcol, endcol, clearcol, clearattr, lineflags,
                    (const schar_T *)chunk, (const sattr_T *)attrs);
+  return;
+
+error:
+    ELOG("malformatted 'grid_line' event");
 }
