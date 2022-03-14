@@ -142,43 +142,16 @@ void ui_client_event_grid_line(Array args)
   Integer startcol = args.items[2].data.integer;
   Array cells = args.items[3].data.array;
 
-  Integer endcol, clearcol, clearattr;
+  Integer endcol, clearcol;
   // TODO(hlpr98): Accomodate other LineFlags when included in grid_line
   LineFlags lineflags = 0;
-  size_t no_of_cells = cells.size;
   endcol = startcol;
-
-  // checking if clearcol > endcol
-  if (!STRCMP(cells.items[cells.size-1].data.array
-              .items[0].data.string.data, " ")
-      && cells.items[cells.size-1].data.array.size == 3) {
-    no_of_cells = cells.size - 1;
-  }
-
-  // getting endcol
-  for (size_t i = 0; i < no_of_cells; i++) {
-    endcol++;
-    if (cells.items[i].data.array.size == 3) {
-      endcol += cells.items[i].data.array.items[2].data.integer - 1;
-    }
-  }
-
-  if (!STRCMP(cells.items[cells.size-1].data.array
-              .items[0].data.string.data, " ")
-      && cells.items[cells.size-1].data.array.size == 3) {
-    clearattr = cells.items[cells.size-1].data.array.items[1].data.integer;
-    clearcol = endcol + cells.items[cells.size-1].data.array
-                                                      .items[2].data.integer;
-  } else {
-    clearattr = 0;
-    clearcol = endcol;
-  }
-
-  // size_t ncells = (size_t)(endcol - startcol);
 
   size_t j = 0;
   int cur_attr = 0;
-  for (size_t i = 0; i < no_of_cells; i++) {
+  int clear_attr = 0;
+  int clear_width = 0;
+  for (size_t i = 0; i < cells.size; i++) {
     if (cells.items[i].type != kObjectTypeArray) {
       goto error;
     }
@@ -190,7 +163,7 @@ void ui_client_event_grid_line(Array args)
     String sstring = cell.items[0].data.string;
 
     char *schar = sstring.data;
-    size_t repeat = 1;
+    int repeat = 1;
     if (cell.size >= 2) {
       if (cell.items[1].type != kObjectTypeInteger
           || cell.items[1].data.integer < 0) {
@@ -204,10 +177,15 @@ void ui_client_event_grid_line(Array args)
           || cell.items[2].data.integer < 0) {
         goto error;
       }
-      repeat = (size_t)cell.items[2].data.integer;
+      repeat = (int)cell.items[2].data.integer;
     }
 
-    for (size_t r = 0; r < repeat; r++) {
+    if (i == cells.size - 1 && sstring.size == 1 && sstring.data[0] == ' ' && repeat > 1) {
+      clear_width = repeat;
+      break;
+    }
+
+    for (int r = 0; r < repeat; r++) {
       if (j >= buf_size) {
         goto error;  // _YIKES_
       }
@@ -216,7 +194,11 @@ void ui_client_event_grid_line(Array args)
     }
   }
 
-  ui_call_raw_line(grid, row, startcol, endcol, clearcol, clearattr, lineflags,
+  endcol = startcol + (int)j;
+  clearcol = endcol + clear_width;
+  clear_attr = cur_attr;
+
+  ui_call_raw_line(grid, row, startcol, endcol, clearcol, clear_attr, lineflags,
                    buf_char, buf_attr);
   return;
 
