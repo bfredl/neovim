@@ -110,6 +110,23 @@ static HlAttrs ui_client_dict2hlattrs(Dictionary d, bool rgb)
 #include "ui_events_client.generated.h"
 #endif
 
+void ui_client_event_grid_resize(Array args)
+{
+  // TODO: typesafe!
+  Integer grid = args.items[0].data.integer;
+  Integer width = args.items[1].data.integer;
+  Integer height = args.items[2].data.integer;
+  ui_call_grid_resize(grid, width, height);
+
+  if (buf_size < (size_t)width) {
+    xfree(buf_char);
+    xfree(buf_attr);
+    buf_size = (size_t)width;
+    buf_char = xmalloc(buf_size * sizeof(schar_T));
+    buf_attr = xmalloc(buf_size * sizeof(sattr_T));
+  }
+}
+
 void ui_client_event_grid_line(Array args)
 {
   if (args.size < 4
@@ -157,14 +174,7 @@ void ui_client_event_grid_line(Array args)
     clearcol = endcol;
   }
 
-  size_t ncells = (size_t)(endcol - startcol);
-  if (buf_size < ncells) {
-    xfree(buf_char);
-    xfree(buf_attr);
-    buf_char = xmalloc(ncells * sizeof(schar_T));
-    buf_attr = xmalloc(ncells * sizeof(sattr_T));
-    buf_size = ncells;
-  }
+  // size_t ncells = (size_t)(endcol - startcol);
 
   size_t j = 0;
   int cur_attr = 0;
@@ -186,7 +196,7 @@ void ui_client_event_grid_line(Array args)
           || cell.items[1].data.integer < 0) {
         goto error;
       }
-      repeat = (size_t)cell.items[1].data.integer;
+      cur_attr = (int)cell.items[1].data.integer;
     }
 
     if (cell.size >= 3) {
@@ -194,11 +204,11 @@ void ui_client_event_grid_line(Array args)
           || cell.items[2].data.integer < 0) {
         goto error;
       }
-      cur_attr = (int)cell.items[2].data.integer;
+      repeat = (size_t)cell.items[2].data.integer;
     }
 
     for (size_t r = 0; r < repeat; r++) {
-      if (j >= ncells) {
+      if (j >= buf_size) {
         goto error;  // _YIKES_
       }
       STRCPY(buf_char[j], schar);
