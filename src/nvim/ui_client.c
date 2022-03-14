@@ -167,27 +167,42 @@ void ui_client_event_grid_line(Array args)
   }
 
   size_t j = 0;
-  size_t k = 0;
+  int cur_attr = 0;
   for (size_t i = 0; i < no_of_cells; i++) {
     if (cells.items[i].type != kObjectTypeArray) {
       goto error;
     }
     Array cell = cells.items[i].data.array;
-    STRCPY(buf_char[j++], cell.items[0].data.string.data);
-    if (cell.size == 3) {
-      // repeat present
-      for (size_t rep = 1; rep < (size_t)cell.items[2].data.integer; rep++) {
-        STRCPY(buf_char[j++], cell.items[0].data.string.data);
-        buf_attr[k++] = (sattr_T)cell.items[1].data.integer;
-      }
-    } else if (cell.size == 2) {
-      // repeat = 1 but attrs != last_hl
-      buf_attr[k++] = (sattr_T)cell.items[1].data.integer;
+
+    if (cell.size < 1 || cell.items[0].type != kObjectTypeString) {
+      goto error;
     }
-    if (j > k) {
-      // attrs == last_hl
-      buf_attr[k] = buf_attr[k-1];
-      k++;
+    String sstring = cell.items[0].data.string;
+
+    char *schar = sstring.data;
+    size_t repeat = 1;
+    if (cell.size >= 2) {
+      if (cell.items[1].type != kObjectTypeInteger
+          || cell.items[1].data.integer < 0) {
+        goto error;
+      }
+      repeat = (size_t)cell.items[1].data.integer;
+    }
+
+    if (cell.size >= 3) {
+      if (cell.items[2].type != kObjectTypeInteger
+          || cell.items[2].data.integer < 0) {
+        goto error;
+      }
+      cur_attr = (int)cell.items[2].data.integer;
+    }
+
+    for (size_t r = 0; r < repeat; r++) {
+      if (j >= ncells) {
+        goto error;  // _YIKES_
+      }
+      STRCPY(buf_char[j], schar);
+      buf_attr[j++] = cur_attr;
     }
   }
 
