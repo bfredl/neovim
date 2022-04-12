@@ -46,6 +46,3 @@ vim.api.nvim_buf_call(buf, function()
 end)
 
 print("THEBUF", buf)
-buf
-
-
