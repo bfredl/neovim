@@ -451,9 +451,13 @@ static void tui_terminal_stop(UI *ui)
 
 static void tui_stop(UI *ui)
 {
-  tui_terminal_stop(ui);
   TUIData *data = ui->data;
+  tui_terminal_stop(ui);
+  tinput_destroy(&data->input);
   data->stopped = true;
+  signal_watcher_stop(&data->cont_handle);
+  signal_watcher_close(&data->cont_handle, NULL);
+  signal_watcher_close(&data->winch_handle, NULL);
 }
 
 /// Returns true if UI `ui` is stopped.
@@ -491,24 +495,6 @@ static void tui_main(UI *ui)
 
 }
 
-void tui_execute(void)
-  FUNC_ATTR_NORETURN
-{
-  UI *ui = ui_get_by_index(1);
-  LOOP_PROCESS_EVENTS(&main_loop, main_loop.events, -1);
-  tui_io_driven_loop(ui);
-  tui_exit_safe(ui);
-  getout(0);
-}
-
-// Doesn't return until the TUI is closed (by call of tui_stop())
-static void tui_io_driven_loop(UI *ui){
-  // "Passive" (I/O-driven) loop: TUI process's "main loop".
-  while (!tui_is_stopped(ui)) {
-    loop_poll_events(&main_loop, -1);
-  }
-}
-
 // TODO: call me when EXITFREE
 #if 0
 static void tui_data_destroy(void **argv) {
@@ -521,17 +507,6 @@ static void tui_data_destroy(void **argv) {
   xfree(ui);
 }
 #endif
-
-void tui_exit_safe(UI *ui) {
-  TUIData *data = ui->data;
-  if (!tui_is_stopped(ui)) {
-    tui_stop(ui);
-  }
-  tinput_destroy(&data->input);
-  signal_watcher_stop(&data->cont_handle);
-  signal_watcher_close(&data->cont_handle, NULL);
-  signal_watcher_close(&data->winch_handle, NULL);
-}
 
 #ifdef UNIX
 static void sigcont_cb(SignalWatcher *watcher, int signum, void *data)

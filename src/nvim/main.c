@@ -141,7 +141,6 @@ void event_init(void)
 
   // early msgpack-rpc initialization
   msgpack_rpc_helpers_init();
-  // Initialize input events
   input_init();
   signal_init();
   // finish mspgack-rpc initialization
@@ -295,14 +294,30 @@ int main(int argc, char **argv)
   }
 
   bool use_builtin_ui = (!headless_mode && !embedded_mode && !silent_mode);
-  // bool is_remote_client = false; // TODO: rename to specifically for --remote-ui
-                                 //
-  if (!(is_remote_client || use_builtin_ui)) {
+
+  // don't bind the server yet, if we are using builtin ui.
+  // This will be done when nvim server has been forked from the ui process
+  if (!use_builtin_ui) {
     server_init(params.listen_addr);
   }
 
   if (params.remote) {
-    remote_request(&params, params.remote, params.server_addr, argc, argv);
+    remote_request(&params, params.remote, params.server_addr, argc, argv,
+                   use_builtin_ui);
+  }
+
+  // TODO(bfredl): not true yet if we implement fork-without-exec
+  tui_process = ui_client_remote || use_builtin_ui;
+  bool do_the_read_stdin = (params.edit_type == EDIT_STDIN && !recoverymode);
+
+  if (use_builtin_ui && !ui_client_remote) {
+    uint64_t rv = ui_client_start_server(params.argc, params.argv, do_the_read_stdin);
+    if (!rv) {
+        mch_errmsg("ik haat werken in de TUIN!\n");
+        getout(1);
+    }
+    ui_client_channel_id = rv;
+    ui_client_embed = true;
   }
 
   if (GARGCOUNT > 0) {
@@ -361,8 +376,7 @@ int main(int argc, char **argv)
   // Wait for UIs to set up Nvim or show early messages
   // and prompts (--cmd, swapfile dialog, …).
   bool use_remote_ui = (embedded_mode && !headless_mode);
-  TUI_process = is_remote_client || use_builtin_ui;
-  if (use_remote_ui || use_builtin_ui) {
+  if (use_remote_ui || tui_process) {
     TIME_MSG("waiting for UI");
     if (use_remote_ui) {
       remote_ui_wait_for_attach();
@@ -380,35 +394,10 @@ int main(int argc, char **argv)
   TIME_MSG("clear screen");
 
   if (ui_client_channel_id) {
-    ui_client_init(ui_client_channel_id);
-    ui_client_execute(ui_client_channel_id);
+    ui_client_init();
+    ui_client_execute();
     abort();  // unreachable
   }
-
-  // Setting up the remote connection.
-  // This has to be always after ui_builtin_start or
-  // after the start of atleast one GUI
-  // as size of "uis[]" must be greater than 1
-  if (TUI_process) {
-    input_stop();  // Stop reading input, let the UI take over.
-    uint64_t rv = ui_client_start(params.argc, params.argv, 
-                                  (params.edit_type == EDIT_STDIN 
-                                  && !recoverymode));
-    if (!rv) {
-        // cannot continue without a channel
-        // TODO: use ui_call_stop() ?
-        tui_exit_safe(ui_get_by_index(1));
-        ELOG("RPC: ", NULL, -1, true,
-             "Could not establish connection with address : %s", params.server_addr);
-        mch_msg("Could not establish connection with remote server\n");
-        getout(1);
-    }
-    // TODO: fuuu, deduplicate with ui_client_channel_id block above
-    ui_client_channel_id = rv;
-    ui_client_execute(ui_client_channel_id);
-    abort();  // unreachable
-  }
-
 
   // Default mappings (incl. menus)
   Error err = ERROR_INIT;
@@ -659,7 +648,8 @@ void os_exit(int r)
   free_all_mem();
 #endif
 
-  if (TUI_process && !is_remote_client) {
+  if (ui_client_embed) {
+    // TODO: pass in this already as the arg!
     r = (int)server_process_exit_status;
   }
   exit(r);
@@ -875,19 +865,28 @@ static uint64_t server_connect(char *server_addr, const char **errmsg)
 
 /// Handle remote subcommands
 static void remote_request(mparm_T *params, int remote_args, char *server_addr, int argc,
-                           char **argv)
+                           char **argv, bool ui_only)
 {
+  bool is_ui = strequal(argv[remote_args], "--remote-ui-test");
+  if (ui_only && !is_ui) {
+    // TODO(bfredl): this implies always starting the TUI.
+    // if we be smart we could delay this past should_exit
+    return;
+  }
+
   const char *connect_error = NULL;
   uint64_t chan = server_connect(server_addr, &connect_error);
   Object rvobj = OBJECT_INIT;
 
-  if (strequal(argv[remote_args], "--remote-ui-test")) {
+  if (is_ui) {
     if (!chan) {
-      emsg(connect_error);
+      mch_errmsg(connect_error);
+      mch_errmsg("\n");
       exit(1);
     }
 
     ui_client_channel_id = chan;
+    ui_client_remote = true;
     return;
   }
 
@@ -1440,13 +1439,6 @@ scripterror:
   // Handle "foo | nvim". EDIT_FILE may be overwritten now. #6299
   if (edit_stdin(had_stdin_file, parmp)) {
     parmp->edit_type = EDIT_STDIN;
-    // TODO: copy
-    bool use_builtin_ui = (!headless_mode && !embedded_mode && !silent_mode);
-    if (use_builtin_ui && !is_remote_client) {
-      // must be set only in builtin TUI
-      // TODO
-      //implicit_readstdin = true;
-    }
   }
 
   TIME_MSG("parsing arguments");

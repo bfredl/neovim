@@ -404,8 +404,7 @@ static void on_process_exit(Process *proc)
   ILOG("exited: pid=%d status=%d stoptime=%" PRIu64, proc->pid, proc->status,
        proc->stopped_time);
 
-  if (TUI_process && !is_remote_client) {
-    // Set only in "builtin" TUI
+  if (ui_client_embed) {
     server_process_exit_status = proc->status;
   }
   // Process has terminated, but there could still be data to be read from the

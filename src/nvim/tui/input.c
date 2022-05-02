@@ -220,17 +220,11 @@ static void tinput_wait_enqueue(void **argv)
     const size_t len = rbuffer_size(input->key_buffer);
     String keys = { .data = xmallocz(len), .size = len };
     rbuffer_read(input->key_buffer, keys.data, len);
-    if (ui_client_channel_id) {
-      Array args = ARRAY_DICT_INIT;
-      ADD(args, STRING_OBJ(keys));  // 'data'
-      ADD(args, BOOLEAN_OBJ(true));  // 'crlf'
-      ADD(args, INTEGER_OBJ(input->paste));  // 'phase'
-      rpc_send_event(ui_client_channel_id, "nvim_paste", args);
-    } else {
-      // TODO
-      // multiqueue_put(main_loop.events, tinput_paste_event, 3,
-      //                keys.data, keys.size, (intptr_t)input->paste);
-    }
+    Array args = ARRAY_DICT_INIT;
+    ADD(args, STRING_OBJ(keys));  // 'data'
+    ADD(args, BOOLEAN_OBJ(true));  // 'crlf'
+    ADD(args, INTEGER_OBJ(input->paste));  // 'phase'
+    rpc_send_event(ui_client_channel_id, "nvim_paste", args);
     if (input->paste == 1) {
       // Paste phase: "continue"
       input->paste = 2;
@@ -239,28 +233,13 @@ static void tinput_wait_enqueue(void **argv)
   } else {  // enqueue input for the main thread or Nvim server
     RBUFFER_UNTIL_EMPTY(input->key_buffer, buf, len) {
       const String keys = { .data = buf, .size = len };
-      size_t consumed;
-      if (ui_client_channel_id) {
-        Array args = ARRAY_DICT_INIT;
-        Error err = ERROR_INIT;
-        ADD(args, STRING_OBJ(copy_string(keys, NULL)));
-        // TODO(bfredl): could be non-blocking now with paste?
-        ArenaMem res_mem = NULL;
-        Object result = rpc_send_call(ui_client_channel_id, "nvim_input", args, &res_mem, &err);
-        consumed = result.type == kObjectTypeInteger ? (size_t)result.data.integer : 0;
-        arena_mem_free(res_mem);
-      } else {
-        // TODO
-        // consumed = input_enqueue(keys);
-        abort();
-      }
-      if (consumed) {
-        rbuffer_consumed(input->key_buffer, consumed);
-      }
+      Array args = ARRAY_DICT_INIT;
+      ADD(args, STRING_OBJ(copy_string(keys, NULL)));
+      // TODO: this is now non-blocking, but should be fine if
+      // all big sends are handled as pastes
+      rpc_send_event(ui_client_channel_id, "nvim_input", args);
+      rbuffer_consumed(input->key_buffer, len);
       rbuffer_reset(input->key_buffer);
-      if (consumed < len) {
-        break;
-      }
     }
   }
 }

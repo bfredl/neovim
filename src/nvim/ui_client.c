@@ -46,11 +46,10 @@ uint64_t ui_client_start_server(int argc, char **argv, bool pass_stdin)
       dup(2);
     }
 
-    ui_client_init(channel->id);
-    return channel->id;;
+    return channel->id;
 }
 
-void ui_client_init(uint64_t chan)
+void ui_client_init(void)
 {
   Array args = ARRAY_DICT_INIT;
   int width = Columns;
@@ -63,7 +62,7 @@ void ui_client_init(uint64_t chan)
 
   // TODO: PUT(opts, "term_name", STRING_OBJ(cstr_as_string(termname_local)));
   PUT(opts, "term_colors", INTEGER_OBJ(t_colors));
-  if (!is_remote_client) {
+  if (ui_client_embed) {
     PUT(opts, "term_ttyin", INTEGER_OBJ(stdin_isatty));
     PUT(opts, "term_ttyout", INTEGER_OBJ(stdout_isatty));
   }
@@ -72,8 +71,7 @@ void ui_client_init(uint64_t chan)
   ADD(args, INTEGER_OBJ((int)height));
   ADD(args, DICTIONARY_OBJ(opts));
 
-  rpc_send_event(chan, "nvim_ui_attach", args);
-  ui_client_channel_id = chan;
+  rpc_send_event(ui_client_channel_id, "nvim_ui_attach", args);
 }
 
 UIClientHandler ui_client_get_redraw_handler(const char *name, size_t name_len, Error *error)
@@ -97,9 +95,7 @@ Object handle_ui_client_redraw(uint64_t channel_id, Array args, Arena *arena, Er
 }
 
 /// run the main thread in ui client mode
-///
-/// This is just a stub. the full version will handle input, resizing, etc
-void ui_client_execute(uint64_t chan)
+void ui_client_execute(void)
   FUNC_ATTR_NORETURN
 {
   while (true) {

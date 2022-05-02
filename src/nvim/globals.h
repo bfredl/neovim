@@ -324,8 +324,18 @@ EXTERN sctx_T current_sctx INIT(= { 0, 0, 0 });
 // ID of the current channel making a client API call
 EXTERN uint64_t current_channel_id INIT(= 0);
 
-// ID of the client channel. Used by ui client
+// ID of the ui client channel. Used by ui client
 EXTERN uint64_t ui_client_channel_id INIT(= 0);
+
+/// whether we are connecting to a remote neovim instance
+EXTERN bool ui_client_remote INIT(= false);
+/// whether we are embedding a neovim server as child process
+EXTERN bool ui_client_embed INIT(= false);
+
+/// This process is a tui processR run the tui rather than executing the main loop
+EXTERN bool tui_process INIT(= false);
+
+EXTERN long server_process_exit_status INIT(= false); // Used by TUI process
 
 EXTERN bool did_source_packages INIT(= false);
 
@@ -845,14 +855,6 @@ EXTERN linenr_T printer_page_num;
 
 EXTERN bool typebuf_was_filled INIT(= false);     // received text from client
                                                   // or from feedkeys()
-
-EXTERN bool is_remote_client INIT(= false);       // Initially the TUI is not
-                                                  // a remote client
-
-EXTERN bool TUI_process INIT(= false);            // This is the TUI process
-
-
-EXTERN long server_process_exit_status INIT(= false); // Used by TUI process
 
 #ifdef BACKSLASH_IN_FILENAME
 EXTERN char psepc INIT(= '\\');            // normal path separator character
