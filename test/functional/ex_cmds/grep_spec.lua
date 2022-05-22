@@ -16,6 +16,7 @@ describe(':grep', function()
     feed_command('cd test/functional/ui/')
     feed_command('grep a **/*')
     feed('<cr>')  -- Press ENTER
+    print(eval('len(getqflist())'))
     ok(eval('len(getqflist())') > 9000)  -- IT'S OVER 9000!!1
   end)
 end)
