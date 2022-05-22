@@ -24,7 +24,7 @@ describe('&encoding', function()
   it('cannot be changed before startup', function()
     clear('--cmd', 'set enc=latin1')
     -- error message expected
-    feed('<cr>')
+    feed('<c-c>')
     neq(nil, string.find(eval('v:errmsg'), '^E519:'))
     eq('utf-8', eval('&encoding'))
     eq(3, eval('strwidth("Bär")'))

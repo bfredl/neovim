@@ -13,7 +13,7 @@ describe(':grep', function()
 
     feed_command([[set grepprg=grep\ -r]])
     -- Change to test directory so that the test does not run too long.
-    feed_command('cd test')
+    feed_command('cd test/functional/ui/')
     feed_command('grep a **/*')
     feed('<cr>')  -- Press ENTER
     ok(eval('len(getqflist())') > 9000)  -- IT'S OVER 9000!!1
