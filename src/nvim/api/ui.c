@@ -698,7 +698,10 @@ static void remote_ui_flush(UI *ui)
       remote_ui_cursor_goto(ui, data->cursor_row, data->cursor_col);
     }
     push_call(ui, "flush", (Array)ARRAY_DICT_INIT);
+    size_t nfree_save = nfree;
     rpc_send_event(data->channel_id, "redraw", data->buffer);
+    size_t nfree_flush = nfree-nfree_save;
+    NVIM_PROBE(remote_flush, 1, nfree_flush);
     data->buffer = (Array)ARRAY_DICT_INIT;
   }
 }

@@ -41,6 +41,8 @@ extern bool entered_free_all_mem;
 # include "memory.h.generated.h"
 #endif
 
+EXTERN size_t nfree INIT(= 0);
+
 #define XFREE_CLEAR(ptr) \
   do { \
     /* Take the address to avoid double evaluation. #1375 */ \
