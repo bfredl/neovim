@@ -57,6 +57,14 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
     case MPACK_TOKEN_UINT:
       *result = INTEGER_OBJ((Integer)mpack_unpack_uint(node->tok));
       break;
+    case MPACK_TOKEN_ARRAY: {
+      Array arr = KV_INITIAL_VALUE;
+      kv_resize(arr, node->tok.length);
+      *result = ARRAY_OBJ(arr);
+      node->data[0].p = result;
+      unpacker->result = &kv_A(arr, 0);
+      break;
+    }
     default:
       *result = INTEGER_OBJ(-1337);
   }
@@ -66,4 +74,17 @@ static void api_parse_exit(mpack_parser_t *parser, mpack_node_t *node)
 {
   Unpacker *unpacker = parser->data.p;
   mpack_node_t *parent = MPACK_PARENT_NODE(node);
+
+  if (parent) {
+    switch (node->tok.type) {
+      case MPACK_TOKEN_ARRAY: {
+        Object *obj = parent->data[0].p;
+        obj->data.array.size += 1;
+        unpacker->result = &kv_A(obj->data.array, obj->data.array.size);
+        break;
+      }
+      default:
+        break;
+    }
+  }
 }
