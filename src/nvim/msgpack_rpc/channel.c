@@ -56,6 +56,10 @@ void rpc_start(Channel *channel)
   RpcState *rpc = &channel->rpc;
   rpc->closed = false;
   rpc->unpacker = msgpack_unpacker_new(MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
+
+  rpc->mpack_unpacker = xmalloc(sizeof *rpc->mpack_unpacker);
+  mpack_parser_init(&rpc->mpack_unpacker->parser, 0); // TODO: fyyy
+                                                      //
   rpc->next_request_id = 1;
   rpc->info = (Dictionary)ARRAY_DICT_INIT;
   kv_init(rpc->call_stack);

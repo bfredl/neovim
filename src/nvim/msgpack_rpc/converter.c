@@ -4,18 +4,11 @@
 #include "nvim/api/private/helpers.h"
 #include "nvim/msgpack_rpc/converter.h"
 #include "nvim/log.h"
-#include "mpack/mpack_core.h"
-#include "mpack/object.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "msgpack_rpc/converter.c.generated.h"
 #endif
 
-
-typedef struct {
-  mpack_parser_t parser;
-  Object *result;
-} Unpacker;
 
 Object convert(const char *data, size_t size, Error *err)
 {
