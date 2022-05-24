@@ -46,7 +46,7 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 {
   Unpacker *unpacker = parser->data.p;
   NVIM_PROBE(parse_enter, 2, node->tok.type, node->tok.length);
-  Object *result;
+  Object *result = NULL;
   String *key_location = NULL;
 
   mpack_node_t *parent = MPACK_PARENT_NODE(node);
@@ -60,12 +60,12 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
       }
       case MPACK_TOKEN_MAP: {
         Object *obj = parent->data[0].p;
-        NVIM_PROBE(parse_dict, 2, obj->data.dictionary.capacity, parent->pos);
+        NVIM_PROBE(parse_dict, 2, parent->pos, parent->key_visited);
         KeyValuePair *kv = &kv_A(obj->data.dictionary, parent->pos);
-        if (parent->key_visited) {
+        if (!parent->key_visited) {
           key_location = &kv->key;
         } else {
-          result = &kv_A(obj->data.array, parent->pos);
+          result = &kv->value;
         }
         break;
       }
