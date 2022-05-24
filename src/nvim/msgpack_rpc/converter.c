@@ -45,8 +45,37 @@ Object convert(const char *data, size_t size, Error *err)
 static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 {
   Unpacker *unpacker = parser->data.p;
-  Object *result = unpacker->result;
   NVIM_PROBE(parse_enter, 2, node->tok.type, node->tok.length);
+  Object *result;
+  String *key_location = NULL;
+
+  mpack_node_t *parent = MPACK_PARENT_NODE(node);
+  if (parent) {
+    switch (parent->tok.type) {
+      case MPACK_TOKEN_ARRAY: {
+        Object *obj = parent->data[0].p;
+        NVIM_PROBE(parse_array, 2, obj->data.array.capacity, parent->pos);
+        result = &kv_A(obj->data.array, parent->pos);
+        break;
+      }
+      case MPACK_TOKEN_MAP: {
+        Object *obj = parent->data[0].p;
+        NVIM_PROBE(parse_dict, 2, obj->data.dictionary.capacity, parent->pos);
+        KeyValuePair *kv = &kv_A(obj->data.dictionary, parent->pos);
+        if (parent->key_visited) {
+          key_location = &kv->key;
+        } else {
+          result = &kv_A(obj->data.array, parent->pos);
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+  } else {
+    result = unpacker->result;
+  }
 
   switch (node->tok.type) {
     case MPACK_TOKEN_NIL:
@@ -61,12 +90,43 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
     case MPACK_TOKEN_UINT:
       *result = INTEGER_OBJ((Integer)mpack_unpack_uint(node->tok));
       break;
+    case MPACK_TOKEN_FLOAT:
+      *result = FLOAT_OBJ(mpack_unpack_float(node->tok));
+      break;
+    case MPACK_TOKEN_BIN:
+    case MPACK_TOKEN_STR: {
+      String str = {.data = xmallocz(node->tok.length), .size = node->tok.length};
+
+      if (key_location) {
+        *key_location = str;
+      } else {
+        *result = STRING_OBJ(str);
+      }
+
+      node->data[0].p = str.data;
+      break;
+    }
+    case MPACK_TOKEN_CHUNK: {
+      char *data = parent->data[0].p;
+      memcpy(data + parent->pos,
+             node->tok.data.chunk_ptr, node->tok.length);
+      break;
+    }
     case MPACK_TOKEN_ARRAY: {
       Array arr = KV_INITIAL_VALUE;
       kv_resize(arr, node->tok.length);
+      kv_size(arr) = node->tok.length;
       *result = ARRAY_OBJ(arr);
       node->data[0].p = result;
-      unpacker->result = &kv_A(arr, 0);
+      break;
+    }
+    case MPACK_TOKEN_MAP: {
+      Dictionary dict = KV_INITIAL_VALUE;
+      kv_resize(dict, node->tok.length);
+      kv_size(dict) = node->tok.length;
+      *result = DICTIONARY_OBJ(dict);
+      node->data[0].p = result;
+      // unpacker->result = &kv_A(arr, 0);
       break;
     }
     default:
@@ -76,21 +136,5 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 
 static void api_parse_exit(mpack_parser_t *parser, mpack_node_t *node)
 {
-  Unpacker *unpacker = parser->data.p;
-  mpack_node_t *parent = MPACK_PARENT_NODE(node);
   NVIM_PROBE(parse_exit, 2, node->tok.type, node->tok.length);
-
-  if (parent) {
-    switch (parent->tok.type) {
-      case MPACK_TOKEN_ARRAY: {
-        Object *obj = parent->data[0].p;
-        NVIM_PROBE(parse_array, 2, obj->data.array.capacity, obj->data.array.size);
-        obj->data.array.size += 1;
-        unpacker->result = &kv_A(obj->data.array, obj->data.array.size);
-        break;
-      }
-      default:
-        break;
-    }
-  }
 }
