@@ -119,6 +119,7 @@ void *xmalloc(size_t size)
 /// @note Use XFREE_CLEAR() instead, if possible.
 void xfree(void *ptr)
 {
+  NVIM_PROBE(groten, 1, ptr);
   free(ptr);
 }
 

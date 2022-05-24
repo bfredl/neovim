@@ -10,4 +10,5 @@
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "msgpack_rpc/converter.h.generated.h"
 #endif
+
 #endif  // NVIM_MSGPACK_RPC_CONVERTER_H

@@ -2,6 +2,8 @@
 // it. PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
 #include "nvim/api/private/helpers.h"
+#include "nvim/msgpack_rpc/converter.h"
+#include "nvim/log.h"
 #include "mpack/mpack_core.h"
 #include "mpack/object.h"
 
@@ -22,6 +24,7 @@ Object convert(const char *data, size_t size, Error *err)
   unpacker.result = &rv;
   mpack_parser_init(&unpacker.parser, 0);
   unpacker.parser.data.p = &unpacker;
+  NVIM_PROBE(start_convert, 2, data, size);
 
   int result = mpack_parse(&unpacker.parser, &data, &size, api_parse_enter,
       api_parse_exit);
@@ -43,6 +46,7 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 {
   Unpacker *unpacker = parser->data.p;
   Object *result = unpacker->result;
+  NVIM_PROBE(parse_enter, 2, node->tok.type, node->tok.length);
 
   switch (node->tok.type) {
     case MPACK_TOKEN_NIL:
@@ -74,11 +78,13 @@ static void api_parse_exit(mpack_parser_t *parser, mpack_node_t *node)
 {
   Unpacker *unpacker = parser->data.p;
   mpack_node_t *parent = MPACK_PARENT_NODE(node);
+  NVIM_PROBE(parse_exit, 2, node->tok.type, node->tok.length);
 
   if (parent) {
-    switch (node->tok.type) {
+    switch (parent->tok.type) {
       case MPACK_TOKEN_ARRAY: {
         Object *obj = parent->data[0].p;
+        NVIM_PROBE(parse_array, 2, obj->data.array.capacity, obj->data.array.size);
         obj->data.array.size += 1;
         unpacker->result = &kv_A(obj->data.array, obj->data.array.size);
         break;
