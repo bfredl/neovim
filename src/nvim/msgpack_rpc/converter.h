@@ -11,10 +11,13 @@
 
 typedef struct {
   mpack_parser_t parser;
+  mpack_tokbuf_t reader;
   Object result;
   char fulbuffer[8192];
   size_t written;
   size_t read;
+  int state;
+  uint32_t request_id;
 } Unpacker;
 
 

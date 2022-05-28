@@ -134,6 +134,46 @@ void unpacker_init(Unpacker *p)
 {
   mpack_parser_init(&p->parser, 0); // TODO: fyyy
   p->parser.data.p = p;
+  mpack_tokbuf_init(&p->reader); // TODO: fyyy
+}
+
+bool unpacker_advance_tok(Unpacker *p, mpack_token_t tok) {
+  NVIM_PROBE(toky, 2, p->state, tok.type);
+  switch (p->state) {
+    case 0:
+      if (tok.type != MPACK_TOKEN_ARRAY || tok.length < 3 || tok.length > 4)  {
+        abort();
+      }
+      p->state = tok.length == 3 ? 2 : 1;
+      return true;
+
+    case 1:
+    case 2:
+      if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
+      uint32_t type = tok.data.value.lo;
+      if (p->state == 2 ? type != 2 : (type >= 2)) abort();
+      p->state = 3+(int)type;
+      return true;
+    
+    case 3:
+      // TODO: om näll request_id > 2^32-1 ?
+      if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
+      p->request_id = tok.data.value.lo;
+      p->state = 6;
+      return true;
+
+    case 4:
+      abort();
+    case 5:
+      abort();
+
+    case 6:
+      return false;
+
+    default:
+      abort();
+  }
+  return false;
 }
 
 bool unpacker_advance(Unpacker *p, Object *res)
@@ -142,14 +182,31 @@ bool unpacker_advance(Unpacker *p, Object *res)
   const char *data = p->fulbuffer + p->read;
   size_t size = p->written - p->read;
 
+  NVIM_PROBE(advance, 2, p->state, size);
+
   fprintf(stderr, "AHEEE %zd %zd\n", p->read, p->written);
 
-  int result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
+  int result;
+  while (p->state < 6 && size) {
+    mpack_token_t tok;
+    result = mpack_read(&p->reader, &data, &size, &tok);
+    if (result) break;
+    if (!unpacker_advance_tok(p, tok)) {
+      p->read = p->written - size;
+      return false;
+    }
+  }
+
+  // TODO: no
+  p->read = p->written - size;
+
+  result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
       api_parse_exit);
+
+  p->read = p->written - size;
 
   fprintf(stderr, "NEHEEE\n");
 
-  p->read = p->written - size;
 
   if (result == MPACK_NOMEM) {
     abort();
@@ -160,6 +217,18 @@ bool unpacker_advance(Unpacker *p, Object *res)
   }
 
   assert(result == MPACK_OK);
+
+  switch (p->state) {
+    case 6:
+      if (p->result.type != kObjectTypeString) abort();
+      p->state = 7;
+      break;
+    case 7:
+      if (p->result.type != kObjectTypeArray) abort();
+      p->state = 0;
+      break;
+  }
+
   *res = p->result;
   p->result = NIL;
   return true;

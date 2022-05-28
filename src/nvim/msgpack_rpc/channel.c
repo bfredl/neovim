@@ -295,21 +295,15 @@ static void parse_msgpack2(Channel *channel)
   Unpacker *p = channel->rpc.mpack_unpacker;
   Object res;
   while (unpacker_advance(p, &res)) {
-    fprintf(stderr, "YARRR\n");
-    if (res.type != kObjectTypeArray) {
-      abort();
+    if (res.type == kObjectTypeString) {
+      String method = res.data.string;
+      NVIM_PROBE(method, 2, method.data, method.size);
+    } else {
+      assert (res.type == kObjectTypeArray);
+      Array arg = res.data.array;
+      NVIM_PROBE(meth_arg, 1, arg.size);
     }
-    Array yarr = res.data.array;
-    if (yarr.size != 4 || yarr.items[0].type != kObjectTypeInteger) {
-      continue;
-    }
-    Integer kinda = yarr.items[0].data.integer;
-    if (kinda != 0 || yarr.items[2].type != kObjectTypeString) {
-      continue;
-    }
-    String method = yarr.items[2].data.string;
-    NVIM_PROBE(method, 2, method.data, method.size);
-  };
+  }
 }
 
 /// Handles requests and notifications received on the channel.
