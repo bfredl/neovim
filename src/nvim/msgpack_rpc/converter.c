@@ -200,16 +200,32 @@ bool unpacker_advance(Unpacker *p, Object *res)
   // TODO: no
   p->read = p->written - size;
 
-redo:
+  if (p->state == 6) {
+    mpack_token_t tok;
+    result = mpack_read(&p->reader, &data, &size, &tok);
+    if (result) goto failsult; // TODO: nej, nej, nej, nej, nej
+    if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) abort();
+    if (tok.length > 100) abort();
+    mpack_tokbuf_init(&p->reader); // TODO: just fix this mess already?
+    if (size < tok.length) {
+      return false;
+    }
+    memcpy(p->method_name, data, tok.length);
+    p->method_name[tok.length] = NUL; // TODO: nej
+    p->method_name_len = tok.length;
+    p->state = 7;
+    data += tok.length;
+    size -= tok.length;
+  }
 
   result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
       api_parse_exit);
 
   p->read = p->written - size;
 
-  fprintf(stderr, "NEHEEE\n");
+  fprintf(stderr, "NEHEEE %d %zd\n", result, p->read);
 
-
+failsult:
   if (result == MPACK_NOMEM) {
     abort();
   } else if (result == MPACK_EOF) {
@@ -221,15 +237,6 @@ redo:
   assert(result == MPACK_OK);
 
   switch (p->state) {
-    case 6:
-      if (p->result.type != kObjectTypeString) abort();
-      // TODO: an intermediate bitch state machine would decode directly into
-      // p->method_name and discard longer method names into thin air
-      String s = p->result.data.string;
-      memcpy(p->method_name, s.data, s.size+1);
-      api_free_string(s);
-      p->state = 7;
-      goto redo;
     case 7:
       if (p->result.type != kObjectTypeArray) abort();
       p->state = 0;
