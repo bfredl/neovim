@@ -11,9 +11,10 @@
 
 typedef struct {
   mpack_parser_t parser;
-  Object *result;
+  Object result;
   char fulbuffer[8192];
-  size_t read
+  size_t written;
+  size_t read;
 } Unpacker;
 
 

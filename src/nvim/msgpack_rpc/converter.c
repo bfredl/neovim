@@ -13,8 +13,6 @@
 Object convert(const char *data, size_t size, Error *err)
 {
   Unpacker unpacker;
-  Object rv = NIL;
-  unpacker.result = &rv;
   mpack_parser_init(&unpacker.parser, 0);
   unpacker.parser.data.p = &unpacker;
   NVIM_PROBE(start_convert, 2, data, size);
@@ -32,7 +30,7 @@ Object convert(const char *data, size_t size, Error *err)
     api_set_error(err, kErrorTypeException, "trailing data in msgpack string");
   }
 
-  return rv;
+  return unpacker.result;
 }
 
 static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
@@ -67,7 +65,7 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
         break;
     }
   } else {
-    result = unpacker->result;
+    result = &unpacker->result;
   }
 
   switch (node->tok.type) {
@@ -130,4 +128,39 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 static void api_parse_exit(mpack_parser_t *parser, mpack_node_t *node)
 {
   NVIM_PROBE(parse_exit, 2, node->tok.type, node->tok.length);
+}
+
+void unpacker_init(Unpacker *p)
+{
+  mpack_parser_init(&p->parser, 0); // TODO: fyyy
+  p->parser.data.p = p;
+}
+
+bool unpacker_advance(Unpacker *p, Object *res)
+{
+
+  const char *data = p->fulbuffer + p->read;
+  size_t size = p->written - p->read;
+
+  fprintf(stderr, "AHEEE %zd %zd\n", p->read, p->written);
+
+  int result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
+      api_parse_exit);
+
+  fprintf(stderr, "NEHEEE\n");
+
+  p->read = p->written - size;
+
+  if (result == MPACK_NOMEM) {
+    abort();
+  } else if (result == MPACK_EOF) {
+    return false;
+  } else if (result == MPACK_ERROR) {
+    abort();
+  }
+
+  assert(result == MPACK_OK);
+  *res = p->result;
+  p->result = NIL;
+  return true;
 }

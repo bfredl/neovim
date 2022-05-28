@@ -57,8 +57,8 @@ void rpc_start(Channel *channel)
   rpc->closed = false;
   rpc->unpacker = msgpack_unpacker_new(MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
 
-  rpc->mpack_unpacker = xmalloc(sizeof *rpc->mpack_unpacker);
-  mpack_parser_init(&rpc->mpack_unpacker->parser, 0); // TODO: fyyy
+  rpc->mpack_unpacker = xcalloc(1, sizeof *rpc->mpack_unpacker);
+  unpacker_init(rpc->mpack_unpacker);
                                                       //
   rpc->next_request_id = 1;
   rpc->info = (Dictionary)ARRAY_DICT_INIT;
@@ -224,9 +224,17 @@ static void receive_msgpack(Stream *stream, RBuffer *rbuf, size_t c, void *data,
   // Feed the unpacker with data
   msgpack_unpacker_reserve_buffer(channel->rpc.unpacker, count);
   rbuffer_read(rbuf, msgpack_unpacker_buffer(channel->rpc.unpacker), count);
+  Unpacker *p = channel->rpc.mpack_unpacker;
+  if (p->written+count > 8192) {
+    fprintf(stderr, "REEEEE\n");
+    abort();
+  }
+  memcpy(p->fulbuffer+p->written, msgpack_unpacker_buffer(channel->rpc.unpacker), count);
+  p->written += count;
   msgpack_unpacker_buffer_consumed(channel->rpc.unpacker, count);
 
   parse_msgpack(channel);
+  parse_msgpack2(channel);
 
 end:
   channel_decref(channel);
@@ -280,6 +288,28 @@ static void parse_msgpack(Channel *channel)
                "This error can also happen when deserializing "
                "an object with high level of nesting");
   }
+}
+
+static void parse_msgpack2(Channel *channel)
+{
+  Unpacker *p = channel->rpc.mpack_unpacker;
+  Object res;
+  while (unpacker_advance(p, &res)) {
+    fprintf(stderr, "YARRR\n");
+    if (res.type != kObjectTypeArray) {
+      abort();
+    }
+    Array yarr = res.data.array;
+    if (yarr.size != 4 || yarr.items[0].type != kObjectTypeInteger) {
+      continue;
+    }
+    Integer kinda = yarr.items[0].data.integer;
+    if (kinda != 0 || yarr.items[2].type != kObjectTypeString) {
+      continue;
+    }
+    String method = yarr.items[2].data.string;
+    NVIM_PROBE(method, 2, method.data, method.size);
+  };
 }
 
 /// Handles requests and notifications received on the channel.
