@@ -296,12 +296,13 @@ static void parse_msgpack2(Channel *channel)
   Object res;
   while (unpacker_advance(p, &res)) {
     if (res.type == kObjectTypeString) {
+      abort();
       String method = res.data.string;
       NVIM_PROBE(method, 2, method.data, method.size);
     } else {
-      assert (res.type == kObjectTypeArray);
+      assert(res.type == kObjectTypeArray);
       Array arg = res.data.array;
-      NVIM_PROBE(meth_arg, 1, arg.size);
+      NVIM_PROBE(meth_arg, 2, p->method_name, arg.size);
     }
   }
 }

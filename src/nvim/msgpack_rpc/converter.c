@@ -200,6 +200,8 @@ bool unpacker_advance(Unpacker *p, Object *res)
   // TODO: no
   p->read = p->written - size;
 
+redo:
+
   result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
       api_parse_exit);
 
@@ -221,8 +223,13 @@ bool unpacker_advance(Unpacker *p, Object *res)
   switch (p->state) {
     case 6:
       if (p->result.type != kObjectTypeString) abort();
+      // TODO: an intermediate bitch state machine would decode directly into
+      // p->method_name and discard longer method names into thin air
+      String s = p->result.data.string;
+      memcpy(p->method_name, s.data, s.size+1);
+      api_free_string(s);
       p->state = 7;
-      break;
+      goto redo;
     case 7:
       if (p->result.type != kObjectTypeArray) abort();
       p->state = 0;
