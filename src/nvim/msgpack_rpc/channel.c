@@ -222,18 +222,17 @@ static void receive_msgpack(Stream *stream, RBuffer *rbuf, size_t c, void *data,
        channel->id, count, (void *)stream);
 
   // Feed the unpacker with data
-  msgpack_unpacker_reserve_buffer(channel->rpc.unpacker, count);
-  rbuffer_read(rbuf, msgpack_unpacker_buffer(channel->rpc.unpacker), count);
+  // msgpack_unpacker_reserve_buffer(channel->rpc.unpacker, count);
+
+  // TODO: integrate p->fulbuffer with the "raw" channel buffer?
   Unpacker *p = channel->rpc.mpack_unpacker;
   if (p->written+count > 8192) {
     fprintf(stderr, "REEEEE\n");
     abort();
   }
-  memcpy(p->fulbuffer+p->written, msgpack_unpacker_buffer(channel->rpc.unpacker), count);
+  rbuffer_read(rbuf, p->fulbuffer+p->written, count);
   p->written += count;
-  msgpack_unpacker_buffer_consumed(channel->rpc.unpacker, count);
 
-  parse_msgpack(channel);
   parse_msgpack2(channel);
 
 end:
@@ -265,7 +264,7 @@ static void parse_msgpack(Channel *channel)
       }
       msgpack_unpacked_destroy(&unpacked);
     } else {
-      handle_request(channel, &unpacked.data);
+      // handle_request(channel, &unpacked.data);
     }
   }
 
@@ -298,63 +297,36 @@ static void parse_msgpack2(Channel *channel)
     assert(res.type == kObjectTypeArray);
     Array arg = res.data.array;
     NVIM_PROBE(meth_arg, 3, p->type, p->method_name, arg.size);
+
+    handle_request(channel, p, arg);
+
   }
 }
 
 /// Handles requests and notifications received on the channel.
-static void handle_request(Channel *channel, msgpack_object *request)
+static void handle_request(Channel *channel, Unpacker *p, Array args)
   FUNC_ATTR_NONNULL_ALL
 {
-  uint32_t request_id;
   Error error = ERROR_INIT;
-  MessageType type = msgpack_rpc_validate(&request_id, request, &error);
 
-  if (ERROR_SET(&error)) {
-    // Validation failed, send response with error
-    if (channel_write(channel,
-                      serialize_response(channel->id,
-                                         type,
-                                         request_id,
-                                         &error,
-                                         NIL,
-                                         &out_buffer))) {
-      char buf[256];
-      snprintf(buf, sizeof(buf),
-               "ch %" PRIu64 " sent an invalid message, closed.",
-               channel->id);
-      call_set_error(channel, buf, LOGLVL_ERR);
-    }
-    api_clear_error(&error);
-    return;
-  }
-  assert(type == kMessageTypeRequest || type == kMessageTypeNotification);
+  assert(p->type == kMessageTypeRequest || p->type == kMessageTypeNotification);
 
   MsgpackRpcRequestHandler handler;
-  msgpack_object *method = msgpack_rpc_method(request);
-  handler = msgpack_rpc_get_handler_for(method->via.bin.ptr,
-                                        method->via.bin.size,
-                                        &error);
-
-  // check method arguments
-  Array args = ARRAY_DICT_INIT;
-  if (!ERROR_SET(&error)
-      && !msgpack_rpc_to_array(msgpack_rpc_args(request), &args)) {
-    api_set_error(&error, kErrorTypeException, "Invalid method arguments");
-  }
+  handler = msgpack_rpc_get_handler_for(p->method_name, p->method_name_len, &error);
 
   if (ERROR_SET(&error)) {
-    send_error(channel, type, request_id, error.msg);
+    send_error(channel, p->type, p->request_id, error.msg);
     api_clear_error(&error);
     api_free_array(args);
     return;
   }
 
   RequestEvent *evdata = xmalloc(sizeof(RequestEvent));
-  evdata->type = type;
+  evdata->type = p->type;
   evdata->channel = channel;
   evdata->handler = handler;
   evdata->args = args;
-  evdata->request_id = request_id;
+  evdata->request_id = p->request_id;
   channel_incref(channel);
   if (handler.fast) {
     bool is_get_mode = handler.fn == handle_nvim_get_mode;
@@ -375,7 +347,7 @@ static void handle_request(Channel *channel, msgpack_object *request)
       multiqueue_put_event(resize_events, ev);
     } else {
       multiqueue_put(channel->events, request_event, 1, evdata);
-      DLOG("RPC: scheduled %.*s", method->via.bin.size, method->via.bin.ptr);
+      DLOG("RPC: scheduled %.*s", (int)p->method_name_len, p->method_name);
     }
   }
 }
@@ -457,6 +429,7 @@ static void internal_read_event(void **argv)
          buffer->data, buffer->size);
   msgpack_unpacker_buffer_consumed(channel->rpc.unpacker, buffer->size);
 
+  abort();
   parse_msgpack(channel);
 
   channel_decref(channel);

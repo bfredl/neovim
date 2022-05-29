@@ -168,7 +168,7 @@ bool unpacker_advance_tok(Unpacker *p, mpack_token_t tok) {
       abort();
 
     case 3+2: // NOTIFY
-      // no id, jump directly to 
+      // no id, jump directly to method name
       p->request_id = 0;
       FALLTHROUGH;
 
