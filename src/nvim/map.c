@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "nvim/api/private/dispatch.h"
 #include "nvim/lib/khash.h"
 #include "nvim/map.h"
 #include "nvim/map_defs.h"
@@ -172,7 +171,6 @@ MAP_IMPL(uint64_t, uint64_t, DEFAULT_INITIALIZER)
 MAP_IMPL(uint32_t, uint32_t, DEFAULT_INITIALIZER)
 MAP_IMPL(handle_T, ptr_t, DEFAULT_INITIALIZER)
 #define MSGPACK_HANDLER_INITIALIZER { .fn = NULL, .fast = false }
-MAP_IMPL(String, MsgpackRpcRequestHandler, MSGPACK_HANDLER_INITIALIZER)
 MAP_IMPL(HlEntry, int, DEFAULT_INITIALIZER)
 MAP_IMPL(String, handle_T, 0)
 MAP_IMPL(String, int, DEFAULT_INITIALIZER)

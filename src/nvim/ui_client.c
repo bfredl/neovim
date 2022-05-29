@@ -44,7 +44,6 @@ void ui_client_init(uint64_t chan)
   ADD(args, DICTIONARY_OBJ(opts));
 
   rpc_send_event(chan, "nvim_ui_attach", args);
-  msgpack_rpc_add_redraw();  // GAME!
   // TODO(bfredl): use a keyset instead
   ui_client_methods_table_init();
   ui_client_channel_id = chan;
@@ -61,7 +60,7 @@ void ui_client_init(uint64_t chan)
 /// @param channel_id: The id of the rpc channel
 /// @param uidata: The dense array containing the ui_events sent by the server
 /// @param[out] err Error details, if any
-Object ui_client_handle_redraw(uint64_t channel_id, Array args, Error *error)
+Object handle_ui_client_redraw(uint64_t channel_id, Array args, Error *error)
 {
   for (size_t i = 0; i < args.size; i++) {
     Array call = args.items[i].data.array;

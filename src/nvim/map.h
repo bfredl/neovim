@@ -4,7 +4,6 @@
 #include <stdbool.h>
 
 #include "nvim/api/private/defs.h"
-#include "nvim/api/private/dispatch.h"
 #include "nvim/extmark_defs.h"
 #include "nvim/highlight_defs.h"
 #include "nvim/map_defs.h"
@@ -44,7 +43,6 @@ MAP_DECLS(uint64_t, uint64_t)
 MAP_DECLS(uint32_t, uint32_t)
 
 MAP_DECLS(handle_T, ptr_t)
-MAP_DECLS(String, MsgpackRpcRequestHandler)
 MAP_DECLS(HlEntry, int)
 MAP_DECLS(String, handle_T)
 MAP_DECLS(String, int)
