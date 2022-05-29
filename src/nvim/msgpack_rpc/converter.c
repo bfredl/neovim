@@ -184,8 +184,6 @@ bool unpacker_advance(Unpacker *p, Object *res)
 
   NVIM_PROBE(advance, 2, p->state, size);
 
-  fprintf(stderr, "AHEEE %zd %zd\n", p->read, p->written);
-
   int result;
   while (p->state < 6 && size) {
     mpack_token_t tok;
@@ -206,7 +204,7 @@ bool unpacker_advance(Unpacker *p, Object *res)
     if (result) goto failsult; // TODO: nej, nej, nej, nej, nej
     if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) abort();
     if (tok.length > 100) abort();
-    mpack_tokbuf_init(&p->reader); // TODO: just fix this mess already?
+    mpack_tokbuf_init(&p->reader); // TODO: just fix this mess already
     if (size < tok.length) {
       return false;
     }
@@ -222,8 +220,6 @@ bool unpacker_advance(Unpacker *p, Object *res)
       api_parse_exit);
 
   p->read = p->written - size;
-
-  fprintf(stderr, "NEHEEE %d %zd\n", result, p->read);
 
 failsult:
   if (result == MPACK_NOMEM) {
