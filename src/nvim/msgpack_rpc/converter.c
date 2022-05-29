@@ -152,23 +152,35 @@ bool unpacker_advance_tok(Unpacker *p, mpack_token_t tok) {
       if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
       uint32_t type = tok.data.value.lo;
       if (p->state == 2 ? type != 2 : (type >= 2)) abort();
+      p->type = (MessageType)type;
       p->state = 3+(int)type;
       return true;
     
-    case 3:
+    case 3+0: // REQUEST
       // TODO: om näll request_id > 2^32-1 ?
       if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
       p->request_id = tok.data.value.lo;
       p->state = 6;
       return true;
 
-    case 4:
-      abort();
-    case 5:
+    case 3+1:
+      p->state = 9;
       abort();
 
+    case 3+2: // NOTIFY
+      // no id, jump directly to 
+      p->request_id = 0;
+      FALLTHROUGH;
+
     case 6:
-      return false;
+      if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) abort();
+      if (tok.length > 100) abort();
+      p->method_name_len = tok.length;
+      // Don't use the chunk state of p->reader, here
+      // let's manage method name ourselves
+      mpack_tokbuf_init(&p->reader);
+      p->state = 7;
+      return true;
 
     default:
       abort();
@@ -185,7 +197,7 @@ bool unpacker_advance(Unpacker *p, Object *res)
   NVIM_PROBE(advance, 2, p->state, size);
 
   int result;
-  while (p->state < 6 && size) {
+  while (p->state < 7 && size) {
     mpack_token_t tok;
     result = mpack_read(&p->reader, &data, &size, &tok);
     if (result) break;
@@ -194,26 +206,20 @@ bool unpacker_advance(Unpacker *p, Object *res)
       return false;
     }
   }
-
-  // TODO: no
   p->read = p->written - size;
 
-  if (p->state == 6) {
-    mpack_token_t tok;
-    result = mpack_read(&p->reader, &data, &size, &tok);
-    if (result) goto failsult; // TODO: nej, nej, nej, nej, nej
-    if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) abort();
-    if (tok.length > 100) abort();
-    mpack_tokbuf_init(&p->reader); // TODO: just fix this mess already
-    if (size < tok.length) {
-      return false;
+  if (p->state == 7) {
+    if (size < p->method_name_len) {
+      p->read = p->written - size;
+      return false; // wait for full method name to arrive
     }
-    memcpy(p->method_name, data, tok.length);
-    p->method_name[tok.length] = NUL; // TODO: nej
-    p->method_name_len = tok.length;
-    p->state = 7;
-    data += tok.length;
-    size -= tok.length;
+
+    // TODO: just look up the hash directly here!
+    memcpy(p->method_name, data, p->method_name_len);
+    p->method_name[p->method_name_len] = NUL; // TODO: nej
+    p->state = 8;
+    data += p->method_name_len;
+    size -= p->method_name_len;
   }
 
   result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
@@ -221,7 +227,6 @@ bool unpacker_advance(Unpacker *p, Object *res)
 
   p->read = p->written - size;
 
-failsult:
   if (result == MPACK_NOMEM) {
     abort();
   } else if (result == MPACK_EOF) {
@@ -233,7 +238,7 @@ failsult:
   assert(result == MPACK_OK);
 
   switch (p->state) {
-    case 7:
+    case 8:
       if (p->result.type != kObjectTypeArray) abort();
       p->state = 0;
       break;

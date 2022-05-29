@@ -19,6 +19,7 @@ typedef struct {
   size_t written;
   size_t read;
   int state; // basic bitch state machine™
+  MessageType type;
   uint32_t request_id;
 } Unpacker;
 
