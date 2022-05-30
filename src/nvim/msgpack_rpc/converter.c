@@ -214,9 +214,11 @@ bool unpacker_advance(Unpacker *p, Object *res)
       return false; // wait for full method name to arrive
     }
 
-    // TODO: just look up the hash directly here!
-    memcpy(p->method_name, data, p->method_name_len);
-    p->method_name[p->method_name_len] = NUL; // TODO: nej
+    // TODO: a global error object for the unpacker (use everywhere abort() is
+    // used...)
+    Error err = ERROR_INIT;
+    // if this fails, p->handler.fn will be NULL
+    p->handler = msgpack_rpc_get_handler_for(data, p->method_name_len, &err);
     p->state = 8;
     data += p->method_name_len;
     size -= p->method_name_len;

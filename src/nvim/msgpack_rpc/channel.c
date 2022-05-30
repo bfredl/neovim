@@ -296,7 +296,7 @@ static void parse_msgpack2(Channel *channel)
   while (unpacker_advance(p, &res)) {
     assert(res.type == kObjectTypeArray);
     Array arg = res.data.array;
-    NVIM_PROBE(meth_arg, 3, p->type, p->method_name, arg.size);
+    NVIM_PROBE(meth_arg, 3, p->type, p->handler.fn ? p->handler.name : 0, arg.size);
 
     handle_request(channel, p, arg);
 
@@ -311,10 +311,9 @@ static void handle_request(Channel *channel, Unpacker *p, Array args)
 
   assert(p->type == kMessageTypeRequest || p->type == kMessageTypeNotification);
 
-  MsgpackRpcRequestHandler handler;
-  handler = msgpack_rpc_get_handler_for(p->method_name, p->method_name_len, &error);
-
-  if (ERROR_SET(&error)) {
+  if (!p->handler.fn) {
+    // TODO: fix this
+    api_set_error(&error, kErrorTypeException, "Invalid method: <WAT>");
     send_error(channel, p->type, p->request_id, error.msg);
     api_clear_error(&error);
     api_free_array(args);
@@ -324,12 +323,12 @@ static void handle_request(Channel *channel, Unpacker *p, Array args)
   RequestEvent *evdata = xmalloc(sizeof(RequestEvent));
   evdata->type = p->type;
   evdata->channel = channel;
-  evdata->handler = handler;
+  evdata->handler = p->handler;
   evdata->args = args;
   evdata->request_id = p->request_id;
   channel_incref(channel);
-  if (handler.fast) {
-    bool is_get_mode = handler.fn == handle_nvim_get_mode;
+  if (p->handler.fast) {
+    bool is_get_mode = p->handler.fn == handle_nvim_get_mode;
 
     if (is_get_mode && !input_blocking()) {
       // Defer the event to a special queue used by os/input.c. #6247
@@ -339,7 +338,7 @@ static void handle_request(Channel *channel, Unpacker *p, Array args)
       request_event((void **)&evdata);
     }
   } else {
-    bool is_resize = handler.fn == handle_nvim_ui_try_resize;
+    bool is_resize = p->handler.fn == handle_nvim_ui_try_resize;
     if (is_resize) {
       Event ev = event_create_oneshot(event_create(request_event, 1, evdata),
                                       2);
@@ -347,7 +346,7 @@ static void handle_request(Channel *channel, Unpacker *p, Array args)
       multiqueue_put_event(resize_events, ev);
     } else {
       multiqueue_put(channel->events, request_event, 1, evdata);
-      DLOG("RPC: scheduled %.*s", (int)p->method_name_len, p->method_name);
+      DLOG("RPC: scheduled %.*s", (int)p->method_name_len, p->handler.name);
     }
   }
 }

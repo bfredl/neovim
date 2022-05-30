@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "nvim/api/private/dispatch.h"
 #include "nvim/api/private/helpers.h"
 #include "mpack/mpack_core.h"
 #include "mpack/object.h"
@@ -12,8 +13,8 @@
 typedef struct {
   mpack_parser_t parser;
   mpack_tokbuf_t reader;
-  char method_name[100];
   size_t method_name_len;
+  MsgpackRpcRequestHandler handler;
   Object result;
   char fulbuffer[8192];
   size_t written;
