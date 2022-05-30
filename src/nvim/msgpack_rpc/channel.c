@@ -233,59 +233,13 @@ static void receive_msgpack(Stream *stream, RBuffer *rbuf, size_t c, void *data,
   rbuffer_read(rbuf, p->fulbuffer+p->written, count);
   p->written += count;
 
-  parse_msgpack2(channel);
+  parse_msgpack(channel);
 
 end:
   channel_decref(channel);
 }
 
 static void parse_msgpack(Channel *channel)
-{
-  msgpack_unpacked unpacked;
-  msgpack_unpacked_init(&unpacked);
-  msgpack_unpack_return result;
-
-  // Deserialize everything we can.
-  while ((result = msgpack_unpacker_next(channel->rpc.unpacker, &unpacked)) ==
-         MSGPACK_UNPACK_SUCCESS) {
-    bool is_response = false;
-    log_client_msg(channel->id, !is_response, unpacked.data);
-
-    if (is_response) {
-      char buf[256];
-      snprintf(buf, sizeof(buf),
-               "ch %" PRIu64 " returned a response with an unknown request "
-               "id. Ensure the client is properly synchronized",
-               channel->id);
-      call_set_error(channel, buf, ERROR_LOG_LEVEL);
-      msgpack_unpacked_destroy(&unpacked);
-    } else {
-      // handle_request(channel, &unpacked.data);
-    }
-  }
-
-  if (result == MSGPACK_UNPACK_NOMEM_ERROR) {
-    mch_errmsg(e_outofmem);
-    mch_errmsg("\n");
-    channel_decref(channel);
-    preserve_exit();
-  }
-
-  if (result == MSGPACK_UNPACK_PARSE_ERROR) {
-    // See src/msgpack/unpack_template.h in msgpack source tree for
-    // causes for this error(search for 'goto _failed')
-    //
-    // A not so uncommon cause for this might be deserializing objects with
-    // a high nesting level: msgpack will break when its internal parse stack
-    // size exceeds MSGPACK_EMBED_STACK_SIZE (defined as 32 by default)
-    send_error(channel, kMessageTypeRequest, 0,
-               "Invalid msgpack payload. "
-               "This error can also happen when deserializing "
-               "an object with high level of nesting");
-  }
-}
-
-static void parse_msgpack2(Channel *channel)
 {
   Unpacker *p = channel->rpc.mpack_unpacker;
   while (unpacker_advance(p)) {
@@ -294,6 +248,12 @@ static void parse_msgpack2(Channel *channel)
       ChannelCallFrame *frame = kv_last(channel->rpc.call_stack);
       if (p->request_id != frame->request_id) {
         abort();  // YOU DUN GOOF'D
+        char buf[256];
+        snprintf(buf, sizeof(buf),
+                 "ch %" PRIu64 " returned a response with an unknown request "
+                 "id. Ensure the client is properly synchronized",
+                 channel->id);
+        call_set_error(channel, buf, ERROR_LOG_LEVEL);
       }
       frame->returned = true;
       frame->errored = p->error.type != MSGPACK_OBJECT_NIL;
@@ -306,7 +266,7 @@ static void parse_msgpack2(Channel *channel)
       }
     } else {
       Object res = p->result;
-      assert(res.type == kObjectTypeArray);
+      if (p->result.type != kObjectTypeArray) abort();
       Array arg = res.data.array;
       NVIM_PROBE(meth_arg, 3, p->type, p->handler.fn ? p->handler.name : 0, arg.size);
 
@@ -435,12 +395,16 @@ static void internal_read_event(void **argv)
   Channel *channel = argv[0];
   WBuffer *buffer = argv[1];
 
-  msgpack_unpacker_reserve_buffer(channel->rpc.unpacker, buffer->size);
-  memcpy(msgpack_unpacker_buffer(channel->rpc.unpacker),
-         buffer->data, buffer->size);
-  msgpack_unpacker_buffer_consumed(channel->rpc.unpacker, buffer->size);
+  // TODO: writing to an internal channel should write to the unpack buffer
+  Unpacker *p = channel->rpc.mpack_unpacker;
+  if (p->written+buffer->size > 8192) {
+    fprintf(stderr, "REEEEE\n");
+    abort();
+  }
 
-  abort();
+  memcpy(p->fulbuffer+p->written, buffer->data, buffer->size);
+  p->written += buffer->size;
+
   parse_msgpack(channel);
 
   channel_decref(channel);
@@ -719,14 +683,15 @@ static void log_server_msg(uint64_t channel_id, msgpack_sbuffer *packed)
   }
 }
 
-static void log_client_msg(uint64_t channel_id, bool is_request, msgpack_object msg)
-{
-  DLOGN("RPC <-ch %" PRIu64 ": ", channel_id);
-  log_lock();
-  FILE *f = open_log_file();
-  fprintf(f, is_request ? REQ : RES);
-  log_msg_close(f, msg);
-}
+// TODO: re-implement this but at the raw unpacker level
+// static void log_client_msg(uint64_t channel_id, bool is_request, msgpack_object msg)
+// {
+//   DLOGN("RPC <-ch %" PRIu64 ": ", channel_id);
+//   log_lock();
+//   FILE *f = open_log_file();
+//   fprintf(f, is_request ? REQ : RES);
+//   log_msg_close(f, msg);
+// }
 
 static void log_msg_close(FILE *f, msgpack_object msg)
 {

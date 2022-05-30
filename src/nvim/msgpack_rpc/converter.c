@@ -164,7 +164,9 @@ bool unpacker_advance_tok(Unpacker *p, mpack_token_t tok) {
       return true;
 
     case 3+1:
-      p->state = 8;
+      if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
+      p->request_id = tok.data.value.lo;
+      p->state = 9;
       return true;
 
     case 3+2: // NOTIFY
@@ -223,6 +225,7 @@ bool unpacker_advance(Unpacker *p)
     size -= p->method_name_len;
   }
 
+rerun:
   result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
       api_parse_exit);
 
@@ -240,13 +243,12 @@ bool unpacker_advance(Unpacker *p)
 
   switch (p->state) {
     case 8:
-      if (p->result.type != kObjectTypeArray) abort();
       p->state = 0;
       break;
     case 9:
       p->error = p->result;
       p->state = 8;
-      break;
+      goto rerun;
     default:
       abort();
   }
