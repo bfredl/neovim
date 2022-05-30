@@ -205,11 +205,10 @@ close_chan:
 bool unpacker_advance(Unpacker *p)
 {
   if (p->state == 0) {
-    if (unpacker_parse_header(p)) {
-      p->state = p->type == kMessageTypeResponse ? 1 : 2;
-    } else {
+    if (!unpacker_parse_header(p)) {
       return false;
     }
+    p->state = p->type == kMessageTypeResponse ? 1 : 2;
   }
 
   const char *data = p->fulbuffer + p->read;
