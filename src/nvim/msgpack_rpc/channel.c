@@ -248,20 +248,16 @@ static void parse_msgpack(Channel *channel)
   // Deserialize everything we can.
   while ((result = msgpack_unpacker_next(channel->rpc.unpacker, &unpacked)) ==
          MSGPACK_UNPACK_SUCCESS) {
-    bool is_response = is_rpc_response(&unpacked.data);
+    bool is_response = false;
     log_client_msg(channel->id, !is_response, unpacked.data);
 
     if (is_response) {
-      if (is_valid_rpc_response(&unpacked.data, channel)) {
-        complete_call(&unpacked.data, channel);
-      } else {
-        char buf[256];
-        snprintf(buf, sizeof(buf),
-                 "ch %" PRIu64 " returned a response with an unknown request "
-                 "id. Ensure the client is properly synchronized",
-                 channel->id);
-        call_set_error(channel, buf, LOGLVL_ERR);
-      }
+      char buf[256];
+      snprintf(buf, sizeof(buf),
+               "ch %" PRIu64 " returned a response with an unknown request "
+               "id. Ensure the client is properly synchronized",
+               channel->id);
+      call_set_error(channel, buf, ERROR_LOG_LEVEL);
       msgpack_unpacked_destroy(&unpacked);
     } else {
       // handle_request(channel, &unpacked.data);
@@ -292,14 +288,30 @@ static void parse_msgpack(Channel *channel)
 static void parse_msgpack2(Channel *channel)
 {
   Unpacker *p = channel->rpc.mpack_unpacker;
-  Object res;
-  while (unpacker_advance(p, &res)) {
-    assert(res.type == kObjectTypeArray);
-    Array arg = res.data.array;
-    NVIM_PROBE(meth_arg, 3, p->type, p->handler.fn ? p->handler.name : 0, arg.size);
+  while (unpacker_advance(p)) {
 
-    handle_request(channel, p, arg);
+    if (p->type == kMessageTypeResponse) {
+      ChannelCallFrame *frame = kv_last(channel->rpc.call_stack);
+      if (p->request_id != frame->request_id) {
+        abort();  // YOU DUN GOOF'D
+      }
+      frame->returned = true;
+      frame->errored = p->error.type != MSGPACK_OBJECT_NIL;
 
+      if (frame->errored) {
+        frame->result = p->error;
+        // TODO: p->request is leaked, should not even be decoded?
+      } else {
+        frame->result = p->result;
+      }
+    } else {
+      Object res = p->result;
+      assert(res.type == kObjectTypeArray);
+      Array arg = res.data.array;
+      NVIM_PROBE(meth_arg, 3, p->type, p->handler.fn ? p->handler.name : 0, arg.size);
+
+      handle_request(channel, p, arg);
+    }
   }
 }
 
@@ -564,40 +576,6 @@ void rpc_free(Channel *channel)
   pmap_destroy(cstr_t)(channel->rpc.subscribed_events);
   kv_destroy(channel->rpc.call_stack);
   api_free_dictionary(channel->rpc.info);
-}
-
-static bool is_rpc_response(msgpack_object *obj)
-{
-  return obj->type == MSGPACK_OBJECT_ARRAY
-         && obj->via.array.size == 4
-         && obj->via.array.ptr[0].type == MSGPACK_OBJECT_POSITIVE_INTEGER
-         && obj->via.array.ptr[0].via.u64 == 1
-         && obj->via.array.ptr[1].type == MSGPACK_OBJECT_POSITIVE_INTEGER;
-}
-
-static bool is_valid_rpc_response(msgpack_object *obj, Channel *channel)
-{
-  uint32_t response_id = (uint32_t)obj->via.array.ptr[1].via.u64;
-  if (kv_size(channel->rpc.call_stack) == 0) {
-    return false;
-  }
-
-  // Must be equal to the frame at the stack's bottom
-  ChannelCallFrame *frame = kv_last(channel->rpc.call_stack);
-  return response_id == frame->request_id;
-}
-
-static void complete_call(msgpack_object *obj, Channel *channel)
-{
-  ChannelCallFrame *frame = kv_last(channel->rpc.call_stack);
-  frame->returned = true;
-  frame->errored = obj->via.array.ptr[2].type != MSGPACK_OBJECT_NIL;
-
-  if (frame->errored) {
-    msgpack_rpc_to_object(&obj->via.array.ptr[2], &frame->result);
-  } else {
-    msgpack_rpc_to_object(&obj->via.array.ptr[3], &frame->result);
-  }
 }
 
 static void call_set_error(Channel *channel, char *msg, int loglevel)

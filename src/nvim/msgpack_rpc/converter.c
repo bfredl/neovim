@@ -164,8 +164,8 @@ bool unpacker_advance_tok(Unpacker *p, mpack_token_t tok) {
       return true;
 
     case 3+1:
-      p->state = 9;
-      abort();
+      p->state = 8;
+      return true;
 
     case 3+2: // NOTIFY
       // no id, jump directly to method name
@@ -188,9 +188,8 @@ bool unpacker_advance_tok(Unpacker *p, mpack_token_t tok) {
   return false;
 }
 
-bool unpacker_advance(Unpacker *p, Object *res)
+bool unpacker_advance(Unpacker *p)
 {
-
   const char *data = p->fulbuffer + p->read;
   size_t size = p->written - p->read;
 
@@ -244,9 +243,13 @@ bool unpacker_advance(Unpacker *p, Object *res)
       if (p->result.type != kObjectTypeArray) abort();
       p->state = 0;
       break;
+    case 9:
+      p->error = p->result;
+      p->state = 8;
+      break;
+    default:
+      abort();
   }
 
-  *res = p->result;
-  p->result = NIL;
   return true;
 }

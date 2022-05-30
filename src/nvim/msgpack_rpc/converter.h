@@ -15,7 +15,8 @@ typedef struct {
   mpack_tokbuf_t reader;
   size_t method_name_len;
   MsgpackRpcRequestHandler handler;
-  Object result;
+  Object result; // arg list or result
+  Object error; // error return
   char fulbuffer[8192];
   size_t written;
   size_t read;
