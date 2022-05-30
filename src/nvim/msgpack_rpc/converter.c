@@ -137,93 +137,85 @@ void unpacker_init(Unpacker *p)
   mpack_tokbuf_init(&p->reader); // TODO: fyyy
 }
 
-bool unpacker_advance_tok(Unpacker *p, mpack_token_t tok) {
-  NVIM_PROBE(toky, 2, p->state, tok.type);
-  switch (p->state) {
-    case 0:
-      if (tok.type != MPACK_TOKEN_ARRAY || tok.length < 3 || tok.length > 4)  {
-        abort();
-      }
-      p->state = tok.length == 3 ? 2 : 1;
-      return true;
+bool unpacker_parse_header(Unpacker *p) {
+  mpack_token_t tok;
+  int result;
 
-    case 1:
-    case 2:
-      if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
-      uint32_t type = tok.data.value.lo;
-      if (p->state == 2 ? type != 2 : (type >= 2)) abort();
-      p->type = (MessageType)type;
-      p->state = 3+(int)type;
-      return true;
-    
-    case 3+0: // REQUEST
-      // TODO: om näll request_id > 2^32-1 ?
-      if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
-      p->request_id = tok.data.value.lo;
-      p->state = 6;
-      return true;
+  const char *data = p->fulbuffer + p->read;
+  size_t size = p->written - p->read;
 
-    case 3+1:
-      if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) abort();
-      p->request_id = tok.data.value.lo;
-      p->state = 9;
-      return true;
+  NVIM_PROBE(header, 1, size);
 
-    case 3+2: // NOTIFY
-      // no id, jump directly to method name
-      p->request_id = 0;
-      FALLTHROUGH;
+#define NEXT(tok) \
+  result = mpack_read(&p->reader, &data, &size, &tok); \
+  if (result) goto error;
 
-    case 6:
-      if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) abort();
-      if (tok.length > 100) abort();
-      p->method_name_len = tok.length;
-      // Don't use the chunk state of p->reader, here
-      // let's manage method name ourselves
-      mpack_tokbuf_init(&p->reader);
-      p->state = 7;
-      return true;
-
-    default:
-      abort();
+  NEXT(tok);
+  if (tok.type != MPACK_TOKEN_ARRAY || tok.length < 3 || tok.length > 4)  {
+    goto close_chan;
   }
-  return false;
+  size_t array_length = tok.length;
+
+  NEXT(tok);
+  if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) goto close_chan;
+  uint32_t type = tok.data.value.lo;
+  if ((array_length == 3) ? type != 2 : (type >= 2)) goto close_chan;
+  p->type = (MessageType)type;
+  p->request_id = 0;
+
+  if (p->type != kMessageTypeNotification) {
+    NEXT(tok);
+    if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) goto close_chan;
+    p->request_id = tok.data.value.lo;
+  }
+  NVIM_PROBE(header_type, 2, p->type, p->request_id);
+
+  if (p->type != kMessageTypeResponse) {
+    NEXT(tok);
+    if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) goto close_chan;
+    if (tok.length > 100) abort();
+    p->method_name_len = tok.length;
+
+    NEXT(tok);
+    if (tok.length < p->method_name_len) goto eof;
+    Error err = ERROR_INIT;
+    // if this fails, p->handler.fn will be NULL
+    p->handler = msgpack_rpc_get_handler_for(tok.data.chunk_ptr, tok.length, &err);
+    NVIM_PROBE(meth_name, 1, p->handler.name);
+  }
+
+  p->read = p->written - size;
+  return true;
+#undef NEXT
+
+error:
+  if (result == MPACK_EOF) {
+eof:
+    // retry from scratch
+    mpack_tokbuf_init(&p->reader);
+    return false;
+  }
+  // for a parse error, close the channel:
+
+close_chan:
+  abort();
+
 }
 
 bool unpacker_advance(Unpacker *p)
 {
-  const char *data = p->fulbuffer + p->read;
-  size_t size = p->written - p->read;
-
-  NVIM_PROBE(advance, 2, p->state, size);
-
-  int result;
-  while (p->state < 7 && size) {
-    mpack_token_t tok;
-    result = mpack_read(&p->reader, &data, &size, &tok);
-    if (result) break;
-    if (!unpacker_advance_tok(p, tok)) {
-      p->read = p->written - size;
+  if (p->state == 0) {
+    if (unpacker_parse_header(p)) {
+      p->state = p->type == kMessageTypeResponse ? 1 : 2;
+    } else {
       return false;
     }
   }
-  p->read = p->written - size;
 
-  if (p->state == 7) {
-    if (size < p->method_name_len) {
-      p->read = p->written - size;
-      return false; // wait for full method name to arrive
-    }
+  const char *data = p->fulbuffer + p->read;
+  size_t size = p->written - p->read;
 
-    // TODO: a global error object for the unpacker (use everywhere abort() is
-    // used...)
-    Error err = ERROR_INIT;
-    // if this fails, p->handler.fn will be NULL
-    p->handler = msgpack_rpc_get_handler_for(data, p->method_name_len, &err);
-    p->state = 8;
-    data += p->method_name_len;
-    size -= p->method_name_len;
-  }
+  int result;
 
 rerun:
   result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
@@ -231,26 +223,21 @@ rerun:
 
   p->read = p->written - size;
 
-  if (result == MPACK_NOMEM) {
-    abort();
-  } else if (result == MPACK_EOF) {
+  if (result == MPACK_EOF) {
     return false;
-  } else if (result == MPACK_ERROR) {
-    abort();
+  } else if (result != MPACK_OK) {
+    abort(); // TODO: close chan
   }
 
-  assert(result == MPACK_OK);
 
-  switch (p->state) {
-    case 8:
-      p->state = 0;
-      break;
-    case 9:
-      p->error = p->result;
-      p->state = 8;
-      goto rerun;
-    default:
-      abort();
+  if (p->state == 1) {
+    p->error = p->result;
+    p->state = 2;
+    goto rerun;
+  } else {
+    assert(p->state == 2);
+    p->state = 0;
+    return true;
   }
 
   return true;

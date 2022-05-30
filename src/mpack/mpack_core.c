@@ -52,7 +52,10 @@ MPACK_API int mpack_read(mpack_tokbuf_t *tokbuf, const char **buf,
   int status;
   size_t initial_ppos, ptrlen, advanced;
   const char *ptr, *ptr_save;
-  assert(*buf && *buflen);
+  assert(*buf);
+  if (*buflen == 0) {
+    return MPACK_EOF;
+  }
 
   if (tokbuf->passthrough) {
     /* pass data from str/bin/ext directly as a MPACK_TOKEN_CHUNK, adjusting
