@@ -248,7 +248,7 @@ static void parse_msgpack(Channel *channel)
                  "ch %" PRIu64 " returned a response with an unknown request "
                  "id. Ensure the client is properly synchronized",
                  channel->id);
-        call_set_error(channel, buf, ERROR_LOG_LEVEL);
+        call_set_error(channel, buf, LOGLVL_ERR);
       }
       frame->returned = true;
       frame->errored = p->error.type != MSGPACK_OBJECT_NIL;
