@@ -226,14 +226,14 @@ static void receive_msgpack(Stream *stream, RBuffer *rbuf, size_t c, void *data,
 
   // TODO: integrate p->fulbuffer with the "raw" channel buffer?
   Unpacker *p = channel->rpc.mpack_unpacker;
-  if (p->written+count > 8192) {
-    fprintf(stderr, "REEEEE\n");
-    abort();
-  }
-  rbuffer_read(rbuf, p->fulbuffer+p->written, count);
-  p->written += count;
-
+  size_t size = 0;
+  char *read = rbuffer_read_ptr(rbuf, &size);
+  p->read_ptr = read;
+  p->read_size = size;
   parse_msgpack(channel);
+
+  size_t consumed = size - p->read_size;
+  rbuffer_consumed_compact(rbuf, consumed);
 
 end:
   channel_decref(channel);
@@ -397,6 +397,8 @@ static void internal_read_event(void **argv)
 
   // TODO: writing to an internal channel should write to the unpack buffer
   Unpacker *p = channel->rpc.mpack_unpacker;
+  abort();
+  /*
   if (p->written+buffer->size > 8192) {
     fprintf(stderr, "REEEEE\n");
     abort();
@@ -404,6 +406,7 @@ static void internal_read_event(void **argv)
 
   memcpy(p->fulbuffer+p->written, buffer->data, buffer->size);
   p->written += buffer->size;
+  */
 
   parse_msgpack(channel);
 

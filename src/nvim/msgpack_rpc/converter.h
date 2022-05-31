@@ -17,9 +17,10 @@ typedef struct {
   MsgpackRpcRequestHandler handler;
   Object result; // arg list or result
   Object error; // error return
-  char fulbuffer[8192];
-  size_t written;
-  size_t read;
+
+  const char *read_ptr;
+  size_t read_size;
+
   int state; // basic bitch state machine™
   MessageType type;
   uint32_t request_id;

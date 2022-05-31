@@ -154,6 +154,22 @@ void rbuffer_consumed(RBuffer *buf, size_t count)
   }
 }
 
+void rbuffer_consumed_compact(RBuffer *buf, size_t count)
+  FUNC_ATTR_NONNULL_ALL
+{
+  if (buf->read_ptr > buf->write_ptr) abort();
+  rbuffer_consumed(buf, count);
+  if (buf->read_ptr > buf->start_ptr) {
+    size_t delta = buf->read_ptr - buf->write_ptr;
+    assert( delta == buf->size);
+    memmove(buf->start_ptr, buf->read_ptr, buf->size);
+    buf->read_ptr = buf->start_ptr;
+    buf->write_ptr = buf->read_ptr + buf->size;
+  }
+
+}
+
+
 // Higher level functions for copying from/to RBuffer instances and data
 // pointers
 size_t rbuffer_write(RBuffer *buf, const char *src, size_t src_size)

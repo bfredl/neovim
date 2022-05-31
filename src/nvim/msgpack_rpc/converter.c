@@ -141,8 +141,8 @@ bool unpacker_parse_header(Unpacker *p) {
   mpack_token_t tok;
   int result;
 
-  const char *data = p->fulbuffer + p->read;
-  size_t size = p->written - p->read;
+  const char *data = p->read_ptr;
+  size_t size = p->read_size;
 
   NVIM_PROBE(header, 1, size);
 
@@ -184,7 +184,8 @@ bool unpacker_parse_header(Unpacker *p) {
     NVIM_PROBE(meth_name, 1, p->handler.name);
   }
 
-  p->read = p->written - size;
+  p->read_ptr = data;
+  p->read_size = size;
   return true;
 #undef NEXT
 
@@ -211,16 +212,11 @@ bool unpacker_advance(Unpacker *p)
     p->state = p->type == kMessageTypeResponse ? 1 : 2;
   }
 
-  const char *data = p->fulbuffer + p->read;
-  size_t size = p->written - p->read;
-
   int result;
 
 rerun:
-  result = mpack_parse(&p->parser, &data, &size, api_parse_enter,
+  result = mpack_parse(&p->parser, &p->read_ptr, &p->read_size, api_parse_enter,
       api_parse_exit);
-
-  p->read = p->written - size;
 
   if (result == MPACK_EOF) {
     return false;
