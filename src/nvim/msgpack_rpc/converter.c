@@ -190,16 +190,16 @@ bool unpacker_parse_header(Unpacker *p) {
   size_t array_length = tok.length;
 
   NEXT(tok);
-  if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) goto close_chan;
-  uint32_t type = tok.data.value.lo;
+  if (tok.type != MPACK_TOKEN_UINT) goto close_chan;
+  uint32_t type = (uint32_t)mpack_unpack_uint(tok);
   if ((array_length == 3) ? type != 2 : (type >= 2)) goto close_chan;
   p->type = (MessageType)type;
   p->request_id = 0;
 
   if (p->type != kMessageTypeNotification) {
     NEXT(tok);
-    if (tok.type != MPACK_TOKEN_UINT || tok.length > 1) goto close_chan;
-    p->request_id = tok.data.value.lo;
+    if (tok.type != MPACK_TOKEN_UINT) goto close_chan;
+    p->request_id = (uint32_t)mpack_unpack_uint(tok);
   }
   NVIM_PROBE(header_type, 2, p->type, p->request_id);
 
