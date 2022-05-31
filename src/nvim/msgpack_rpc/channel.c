@@ -216,9 +216,8 @@ static void receive_msgpack(Stream *stream, RBuffer *rbuf, size_t c, void *data,
     goto end;
   }
 
-  size_t count = rbuffer_size(rbuf);
   DLOG("ch %" PRIu64 ": parsing %zu bytes from msgpack Stream: %p",
-       channel->id, count, (void *)stream);
+       channel->id, rbuffer_size(rbuf), (void *)stream);
 
   Unpacker *p = channel->rpc.unpacker;
   size_t size = 0;
