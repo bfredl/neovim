@@ -31,8 +31,7 @@ typedef struct {
 typedef struct {
   PMap(cstr_t) subscribed_events[1];
   bool closed;
-  msgpack_unpacker *unpacker;
-  Unpacker *mpack_unpacker;
+  Unpacker *unpacker;
   uint32_t next_request_id;
   kvec_t(ChannelCallFrame *) call_stack;
   Dictionary info;

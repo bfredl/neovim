@@ -4,6 +4,7 @@
 #include "nvim/api/private/helpers.h"
 #include "nvim/msgpack_rpc/converter.h"
 #include "nvim/log.h"
+#include "nvim/msgpack_rpc/helpers.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "msgpack_rpc/converter.c.generated.h"
@@ -97,10 +98,42 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
       node->data[0].p = str.data;
       break;
     }
+    case MPACK_TOKEN_EXT:
+      // handled in chunk; but save result location
+      node->data[0].p = result;
+      break;
+
     case MPACK_TOKEN_CHUNK: {
-      char *data = parent->data[0].p;
-      memcpy(data + parent->pos,
-             node->tok.data.chunk_ptr, node->tok.length);
+      if (parent->tok.type == MPACK_TOKEN_STR || parent->tok.type == MPACK_TOKEN_BIN) {
+        char *data = parent->data[0].p;
+        memcpy(data + parent->pos,
+               node->tok.data.chunk_ptr, node->tok.length);
+      } else {
+        size_t endlen = parent->pos + node->tok.length;
+        if (endlen > MAX_EXT_LEN) {
+          abort();
+        }
+        memcpy(unpacker->ext_buf + parent->pos,
+               node->tok.data.chunk_ptr, node->tok.length);
+        if (parent->pos + node->tok.length < parent->tok.length) {
+          break; // EOF, let's get back to it later
+        }
+        const char *buf = unpacker->ext_buf;
+        size_t size = parent->tok.length;
+        mpack_token_t ext_tok;
+        int status = mpack_rtoken(&buf, &size, &ext_tok);
+        if (status || ext_tok.type != MPACK_TOKEN_UINT) {
+          abort();
+        }
+        Object *res = parent->data[0].p;
+        int ext_type = parent->tok.data.ext_type;
+        if (0 <= ext_type && ext_type <= EXT_OBJECT_TYPE_MAX) {
+          res->type = (ObjectType)(ext_type + EXT_OBJECT_TYPE_SHIFT);
+          res->data.integer = (int64_t)mpack_unpack_uint(ext_tok);
+        } else {
+          abort();
+        }
+      }
       break;
     }
     case MPACK_TOKEN_ARRAY: {

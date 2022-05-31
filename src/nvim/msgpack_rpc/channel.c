@@ -55,10 +55,9 @@ void rpc_start(Channel *channel)
   channel->is_rpc = true;
   RpcState *rpc = &channel->rpc;
   rpc->closed = false;
-  rpc->unpacker = msgpack_unpacker_new(MSGPACK_UNPACKER_INIT_BUFFER_SIZE);
 
-  rpc->mpack_unpacker = xcalloc(1, sizeof *rpc->mpack_unpacker);
-  unpacker_init(rpc->mpack_unpacker);
+  rpc->unpacker = xcalloc(1, sizeof *rpc->unpacker);
+  unpacker_init(rpc->unpacker);
                                                       //
   rpc->next_request_id = 1;
   rpc->info = (Dictionary)ARRAY_DICT_INIT;
@@ -221,11 +220,7 @@ static void receive_msgpack(Stream *stream, RBuffer *rbuf, size_t c, void *data,
   DLOG("ch %" PRIu64 ": parsing %zu bytes from msgpack Stream: %p",
        channel->id, count, (void *)stream);
 
-  // Feed the unpacker with data
-  // msgpack_unpacker_reserve_buffer(channel->rpc.unpacker, count);
-
-  // TODO: integrate p->fulbuffer with the "raw" channel buffer?
-  Unpacker *p = channel->rpc.mpack_unpacker;
+  Unpacker *p = channel->rpc.unpacker;
   size_t size = 0;
   char *read = rbuffer_read_ptr(rbuf, &size);
   p->read_ptr = read;
@@ -241,7 +236,7 @@ end:
 
 static void parse_msgpack(Channel *channel)
 {
-  Unpacker *p = channel->rpc.mpack_unpacker;
+  Unpacker *p = channel->rpc.unpacker;
   while (unpacker_advance(p)) {
 
     if (p->type == kMessageTypeResponse) {
@@ -395,20 +390,18 @@ static void internal_read_event(void **argv)
   Channel *channel = argv[0];
   WBuffer *buffer = argv[1];
 
-  // TODO: writing to an internal channel should write to the unpack buffer
-  Unpacker *p = channel->rpc.mpack_unpacker;
-  abort();
-  /*
-  if (p->written+buffer->size > 8192) {
-    fprintf(stderr, "REEEEE\n");
-    abort();
-  }
+  Unpacker *p = channel->rpc.unpacker;
 
-  memcpy(p->fulbuffer+p->written, buffer->data, buffer->size);
-  p->written += buffer->size;
-  */
+  p->read_ptr = buffer->data;
+  p->read_size = buffer->size;
 
   parse_msgpack(channel);
+
+  if (p->read_size) {
+    // should not happen, as WBuffer is one single serialized message
+    // but perhaps close the chan instead and emit error?
+    abort();
+  }
 
   channel_decref(channel);
   wstream_release_wbuffer(buffer);
@@ -532,7 +525,8 @@ static void exit_event(void **argv)
 void rpc_free(Channel *channel)
 {
   remote_ui_disconnect(channel->id);
-  msgpack_unpacker_free(channel->rpc.unpacker);
+  // TODO: unpacker_free() for internal state
+  xfree(channel->rpc.unpacker);
 
   // Unsubscribe from all events
   char *event_string;

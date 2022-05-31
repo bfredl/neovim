@@ -21,6 +21,9 @@ typedef struct {
   const char *read_ptr;
   size_t read_size;
 
+#define MAX_EXT_LEN 9 // byte + 8-byte integer
+  char ext_buf[MAX_EXT_LEN];
+
   int state; // basic bitch state machine™
   MessageType type;
   uint32_t request_id;
