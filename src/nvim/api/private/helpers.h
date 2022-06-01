@@ -120,6 +120,8 @@ EXTERN PMap(handle_T) buffer_handles INIT(= MAP_INIT);
 EXTERN PMap(handle_T) window_handles INIT(= MAP_INIT);
 EXTERN PMap(handle_T) tabpage_handles INIT(= MAP_INIT);
 
+EXTERN int api_free_level INIT(= 0);
+
 #define handle_get_buffer(h) pmap_get(handle_T)(&buffer_handles, (h))
 #define handle_get_window(h) pmap_get(handle_T)(&window_handles, (h))
 #define handle_get_tabpage(h) pmap_get(handle_T)(&tabpage_handles, (h))

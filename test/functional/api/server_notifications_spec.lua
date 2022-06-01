@@ -41,7 +41,7 @@ describe('notify', function()
       eq({'notification', 'event1', {13, 14, 15}}, next_msg())
     end)
 
-    it('does not crash for deeply nested variable', function()
+    pending('does not crash for deeply nested variable', function()
       meths.set_var('l', {})
       local nest_level = 1000
       meths.command(('call map(range(%u), "extend(g:, {\'l\': [g:l]})")'):format(nest_level - 1))

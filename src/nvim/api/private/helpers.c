@@ -660,11 +660,24 @@ String buf_get_text(buf_T *buf, int64_t lnum, int64_t start_col, int64_t end_col
   return rv;
 }
 
+static int api_allocs = 0;
+
+void api_unfree(void)
+{
+  api_free_level--;
+  if (api_free_level == 0) {
+    NVIM_PROBE(api_bulk, 1, api_allocs);
+    api_allocs = 0;
+  }
+
+}
+
 void api_free_string(String value)
 {
   if (!value.data) {
     return;
   }
+  if (api_free_level) api_allocs++;
 
   xfree(value.data);
 }
@@ -730,21 +743,29 @@ void api_free_object(Object value)
 
 void api_free_array(Array value)
 {
+  if (!value.items) return;
+  api_free_level++;
   for (size_t i = 0; i < value.size; i++) {
     api_free_object(value.items[i]);
   }
 
+  if (value.items) api_allocs++;
   xfree(value.items);
+  api_unfree();
 }
 
 void api_free_dictionary(Dictionary value)
 {
+  if (!value.items) return;
+  api_free_level++;
   for (size_t i = 0; i < value.size; i++) {
     api_free_string(value.items[i].key);
     api_free_object(value.items[i].value);
   }
 
+  if (value.items) api_allocs++;
   xfree(value.items);
+  api_unfree();
 }
 
 void api_clear_error(Error *value)

@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "nvim/api/extmark.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/context.h"
 #include "nvim/decoration_provider.h"
 #include "nvim/eval.h"
@@ -119,6 +120,9 @@ void *xmalloc(size_t size)
 /// @note Use XFREE_CLEAR() instead, if possible.
 void xfree(void *ptr)
 {
+  if (ptr) {
+    NVIM_PROBE(dofree, 1, api_free_level);
+  }
   free(ptr);
 }
 
