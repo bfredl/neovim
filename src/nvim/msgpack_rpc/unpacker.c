@@ -10,6 +10,31 @@
 # include "msgpack_rpc/unpacker.c.generated.h"
 #endif
 
+static void arena_init_fixblk(MiniArena *arena, char *fix_blk, size_t fix_blk_size)
+{
+  arena->cur_blk = fix_blk;
+  arena->pos = 0;
+  arena->size = 0;
+}
+
+static char *arena_alloc(MiniArena *arena, size_t size, bool align)
+{
+  if (align) {
+    arena->pos = (arena->pos + (ARENA_ALIGN - 1)) & ~(ARENA_ALIGN - 1);
+  }
+  if (arena->pos+size > arena->size) {
+    abort();
+  }
+
+  char *mem = arena->cur_blk + arena->pos;
+  arena->pos += size;
+  return mem;
+}
+
+#define kv_fixsize_arena(a, v, s) \
+  ((v).capacity = (s), \
+   (v).items = (void *)arena_alloc(a, sizeof((v).items[0]) * (v).capacity, true))
+
 Object unpack(const char *data, size_t size, Error *err)
 {
   Unpacker unpacker;
@@ -82,7 +107,10 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
     break;
   case MPACK_TOKEN_BIN:
   case MPACK_TOKEN_STR: {
-    String str = { .data = xmallocz(node->tok.length), .size = node->tok.length };
+
+    char *mem = arena_alloc(&unpacker->arena, node->tok.length+1, false);
+    mem[node->tok.length] = NUL;
+    String str = { .data = mem, .size = node->tok.length };
 
     if (key_location) {
       *key_location = str;
@@ -139,7 +167,7 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 
   case MPACK_TOKEN_ARRAY: {
     Array arr = KV_INITIAL_VALUE;
-    kv_resize(arr, node->tok.length);
+    kv_fixsize_arena(&unpacker->arena, arr, node->tok.length);
     kv_size(arr) = node->tok.length;
     *result = ARRAY_OBJ(arr);
     node->data[0].p = result;
@@ -147,7 +175,7 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
   }
   case MPACK_TOKEN_MAP: {
     Dictionary dict = KV_INITIAL_VALUE;
-    kv_resize(dict, node->tok.length);
+    kv_fixsize_arena(&unpacker->arena, dict, node->tok.length);
     kv_size(dict) = node->tok.length;
     *result = DICTIONARY_OBJ(dict);
     node->data[0].p = result;
@@ -161,12 +189,17 @@ static void api_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 static void api_parse_exit(mpack_parser_t *parser, mpack_node_t *node)
 {}
 
+
+
 void unpacker_init(Unpacker *p)
 {
   mpack_parser_init(&p->parser, 0);
   p->parser.data.p = p;
   mpack_tokbuf_init(&p->reader);
   p->unpack_error = (Error)ERROR_INIT;
+
+  p->first_blk = xmalloc(ARENA_BLOCK_SIZE);
+  arena_init_fixblk(&p->arena, p->first_blk, ARENA_BLOCK_SIZE);
 }
 
 bool unpacker_parse_header(Unpacker *p)

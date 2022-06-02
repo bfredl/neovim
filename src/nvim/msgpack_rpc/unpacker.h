@@ -10,6 +10,18 @@
 #include "nvim/api/private/dispatch.h"
 #include "nvim/api/private/helpers.h"
 
+struct consumed_blk {
+  struct consumed_blk *prev;
+};
+
+#define ARENA_ALIGN sizeof(void*)
+#define ARENA_BLOCK_SIZE 4096
+
+typedef struct {
+  char *cur_blk;
+  size_t pos, size;
+} MiniArena;
+
 typedef struct {
   mpack_parser_t parser;
   mpack_tokbuf_t reader;
@@ -28,7 +40,12 @@ typedef struct {
   Object error;  // error return
   Object result;  // arg list or result
   Error unpack_error;
+
+  MiniArena arena;
+  // one lenght free-list of reusable blocks
+  char *first_blk;
 } Unpacker;
+
 
 // unrecovareble error. unpack_error should be set!
 #define unpacker_closed(p) ((p)->state < 0)
