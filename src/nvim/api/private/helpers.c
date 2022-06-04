@@ -710,6 +710,7 @@ String arena_string(Arena *arena, String str)
 
 void api_free_object(Object value)
 {
+  api_free_level++;
   switch (value.type) {
   case kObjectTypeNil:
   case kObjectTypeBoolean:
@@ -739,6 +740,7 @@ void api_free_object(Object value)
   default:
     abort();
   }
+  api_unfree();
 }
 
 void api_free_array(Array value)
