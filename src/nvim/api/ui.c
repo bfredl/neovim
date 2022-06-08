@@ -29,6 +29,8 @@
 typedef struct {
   uint64_t channel_id;
   Array buffer;
+  const char *cur_event;
+  Array cur_event_buffer;
 
   int hl_id;  // Current highlight for legacy put event.
   Integer cursor_row, cursor_col;  // Intended visible cursor position.
@@ -433,27 +435,30 @@ void nvim_ui_pum_set_bounds(uint64_t channel_id, Float width, Float height, Floa
   ui->pum_pos = true;
 }
 
+static void flush_event(UIData *data)
+{
+  if (kv_size(data->cur_event_buffer)) {
+    ADD(data->buffer, ARRAY_OBJ(data->cur_event_buffer));
+    data->cur_event_buffer = (Array)ARRAY_DICT_INIT;
+  }
+}
+
 /// Pushes data into UI.UIData, to be consumed later by remote_ui_flush().
 static void push_call(UI *ui, const char *name, Array args)
 {
-  Array call = ARRAY_DICT_INIT;
   UIData *data = ui->data;
 
   // To optimize data transfer(especially for "put"), we bundle adjacent
   // calls to same method together, so only add a new call entry if the last
   // method call is different from "name"
-  if (kv_size(data->buffer)) {
-    call = kv_A(data->buffer, kv_size(data->buffer) - 1).data.array;
+
+  if (!data->cur_event || !strequal(data->cur_event, name)) {
+    flush_event(data);
+    data->cur_event = name;
+    ADD(data->cur_event_buffer, STRING_OBJ(cstr_to_string(name)));
   }
 
-  if (!kv_size(call) || strcmp(kv_A(call, 0).data.string.data, name)) {
-    call = (Array)ARRAY_DICT_INIT;
-    ADD(data->buffer, ARRAY_OBJ(call));
-    ADD(call, STRING_OBJ(cstr_to_string(name)));
-  }
-
-  ADD(call, ARRAY_OBJ(args));
-  kv_A(data->buffer, kv_size(data->buffer) - 1).data.array = call;
+  ADD(data->cur_event_buffer, ARRAY_OBJ(args));
 }
 
 static void remote_ui_grid_clear(UI *ui, Integer grid)
@@ -691,11 +696,13 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
 static void remote_ui_flush(UI *ui)
 {
   UIData *data = ui->data;
+  flush_event(data);
   if (data->buffer.size > 0) {
     if (!ui->ui_ext[kUILinegrid]) {
       remote_ui_cursor_goto(ui, data->cursor_row, data->cursor_col);
     }
     push_call(ui, "flush", (Array)ARRAY_DICT_INIT);
+    flush_event(data);
     rpc_send_event(data->channel_id, "redraw", data->buffer);
     data->buffer = (Array)ARRAY_DICT_INIT;
   }
