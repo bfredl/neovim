@@ -21,11 +21,6 @@
 #include "nvim/vim.h"
 #include "nvim/window.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
-# include "api/ui.c.generated.h"
-# include "ui_events_remote.generated.h"
-#endif
-
 typedef struct {
   uint64_t channel_id;
   Array buffer;
@@ -39,6 +34,11 @@ typedef struct {
   Integer client_row, client_col;
   bool wildmenu_active;
 } UIData;
+
+#ifdef INCLUDE_GENERATED_DECLARATIONS
+# include "api/ui.c.generated.h"
+# include "ui_events_remote.generated.h"
+#endif
 
 static PMap(uint64_t) connected_uis = MAP_INIT;
 
@@ -162,6 +162,8 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height, Dictiona
   UIData *data = xmalloc(sizeof(UIData));
   data->channel_id = channel_id;
   data->buffer = (Array)ARRAY_DICT_INIT;
+  data->cur_event_buffer = (Array)ARRAY_DICT_INIT;
+  data->cur_event = NULL;
   data->hl_id = 0;
   data->client_col = -1;
   data->wildmenu_active = false;
