@@ -27,6 +27,10 @@ typedef struct {
   const char *cur_event;
   Array cur_event_buffer;
 
+#define LINE_BUF_SIZE 4096
+  char line_buf[4096];
+  size_t line_buf_pos;
+
   int hl_id;  // Current highlight for legacy put event.
   Integer cursor_row, cursor_col;  // Intended visible cursor position.
 
@@ -41,6 +45,61 @@ typedef struct {
 #endif
 
 static PMap(uint64_t) connected_uis = MAP_INIT;
+
+#define mpack_w(b, byte) *(*b)++ = (char)(byte);
+static void mpack_w2(char **b, uint32_t v)
+{
+  *(*b)++ = (char)((v >> 8) & 0xff);
+  *(*b)++ = (char)(v & 0xff);
+}
+
+static void mpack_w4(char **b, uint32_t v)
+{
+  *(*b)++ = (char)((v >> 24) & 0xff);
+  *(*b)++ = (char)((v >> 16) & 0xff);
+  *(*b)++ = (char)((v >> 8) & 0xff);
+  *(*b)++ = (char)(v & 0xff);
+}
+
+static void mpack_uint(char **buf, uint32_t val)
+{
+  if (val > 0xffff) {
+    // uint 32
+    mpack_w(buf, 0xce);
+    mpack_w4(buf, val);
+  } else if (val > 0xff) {
+    // uint 16
+    mpack_w(buf, 0xcd);
+    mpack_w4(buf, val);
+  } else if (val > 0x7f) {
+    mpack_w(buf, 0xcc);
+    mpack_w(buf, val);
+  } else {
+    mpack_w(buf, val);
+  }
+}
+
+static void mpack_array(char **buf, uint32_t len)
+{
+  if (len < 0x10) {
+    mpack_w(buf, 0x90 | len);
+  } else if (len < 0x10000) {
+    mpack_w(buf, 0xdc);
+    mpack_w2(buf, len);
+  } else {
+    mpack_w(buf, 0xdd);
+    mpack_w4(buf, len);
+  }
+}
+
+static void mpack_schar(char **buf, const char_u *sc)
+{
+  assert(sizeof(schar_T)-1 < 0x20);
+  size_t len = STRLEN(sc);
+  mpack_w(buf, 0xa0 | len);
+  memcpy(*buf, sc, len);
+  *buf += len;
+}
 
 void remote_ui_disconnect(uint64_t channel_id)
 {
@@ -164,6 +223,7 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height, Dictiona
   data->buffer = (Array)ARRAY_DICT_INIT;
   data->cur_event_buffer = (Array)ARRAY_DICT_INIT;
   data->cur_event = NULL;
+  data->line_buf_pos = 0;
   data->hl_id = 0;
   data->client_col = -1;
   data->wildmenu_active = false;
@@ -634,18 +694,42 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
 {
   UIData *data = ui->data;
   if (ui->ui_ext[kUILinegrid]) {
+    char *buf[1] = { data->line_buf };
+    mpack_array(buf, 4);
+    mpack_uint(buf, (uint32_t)grid);
+    mpack_uint(buf, (uint32_t)row);
+    mpack_uint(buf, (uint32_t)startcol);
+
     Array args = ARRAY_DICT_INIT;
     ADD(args, INTEGER_OBJ(grid));
     ADD(args, INTEGER_OBJ(row));
     ADD(args, INTEGER_OBJ(startcol));
     Array cells = ARRAY_DICT_INIT;
-    int repeat = 0;
+    mpack_w(buf, 0xdc);
+    char *arrpos = *buf;
+    mpack_w2(buf, 0xFFEF);  // placeholder
+
+    uint32_t repeat = 0;
     size_t ncells = (size_t)(endcol - startcol);
+    // if (ncells * CELL_SIZE > left_of_buf) { flush(); }
     int last_hl = -1;
+    uint32_t nelem = 0;
     for (size_t i = 0; i < ncells; i++) {
       repeat++;
       if (i == ncells - 1 || attrs[i] != attrs[i + 1]
           || STRCMP(chunk[i], chunk[i + 1])) {
+        uint32_t csize = (repeat > 1) ? 3 : ((attrs[i] != last_hl) ? 2 : 1);
+        nelem++;
+        mpack_array(buf, csize);
+        mpack_schar(buf, chunk[i]);
+        if (csize >= 2) {
+          mpack_uint(buf, (uint32_t)attrs[i]);
+          if (csize >= 3) {
+            mpack_uint(buf, repeat);
+          }
+        }
+        // last_hl = attrs[i];
+
         Array cell = ARRAY_DICT_INIT;
         ADD(cell, STRING_OBJ(cstr_to_string((const char *)chunk[i])));
         if (attrs[i] != last_hl || repeat > 1) {
@@ -661,12 +745,21 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
     }
     if (endcol < clearcol) {
       Array cell = ARRAY_DICT_INIT;
+      nelem++;
+      mpack_array(buf, 3);
+      mpack_schar(buf, (const char_u *)" ");
+      mpack_uint(buf, (uint32_t)clearattr);
+      mpack_uint(buf, (uint32_t)(clearcol-endcol));
       ADD(cell, STRING_OBJ(cstr_to_string(" ")));
       ADD(cell, INTEGER_OBJ(clearattr));
       ADD(cell, INTEGER_OBJ(clearcol - endcol));
       ADD(cells, ARRAY_OBJ(cell));
     }
     ADD(args, ARRAY_OBJ(cells));
+    mpack_w2(&arrpos, nelem);
+
+    size_t buflen = (size_t)(*buf - data->line_buf);
+    NVIM_PROBE(fakeline, 2, data->line_buf, buflen);
 
     push_call(ui, "grid_line", args);
   } else {
