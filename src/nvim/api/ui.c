@@ -30,6 +30,7 @@ typedef struct {
 #define LINE_BUF_SIZE 4096
   char buf[LINE_BUF_SIZE];
   size_t buf_pos;
+
   char *nevents_pos;
   char * ncalls_pos;
   uint32_t nevents;
@@ -108,12 +109,12 @@ static char *mpack_array_dyn16(char **buf)
   return pos;
 }
 
-static void mpack_schar(char **buf, const char_u *sc)
+static void mpack_str(char **buf, const char *str)
 {
   assert(sizeof(schar_T)-1 < 0x20);
-  size_t len = STRLEN(sc);
+  size_t len = STRLEN(str);
   mpack_w(buf, 0xa0 | len);
-  memcpy(*buf, sc, len);
+  memcpy(*buf, str, len);
   *buf += len;
 }
 
@@ -533,6 +534,10 @@ static void push_call(UI *ui, const char *name, Array args)
   if (!data->cur_event || !strequal(data->cur_event, name)) {
     flush_event(data);
     data->cur_event = name;
+    char *buf[1] = { data->buf + data->buf_pos };
+    data->ncalls_pos = mpack_array_dyn16(buf);
+    mpack_str(buf, name);
+
     ADD(data->cur_event_buffer, STRING_OBJ(cstr_to_string(name)));
   }
 
@@ -736,7 +741,7 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
         uint32_t csize = (repeat > 1) ? 3 : ((attrs[i] != last_hl) ? 2 : 1);
         nelem++;
         mpack_array(buf, csize);
-        mpack_schar(buf, chunk[i]);
+        mpack_str(buf, (const char *)chunk[i]);
         if (csize >= 2) {
           mpack_uint(buf, (uint32_t)attrs[i]);
           if (csize >= 3) {
