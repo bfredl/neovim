@@ -28,6 +28,14 @@ typedef struct {
   Array cur_event_buffer;
 
 #define LINE_BUF_SIZE 4096
+  char buf[LINE_BUF_SIZE];
+  size_t buf_pos;
+  char *nevents_pos;
+  char * ncalls_pos;
+  uint32_t nevents;
+  uint32_t ncalls;
+
+#define LINE_BUF_SIZE 4096
   char line_buf[4096];
   size_t line_buf_pos;
 
@@ -90,6 +98,14 @@ static void mpack_array(char **buf, uint32_t len)
     mpack_w(buf, 0xdd);
     mpack_w4(buf, len);
   }
+}
+
+static char *mpack_array_dyn16(char **buf)
+{
+  mpack_w(buf, 0xdc);
+  char *pos = *buf;
+  mpack_w2(buf, 0xFFEF);
+  return pos;
 }
 
 static void mpack_schar(char **buf, const char_u *sc)
@@ -700,14 +716,13 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
     mpack_uint(buf, (uint32_t)row);
     mpack_uint(buf, (uint32_t)startcol);
 
+    char *lenpos = mpack_array_dyn16(buf);
+
     Array args = ARRAY_DICT_INIT;
     ADD(args, INTEGER_OBJ(grid));
     ADD(args, INTEGER_OBJ(row));
     ADD(args, INTEGER_OBJ(startcol));
     Array cells = ARRAY_DICT_INIT;
-    mpack_w(buf, 0xdc);
-    char *arrpos = *buf;
-    mpack_w2(buf, 0xFFEF);  // placeholder
 
     uint32_t repeat = 0;
     size_t ncells = (size_t)(endcol - startcol);
@@ -756,7 +771,7 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
       ADD(cells, ARRAY_OBJ(cell));
     }
     ADD(args, ARRAY_OBJ(cells));
-    mpack_w2(&arrpos, nelem);
+    mpack_w2(&lenpos, nelem);
 
     size_t buflen = (size_t)(*buf - data->line_buf);
     NVIM_PROBE(fakeline, 2, data->line_buf, buflen);
