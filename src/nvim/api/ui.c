@@ -36,10 +36,6 @@ typedef struct {
   uint32_t nevents;
   uint32_t ncalls;
 
-#define LINE_BUF_SIZE 4096
-  char line_buf[4096];
-  size_t line_buf_pos;
-
   int hl_id;  // Current highlight for legacy put event.
   Integer cursor_row, cursor_col;  // Intended visible cursor position.
 
@@ -237,7 +233,6 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height, Dictiona
   UIData *data = xmalloc(sizeof(UIData));
   data->channel_id = channel_id;
   data->cur_event = NULL;
-  data->line_buf_pos = 0;
   data->hl_id = 0;
   data->client_col = -1;
   data->nevents_pos = NULL;
@@ -549,8 +544,7 @@ static inline int write_cb(void* vdata, const char* buf, size_t len)
     return 0;
 }
 
-/// Pushes data into UI.UIData, to be consumed later by remote_ui_flush().
-static void push_call(UI *ui, const char *name, Array args)
+static void prepare_call(UI *ui, const char *name)
 {
   // fprintf(stderr, "\nFOFF %s\n", name);
   UIData *data = ui->data;
@@ -569,6 +563,14 @@ static void push_call(UI *ui, const char *name, Array args)
     data->ncalls = 1;
     data->buf_pos = (size_t)(buf[0]-data->buf);
   }
+
+}
+
+/// Pushes data into UI.UIData, to be consumed later by remote_ui_flush().
+static void push_call(UI *ui, const char *name, Array args)
+{
+  UIData *data = ui->data;
+  prepare_call(ui, name);
 
   msgpack_packer pac;
   msgpack_packer_init(&pac, data, write_cb);
@@ -748,19 +750,15 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
 {
   UIData *data = ui->data;
   if (ui->ui_ext[kUILinegrid]) {
-    char *buf[1] = { data->line_buf };
+    prepare_call(ui, "grid_line");
+    data->ncalls++;
+
+    char *buf[1] = { data->buf + data->buf_pos };
     mpack_array(buf, 4);
     mpack_uint(buf, (uint32_t)grid);
     mpack_uint(buf, (uint32_t)row);
     mpack_uint(buf, (uint32_t)startcol);
-
     char *lenpos = mpack_array_dyn16(buf);
-
-    Array args = ARRAY_DICT_INIT;
-    ADD(args, INTEGER_OBJ(grid));
-    ADD(args, INTEGER_OBJ(row));
-    ADD(args, INTEGER_OBJ(startcol));
-    Array cells = ARRAY_DICT_INIT;
 
     uint32_t repeat = 0;
     size_t ncells = (size_t)(endcol - startcol);
@@ -781,40 +779,23 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
             mpack_uint(buf, repeat);
           }
         }
-        // last_hl = attrs[i];
-
-        Array cell = ARRAY_DICT_INIT;
-        ADD(cell, STRING_OBJ(cstr_to_string((const char *)chunk[i])));
-        if (attrs[i] != last_hl || repeat > 1) {
-          ADD(cell, INTEGER_OBJ(attrs[i]));
-          last_hl = attrs[i];
-        }
-        if (repeat > 1) {
-          ADD(cell, INTEGER_OBJ(repeat));
-        }
-        ADD(cells, ARRAY_OBJ(cell));
+        last_hl = attrs[i];
         repeat = 0;
       }
     }
     if (endcol < clearcol) {
-      Array cell = ARRAY_DICT_INIT;
       nelem++;
       mpack_array(buf, 3);
       mpack_str(buf, " ");
       mpack_uint(buf, (uint32_t)clearattr);
       mpack_uint(buf, (uint32_t)(clearcol-endcol));
-      ADD(cell, STRING_OBJ(cstr_to_string(" ")));
-      ADD(cell, INTEGER_OBJ(clearattr));
-      ADD(cell, INTEGER_OBJ(clearcol - endcol));
-      ADD(cells, ARRAY_OBJ(cell));
     }
-    ADD(args, ARRAY_OBJ(cells));
     mpack_w2(&lenpos, nelem);
+    data->buf_pos = (size_t)(buf[0]-data->buf);
 
-    size_t buflen = (size_t)(*buf - data->line_buf);
-    NVIM_PROBE(fakeline, 2, data->line_buf, buflen);
+    //size_t buflen = (size_t)(*buf - data->line_buf);
+    //NVIM_PROBE(fakeline, 2, data->line_buf, buflen);
 
-    push_call(ui, "grid_line", args);
   } else {
     for (int i = 0; i < endcol - startcol; i++) {
       remote_ui_cursor_goto(ui, row, startcol + i);
