@@ -74,7 +74,7 @@ void rpc_start(Channel *channel)
   }
 }
 
-static Channel *find_rpc_channel(uint64_t id)
+Channel *find_rpc_channel(uint64_t id)
 {
   Channel *chan = find_channel(id);
   if (!chan || !chan->is_rpc || chan->rpc.closed) {
@@ -359,6 +359,17 @@ free_ret:
   xfree(e);
   api_clear_error(&error);
 }
+
+bool rpc_write_raw(uint64_t id, WBuffer *buffer)
+{
+  Channel *channel = find_rpc_channel(id);
+  if (!channel) {
+    abort();
+  }
+
+  return channel_write(channel, buffer);
+}
+
 
 static bool channel_write(Channel *channel, WBuffer *buffer)
 {

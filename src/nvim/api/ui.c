@@ -9,11 +9,13 @@
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/ui.h"
+#include "nvim/channel.h"
 #include "nvim/cursor_shape.h"
 #include "nvim/highlight.h"
 #include "nvim/map.h"
 #include "nvim/memory.h"
 #include "nvim/msgpack_rpc/channel.h"
+#include "nvim/msgpack_rpc/helpers.h"
 #include "nvim/option.h"
 #include "nvim/popupmnu.h"
 #include "nvim/screen.h"
@@ -23,16 +25,14 @@
 
 typedef struct {
   uint64_t channel_id;
-  Array buffer;
   const char *cur_event;
-  Array cur_event_buffer;
 
-#define LINE_BUF_SIZE 4096
-  char buf[LINE_BUF_SIZE];
+#define UI_BUF_SIZE 16*4096
+  char buf[UI_BUF_SIZE];
   size_t buf_pos;
 
   char *nevents_pos;
-  char * ncalls_pos;
+  char *ncalls_pos;
   uint32_t nevents;
   uint32_t ncalls;
 
@@ -125,9 +125,8 @@ void remote_ui_disconnect(uint64_t channel_id)
     return;
   }
   UIData *data = ui->data;
-  api_free_array(data->buffer);  // Destroy pending screen updates.
   pmap_del(uint64_t)(&connected_uis, channel_id);
-  xfree(ui->data);
+  xfree(data);
   ui->data = NULL;  // Flag UI as "stopped".
   ui_detach_impl(ui, channel_id);
   xfree(ui);
@@ -237,12 +236,15 @@ void nvim_ui_attach(uint64_t channel_id, Integer width, Integer height, Dictiona
 
   UIData *data = xmalloc(sizeof(UIData));
   data->channel_id = channel_id;
-  data->buffer = (Array)ARRAY_DICT_INIT;
-  data->cur_event_buffer = (Array)ARRAY_DICT_INIT;
   data->cur_event = NULL;
   data->line_buf_pos = 0;
   data->hl_id = 0;
   data->client_col = -1;
+  data->nevents_pos = NULL;
+  data->nevents = 0;
+  data->ncalls_pos = NULL;
+  data->ncalls = 0;
+  data->buf_pos = 0;
   data->wildmenu_active = false;
   ui->data = data;
 
@@ -516,18 +518,44 @@ void nvim_ui_pum_set_bounds(uint64_t channel_id, Float width, Float height, Floa
 
 static void flush_event(UIData *data)
 {
-  if (kv_size(data->cur_event_buffer)) {
-    ADD(data->buffer, ARRAY_OBJ(data->cur_event_buffer));
-    data->cur_event_buffer = (Array)ARRAY_DICT_INIT;
+  if (data->cur_event) {
+    mpack_w2(&data->ncalls_pos, data->ncalls);
+    data->cur_event = NULL;
   }
+  if (!data->nevents_pos) {
+    assert(data->buf_pos == 0);
+    char *buf[1] = { data->buf + data->buf_pos };
+    // [2, "redraw", [...]]
+    mpack_array(buf, 3);
+    mpack_uint(buf, 2);
+    mpack_str(buf, "redraw");
+    data->nevents_pos = mpack_array_dyn16(buf);
+    data->buf_pos = (size_t)(buf[0]-data->buf);
+  }
+}
+
+static inline int write_cb(void* vdata, const char* buf, size_t len)
+{
+    UIData* data = (UIData *)vdata;
+    if(!buf) return 0;
+    if(UI_BUF_SIZE - data->buf_pos < len) {
+      fprintf(stderr, "FAFFFDFFF\n");
+      abort();
+    }
+
+    memcpy(data->buf+data->buf_pos, buf, len);
+    data->buf_pos += len;
+
+    return 0;
 }
 
 /// Pushes data into UI.UIData, to be consumed later by remote_ui_flush().
 static void push_call(UI *ui, const char *name, Array args)
 {
+  // fprintf(stderr, "\nFOFF %s\n", name);
   UIData *data = ui->data;
 
-  // To optimize data transfer(especially for "put"), we bundle adjacent
+  // To optimize data transfer(especially for "grid_line"), we bundle adjacent
   // calls to same method together, so only add a new call entry if the last
   // method call is different from "name"
 
@@ -537,11 +565,16 @@ static void push_call(UI *ui, const char *name, Array args)
     char *buf[1] = { data->buf + data->buf_pos };
     data->ncalls_pos = mpack_array_dyn16(buf);
     mpack_str(buf, name);
-
-    ADD(data->cur_event_buffer, STRING_OBJ(cstr_to_string(name)));
+    data->nevents++;
+    data->ncalls = 1;
+    data->buf_pos = (size_t)(buf[0]-data->buf);
   }
 
-  ADD(data->cur_event_buffer, ARRAY_OBJ(args));
+  msgpack_packer pac;
+  msgpack_packer_init(&pac, data, write_cb);
+  msgpack_rpc_from_array(args, &pac);
+  api_free_array(args);  // TODO: boooo
+  data->ncalls++;
 }
 
 static void remote_ui_grid_clear(UI *ui, Integer grid)
@@ -767,7 +800,7 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
       Array cell = ARRAY_DICT_INIT;
       nelem++;
       mpack_array(buf, 3);
-      mpack_schar(buf, (const char_u *)" ");
+      mpack_str(buf, " ");
       mpack_uint(buf, (uint32_t)clearattr);
       mpack_uint(buf, (uint32_t)(clearcol-endcol));
       ADD(cell, STRING_OBJ(cstr_to_string(" ")));
@@ -811,15 +844,27 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
 static void remote_ui_flush(UI *ui)
 {
   UIData *data = ui->data;
-  flush_event(data);
-  if (data->buffer.size > 0) {
+  if (data->nevents > 0) {
     if (!ui->ui_ext[kUILinegrid]) {
       remote_ui_cursor_goto(ui, data->cursor_row, data->cursor_col);
     }
+    // TODO: inline
     push_call(ui, "flush", (Array)ARRAY_DICT_INIT);
-    flush_event(data);
-    rpc_send_event(data->channel_id, "redraw", data->buffer);
-    data->buffer = (Array)ARRAY_DICT_INIT;
+    if (data->cur_event) {
+      flush_event(data);
+    }
+    mpack_w2(&data->nevents_pos, data->nevents);
+    data->nevents = 0;
+    data->nevents_pos = NULL;
+
+    // TODO: elide copy by managing wbuffer freelist whataver
+    fprintf(stderr, "\nFIFFFFF %zd\n", data->buf_pos);
+    WBuffer *buf = wstream_new_buffer(xmemdup(data->buf, data->buf_pos), data->buf_pos, 1, xfree);
+    rpc_write_raw(data->channel_id, buf);
+    FILE *fil = fopen("/tmp/filen", "w");
+    fwrite(data->buf, data->buf_pos, 1, fil);
+    fclose(fil);
+    data->buf_pos = 0;
   }
 }
 
