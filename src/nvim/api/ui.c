@@ -30,6 +30,7 @@ typedef struct {
 #define UI_BUF_SIZE 16*4096
   char buf[UI_BUF_SIZE];
   size_t buf_pos;
+  size_t pack_totlen;
 
   char *nevents_pos;
   char *ncalls_pos;
@@ -540,6 +541,7 @@ static inline int write_cb(void* vdata, const char* buf, size_t len)
 
     memcpy(data->buf+data->buf_pos, buf, len);
     data->buf_pos += len;
+    data->pack_totlen += len;
 
     return 0;
 }
@@ -573,10 +575,12 @@ static void push_call(UI *ui, const char *name, Array args)
   prepare_call(ui, name);
 
   msgpack_packer pac;
+  data->pack_totlen = 0;
   msgpack_packer_init(&pac, data, write_cb);
   msgpack_rpc_from_array(args, &pac);
   api_free_array(args);  // TODO: boooo
   data->ncalls++;
+  NVIM_PROBE(push_call, 2, name, data->pack_totlen);
 }
 
 static void remote_ui_grid_clear(UI *ui, Integer grid)
@@ -822,6 +826,29 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
   }
 }
 
+static void remote_ui_flush_buffer(UI *ui)
+{
+  UIData *data = ui->data;
+  if (!data->nevents_pos) {
+    return;
+  }
+  if (data->cur_event) {
+    flush_event(data);
+  }
+  mpack_w2(&data->nevents_pos, data->nevents);
+  data->nevents = 0;
+  data->nevents_pos = NULL;
+
+  // TODO: elide copy by managing wbuffer freelist whataver
+  NVIM_PROBE(flush_buf, 1, data->buf_pos);
+  WBuffer *buf = wstream_new_buffer(xmemdup(data->buf, data->buf_pos), data->buf_pos, 1, xfree);
+  rpc_write_raw(data->channel_id, buf);
+  FILE *fil = fopen("/tmp/filen", "w");
+  fwrite(data->buf, data->buf_pos, 1, fil);
+  fclose(fil);
+  data->buf_pos = 0;
+}
+
 static void remote_ui_flush(UI *ui)
 {
   UIData *data = ui->data;
@@ -831,21 +858,7 @@ static void remote_ui_flush(UI *ui)
     }
     // TODO: inline
     push_call(ui, "flush", (Array)ARRAY_DICT_INIT);
-    if (data->cur_event) {
-      flush_event(data);
-    }
-    mpack_w2(&data->nevents_pos, data->nevents);
-    data->nevents = 0;
-    data->nevents_pos = NULL;
-
-    // TODO: elide copy by managing wbuffer freelist whataver
-    fprintf(stderr, "\nFIFFFFF %zd\n", data->buf_pos);
-    WBuffer *buf = wstream_new_buffer(xmemdup(data->buf, data->buf_pos), data->buf_pos, 1, xfree);
-    rpc_write_raw(data->channel_id, buf);
-    FILE *fil = fopen("/tmp/filen", "w");
-    fwrite(data->buf, data->buf_pos, 1, fil);
-    fclose(fil);
-    data->buf_pos = 0;
+    remote_ui_flush_buffer(ui);
   }
 }
 
