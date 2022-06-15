@@ -68,11 +68,22 @@
 #define ADD(array, item) \
   kv_push(array, item)
 
+#define ADD_C(array, item) \
+  kv_push_c(array, item)
+
 #define FIXED_TEMP_ARRAY(name, fixsize) \
   Array name = ARRAY_DICT_INIT; \
   Object name##__items[fixsize]; \
   name.size = fixsize; \
   name.items = name##__items; \
+
+#define MAXSIZE_TEMP_ARRAY(name, maxsize) \
+  Array name = ARRAY_DICT_INIT; \
+  Object name##__items[maxsize]; \
+  name.capacity = maxsize; \
+  name.items = name##__items; \
+
+#define cbuf_as_string(d, s) ((String) { .data = d, .size = s })
 
 #define STATIC_CSTR_AS_STRING(s) ((String) { .data = s, .size = sizeof(s) - 1 })
 

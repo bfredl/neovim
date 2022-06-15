@@ -114,12 +114,16 @@
 #define kv_concat(v, str) kv_concat_len(v, str, STRLEN(str))
 #define kv_splice(v1, v0) kv_concat_len(v1, (v0).items, (v0).size)
 
+
 #define kv_pushp(v) \
   ((((v).size == (v).capacity) ? (kv_resize_full(v), 0) : 0), \
    ((v).items + ((v).size++)))
 
 #define kv_push(v, x) \
   (*kv_pushp(v) = (x))
+
+#define kv_pushp_c(v) ((v).items + ((v).size++))
+#define kv_push_c(v, x) (*kv_pushp_c(v) = (x))
 
 #define kv_a(v, i) \
   (*(((v).capacity <= (size_t)(i) \

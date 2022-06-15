@@ -3320,7 +3320,7 @@ static void ui_ext_cmdline_show(CmdlineInfo *line)
     memset(buf, '*', len);
     Array item = ARRAY_DICT_INIT;
     ADD(item, INTEGER_OBJ(0));
-    ADD(item, STRING_OBJ(((String) { .data = buf, .size = len })));
+    ADD(item, STRING_OBJ(cbuf_as_string(buf, len)));
     ADD(content, ARRAY_OBJ(item));
   } else if (kv_size(line->last_colors.colors)) {
     for (size_t i = 0; i < kv_size(line->last_colors.colors); i++) {
@@ -3329,19 +3329,19 @@ static void ui_ext_cmdline_show(CmdlineInfo *line)
       ADD(item, INTEGER_OBJ(chunk.attr));
 
       assert(chunk.end >= chunk.start);
-      ADD(item, STRING_OBJ(cbuf_to_string((char *)line->cmdbuff + chunk.start,
+      ADD(item, STRING_OBJ(cbuf_as_string((char *)line->cmdbuff + chunk.start,
                                           (size_t)(chunk.end - chunk.start))));
       ADD(content, ARRAY_OBJ(item));
     }
   } else {
     Array item = ARRAY_DICT_INIT;
     ADD(item, INTEGER_OBJ(0));
-    ADD(item, STRING_OBJ(cstr_to_string((char *)(line->cmdbuff))));
+    ADD(item, STRING_OBJ(cstr_as_string((char *)(line->cmdbuff))));
     ADD(content, ARRAY_OBJ(item));
   }
   ui_call_cmdline_show(content, line->cmdpos,
                        cchar_to_string((char)line->cmdfirstc),
-                       cstr_to_string((char *)(line->cmdprompt)),
+                       cstr_as_string((char *)(line->cmdprompt)),
                        line->cmdindent,
                        line->level);
   if (line->special_char) {
@@ -3364,9 +3364,9 @@ void ui_ext_cmdline_block_append(size_t indent, const char *line)
   ADD(content, ARRAY_OBJ(item));
   ADD(cmdline_block, ARRAY_OBJ(content));
   if (cmdline_block.size > 1) {
-    ui_call_cmdline_block_append(copy_array(content));
+    ui_call_cmdline_block_append(content);
   } else {
-    ui_call_cmdline_block_show(copy_array(cmdline_block));
+    ui_call_cmdline_block_show(cmdline_block);
   }
 }
 

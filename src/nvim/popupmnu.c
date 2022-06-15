@@ -162,6 +162,7 @@ void pum_display(pumitem_T *array, int size, int selected, bool array_changed, i
         }
         ui_call_popupmenu_show(arr, selected, pum_win_row, cursor_col,
                                pum_anchor_grid);
+        api_free_array(arr);  // TODO
       } else {
         ui_call_popupmenu_select(selected);
         return;
