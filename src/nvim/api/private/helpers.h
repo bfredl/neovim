@@ -63,6 +63,10 @@
 #define PUT(dict, k, v) \
   kv_push(dict, ((KeyValuePair) { .key = cstr_to_string(k), .value = v }))
 
+#define PUT_C(dict, k, v) \
+  kv_push_c(dict, ((KeyValuePair) { .key = cstr_as_string(k), .value = v }))
+
+
 #define PUT_BOOL(dict, name, condition) PUT(dict, name, BOOLEAN_OBJ(condition));
 
 #define ADD(array, item) \

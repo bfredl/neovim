@@ -1047,20 +1047,20 @@ void ex_messages(void *const eap_p)
     for (; p != NULL; p = p->next) {
       if (kv_size(p->multiattr) || (p->msg && p->msg[0])) {
         Array entry = ARRAY_DICT_INIT;
-        ADD(entry, STRING_OBJ(cstr_as_string((char *)p->kind)));
+        ADD(entry, STRING_OBJ(cstr_to_string(p->kind)));
         Array content = ARRAY_DICT_INIT;
         if (kv_size(p->multiattr)) {
           for (uint32_t i = 0; i < kv_size(p->multiattr); i++) {
             HlMessageChunk chunk = kv_A(p->multiattr, i);
             Array content_entry = ARRAY_DICT_INIT;
             ADD(content_entry, INTEGER_OBJ(chunk.attr));
-            ADD(content_entry, STRING_OBJ(chunk.text));
+            ADD(content_entry, STRING_OBJ(copy_string(chunk.text)));
             ADD(content, ARRAY_OBJ(content_entry));
           }
         } else if (p->msg && p->msg[0]) {
           Array content_entry = ARRAY_DICT_INIT;
           ADD(content_entry, INTEGER_OBJ(p->attr));
-          ADD(content_entry, STRING_OBJ(cstr_as_string((char *)(p->msg))));
+          ADD(content_entry, STRING_OBJ(cstr_to_string((char *)(p->msg))));
           ADD(content, ARRAY_OBJ(content_entry));
         }
         ADD(entry, ARRAY_OBJ(content));
@@ -1068,6 +1068,7 @@ void ex_messages(void *const eap_p)
       }
     }
     ui_call_msg_history_show(entries);
+    api_free_array(entries);
     msg_ext_history_visible = true;
     wait_return(false);
   } else {
@@ -3142,6 +3143,7 @@ void msg_ext_ui_flush(void)
       msg_ext_visible++;
     }
     msg_ext_kind = NULL;
+    api_free_array(msg_ext_chunks);
     msg_ext_chunks = (Array)ARRAY_DICT_INIT;
     msg_ext_cur_len = 0;
     msg_ext_overwrite = false;

@@ -6341,35 +6341,45 @@ void draw_tabline(void)
 
 void ui_ext_tabline_update(void)
 {
-  Array tabs = ARRAY_DICT_INIT;
+  Arena arena = ARENA_EMPTY;
+  arena_start(&arena, &ui_ext_fixblk);
+
+  size_t n_tabs = 0;
+  FOR_ALL_TABS(tp) n_tabs++;
+
+  Array tabs = arena_array(&arena, n_tabs);
   FOR_ALL_TABS(tp) {
-    Dictionary tab_info = ARRAY_DICT_INIT;
-    PUT(tab_info, "tab", TABPAGE_OBJ(tp->handle));
+    Dictionary tab_info = arena_dict(&arena, 2);
+    PUT_C(tab_info, "tab", TABPAGE_OBJ(tp->handle));
 
     win_T *cwp = (tp == curtab) ? curwin : tp->tp_curwin;
     get_trans_bufname(cwp->w_buffer);
-    PUT(tab_info, "name", STRING_OBJ(cstr_to_string((char *)NameBuff)));
+    PUT_C(tab_info, "name", STRING_OBJ(arena_string(&arena, cstr_as_string((char *)NameBuff))));
 
-    ADD(tabs, DICTIONARY_OBJ(tab_info));
+    ADD_C(tabs, DICTIONARY_OBJ(tab_info));
   }
 
-  Array buffers = ARRAY_DICT_INIT;
+  size_t n_buffers = 0;
+  FOR_ALL_BUFFERS(buf) n_buffers++;
+
+  Array buffers = arena_array(&arena, n_buffers);
   FOR_ALL_BUFFERS(buf) {
     // Do not include unlisted buffers
     if (!buf->b_p_bl) {
       continue;
     }
 
-    Dictionary buffer_info = ARRAY_DICT_INIT;
-    PUT(buffer_info, "buffer", BUFFER_OBJ(buf->handle));
+    Dictionary buffer_info = arena_dict(&arena, 2);
+    PUT_C(buffer_info, "buffer", BUFFER_OBJ(buf->handle));
 
     get_trans_bufname(buf);
-    PUT(buffer_info, "name", STRING_OBJ(cstr_to_string((char *)NameBuff)));
+    PUT_C(buffer_info, "name", STRING_OBJ(arena_string(&arena, cstr_as_string((char *)NameBuff))));
 
-    ADD(buffers, DICTIONARY_OBJ(buffer_info));
+    ADD_C(buffers, DICTIONARY_OBJ(buffer_info));
   }
 
   ui_call_tabline_update(curtab->handle, tabs, curbuf->handle, buffers);
+  arena_mem_free(arena_finish(&arena), &ui_ext_fixblk);
 }
 
 /*

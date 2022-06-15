@@ -128,6 +128,11 @@ void ui_init(void)
   kv_ensure_space(call_buf, 16);
 }
 
+void ui_free_all_mem(void)
+{
+  kv_destroy(call_buf);
+}
+
 void ui_builtin_start(void)
 {
 #ifdef FEAT_TUI

@@ -123,6 +123,7 @@ void remote_ui_disconnect(uint64_t channel_id)
     return;
   }
   UIData *data = ui->data;
+  kv_destroy(data->call_buf);
   pmap_del(uint64_t)(&connected_uis, channel_id);
   xfree(data);
   ui->data = NULL;  // Flag UI as "stopped".
