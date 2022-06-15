@@ -3137,7 +3137,7 @@ void msg_ext_ui_flush(void)
 
   msg_ext_emit_chunk();
   if (msg_ext_chunks.size > 0) {
-    ui_call_msg_show(cstr_to_string(msg_ext_kind),
+    ui_call_msg_show(cstr_as_string((char *)msg_ext_kind),
                      msg_ext_chunks, msg_ext_overwrite);
     if (!msg_ext_overwrite) {
       msg_ext_visible++;
@@ -3157,6 +3157,7 @@ void msg_ext_flush_showmode(void)
   if (ui_has(kUIMessages)) {
     msg_ext_emit_chunk();
     ui_call_msg_showmode(msg_ext_chunks);
+    api_free_array(msg_ext_chunks);
     msg_ext_chunks = (Array)ARRAY_DICT_INIT;
     msg_ext_cur_len = 0;
   }
