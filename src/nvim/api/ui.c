@@ -822,17 +822,19 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
           || STRCMP(chunk[i], chunk[i + 1])) {
         size_t buf_pos = (size_t)(buf[0] - data->buf);
         if (UI_BUF_SIZE - buf_pos < 2*(1+2+sizeof(schar_T)+5+5)) {
+          // TODO: this is not covered by tests.
+          // add some fat unicode long lines to test this case
           mpack_w2(&lenpos, nelem);
           data->buf_pos = (size_t)(buf[0]-data->buf);
           remote_ui_flush_buf(ui);
 
-          fprintf(stderr, "REBOOT\n");
           prepare_call(ui, "grid_line");
+          buf[0] = data->buf + data->buf_pos;
           data->ncalls++;
           mpack_array(buf, 4);
           mpack_uint(buf, (uint32_t)grid);
           mpack_uint(buf, (uint32_t)row);
-          mpack_uint(buf, (uint32_t)startcol+(uint32_t)i);
+          mpack_uint(buf, (uint32_t)startcol+(uint32_t)i-repeat+1);
           lenpos = mpack_array_dyn16(buf);
           nelem = 0;
           last_hl = -1;
