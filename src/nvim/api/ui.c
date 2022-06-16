@@ -79,7 +79,7 @@ static void mpack_uint(char **buf, uint32_t val)
   } else if (val > 0xff) {
     // uint 16
     mpack_w(buf, 0xcd);
-    mpack_w4(buf, val);
+    mpack_w2(buf, val);
   } else if (val > 0x7f) {
     mpack_w(buf, 0xcc);
     mpack_w(buf, val);
@@ -814,13 +814,29 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
 
     uint32_t repeat = 0;
     size_t ncells = (size_t)(endcol - startcol);
-    // if (ncells * CELL_SIZE > left_of_buf) { flush(); }
     int last_hl = -1;
     uint32_t nelem = 0;
     for (size_t i = 0; i < ncells; i++) {
       repeat++;
       if (i == ncells - 1 || attrs[i] != attrs[i + 1]
           || STRCMP(chunk[i], chunk[i + 1])) {
+        size_t buf_pos = (size_t)(buf[0] - data->buf);
+        if (UI_BUF_SIZE - buf_pos < 2*(1+2+sizeof(schar_T)+5+5)) {
+          mpack_w2(&lenpos, nelem);
+          data->buf_pos = (size_t)(buf[0]-data->buf);
+          remote_ui_flush_buf(ui);
+
+          fprintf(stderr, "REBOOT\n");
+          prepare_call(ui, "grid_line");
+          data->ncalls++;
+          mpack_array(buf, 4);
+          mpack_uint(buf, (uint32_t)grid);
+          mpack_uint(buf, (uint32_t)row);
+          mpack_uint(buf, (uint32_t)startcol+(uint32_t)i);
+          lenpos = mpack_array_dyn16(buf);
+          nelem = 0;
+          last_hl = -1;
+        }
         uint32_t csize = (repeat > 1) ? 3 : ((attrs[i] != last_hl) ? 2 : 1);
         nelem++;
         mpack_array(buf, csize);

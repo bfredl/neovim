@@ -1263,11 +1263,11 @@ void wait_return(int redraw)
     msg_ext_keep_after_cmdline = true;
   }
 
-  // If the window size changed set_shellsize() will redraw the screen.
+  // If the screen size changed screen_resize() will redraw the screen.
   // Otherwise the screen is only redrawn if 'redraw' is set and no ':'
   // typed.
   tmpState = State;
-  State = oldState;                 // restore State before set_shellsize
+  State = oldState;  // restore State before screen_resize()
   setmouse();
   msg_check();
   need_wait_return = false;

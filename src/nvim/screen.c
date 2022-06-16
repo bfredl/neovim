@@ -5615,14 +5615,14 @@ retry:
    */
   ++RedrawingDisabled;
 
-  // win_new_shellsize will recompute floats position, but tell the
+  // win_new_screensize will recompute floats position, but tell the
   // compositor to not redraw them yet
   ui_comp_set_screen_valid(false);
   if (msg_grid.chars) {
     msg_grid_invalid = true;
   }
 
-  win_new_shellsize();      // fit the windows in the new sized shell
+  win_new_screensize();      // fit the windows in the new sized shell
 
   comp_col();           // recompute columns for shown command and ruler
 
@@ -6785,7 +6785,7 @@ void screen_resize(int width, int height)
 
   Rows = height;
   Columns = width;
-  check_shellsize();
+  check_screensize();
   int max_p_ch = Rows - min_rows() + 1;
   if (!ui_has(kUIMessages) && p_ch > 0 && p_ch > max_p_ch) {
     p_ch = max_p_ch ? max_p_ch : 1;
@@ -6864,46 +6864,20 @@ void screen_resize(int width, int height)
 
 /// Check if the new Nvim application "shell" dimensions are valid.
 /// Correct it if it's too small or way too big.
-void check_shellsize(void)
+void check_screensize(void)
 {
+  // Limit Rows and Columns to avoid an overflow in Rows * Columns.
   if (Rows < min_rows()) {
     // need room for one window and command line
     Rows = min_rows();
+  } else if (Rows > 1000) {
+    Rows = 1000;
   }
-  limit_screen_size();
-}
 
-// Limit Rows and Columns to avoid an overflow in Rows * Columns.
-void limit_screen_size(void)
-{
   if (Columns < MIN_COLUMNS) {
     Columns = MIN_COLUMNS;
   } else if (Columns > 10000) {
     Columns = 10000;
-  }
-
-  if (Rows > 1000) {
-    Rows = 1000;
-  }
-}
-
-void win_new_shellsize(void)
-{
-  static long old_Rows = 0;
-  static long old_Columns = 0;
-
-  if (old_Rows != Rows) {
-    // If 'window' uses the whole screen, keep it using that.
-    // Don't change it when set with "-w size" on the command line.
-    if (p_window == old_Rows - 1 || (old_Rows == 0 && p_window == 0)) {
-      p_window = Rows - 1;
-    }
-    old_Rows = Rows;
-    shell_new_rows();  // update window sizes
-  }
-  if (old_Columns != Columns) {
-    old_Columns = Columns;
-    shell_new_columns();  // update window sizes
   }
 }
 
