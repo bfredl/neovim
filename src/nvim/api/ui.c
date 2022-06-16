@@ -27,11 +27,13 @@ typedef struct {
   uint64_t channel_id;
   const char *cur_event;
 
-#define UI_BUF_SIZE 16*4096
+#define UI_BUF_SIZE 4096
   char buf[UI_BUF_SIZE];
+#define EVENT_BUF_SIZE 256
   size_t buf_pos;
   size_t pack_totlen;
   Array call_buf;
+  bool buf_overflow;
 
   char *nevents_pos;
   char *ncalls_pos;
@@ -536,24 +538,29 @@ static void flush_event(UIData *data)
 
 static inline int write_cb(void* vdata, const char* buf, size_t len)
 {
-    UIData* data = (UIData *)vdata;
-    if(!buf) return 0;
-    if(UI_BUF_SIZE - data->buf_pos < len) {
-      fprintf(stderr, "FAFFFDFFF\n");
-      abort();
-    }
+  UIData* data = (UIData *)vdata;
+  if(!buf) return 0;
 
-    memcpy(data->buf+data->buf_pos, buf, len);
-    data->buf_pos += len;
-    data->pack_totlen += len;
-
+  data->pack_totlen += len;
+  if(UI_BUF_SIZE - data->buf_pos < len) {
+    data->buf_overflow = true;
     return 0;
+  }
+
+  memcpy(data->buf+data->buf_pos, buf, len);
+  data->buf_pos += len;
+
+  return 0;
 }
 
-static void prepare_call(UI *ui, const char *name)
+static bool prepare_call(UI *ui, const char *name)
 {
   // fprintf(stderr, "\nFOFF %s\n", name);
   UIData *data = ui->data;
+
+  if (data->buf_pos > UI_BUF_SIZE - EVENT_BUF_SIZE) {
+    remote_ui_flush_buf(ui);
+  }
 
   // To optimize data transfer(especially for "grid_line"), we bundle adjacent
   // calls to same method together, so only add a new call entry if the last
@@ -568,20 +575,47 @@ static void prepare_call(UI *ui, const char *name)
     data->nevents++;
     data->ncalls = 1;
     data->buf_pos = (size_t)(buf[0]-data->buf);
+    return true;
   }
 
+  return false;
 }
 
 /// Pushes data into UI.UIData, to be consumed later by remote_ui_flush().
 static void push_call(UI *ui, const char *name, Array args)
 {
   UIData *data = ui->data;
-  prepare_call(ui, name);
+  bool pending = data->nevents_pos;
+  size_t buf_pos_save = data->buf_pos;
+
+  bool new_event = prepare_call(ui, name);
 
   msgpack_packer pac;
   data->pack_totlen = 0;
+  data->buf_overflow = false;
   msgpack_packer_init(&pac, data, write_cb);
   msgpack_rpc_from_array(args, &pac);
+  if (data->buf_overflow) {
+    data->buf_pos = buf_pos_save;
+    if (new_event) {
+      data->cur_event = NULL;
+      data->nevents--;
+    }
+    if (pending) {
+      remote_ui_flush_buf(ui);
+    }
+    NVIM_PROBE(buf_overflow, 2, name, data->pack_totlen);
+
+    if (data->pack_totlen > UI_BUF_SIZE - strlen(name) - 64) {
+      // need a bigger temp buffer for this event only
+      abort();
+    }
+
+    data->pack_totlen = 0;
+    data->buf_overflow = false;
+    prepare_call(ui, name);
+    msgpack_rpc_from_array(args, &pac);
+  }
   data->ncalls++;
   NVIM_PROBE(push_call, 2, name, data->pack_totlen);
 }
@@ -840,7 +874,7 @@ static void remote_ui_raw_line(UI *ui, Integer grid, Integer row, Integer startc
   }
 }
 
-static void remote_ui_flush_buffer(UI *ui)
+static void remote_ui_flush_buf(UI *ui)
 {
   UIData *data = ui->data;
   if (!data->nevents_pos) {
@@ -872,7 +906,7 @@ static void remote_ui_flush(UI *ui)
   if (data->nevents > 0) {
     // TODO: inline
     push_call(ui, "flush", (Array)ARRAY_DICT_INIT);
-    remote_ui_flush_buffer(ui);
+    remote_ui_flush_buf(ui);
   }
 }
 
