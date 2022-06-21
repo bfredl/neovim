@@ -121,7 +121,7 @@ void *xmalloc(size_t size)
 void xfree(void *ptr)
 {
   if (ptr) {
-    NVIM_PROBE(dofree, 1, api_free_level);
+    NVIM_PROBE(dofree, 2, api_free_level, tv_clear_level);
   }
   free(ptr);
 }

@@ -452,6 +452,7 @@ EXTERN frame_T *topframe;      // top of the window frame tree
 // one in the list, "curtab" is the current one. "lastused_tabpage" is the
 // last used one.
 EXTERN tabpage_T *first_tabpage;
+EXTERN int tv_clear_level INIT(= 0);
 EXTERN tabpage_T *curtab;
 EXTERN tabpage_T *lastused_tabpage;
 EXTERN bool redraw_tabline INIT(= false);  // need to redraw tabline

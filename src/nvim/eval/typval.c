@@ -2537,7 +2537,9 @@ void tv_clear(typval_T *const tv)
     //
     // If situation changes and this argument will be used, translate it in the
     // place where it is used.
+    tv_clear_level++;
     const int evn_ret = encode_vim_to_nothing(NULL, tv, "tv_clear() argument");
+    tv_clear_level--;
     (void)evn_ret;
     assert(evn_ret == OK);
   }

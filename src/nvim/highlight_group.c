@@ -958,6 +958,7 @@ void do_highlight(const char *line, const bool forceit, const bool init)
       while (*linep && !ascii_iswhite(*linep) && *linep != '=') {
         linep++;
       }
+      NVIM_PROBE(ding, 1, key);
       xfree(key);
       key = (char *)vim_strnsave_up((const char_u *)key_start,
                                     (size_t)(linep - key_start));
@@ -1000,6 +1001,7 @@ void do_highlight(const char *line, const bool forceit, const bool init)
         error = true;
         break;
       }
+      NVIM_PROBE(dang, 1, arg);
       xfree(arg);
       arg = xstrndup(arg_start, (size_t)(linep - arg_start));
 
@@ -1294,6 +1296,7 @@ void free_highlight(void)
 {
   for (int i = 0; i < highlight_ga.ga_len; i++) {
     highlight_clear(i);
+    NVIM_PROBE(longen, 1, i);
     xfree(HL_TABLE()[i].sg_name);
     xfree(HL_TABLE()[i].sg_name_u);
   }

@@ -678,6 +678,7 @@ void api_free_string(String value)
     return;
   }
   if (api_free_level) api_allocs++;
+  NVIM_PROBE(freestring, 1, value.size);
 
   xfree(value.data);
 }
