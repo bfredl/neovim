@@ -635,16 +635,21 @@ static int buf_do_map(int maptype, MapArguments *args, int mode, bool is_abbrev,
     // "bar" because of the abbreviation.
     for (int round = 0; (round == 0 || maptype == 1) && round <= 1
          && !did_it && !got_int; round++) {
-      // need to loop over all hash lists
-      for (int hash = 0; hash < 256 && !got_int; hash++) {
-        if (is_abbrev) {
-          if (hash > 0) {  // there is only one abbreviation list
-            break;
-          }
-          mpp = abbr_table;
-        } else {
-          mpp = &(map_table[hash]);
-        }
+
+      mapblock_T **(hashblocks[2]) = {NULL, NULL};
+      int hashes[2] = {0, 0};
+      if (is_abbrev) {
+        hashblocks[0] = abbr_table;
+      } else {
+        int hash = MAP_HASH(mode, lhs[0]);
+        hashes[0]= hash;
+        hashes[1]= hash ^ 0x80;
+        hashblocks[0]= &map_table[hash];
+        hashblocks[1]= &map_table[hash ^ 0x80];
+      }
+      // need to loop over DOS hash lists
+      for (int ihash = 0; ihash < 2 && hashblocks[ihash] && !got_int; ihash++) {
+        mpp = hashblocks[ihash];
         for (mp = *mpp; mp != NULL && !got_int; mp = *mpp) {
           if ((mp->m_mode & mode) == 0) {
             // skip entries with wrong mode
@@ -742,7 +747,7 @@ static int buf_do_map(int maptype, MapArguments *args, int mode, bool is_abbrev,
 
               // May need to put this entry into another hash list.
               int new_hash = MAP_HASH(mp->m_mode, mp->m_keys[0]);
-              if (!is_abbrev && new_hash != hash) {
+              if (!is_abbrev && new_hash != hashes[ihash]) {
                 *mpp = mp->m_next;
                 mp->m_next = map_table[new_hash];
                 map_table[new_hash] = mp;
