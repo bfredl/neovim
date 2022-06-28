@@ -782,7 +782,7 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer line, Integer
   }
 
   // TODO(bfredl): synergize these two branches even more
-  if (ephemeral && decor_state.buf == buf) {
+  if (ephemeral && decor_state.win && decor_state.win->w_buffer == buf) {
     decor_add_ephemeral((int)line, (int)col, line2, col2, &decor, (uint64_t)ns_id, id);
   } else {
     if (ephemeral) {
@@ -1211,13 +1211,13 @@ Array nvim__buf_intersect(Buffer buffer, Integer row, Integer col, Error *err)
       break;
     }
 
-    ExtmarkItem *item = extmark_get_item(buf, id, false);
-    Array a = ARRAY_DICT_INIT;
-    ADD(a, INTEGER_OBJ((Integer)item->mark_id));
-    if (item->decor) {
-      ADD(a, INTEGER_OBJ(item->decor->hl_id));
-    }
-    ADD(retval, ARRAY_OBJ(a));
+    //ExtmarkItem *item = extmark_get_item(buf, id, false);
+    //Array a = ARRAY_DICT_INIT;
+    //ADD(a, INTEGER_OBJ((Integer)item->mark_id));
+    //if (item->decor) {
+    //  ADD(a, INTEGER_OBJ(item->decor->hl_id));
+    //}
+    //ADD(retval, ARRAY_OBJ(a));
   }
   return retval;
 }
