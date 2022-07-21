@@ -55,6 +55,13 @@ typedef struct {
   uint16_t priority;
   Decoration *decor_full;
 } mtkey_t;
+
+
+typedef struct {
+  mtkey_t start;
+  mtpos_t end_pos;
+} mtpair_t;
+
 #define MT_INVALID_KEY (mtkey_t) { { -1, -1 }, 0, 0, 0, 0, 0, NULL }
 
 #define MT_FLAG_REAL (((uint16_t)1) << 0)

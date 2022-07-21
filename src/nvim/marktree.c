@@ -945,7 +945,7 @@ bool marktree_itr_get_intersect(MarkTree *b, int row, int col,
 /// When intersecting intevals are exhausted, 0 will be returned. `itr`
 /// is then valid as an ordinary iterator, as if `marktree_itr_get` was
 /// called with the intersected position.
-uint64_t marktree_itr_step_intersect(MarkTree *b, MarkTreeIter *itr)
+bool marktree_itr_step_intersect(MarkTree *b, MarkTreeIter *itr, mtpair_t *pair)
 {
   while (itr->i == -1) {
     if (itr->intersect_idx < kv_size(itr->x->intersect)) {
