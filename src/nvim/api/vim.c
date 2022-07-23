@@ -1881,7 +1881,7 @@ Object nvim_get_proc(Integer pid, Error *err)
   }
 #else
   // Cross-platform process info APIs are miserable, so use `ps` instead.
-  FIXED_TEMP_ARRAY(a, 1);
+  MAXSIZE_TEMP_ARRAY(a, 1);
   ADD(a, INTEGER_OBJ(pid));
   Object o = NLUA_EXEC_STATIC("return vim._os_proc_info(...)", a, err);
   if (o.type == kObjectTypeArray && o.data.array.size == 0) {

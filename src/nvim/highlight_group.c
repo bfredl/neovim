@@ -1810,7 +1810,7 @@ int syn_get_final_id(int hl_id)
   return syn_ns_get_final_id(&id, hl_id);
 }
 
-int syn_ns_get_final_id(int *ns_id, int hl_id)
+int syn_ns_get_final_id(int *ns_id, int hl_id) {
   int count;
 
   if (hl_id > highlight_ga.ga_len || hl_id < 1) {

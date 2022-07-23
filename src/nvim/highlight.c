@@ -263,7 +263,7 @@ void hl_check_ns(void)
   hl_attr_active = highlight_attr;
   if (ns > 0) {
 
-    NSHlAttr *hl_def = (NSHlAttr *)pmap_get(handle_T)(ns_hl_attr, ns);
+    NSHlAttr *hl_def = (NSHlAttr *)pmap_get(handle_T)(&ns_hl_attr, ns);
     if (hl_def) {
       hl_attr_active = *hl_def;
 
@@ -325,7 +325,7 @@ void update_window_hl(win_T *wp, bool invalid)
   if (ns_id != wp->w_ns_hl_active) {
     wp->w_ns_hl_active = ns_id;
 
-    wp->w_ns_hl_attr = *(NSHlAttr *)pmap_get(handle_T)(ns_hl_attr, ns_id);
+    wp->w_ns_hl_attr = *(NSHlAttr *)pmap_get(handle_T)(&ns_hl_attr, ns_id);
     if (!wp->w_ns_hl_attr) {
       wp->w_ns_hl_attr = highlight_attr; //TODO: what the hell
     }
@@ -409,7 +409,7 @@ void update_ns_hl(int ns_id)
     return;
   }
 
-  NSHlAttr **alloc = (NSHlAttr **)pmap_ref(handle_T)(ns_hl_attr, ns_id, true);
+  NSHlAttr **alloc = (NSHlAttr **)pmap_ref(handle_T)(&ns_hl_attr, ns_id, true);
   if (*alloc == NULL) {
     *alloc = xmalloc(sizeof(**alloc));
   }

@@ -3980,13 +3980,13 @@ static bool parse_winhl_opt(win_T *wp)
 
   Error err = ERROR_INIT;
 
-  FIXED_TEMP_ARRAY(args, 2);
-  args.items[0] = INTEGER_OBJ((Integer)wp->w_ns_hl); // NOLINT
-  args.items[1] = STRING_OBJ(cstr_as_string((char *)p));
+  MAXSIZE_TEMP_ARRAY(args, 2);
+  ADD_C(args, INTEGER_OBJ((Integer)wp->w_ns_hl)); // NOLINT
+  ADD_C(args, STRING_OBJ(cstr_as_string((char *)p)));
   NLUA_EXEC_STATIC("return vim._parse_winhl(...)", args, &err);
 
   if (ERROR_SET(&err)) {
-    EMSG(err.msg);
+    emsg(err.msg);
     return false;
   }
 
