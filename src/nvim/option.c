@@ -84,6 +84,8 @@
 #endif
 #include "nvim/api/private/helpers.h"
 #include "nvim/lua/executor.h"
+#include "nvim/api/extmark.h"
+#include "nvim/api/vim.h"
 #include "nvim/os/input.h"
 #include "nvim/os/lang.h"
 #include "nvim/quickfix.h"
@@ -3958,13 +3960,29 @@ static char *compile_cap_prog(synblock_T *synblock)
 }
 
 /// Handle setting `winhighlight' in window "wp"
-static bool parse_winhl_opt(win_T *wp)
+bool parse_winhl_opt(win_T *wp)
 {
-  int w_hl_id_normal = 0;
-  int w_hl_ids[HLF_COUNT] = { 0 };
-  int hlf;
 
   const char *p = (const char *)wp->w_p_winhl;
+
+  // TODO: move me after nlua_init
+  if (!*p) {
+    if (wp->w_ns_hl_winhl && wp->w_ns_hl == wp->w_ns_hl_winhl) {
+      wp->w_ns_hl = 0;
+      wp->w_hl_needs_update = true;
+    }
+
+    return true;
+  }
+
+  if (wp->w_ns_hl_winhl == 0) {
+    wp->w_ns_hl_winhl = (int)nvim_create_namespace(NULL_STRING);
+  } else {
+    // TODO: clear namespace!!
+  }
+  wp->w_ns_hl = wp->w_ns_hl_winhl;
+  int ns_hl = wp->w_ns_hl;
+
   while (*p) {
     char *colon = strchr(p, ':');
     if (!colon) {
@@ -3975,27 +3993,15 @@ static bool parse_winhl_opt(win_T *wp)
     char *commap = xstrchrnul(hi, ',');
     size_t len = (size_t)(commap - hi);
     int hl_id = len ? syn_check_group(hi, len) : -1;
+    int hl_id_link = nlen ? syn_check_group(p, nlen) : 0;
 
-    if (strncmp("Normal", p, nlen) == 0) {
-      w_hl_id_normal = hl_id;
-    } else {
-      for (hlf = 0; hlf < HLF_COUNT; hlf++) {
-        if (strlen(hlf_names[hlf]) == nlen
-            && strncmp(hlf_names[hlf], p, nlen) == 0) {
-          w_hl_ids[hlf] = hl_id;
-          break;
-        }
-      }
-      if (hlf == HLF_COUNT) {
-        return false;
-      }
-    }
+    HlAttrs attrs = HLATTRS_INIT;
+    attrs.rgb_ae_attr |= HL_GLOBAL;
+    ns_hl_def(ns_hl, hl_id_link, attrs, hl_id, NULL);
 
     p = *commap ? commap + 1 : "";
   }
 
-  wp->w_hl_id_normal = w_hl_id_normal;
-  memcpy(wp->w_hl_ids, w_hl_ids, sizeof(w_hl_ids));
   wp->w_hl_needs_update = true;
   return true;
 }

@@ -33,6 +33,8 @@ static Map(int, int) blendthrough_attr_entries = MAP_INIT;
 
 /// highlight entries private to a namespace
 static Map(ColorKey, ColorItem) ns_hl;
+typedef int NSHlAttr[HLF_COUNT+1];
+static PMap(handle_T) ns_hl_attr;
 
 void highlight_init(void)
 {
@@ -162,20 +164,24 @@ void ns_hl_def(NS ns_id, int hl_id, HlAttrs attrs, int link_id, Dict(highlight) 
   ColorItem it = { .attr_id = attr_id,
                    .link_id = link_id,
                    .version = p->hl_valid,
-                   .is_default = (attrs.rgb_ae_attr & HL_DEFAULT) };
+                   .is_default = (attrs.rgb_ae_attr & HL_DEFAULT),
+                   .link_global = (attrs.rgb_ae_attr & HL_GLOBAL) };
   map_put(ColorKey, ColorItem)(&ns_hl, ColorKey(ns_id, hl_id), it);
+  p->hl_cached = false;
 }
 
-int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
+int ns_get_hl(NS *hl_ns, int hl_id, bool link, bool nodefault)
 {
   static int recursive = 0;
 
-  if (ns_id < 0) {
+  if (*hl_ns < 0) {
     if (ns_hl_active <= 0) {
       return -1;
     }
-    ns_id = ns_hl_active;
+    *hl_ns = ns_hl_active;
   }
+
+  int ns_id = *hl_ns;
 
   DecorProvider *p = get_decor_provider(ns_id, true);
   ColorItem it = map_get(ColorKey, ColorItem)(&ns_hl, ColorKey(ns_id, hl_id));
@@ -215,6 +221,7 @@ int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
     it.attr_id = fallback ? -1 : hl_get_syn_attr((int)ns_id, hl_id, attrs);
     it.version = p->hl_valid - tmp;
     it.is_default = attrs.rgb_ae_attr & HL_DEFAULT;
+    it.link_global = attrs.rgb_ae_attr & HL_GLOBAL;
     map_put(ColorKey, ColorItem)(&ns_hl, ColorKey(ns_id, hl_id), it);
   }
 
@@ -223,36 +230,64 @@ int ns_get_hl(NS ns_id, int hl_id, bool link, bool nodefault)
   }
 
   if (link) {
-    return it.attr_id >= 0 ? 0 : it.link_id;
+    if (it.attr_id >= 0) {
+      return 0;
+    } else {
+      if (it.link_global) {
+        *hl_ns = 0;
+      }
+      return it.link_id;
+    }
   } else {
     return it.attr_id;
   }
 }
 
-bool win_check_ns_hl(win_T *wp)
+void hl_check_ns(void)
 {
-  if (ns_hl_changed) {
-    highlight_changed();
-    if (wp) {
-      update_window_hl(wp, true);
-    }
-    ns_hl_changed = false;
-    return true;
+  int ns = 0;
+  if (ns_hl_fast > 0) {
+    ns = ns_hl_fast;
+  } else if (ns_hl_win >= 0) {
+    ns = ns_hl_win;
+  } else {
+    ns = ns_hl_global;
   }
-  return false;
+  if (ns_hl_active == ns) {
+    return;
+  }
+
+  ns_hl_active = ns;
+  hl_attr_active = highlight_attr;
+  if (ns > 0) {
+    NSHlAttr *hl_def = (NSHlAttr *)pmap_get(handle_T)(&ns_hl_attr, ns);
+    if (hl_def) {
+      hl_attr_active = *hl_def;
+    }
+  }
+}
+
+
+/// prepare for drawing window `wp` or global elements if NULL
+///
+/// Note: pum should be drawn in the context of the current window!
+void win_check_ns_hl(win_T *wp)
+{
+  ns_hl_win = wp ? wp->w_ns_hl : -1;
+  hl_check_ns();
 }
 
 /// Get attribute code for a builtin highlight group.
 ///
 /// The final syntax group could be modified by hi-link or 'winhighlight'.
-int hl_get_ui_attr(int idx, int final_id, bool optional)
+int hl_get_ui_attr(int ns_id, int idx, int final_id, bool optional)
 {
   HlAttrs attrs = HLATTRS_INIT;
   bool available = false;
 
   if (final_id > 0) {
-    int syn_attr = syn_id2attr(final_id);
-    if (syn_attr != 0) {
+    int syn_attr = syn_ns_id2attr(ns_id, final_id, optional);
+    if (syn_attr > 0) {
       attrs = syn_attr2entry(syn_attr);
       available = true;
     }
@@ -265,7 +300,7 @@ int hl_get_ui_attr(int idx, int final_id, bool optional)
     if (pum_drawn()) {
       must_redraw_pum = true;
     }
-  } else if (idx == HLF_MSG) {
+  } else if (idx == HLF_MSG && ns_id == -1) {
     msg_grid.blending = attrs.hl_blend > -1;
   }
 
@@ -278,39 +313,44 @@ int hl_get_ui_attr(int idx, int final_id, bool optional)
 
 void update_window_hl(win_T *wp, bool invalid)
 {
+  int ns_id = wp->w_ns_hl;
+
+  update_ns_hl(ns_id);
+  if (ns_id != wp->w_ns_hl_active) {
+    wp->w_ns_hl_active = ns_id;
+
+    wp->w_ns_hl_attr = *(NSHlAttr *)pmap_get(handle_T)(&ns_hl_attr, ns_id);
+    if (!wp->w_ns_hl_attr) {
+      wp->w_ns_hl_attr = highlight_attr; //TODO: what the hell
+    }
+  }
+
+  int *hl_def = wp->w_ns_hl_attr;
+
   if (!wp->w_hl_needs_update && !invalid) {
+    int newbg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
+    if (newbg != wp->w_hl_attr_bg) {
+      wp->w_hl_attr_bg = newbg;
+      // TODO(bfredl): eventually we should be smart enough
+      // to only recompose the window, not redraw it.
+      redraw_later(wp, NOT_VALID);
+    }
     return;
   }
   wp->w_hl_needs_update = false;
 
   // If a floating window is blending it always have a named
   // wp->w_hl_attr_normal group. HL_ATTR(HLF_NFLOAT) is always named.
-  bool has_blend = wp->w_floating && wp->w_p_winbl != 0;
 
+  // TODO: functionalize w_hl_attr_bg
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
-  if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(HLF_INACTIVE,
-                                          wp->w_hl_ids[HLF_INACTIVE],
-                                          !has_blend);
-  } else if (float_win && wp->w_hl_ids[HLF_NFLOAT] != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(HLF_NFLOAT,
-                                          wp->w_hl_ids[HLF_NFLOAT], !has_blend);
-  } else if (wp->w_hl_id_normal != 0) {
-    wp->w_hl_attr_normal = hl_get_ui_attr(-1, wp->w_hl_id_normal, !has_blend);
+  if (float_win && hl_def[HLF_NFLOAT] != 0) {
+    wp->w_hl_attr_normal = hl_def[HLF_NFLOAT];
+  } else if (hl_def[HLF_COUNT] > 0) {
+    wp->w_hl_attr_normal = hl_def[HLF_COUNT];
   } else {
     wp->w_hl_attr_normal = float_win ? HL_ATTR(HLF_NFLOAT) : 0;
-  }
-
-  // NOOOO! You cannot just pretend that "Normal" is just like any other
-  // syntax group! It needs at least 10 layers of special casing! Noooooo!
-  //
-  // haha, theme engine go brrr
-  int normality = syn_check_group(S_LEN("Normal"));
-  int ns_attr = ns_get_hl(-1, normality, false, false);
-  if (ns_attr > 0) {
-    // TODO(bfredl): hantera NormalNC and so on
-    wp->w_hl_attr_normal = ns_attr;
   }
 
   // if blend= attribute is not set, 'winblend' value overrides it.
@@ -322,28 +362,13 @@ void update_window_hl(win_T *wp, bool invalid)
     }
   }
 
-  if (wp != curwin && wp->w_hl_ids[HLF_INACTIVE] == 0) {
-    wp->w_hl_attr_normal = hl_combine_attr(HL_ATTR(HLF_INACTIVE),
-                                           wp->w_hl_attr_normal);
-  }
-
-  for (int hlf = 0; hlf < HLF_COUNT; hlf++) {
-    int attr;
-    if (wp->w_hl_ids[hlf] != 0) {
-      attr = hl_get_ui_attr(hlf, wp->w_hl_ids[hlf], false);
-    } else {
-      attr = HL_ATTR(hlf);
-    }
-    wp->w_hl_attrs[hlf] = attr;
-  }
-
   wp->w_float_config.shadow = false;
   if (wp->w_floating && wp->w_float_config.border) {
     for (int i = 0; i < 8; i++) {
-      int attr = wp->w_hl_attrs[HLF_BORDER];
+      int attr = hl_def[HLF_BORDER];
       if (wp->w_float_config.border_hl_ids[i]) {
-        attr = hl_get_ui_attr(HLF_BORDER, wp->w_float_config.border_hl_ids[i],
-                              false);
+        attr = hl_get_ui_attr(ns_id, HLF_BORDER,
+                              wp->w_float_config.border_hl_ids[i], false);
         HlAttrs a = syn_attr2entry(attr);
         if (a.hl_blend) {
           wp->w_float_config.shadow = true;
@@ -355,6 +380,50 @@ void update_window_hl(win_T *wp, bool invalid)
 
   // shadow might cause blending
   check_blending(wp);
+
+  // TODO: what's up with all this _ad-hoc_ logic? why not specifiy it
+  // in luaaa.
+  if (hl_def[HLF_INACTIVE] == 0) {
+    wp->w_hl_attr_normalnc = hl_combine_attr(HL_ATTR(HLF_INACTIVE),
+                                             wp->w_hl_attr_normal);
+  } else {
+    wp->w_hl_attr_normalnc = hl_def[HLF_INACTIVE];
+  }
+
+  wp->w_hl_attr_bg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
+}
+
+void update_ns_hl(int ns_id)
+{
+  if (ns_id <= 0) {
+    return;
+  }
+  DecorProvider *p = get_decor_provider(ns_id, true);
+  if (p->hl_cached) {
+    return;
+  }
+
+  NSHlAttr **alloc = (NSHlAttr **)pmap_ref(handle_T)(&ns_hl_attr, ns_id, true);
+  if (*alloc == NULL) {
+    *alloc = xmalloc(sizeof(**alloc));
+  }
+  int *hl_attrs = **alloc;
+
+  for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
+    int id = syn_check_group(hlf_names[hlf], STRLEN(hlf_names[hlf]));
+    hl_attrs[hlf] = hl_get_ui_attr(ns_id, hlf, id, hlf == (int) HLF_INACTIVE);
+  }
+
+  // NOOOO! You cannot just pretend that "Normal" is just like any other
+  // syntax group! It needs at least 10 layers of special casing! Noooooo!
+  //
+  // haha, tema engine go brrr
+  int normality = syn_check_group(S_LEN("Normal"));
+  hl_attrs[HLF_COUNT] = hl_get_ui_attr(ns_id, -1, normality, true);
+
+  // hl_get_ui_attr might have invalidated the decor provider
+  p = get_decor_provider(ns_id, true);
+  p->hl_cached = true;
 }
 
 /// Gets HL_UNDERLINE highlight.
@@ -895,6 +964,7 @@ HlAttrs dict2hlattrs(Dict(highlight) *dict, bool use_rgb, int *link_id, Error *e
     return hlattrs;
   }
 
+  // TODO: pre-rebase we had `global_link=fooo`
   if (HAS_KEY(dict->link)) {
     if (link_id) {
       *link_id = object_to_hl_id(dict->link, "link", err);

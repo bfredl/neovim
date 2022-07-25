@@ -1820,7 +1820,7 @@ describe("'winhighlight' highlight", function()
     ]])
   end)
 
-  it('handles invalid values', function()
+  it('handles undefined groups', function()
     command("set winhl=Normal:Background1")
     screen:expect([[
       {1:^                    }|
@@ -1833,9 +1833,8 @@ describe("'winhighlight' highlight", function()
                           |
     ]])
 
-    eq('Vim(set):E474: Invalid argument: winhl=xxx:yyy',
-       exc_exec("set winhl=xxx:yyy"))
-    eq('Normal:Background1', eval('&winhl'))
+    command("set winhl=xxx:yyy")
+    eq('xxx:yyy', eval('&winhl'))
     screen:expect{grid=[[
       {1:^                    }|
       {2:~                   }|
@@ -2269,5 +2268,38 @@ describe("'winhighlight' highlight", function()
       {4:[No Name]           }|
                           |
     ]])
+  end)
+
+
+  it("can override syntax groups", function()
+    command('syntax on')
+    command('syntax keyword Foobar foobar')
+    command('syntax keyword Article the')
+    command('hi Foobar guibg=#FF0000')
+    command('hi Article guifg=#00FF00 gui=bold')
+    insert('the foobar was foobar')
+    screen:expect([[
+      {25:the} {26:foobar} was {26:fooba}|
+      {26:^r}                   |
+      {0:~                   }|
+      {0:~                   }|
+      {0:~                   }|
+      {0:~                   }|
+      {0:~                   }|
+                          |
+    ]])
+
+    command('split')
+    command('set winhl=Foobar:Background1,Article:ErrorMsg')
+    screen:expect{grid=[[
+      {15:the} {1:foobar} was {1:fooba}|
+      {1:^r}                   |
+      {0:~                   }|
+      {3:[No Name] [+]       }|
+      {25:the} {26:foobar} was {26:fooba}|
+      {26:r}                   |
+      {4:[No Name] [+]       }|
+                          |
+    ]]}
   end)
 end)

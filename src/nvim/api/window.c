@@ -426,3 +426,21 @@ Object nvim_win_call(Window window, LuaRef fun, Error *err)
   try_end(err);
   return res;
 }
+
+void nvim__win_set_hl_ns(Window window, Integer ns_id, Error *err)
+{
+  win_T *win = find_window_by_handle(window, err);
+  if (!win) {
+    return;
+  }
+
+  // -1 is allowed as inherit global namespace
+  if (ns_id < -1) {
+    api_set_error(err, kErrorTypeValidation, "no such namespace");
+  }
+
+  win->w_ns_hl = (NS)ns_id;
+  win->w_hl_needs_update = true;
+  // win_update will escalate to NOT_VALID in case highlights changed
+  redraw_later(win, VALID);
+}
