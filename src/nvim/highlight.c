@@ -321,7 +321,8 @@ void update_window_hl(win_T *wp, bool invalid)
 
     wp->w_ns_hl_attr = *(NSHlAttr *)pmap_get(handle_T)(&ns_hl_attr, ns_id);
     if (!wp->w_ns_hl_attr) {
-      wp->w_ns_hl_attr = highlight_attr; //TODO: what the hell
+      // No specific highlights, use the defaults.
+      wp->w_ns_hl_attr = highlight_attr;
     }
   }
 
@@ -333,7 +334,7 @@ void update_window_hl(win_T *wp, bool invalid)
       wp->w_hl_attr_bg = newbg;
       // TODO(bfredl): eventually we should be smart enough
       // to only recompose the window, not redraw it.
-      redraw_later(wp, NOT_VALID);
+      // redraw_later(wp, NOT_VALID);
     }
     return;
   }
@@ -921,7 +922,6 @@ HlAttrs dict2hlattrs(Dict(highlight) *dict, bool use_rgb, int *link_id, Error *e
   CHECK_FLAG(dict, mask, strikethrough, , HL_STRIKETHROUGH);
   CHECK_FLAG(dict, mask, nocombine, , HL_NOCOMBINE);
   CHECK_FLAG(dict, mask, default, _, HL_DEFAULT);
-  CHECK_FLAG(dict, mask, global, , HL_GLOBAL);
 
   if (HAS_KEY(dict->fg)) {
     fg = object_to_color(dict->fg, "fg", true, err);
@@ -965,9 +965,15 @@ HlAttrs dict2hlattrs(Dict(highlight) *dict, bool use_rgb, int *link_id, Error *e
   }
 
   // TODO: pre-rebase we had `global_link=fooo`
-  if (HAS_KEY(dict->link)) {
+  if (HAS_KEY(dict->link) || HAS_KEY(dict->global_link)) {
     if (link_id) {
-      *link_id = object_to_hl_id(dict->link, "link", err);
+      if (HAS_KEY(dict->global_link)) {
+        *link_id = object_to_hl_id(dict->global_link, "link", err);
+        mask |= HL_GLOBAL;
+      } else {
+        *link_id = object_to_hl_id(dict->link, "link", err);
+      }
+
       if (ERROR_SET(err)) {
         return hlattrs;
       }

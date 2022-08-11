@@ -1514,7 +1514,8 @@ struct window_S {
 
 static inline int win_hl_attr(win_T *wp, int hlf)
 {
-  // TODO: the former should newer be null!
+  // wp->w_ns_hl_attr might be null if we check highlights
+  // prior to entering redraw
   return ((wp->w_ns_hl_attr && ns_hl_fast < 0) ? wp->w_ns_hl_attr : hl_attr_active)[hlf];
 }
 
