@@ -86,6 +86,21 @@ typedef struct {
     } \
   } while (false)
 
+static inline int win_hl_attr(win_T *wp, int hlf)
+{
+  // wp->w_ns_hl_attr might be null if we check highlights
+  // prior to entering redraw
+  return ((wp->w_ns_hl_attr && ns_hl_fast < 0) ? wp->w_ns_hl_attr : hl_attr_active)[hlf];
+}
+
+static inline int win_bg_attr(win_T *wp)
+{
+  if (ns_hl_fast > 0) {
+    return hl_attr_active[HLF_COUNT];
+  }
+  return (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
+}
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "window.h.generated.h"
 #endif

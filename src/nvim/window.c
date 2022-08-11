@@ -4871,9 +4871,15 @@ static void win_enter_ext(win_T *const wp, const int flags)
 
   // change background color according to NormalNC,
   // but only if actually defined (otherwise no extra redraw)
-  update_window_hl(curwin, false);
+  if (curwin->w_hl_attr_normal != curwin->w_hl_attr_normalnc) {
+    // TODO(bfredl): eventually we should be smart enough
+    // to only recompose the window, not redraw it.
+    redraw_later(curwin, NOT_VALID);
+  }
   if (prevwin) {
-    update_window_hl(prevwin, false);
+    if (prevwin->w_hl_attr_normal != prevwin->w_hl_attr_normalnc) {
+      redraw_later(prevwin, NOT_VALID);
+    }
   }
 
   // set window height to desired minimal value

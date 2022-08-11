@@ -1632,8 +1632,7 @@ win_update_start:
   wp->w_empty_rows = 0;
   wp->w_filler_rows = 0;
   if (!eof && !didline) {
-    int at_attr = hl_combine_attr(wp->w_hl_attr_bg,
-                                  win_hl_attr(wp, HLF_AT));
+    int at_attr = hl_combine_attr(win_bg_attr(wp), win_hl_attr(wp, HLF_AT));
     if (lnum == wp->w_topline) {
       /*
        * Single line that does not fit!
@@ -1809,7 +1808,7 @@ static void win_draw_end(win_T *wp, int c1, int c2, bool draw_margin, int row, i
     }
   }
 
-  int attr = hl_combine_attr(wp->w_hl_attr_bg, win_hl_attr(wp, (int)hl));
+  int attr = hl_combine_attr(win_bg_attr(wp), win_hl_attr(wp, (int)hl));
 
   if (wp->w_p_rl) {
     grid_fill(&wp->w_grid, row, endrow, wp->w_wincol, W_ENDCOL(wp) - 1 - n,
@@ -2344,6 +2343,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
     }
   }
 
+  int bg_attr = win_bg_attr(wp);
   filler_lines = diff_check(wp, lnum);
   if (filler_lines < 0) {
     if (filler_lines == -1) {
@@ -2896,8 +2896,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
          || (number_only && draw_state > WL_NR))
         && filler_todo <= 0) {
       draw_virt_text(wp, buf, win_col_offset, &col, grid->cols, row);
-      grid_put_linebuf(grid, row, 0, col, -grid->cols, wp->w_p_rl, wp,
-                       wp->w_hl_attr_bg, false);
+      grid_put_linebuf(grid, row, 0, col, -grid->cols, wp->w_p_rl, wp, bg_attr, false);
       // Pretend we have finished updating the window.  Except when
       // 'cursorcolumn' is set.
       if (wp->w_p_cuc) {
@@ -3981,8 +3980,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
       }
 
       draw_virt_text(wp, buf, win_col_offset, &col, grid->cols, row);
-      grid_put_linebuf(grid, row, 0, col, grid->cols, wp->w_p_rl, wp,
-                       wp->w_hl_attr_bg, false);
+      grid_put_linebuf(grid, row, 0, col, grid->cols, wp->w_p_rl, wp, bg_attr, false);
       row++;
 
       /*
@@ -4226,8 +4224,7 @@ static int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool noc
         draw_virt_text(wp, buf, win_col_offset, &draw_col, grid->cols, row);
       }
 
-      grid_put_linebuf(grid, row, 0, draw_col, grid->cols, wp->w_p_rl,
-                       wp, wp->w_hl_attr_bg, wrap);
+      grid_put_linebuf(grid, row, 0, draw_col, grid->cols, wp->w_p_rl, wp, bg_attr, wrap);
       if (wrap) {
         ScreenGrid *current_grid = grid;
         int current_row = row, dummy_col = 0;  // dummy_col unused

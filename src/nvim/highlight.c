@@ -329,13 +329,6 @@ void update_window_hl(win_T *wp, bool invalid)
   int *hl_def = wp->w_ns_hl_attr;
 
   if (!wp->w_hl_needs_update && !invalid) {
-    int newbg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
-    if (newbg != wp->w_hl_attr_bg) {
-      wp->w_hl_attr_bg = newbg;
-      // TODO(bfredl): eventually we should be smart enough
-      // to only recompose the window, not redraw it.
-      // redraw_later(wp, NOT_VALID);
-    }
     return;
   }
   wp->w_hl_needs_update = false;
@@ -343,7 +336,6 @@ void update_window_hl(win_T *wp, bool invalid)
   // If a floating window is blending it always have a named
   // wp->w_hl_attr_normal group. HL_ATTR(HLF_NFLOAT) is always named.
 
-  // TODO: functionalize w_hl_attr_bg
   // determine window specific background set in 'winhighlight'
   bool float_win = wp->w_floating && !wp->w_float_config.external;
   if (float_win && hl_def[HLF_NFLOAT] != 0) {
@@ -382,16 +374,14 @@ void update_window_hl(win_T *wp, bool invalid)
   // shadow might cause blending
   check_blending(wp);
 
-  // TODO: what's up with all this _ad-hoc_ logic? why not specifiy it
-  // in luaaa.
+  // TODO(bfredl): this a bit ad-hoc. move it from highlight ns logic to 'winhl'
+  // implementation?
   if (hl_def[HLF_INACTIVE] == 0) {
     wp->w_hl_attr_normalnc = hl_combine_attr(HL_ATTR(HLF_INACTIVE),
                                              wp->w_hl_attr_normal);
   } else {
     wp->w_hl_attr_normalnc = hl_def[HLF_INACTIVE];
   }
-
-  wp->w_hl_attr_bg = (wp == curwin) ? wp->w_hl_attr_normal : wp->w_hl_attr_normalnc;
 }
 
 void update_ns_hl(int ns_id)
@@ -412,7 +402,7 @@ void update_ns_hl(int ns_id)
 
   for (int hlf = 0; hlf < (int)HLF_COUNT; hlf++) {
     int id = syn_check_group(hlf_names[hlf], STRLEN(hlf_names[hlf]));
-    hl_attrs[hlf] = hl_get_ui_attr(ns_id, hlf, id, hlf == (int) HLF_INACTIVE);
+    hl_attrs[hlf] = hl_get_ui_attr(ns_id, hlf, id, hlf == (int)HLF_INACTIVE);
   }
 
   // NOOOO! You cannot just pretend that "Normal" is just like any other
@@ -964,7 +954,6 @@ HlAttrs dict2hlattrs(Dict(highlight) *dict, bool use_rgb, int *link_id, Error *e
     return hlattrs;
   }
 
-  // TODO: pre-rebase we had `global_link=fooo`
   if (HAS_KEY(dict->link) || HAS_KEY(dict->global_link)) {
     if (link_id) {
       if (HAS_KEY(dict->global_link)) {
@@ -978,7 +967,8 @@ HlAttrs dict2hlattrs(Dict(highlight) *dict, bool use_rgb, int *link_id, Error *e
         return hlattrs;
       }
     } else {
-      api_set_error(err, kErrorTypeValidation, "Invalid Key: 'link'");
+      api_set_error(err, kErrorTypeValidation, "Invalid Key: '%s'",
+                    HAS_KEY(dict->global_link) ? "global_link" : "link");
     }
   }
 

@@ -1190,7 +1190,6 @@ struct window_S {
   int w_hl_id_normal;               ///< 'winhighlight' normal id
   int w_hl_attr_normal;             ///< 'winhighlight' normal final attrs
   int w_hl_attr_normalnc;           ///< 'winhighlight' NormalNC final attrs
-  int w_hl_attr_bg;                 ///< actual background color to use
 
   int w_hl_needs_update;            ///< attrs need to be recalculated
 
@@ -1511,13 +1510,6 @@ struct window_S {
   // Size of the w_winbar_click_defs array
   size_t w_winbar_click_defs_size;
 };
-
-static inline int win_hl_attr(win_T *wp, int hlf)
-{
-  // wp->w_ns_hl_attr might be null if we check highlights
-  // prior to entering redraw
-  return ((wp->w_ns_hl_attr && ns_hl_fast < 0) ? wp->w_ns_hl_attr : hl_attr_active)[hlf];
-}
 
 /// Macros defined in Vim, but not in Neovim
 #define CHANGEDTICK(buf) \

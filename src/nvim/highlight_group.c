@@ -1812,11 +1812,12 @@ int syn_get_final_id(int hl_id)
   return syn_ns_get_final_id(&id, hl_id);
 }
 
-int syn_ns_get_final_id(int *ns_id, int hl_id) {
+int syn_ns_get_final_id(int *ns_id, int hl_id)
+{
   int count;
 
   if (hl_id > highlight_ga.ga_len || hl_id < 1) {
-    return 0;                           // Can be called from eval!!
+    return 0;  // Can be called from eval!!
   }
 
   // Follow links until there is no more.
@@ -1824,7 +1825,7 @@ int syn_ns_get_final_id(int *ns_id, int hl_id) {
   for (count = 100; --count >= 0;) {
     HlGroup *sgp = &hl_table[hl_id - 1];  // index is ID minus one
 
-    // TODO: when using "tmp" attribute (no link) the function might be
+    // TODO(bfredl): when using "tmp" attribute (no link) the function might be
     // called twice. it needs be smart enough to remember attr only to
     // syn_id2attr time
     int check = ns_get_hl(ns_id, hl_id, true, sgp->sg_set);

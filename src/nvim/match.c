@@ -15,6 +15,7 @@
 #include "nvim/regexp.h"
 #include "nvim/runtime.h"
 #include "nvim/screen.h"
+#include "nvim/window.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "match.c.generated.h"
