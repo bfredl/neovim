@@ -3298,12 +3298,20 @@ void do_put(int regname, yankreg_T *reg, int dir, long count, int flags)
       // get the old line and advance to the position to insert at
       oldp = get_cursor_line_ptr();
       oldlen = STRLEN(oldp);
-      for (ptr = oldp; vcol < col && *ptr;) {
+      chartabsize_T cts;
+      init_chartabsize_arg(&cts, curwin, curwin->w_cursor.lnum, 0,
+                           oldp, oldp);
+
+      while (cts.cts_vcol < col && *cts.cts_ptr != NUL)
+ 	    {
         // Count a tab for what it's worth (if list mode not on)
-        incr = lbr_chartabsize_adv(oldp, &ptr, vcol);
-        vcol += incr;
+        incr = lbr_chartabsize_adv(&cts);
+        cts.cts_vcol += incr;
       }
+      vcol = cts.cts_vcol;
+      ptr = cts.cts_ptr;
       bd.textcol = (colnr_T)(ptr - oldp);
+      clear_chartabsize_arg(&cts);
 
       shortline = (vcol < col) || (vcol == col && !*ptr);
 
@@ -3330,9 +3338,14 @@ void do_put(int regname, yankreg_T *reg, int dir, long count, int flags)
         // calculate number of spaces required to fill right side of
         // block
         spaces = y_width + 1;
+        init_chartabsize_arg(&cts, curwin, 0, 0,
+                             y_array[i], y_array[i]);
         for (int j = 0; j < yanklen; j++) {
-          spaces -= lbr_chartabsize(NULL, (char_u *)(&y_array[i][j]), 0);
+          spaces -= lbr_chartabsize(&cts);
+          ++cts.cts_ptr;
+          cts.cts_vcol = 0;
         }
+        clear_chartabsize_arg(&cts);
         if (spaces < 0) {
           spaces = 0;
         }

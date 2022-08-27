@@ -631,14 +631,17 @@ colnr_T vcol2col(win_T *const wp, const linenr_T lnum, const colnr_T vcol)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
 {
   // try to advance to the specified column
-  char_u *ptr = ml_get_buf(wp->w_buffer, lnum, false);
-  char_u *const line = ptr;
-  colnr_T count = 0;
-  while (count < vcol && *ptr != NUL) {
-    count += win_lbr_chartabsize(wp, line, ptr, count, NULL);
-    MB_PTR_ADV(ptr);
+  char *line = ml_get_buf(wp->w_buffer, lnum, false);
+  chartabsize_T   cts;
+  init_chartabsize_arg(&cts, wp, lnum, 0, line, line);
+  while (cts.cts_vcol < vcol && *cts.cts_ptr != NUL)
+  {
+    cts.cts_vcol += win_lbr_chartabsize(&cts, NULL);
+    MB_PTR_ADV(cts.cts_ptr);
   }
-  return (colnr_T)(ptr - line);
+  clear_chartabsize_arg(&cts);
+
+  return (colnr_T)(cts.cts_ptr - line);
 }
 
 /// Set UI mouse depending on current mode and 'mouse'.
