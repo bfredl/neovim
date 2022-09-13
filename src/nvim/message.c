@@ -909,7 +909,7 @@ char *msg_may_trunc(bool force, char *s)
 
   room = (Rows - cmdline_row - 1) * Columns + sc_col - 1;
   if ((force || (shortmess(SHM_TRUNC) && !exmode_active))
-      && (int)strlen(s) - room > 0 && p_ch > 0) {
+      && (int)STRLEN(s) - room > 0) {
     int size = vim_strsize(s);
 
     // There may be room anyway when there are multibyte chars.
@@ -1401,7 +1401,7 @@ void msg_start(void)
     need_fileinfo = false;
   }
 
-  const bool no_msg_area = !ui_has_messages();
+  const bool no_msg_area = false;
 
   if (need_clr_eos || (no_msg_area && redrawing_cmdline)) {
     // Halfway an ":echo" command and getting an (error) message: clear
@@ -3094,7 +3094,7 @@ void repeat_message(void)
 /// Skip this when ":silent" was used, no need to clear for redirection.
 void msg_clr_eos(void)
 {
-  if (msg_silent == 0 && p_ch > 0) {
+  if (msg_silent == 0) {
     msg_clr_eos_force();
   }
 }
