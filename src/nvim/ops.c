@@ -911,10 +911,11 @@ int do_record(int c)
       regname = c;
       retval = OK;
 
-      if (!ui_has_messages()) {
+      if (p_ch == 0 && !ui_has(kUIMessages)) {
         // Enable macro indicator temporarily
-        set_option_value("ch", 1L, NULL, 0);
-        update_screen(UPD_VALID);
+        // TODO
+        // set_option_value("ch", 1L, NULL, 0);
+        // update_screen(UPD_VALID);
 
         changed_cmdheight = true;
       }
@@ -967,8 +968,9 @@ int do_record(int c)
 
     if (changed_cmdheight) {
       // Restore cmdheight
-      set_option_value("ch", 0L, NULL, 0);
-      redraw_all_later(UPD_CLEAR);
+      // TODO
+      // set_option_value("ch", 0L, NULL, 0);
+      // redraw_all_later(UPD_CLEAR);
     }
   }
   return retval;

@@ -1401,7 +1401,7 @@ void msg_start(void)
     need_fileinfo = false;
   }
 
-  const bool no_msg_area = false;
+  const bool no_msg_area = (p_ch == 0);
 
   if (need_clr_eos || (no_msg_area && redrawing_cmdline)) {
     // Halfway an ":echo" command and getting an (error) message: clear
@@ -1411,11 +1411,16 @@ void msg_start(void)
   }
 
   if (!msg_scroll && full_screen) {     // overwrite last message
+    if (cmdline_row >= Rows) {
+      msg_scroll_up(false); // TODO: true???
+      msg_scrolled++;
+      cmdline_row = Rows-1;
+    }
     msg_row = cmdline_row;
     msg_col = cmdmsg_rl ? Columns - 1 : 0;
-    if (no_msg_area && get_cmdprompt() == NULL) {
-      msg_row -= 1;
-    }
+    // if (no_msg_area && get_cmdprompt() == NULL) {
+    //   msg_row -= 1;
+    // }
   } else if (msg_didout || no_msg_area) {  // start message on next line
     msg_putchar('\n');
     did_return = true;
@@ -2368,6 +2373,12 @@ void msg_scroll_up(bool may_throttle)
   if (msg_use_msgsep()) {
     if (msg_grid_pos > 0) {
       msg_grid_set_pos(msg_grid_pos - 1, true);
+
+      // TODO: this should not be needed. or alternatively remove the
+      // corresponding invalidations when clearing messages
+      int i = Rows-1 + msg_grid_adj.row_offset;
+      grid_clear_line(&msg_grid, msg_grid.line_offset[i],
+                      msg_grid.cols, false);
     } else {
       grid_del_lines(&msg_grid, 0, 1, msg_grid.rows, 0, msg_grid.cols);
       memmove(msg_grid.dirty_col, msg_grid.dirty_col + 1,
@@ -3116,7 +3127,7 @@ void msg_clr_eos_force(void)
     msg_row = msg_grid_pos;
   }
 
-  if (ui_has_messages()) {
+  if (!ui_has(kUIMessages)) {
     grid_fill(&msg_grid_adj, msg_row, msg_row + 1, msg_startcol, msg_endcol,
               ' ', ' ', HL_ATTR(HLF_MSG));
     grid_fill(&msg_grid_adj, msg_row + 1, Rows, 0, Columns,

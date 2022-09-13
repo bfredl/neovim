@@ -3736,9 +3736,6 @@ void gotocmdline(bool clr)
   if (ui_has(kUICmdline)) {
     return;
   }
-  if (p_ch == 0 && !msg_did_scroll) {
-    msg_scroll_up(false);
-  }
   msg_start();
   if (cmdmsg_rl) {
     msg_col = Columns - 1;

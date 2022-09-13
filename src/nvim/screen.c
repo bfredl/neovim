@@ -1173,7 +1173,8 @@ bool redrawing(void)
 /// Return true if printing messages should currently be done.
 bool messaging(void)
 {
-  return !(p_lz && char_avail() && !KeyTyped) && ui_has_messages();
+  // TODO
+  return !(p_lz && char_avail() && !KeyTyped) && true;
 }
 
 #define COL_RULER 17        // columns needed by standard ruler
