@@ -1075,6 +1075,7 @@ typedef struct {
   VirtText title_texts;
   char *title_text;
   int title_hi_id;
+  int title_attr;
   bool noautocmd;
 } FloatConfig;
 
