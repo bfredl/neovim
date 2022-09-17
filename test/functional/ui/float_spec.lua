@@ -1704,6 +1704,19 @@ describe('float window', function()
       end
     end)
 
+    it('validates title title_pos', function()
+      local buf = meths.create_buf(false,false)
+      eq("title must set with border",
+         pcall_err(meths.open_win,buf, false, {
+          relative='editor', width=9, height=2, row=2, col=5, title="Title",
+         }))
+      eq("title_pos must set with title",
+         pcall_err(meths.open_win,buf, false, {
+          relative='editor', width=9, height=2, row=2, col=5,
+          border="single", title_pos="left",
+         }))
+    end)
+
     it('border with title', function()
       local buf = meths.create_buf(false, false)
       meths.buf_set_lines(buf, 0, -1, true, {' halloj! ',
@@ -1733,7 +1746,7 @@ describe('float window', function()
         ## grid 3
                                                   |
         ## grid 5
-          {5:╔}{11:Title}{5:════╗}|
+          {5:╔}Title{5:════╗}|
           {5:║}{1: halloj! }{5:║}|
           {5:║}{1: BORDAA  }{5:║}|
           {5:╚═════════╝}|
@@ -1747,7 +1760,7 @@ describe('float window', function()
         screen:expect{grid=[[
           ^                                        |
           {0:~                                       }|
-          {0:~    }{5:╔}{11:Title}{5:════╗}{0:                        }|
+          {0:~    }{5:╔}Title{5:════╗}{0:                        }|
           {0:~    }{5:║}{1: halloj! }{5:║}{0:                        }|
           {0:~    }{5:║}{1: BORDAA  }{5:║}{0:                        }|
           {0:~    }{5:╚═════════╝}{0:                        }|
@@ -1776,7 +1789,7 @@ describe('float window', function()
         ## grid 3
                                                   |
         ## grid 5
-          {5:╔════}{11:Title}{5:╗}|
+          {5:╔════}Title{5:╗}|
           {5:║}{1: halloj! }{5:║}|
           {5:║}{1: BORDAA  }{5:║}|
           {5:╚═════════╝}|
@@ -1790,7 +1803,7 @@ describe('float window', function()
         screen:expect{grid=[[
           ^                                        |
           {0:~                                       }|
-          {0:~    }{5:╔════}{11:Title}{5:╗}{0:                        }|
+          {0:~    }{5:╔════}Title{5:╗}{0:                        }|
           {0:~    }{5:║}{1: halloj! }{5:║}{0:                        }|
           {0:~    }{5:║}{1: BORDAA  }{5:║}{0:                        }|
           {0:~    }{5:╚═════════╝}{0:                        }|
@@ -1819,7 +1832,7 @@ describe('float window', function()
         ## grid 3
                                                   |
         ## grid 5
-          {5:╔════}{11:Title}{5:╗}|
+          {5:╔════}Title{5:╗}|
           {5:║}{1: halloj! }{5:║}|
           {5:║}{1: BORDAA  }{5:║}|
           {5:╚═════════╝}|
@@ -1833,7 +1846,7 @@ describe('float window', function()
         screen:expect{grid=[[
           ^                                        |
           {0:~                                       }|
-          {0:~    }{5:╔════}{11:Title}{5:╗}{0:                        }|
+          {0:~    }{5:╔════}Title{5:╗}{0:                        }|
           {0:~    }{5:║}{1: halloj! }{5:║}{0:                        }|
           {0:~    }{5:║}{1: BORDAA  }{5:║}{0:                        }|
           {0:~    }{5:╚═════════╝}{0:                        }|
