@@ -5077,7 +5077,6 @@ static void win_free(win_T *wp, tabpage_T *tp)
 
   // free the border title text
   clear_virttext(&wp->w_float_config.title_chunks);
-  XFREE_CLEAR(wp->w_float_config.title_text);
 
   clear_matches(wp);
 

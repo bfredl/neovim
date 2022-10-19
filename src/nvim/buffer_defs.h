@@ -1073,8 +1073,7 @@ typedef struct {
   int border_attr[8];
   AlignTextPos title_pos;
   VirtText title_chunks;
-  char *title_text;
-  int title_hi_id;
+  int title_width;
   int title_attr;
   bool noautocmd;
 } FloatConfig;
