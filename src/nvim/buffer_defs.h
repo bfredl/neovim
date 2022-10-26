@@ -1074,7 +1074,6 @@ typedef struct {
   AlignTextPos title_pos;
   VirtText title_chunks;
   int title_width;
-  int title_attr;
   bool noautocmd;
 } FloatConfig;
 
