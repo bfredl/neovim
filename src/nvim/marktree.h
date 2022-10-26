@@ -9,7 +9,7 @@
 #include "nvim/map.h"
 #include "nvim/pos.h"
 #include "nvim/types.h"
-#include "nvim/lib/kvec.h"
+#include "klib/kvec.h"
 
 // only for debug functions:
 #include "api/private/defs.h"
@@ -86,7 +86,6 @@ static inline uint64_t mt_lookup_id(uint32_t ns, uint32_t id, bool enda)
 {
   return (uint64_t)ns << 32 | id | (enda?MARKTREE_END_FLAG:0);
 }
-#undef MARKTREE_END_FLAG
 
 static inline uint64_t mt_lookup_key(mtkey_t key)
 {

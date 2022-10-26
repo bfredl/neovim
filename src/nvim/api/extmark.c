@@ -1205,19 +1205,21 @@ Array nvim__buf_intersect(Buffer buffer, Integer row, Integer col, Error *err)
   if (!marktree_itr_get_intersect(buf->b_marktree, (int)row, (int)col, itr)) {
     return retval;
   }
-  while (true) {
-    uint64_t id = marktree_itr_step_intersect(buf->b_marktree, itr);
-    if (!id) {
-      break;
-    }
+  mtpair_t pair;
+  while (marktree_itr_step_intersect(buf->b_marktree, itr, &pair)) {
 
-    //ExtmarkItem *item = extmark_get_item(buf, id, false);
-    //Array a = ARRAY_DICT_INIT;
-    //ADD(a, INTEGER_OBJ((Integer)item->mark_id));
-    //if (item->decor) {
-    //  ADD(a, INTEGER_OBJ(item->decor->hl_id));
-    //}
-    //ADD(retval, ARRAY_OBJ(a));
+    Array a = ARRAY_DICT_INIT;
+    ADD(a, INTEGER_OBJ((Integer)pair.start.id));
+    if (pair.start.decor_full) {
+      ADD(a, INTEGER_OBJ(pair.start.decor_full->hl_id));
+    } else {
+      ADD(a, INTEGER_OBJ(pair.start.hl_id));
+    }
+    ADD(a, INTEGER_OBJ(pair.start.pos.row));
+    ADD(a, INTEGER_OBJ(pair.start.pos.col));
+    ADD(a, INTEGER_OBJ(pair.end_pos.row));
+    ADD(a, INTEGER_OBJ(pair.end_pos.col));
+    ADD(retval, ARRAY_OBJ(a));
   }
   return retval;
 }
