@@ -529,7 +529,8 @@ static bool handle_focus_event(TermInput *input)
           || !rbuffer_cmp(input->read_stream.buffer, "\x1b[O", 3))) {
     bool focus_gained = *rbuffer_get(input->read_stream.buffer, 2) == 'I';
     // Advance past the sequence
-  
+    rbuffer_consumed(input->read_stream.buffer, 3);
+
     Array args = ARRAY_DICT_INIT;
     ADD(args, BOOLEAN_OBJ(focus_gained));
     rpc_send_event(ui_client_channel_id, "nvim_ui_set_focus", args);
