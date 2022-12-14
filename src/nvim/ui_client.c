@@ -60,7 +60,9 @@ void ui_client_init(void)
   PUT(opts, "ext_linegrid", BOOLEAN_OBJ(true));
   PUT(opts, "ext_termcolors", BOOLEAN_OBJ(true));
 
-  // TODO: PUT(opts, "term_name", STRING_OBJ(cstr_as_string(termname_local)));
+  if (termname_local) {
+    PUT(opts, "term_name", STRING_OBJ(cstr_as_string(termname_local)));
+  }
   PUT(opts, "term_colors", INTEGER_OBJ(t_colors));
   if (ui_client_embed) {
     PUT(opts, "term_ttyin", INTEGER_OBJ(stdin_isatty));

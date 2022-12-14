@@ -145,7 +145,6 @@ struct TUIData {
 
 static int got_winch = 0;
 static bool cursor_style_enabled = false;
-char *termname_local;
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "tui/tui.c.generated.h"
 #endif
@@ -273,9 +272,7 @@ static void terminfo_start(UI *ui)
   // Set up unibilium/terminfo.
   termname_local = NULL;
   if (term) {
-    os_env_var_lock();
     data->ut = unibi_from_term(term);
-    os_env_var_unlock();
     if (data->ut) {
       termname_local = xstrdup(term);
     }

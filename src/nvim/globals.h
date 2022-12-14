@@ -332,6 +332,8 @@ EXTERN bool ui_client_remote INIT(= false);
 /// whether we are embedding a neovim server as child process
 EXTERN bool ui_client_embed INIT(= false);
 
+EXTERN char *termname_local INIT(= "null");
+
 /// This process is a tui processR run the tui rather than executing the main loop
 EXTERN bool tui_process INIT(= false);
 
