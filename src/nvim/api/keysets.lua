@@ -221,5 +221,8 @@ return {
   cmd_opts = {
     "output";
   };
+  echo_opts = {
+    "verbose";
+  };
 }
 

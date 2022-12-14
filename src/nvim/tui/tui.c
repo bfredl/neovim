@@ -1361,16 +1361,25 @@ static void show_verbose_terminfo(TUIData *data)
   }
 
   Array items = ARRAY_DICT_INIT;
-  //msg_puts_title("\n\n--- Terminal info --- {{""{\n");
-  Array item = ARRAY_DICT_INIT;
+  Array title = ARRAY_DICT_INIT;
+  ADD(title, STRING_OBJ(cstr_to_string("\n\n--- Terminal info --- {{{\n")));
+  ADD(title, STRING_OBJ(cstr_to_string("Title")));
+  ADD(items, ARRAY_OBJ(title));
+  Array info = ARRAY_DICT_INIT;
   String str = terminfo_info_msg(ut);
-  ADD(item, STRING_OBJ(str));
-  ADD(items, ARRAY_OBJ(item));
+  ADD(info, STRING_OBJ(str));
+  ADD(items, ARRAY_OBJ(info));
+  Array end_fold = ARRAY_DICT_INIT;
+  ADD(end_fold, STRING_OBJ(cstr_to_string("}}}\n")));
+  ADD(end_fold, STRING_OBJ(cstr_to_string("Title")));
+  ADD(items, ARRAY_OBJ(end_fold));
 
   Array args = ARRAY_DICT_INIT;
   ADD(args, ARRAY_OBJ(items));
   ADD(args, BOOLEAN_OBJ(true));  // history
-  ADD(args, DICTIONARY_OBJ(ARRAY_DICT_INIT)); // TODO: 'verbose' key
+  Dictionary opts = ARRAY_DICT_INIT;
+  PUT(opts, "verbose", BOOLEAN_OBJ(true));
+  ADD(args, DICTIONARY_OBJ(opts));
   rpc_send_event(ui_client_channel_id, "nvim_echo", args);
 
   // Array args = ARRAY_DICT_INIT;
