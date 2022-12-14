@@ -119,6 +119,7 @@ struct TUIData {
   bool default_attr;
   bool can_clear_attr;
   ModeShape showing_mode;
+  Integer verbose;
   struct {
     int enable_mouse, disable_mouse;
     int enable_mouse_move, disable_mouse_move;
@@ -1200,6 +1201,11 @@ static void tui_mode_change(UI *ui, String mode, Integer mode_idx)
   }
 #endif
   tui_set_mode(ui, (ModeShape)mode_idx);
+  if (data->is_starting) {
+    if (data->verbose >= 3) {
+      show_verbose_terminfo(data);
+    }
+  }
   data->is_starting = false;  // mode entered, no longer starting
   data->showing_mode = (ModeShape)mode_idx;
 }
@@ -1346,25 +1352,32 @@ static void tui_flush(UI *ui)
   flush_buf(ui);
 }
 
-#if 0
 /// Dumps termcap info to the messages area, if 'verbose' >= 3.
-static void show_termcap_event(void **argv)
+static void show_verbose_terminfo(TUIData *data)
 {
-  if (p_verbose < 3) {
-    return;
-  }
-  const unibi_term *const ut = argv[0];
+  const unibi_term *const ut = data->ut;
   if (!ut) {
     abort();
   }
-  verbose_enter();
-  // XXX: (future) if unibi_term is modified (e.g. after a terminal
-  // query-response) this is a race condition.
-  terminfo_info_msg(ut);
-  verbose_leave();
-  verbose_stop();  // flush now
+
+  Array items = ARRAY_DICT_INIT;
+  //msg_puts_title("\n\n--- Terminal info --- {{""{\n");
+  Array item = ARRAY_DICT_INIT;
+  String str = terminfo_info_msg(ut);
+  ADD(item, STRING_OBJ(str));
+  ADD(items, ARRAY_OBJ(item));
+
+  Array args = ARRAY_DICT_INIT;
+  ADD(args, ARRAY_OBJ(items));
+  ADD(args, BOOLEAN_OBJ(true));  // history
+  ADD(args, DICTIONARY_OBJ(ARRAY_DICT_INIT)); // TODO: 'verbose' key
+  rpc_send_event(ui_client_channel_id, "nvim_echo", args);
+
+  // Array args = ARRAY_DICT_INIT;
+  // ADD(args, STRING_OBJ(cstr_to_string("klaaa")));  // history
+  // ADD(args, ARRAY_OBJ(items));
+  // rpc_send_event(ui_client_channel_id, "nvim_set_var", args);
 }
-#endif
 
 #ifdef UNIX
 static void suspend_event(void **argv)
@@ -1474,6 +1487,8 @@ static void tui_option_set(UI *ui, String name, Object value)
     data->input.ttimeout = value.data.boolean;
   } else if (strequal(name.data, "ttimeoutlen")) {
     data->input.ttimeoutlen = (long)value.data.integer;
+  } else if (strequal(name.data, "verbose")) {
+    data->verbose = value.data.integer;
   }
 }
 
