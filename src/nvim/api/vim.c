@@ -1204,6 +1204,12 @@ theend:
     draining = false;
   }
 
+  // TODO: fugly, maybe only when notification?
+  if (ERROR_SET(err)) {
+    semsg("paste: %s", err->msg);
+    api_clear_error(err);
+  }
+
   return !cancel;
 }
 
