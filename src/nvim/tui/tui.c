@@ -524,7 +524,6 @@ static void sigwinch_cb(SignalWatcher *watcher, int signum, void *data)
   }
 
   tui_guess_size(ui);
-  ui_schedule_refresh();
 }
 
 static bool attrs_differ(UI *ui, int id1, int id2, bool rgb)
@@ -1590,6 +1589,8 @@ static void tui_guess_size(UI *ui)
 
   ui->width = width;
   ui->height = height;
+  // TODO(bfredl): only if different from last value
+  ui_schedule_refresh();
 }
 
 static void unibi_goto(UI *ui, int row, int col)
