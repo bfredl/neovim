@@ -114,7 +114,7 @@ static HlAttrs ui_client_dict2hlattrs(Dictionary d, bool rgb)
     // TODO(bfredl): log "err"
     return HLATTRS_INIT;
   }
-  return dict2hlattrs(&dict, true, NULL, &err);
+  return dict2hlattrs(&dict, rgb, NULL, &err);
 }
 
 void ui_client_event_grid_resize(Array args)
