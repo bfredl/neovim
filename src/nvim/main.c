@@ -867,7 +867,7 @@ static uint64_t server_connect(char *server_addr, const char **errmsg)
 static void remote_request(mparm_T *params, int remote_args, char *server_addr, int argc,
                            char **argv, bool ui_only)
 {
-  bool is_ui = strequal(argv[remote_args], "--remote-ui-test");
+  bool is_ui = strequal(argv[remote_args], "--remote-ui");
   if (ui_only && !is_ui) {
     // TODO(bfredl): this implies always starting the TUI.
     // if we be smart we could delay this past should_exit
@@ -2154,7 +2154,6 @@ static void usage(void)
   mch_msg(_("  --embed               Use stdin/stdout as a msgpack-rpc channel\n"));
   mch_msg(_("  --headless            Don't start a user interface\n"));
   mch_msg(_("  --listen <address>    Serve RPC API from this address\n"));
-  mch_msg(_("  --connect <address>   Specify Nvim server to connect to\n"));
   mch_msg(_("  --noplugin            Don't load plugins\n"));
   mch_msg(_("  --remote[-subcommand] Execute commands remotely on a server\n"));
   mch_msg(_("  --server <address>    Specify RPC server to send commands to\n"));

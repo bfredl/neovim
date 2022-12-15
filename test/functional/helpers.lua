@@ -465,8 +465,14 @@ end
 --    clear('-e')
 --    clear{args={'-e'}, args_rm={'-i'}, env={TERM=term}}
 function module.clear(...)
+  module.set_session(module.spawn_argv(false, ...))
+end
+
+-- same params as clear, but does returns the session instead
+-- of replacing the default session
+function module.spawn_argv(keep, ...)
   local argv, env, io_extra = module.new_argv(...)
-  module.set_session(module.spawn(argv, nil, env, nil, io_extra))
+  return module.spawn(argv, nil, env, keep, io_extra)
 end
 
 -- Builds an argument list for use in clear().

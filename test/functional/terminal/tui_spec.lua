@@ -2160,37 +2160,53 @@ end)
 describe("TUI as a client", function()
 
   it("connects to remote instance (full)", function()
-    clear()
-    local server_super = spawn(helpers.nvim_argv)
-    local client_super = spawn(helpers.nvim_argv)
+    local server_super = helpers.spawn_argv(false) -- equivalent to clear()
+    local client_super = helpers.spawn_argv(true)
 
-    set_session(server_super, true)
-    screen_server = thelpers.screen_setup(0, '["'..nvim_prog
-      ..'", "-u", "NONE", "-i", "NONE", "--listen", "127.0.0.1:7777"]')
+    set_session(server_super)
+    local server_pipe = helpers.new_pipename()
+    local screen_server = thelpers.screen_setup(0,
+      string.format([=[["%s", "--listen", "%s", "-u", "NONE", "-i", "NONE", "--cmd", "%s laststatus=2 background=dark"]]=],
+        nvim_prog, server_pipe, nvim_set))
 
-    helpers.feed("iHello, World<esc>")
-
-    set_session(client_super, true)
-    screen = thelpers.screen_setup(0, '["'..nvim_prog
-      ..'", "-u", "NONE", "-i", "NONE", "--connect", "127.0.0.1:7777"]')
-
-    screen.timeout = 1000
-    screen:expect([[
+    feed_data("iHello, World")
+    screen_server:expect{grid=[[
+      Hello, World{1: }                                     |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
+      {3:-- INSERT --}                                      |
+      {3:-- TERMINAL --}                                    |
+    ]]}
+    feed_data("\027")
+    screen_server:expect{grid=[[
       Hello, Worl{1:d}                                      |
       {4:~                                                 }|
       {4:~                                                 }|
       {4:~                                                 }|
-      {5:[No Name] [+]                   1,12           All}|
+      {5:[No Name] [+]                                     }|
                                                         |
       {3:-- TERMINAL --}                                    |
-    ]])
+    ]]}
+
+    set_session(client_super, true)
+    local screen_client = thelpers.screen_setup(0,
+      string.format([=[["%s", "-u", "NONE", "-i", "NONE", "--server", "%s", "--remote-ui"]]=],
+        nvim_prog, server_pipe))
+
+      screen_client:expect{grid=[[
+        Hello, Worl{1:d}                                      |
+        {4:~                                                 }|
+        {4:~                                                 }|
+        {4:~                                                 }|
+        {5:[No Name] [+]                                     }|
+                                                          |
+        {3:-- TERMINAL --}                                    |
+      ]]}
 
     feed_data(":q!\n")
 
-    -- tear down
-    helpers.feed("<esc>:q!<CR>")
-    set_session(server_super, true)
-    helpers.feed("<esc>:q!<CR>")
     server_super:close()
     client_super:close()
   end)
