@@ -243,7 +243,7 @@ function module.run_session(lsession, request_cb, notification_cb, setup_cb, tim
   end
 
   loop_running = true
-  session:run(on_request, on_notification, on_setup, timeout)
+  lsession:run(on_request, on_notification, on_setup, timeout)
   loop_running = false
   if last_error then
     local err = last_error
@@ -251,7 +251,7 @@ function module.run_session(lsession, request_cb, notification_cb, setup_cb, tim
     error(err)
   end
 
-  return session.eof_err
+  return lsession.eof_err
 end
 
 function module.run(request_cb, notification_cb, setup_cb, timeout)

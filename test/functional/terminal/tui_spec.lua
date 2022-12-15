@@ -2193,7 +2193,7 @@ describe("TUI as a client", function()
       {3:-- TERMINAL --}                                    |
     ]]}
 
-    set_session(client_super, true)
+    set_session(client_super)
     local screen_client = thelpers.screen_setup(0,
       string.format([=[["%s", "-u", "NONE", "-i", "NONE", "--server", "%s", "--remote-ui"]]=],
                     nvim_prog, server_pipe))
@@ -2222,7 +2222,7 @@ describe("TUI as a client", function()
     local server_pipe = eval'v:servername'
     feed'iHalloj!<esc>'
 
-    set_session(client_super, true)
+    set_session(client_super)
     local screen = thelpers.screen_setup(0,
       string.format([=[["%s", "-u", "NONE", "-i", "NONE", "--server", "%s", "--remote-ui"]]=],
                     nvim_prog, server_pipe))
@@ -2290,29 +2290,28 @@ describe("TUI as a client", function()
       {3:-- TERMINAL --}                                    |
     ]]}
 
-    set_session(client_super, true)
+    set_session(client_super)
     local screen_client = thelpers.screen_setup(0,
       string.format([=[["%s", "-u", "NONE", "-i", "NONE", "--server", "%s", "--remote-ui"]]=],
                     nvim_prog, server_pipe))
 
-      screen_client:expect{grid=[[
-        Hello, Worl{1:d}                                      |
-        {4:~                                                 }|
-        {4:~                                                 }|
-        {4:~                                                 }|
-        {5:[No Name] [+]                                     }|
-                                                          |
-        {3:-- TERMINAL --}                                    |
-      ]]}
+    screen_client:expect{grid=[[
+      Hello, Worl{1:d}                                      |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
+                                                        |
+      {3:-- TERMINAL --}                                    |
+    ]]}
 
     -- quitting the server
-    set_session(server_super, true)
+    set_session(server_super)
     feed_data(":q!\n")
     screen_server:expect({any="Process exited 0"})
+
     -- assert that client has exited
-    screen_client:expect({any="Process exited 0"}) -- FEL
-    screen_server:snapshot_util()
-    screen_client:snapshot_util()
+    screen_client:expect({any="Process exited 0"})
 
     server_super:close()
     client_super:close()
