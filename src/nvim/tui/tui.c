@@ -1946,23 +1946,23 @@ static void patch_terminfo_bugs(TUIData *tui, const char *term, const char *colo
       // Linux uses an idiosyncratic escape code to set the cursor shape and
       // does not support DECSCUSR.
       // See http://linuxgazette.net/137/anonymous.html for more info
-      tui->unibi_ext.set_cursor_style = (int)unibi_add_ext_str(ut, "Ss",
-                                                               "\x1b[?"
-                                                               "%?"
-                                                               // The parameter passed to Ss is the DECSCUSR parameter, so the
-                                                               // terminal capability has to translate into the Linux idiosyncratic
-                                                               // parameter.
-                                                               //
-                                                               // linuxvt only supports block and underline. It is also only
-                                                               // possible to have a steady block (no steady underline)
-                                                               "%p1%{2}%<" "%t%{8}"       // blink block
-                                                               "%e%p1%{2}%=" "%t%{112}"   // steady block
-                                                               "%e%p1%{3}%=" "%t%{4}"     // blink underline (set to half block)
-                                                               "%e%p1%{4}%=" "%t%{4}"     // steady underline
-                                                               "%e%p1%{5}%=" "%t%{2}"     // blink bar (set to underline)
-                                                               "%e%p1%{6}%=" "%t%{2}"     // steady bar
-                                                               "%e%{0}"                   // anything else
-                                                               "%;" "%dc");
+      const char *style = "\x1b[?"
+                          "%?"
+                          // The parameter passed to Ss is the DECSCUSR parameter, so the
+                          // terminal capability has to translate into the Linux idiosyncratic
+                          // parameter.
+                          //
+                          // linuxvt only supports block and underline. It is also only
+                          // possible to have a steady block (no steady underline)
+                          "%p1%{2}%<" "%t%{8}"       // blink block
+                          "%e%p1%{2}%=" "%t%{112}"   // steady block
+                          "%e%p1%{3}%=" "%t%{4}"     // blink underline (set to half block)
+                          "%e%p1%{4}%=" "%t%{4}"     // steady underline
+                          "%e%p1%{5}%=" "%t%{2}"     // blink bar (set to underline)
+                          "%e%p1%{6}%=" "%t%{2}"     // steady bar
+                          "%e%{0}"                   // anything else
+                          "%;" "%dc";
+      tui->unibi_ext.set_cursor_style = (int)unibi_add_ext_str(ut, "Ss", style);
       if (-1 == tui->unibi_ext.reset_cursor_style) {
         tui->unibi_ext.reset_cursor_style = (int)unibi_add_ext_str(ut, "Se",
                                                                    "");
@@ -1972,16 +1972,16 @@ static void patch_terminfo_bugs(TUIData *tui, const char *term, const char *colo
     } else if (konsolev > 0 && konsolev < 180770) {
       // Konsole before version 18.07.70: set up a nonce profile. This has
       // side effects on temporary font resizing. #6798
-      tui->unibi_ext.set_cursor_style = (int)unibi_add_ext_str(ut, "Ss",
-                                                               TMUX_WRAP(tmux,
-                                                                         "\x1b]50;CursorShape=%?"
-                                                                         "%p1%{3}%<" "%t%{0}"    // block
-                                                                         "%e%p1%{5}%<" "%t%{2}"  // underline
-                                                                         "%e%{1}"                // everything else is bar
-                                                                         "%;%d;BlinkingCursorEnabled=%?"
-                                                                         "%p1%{1}%<" "%t%{1}"  // Fortunately if we exclude zero as special,
-                                                                         "%e%p1%{1}%&"  // in all other cases we can treat bit #0 as a flag.
-                                                                         "%;%d\x07"));
+      const char *style = TMUX_WRAP(tmux,
+                                    "\x1b]50;CursorShape=%?"
+                                    "%p1%{3}%<" "%t%{0}"    // block
+                                    "%e%p1%{5}%<" "%t%{2}"  // underline
+                                    "%e%{1}"                // everything else is bar
+                                    "%;%d;BlinkingCursorEnabled=%?"
+                                    "%p1%{1}%<" "%t%{1}"  // Fortunately if we exclude zero as special,
+                                    "%e%p1%{1}%&"  // in all other cases we can treat bit #0 as a flag.
+                                    "%;%d\x07");
+      tui->unibi_ext.set_cursor_style = (int)unibi_add_ext_str(ut, "Ss", style);
       if (-1 == tui->unibi_ext.reset_cursor_style) {
         tui->unibi_ext.reset_cursor_style = (int)unibi_add_ext_str(ut, "Se",
                                                                    "");
