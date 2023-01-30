@@ -2027,6 +2027,7 @@ dictitem_T *tv_dict_find(const dict_T *const d, const char *const key, const ptr
   if (d == NULL) {
     return NULL;
   }
+
   hashitem_T *const hi = (len < 0
                           ? hash_find(&d->dv_hashtab, key)
                           : hash_find_len(&d->dv_hashtab, key, (size_t)len));

@@ -892,7 +892,15 @@ if(CLANG_ASAN_UBSAN)
     -fsanitize=address
     -fsanitize=undefined
     -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/src/.asan-blacklist)
+  target_compile_options(nvim-test PRIVATE
+    -fno-omit-frame-pointer
+    -fno-optimize-sibling-calls
+    -fsanitize=address
+    -fsanitize=undefined
+    -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/src/.asan-blacklist)
   target_link_libraries(nvim PRIVATE -fsanitize=address -fsanitize=undefined)
+  target_link_libraries(nvim-test PRIVATE /usr/lib/clang/15.0.7/lib/linux/libclang_rt.ubsan_standalone-x86_64.a)
+
 elseif(CLANG_MSAN)
   message(STATUS "Enabling Clang memory sanitizer for nvim.")
   target_compile_options(nvim PRIVATE
