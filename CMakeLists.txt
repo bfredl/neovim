@@ -121,10 +121,10 @@ if(CMAKE_C_FLAGS_RELEASE MATCHES "-O3")
   string(REPLACE "-O3" "-O2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
 endif()
 
-if(CMAKE_C_COMPILER_ID MATCHES "GNU")
+if(FALSE AND CMAKE_C_COMPILER_ID MATCHES "GNU")
   check_c_compiler_flag(-Og HAS_OG_FLAG)
 else()
-  set(HAS_OG_FLAG 0)
+  set(HAS_OG_FLAG 1)
 endif()
 
 #

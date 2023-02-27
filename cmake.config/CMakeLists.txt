@@ -5,6 +5,52 @@ include(CheckIncludeFiles)
 include(CheckCSourceRuns)
 include(CheckCSourceCompiles)
 
+if(TRUE)
+set(HAVE_EXECINFO_BACKTRACE, 1)
+set(HAVE_BUILTIN_ADD_OVERFLOW 1)
+set(SIZEOF_INT 4)
+set(SIZEOF_LONG 8)
+set(SIZEOF_INTMAX_T 8)
+set(SIZEOF_INT32_T 4)
+set(SIZEOF_SIZE_T 8)
+set(SIZEOF_LONG_LONG 8)
+set(SIZEOF_VOID_PTR 8)
+
+set(HAVE_LANGINFO_H 1)
+set(HAVE_LOCALE_H 1)
+set(HAVE_PWD_H 1)
+set(HAVE_STRINGS_H 1)
+set(HAVE_SYS_UTSNAME_H 1)
+set(HAVE_TERMIOS_H 1)
+set(HAVE_SYS_UIO_H 1)
+set(HAVE_SYS_SDT_H 1)
+
+set(HAVE_FSEEKO 1)
+set(HAVE_GETPWENT 1)
+set(HAVE_GETPWNAM 1)
+set(HAVE_GETPWUID 1)
+set(HAVE_READV 1)
+set(HAVE_OPENDIR 1)
+set(HAVE_READLINK 1)
+set(HAVE_SETPGID 1)
+set(HAVE_SETSID 1)
+set(HAVE_SIGACTION 1)
+set(HAVE_STRNLEN 1)
+set(HAVE_STRCASECMP 1)
+set(HAVE_STRNCASECMP 1)
+set(HAVE_STRPTIME 1)
+
+
+set(HAVE_DIRFD 1)
+set(HAVE_FLOCK 1)
+set(HAVE_FORKPTY 1)
+
+set(HAVE_FD_CLOEXEC 1)
+set(HAVE_BE64TOH 1)
+
+set(ENDIAN_INCLUDE_FILE "endian.h")
+else()
+
 check_c_source_compiles("
 #include <execinfo.h>
 int main(void)
@@ -154,6 +200,8 @@ if (NOT "${HAVE_BE64TOH}")
       ${ME}"
       ORDER_BIG_ENDIAN)
   endif()
+endif()
+
 endif()
 
 configure_file (

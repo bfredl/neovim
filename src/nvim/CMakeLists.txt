@@ -113,10 +113,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND CMAKE_C_COMPILER_ID MATCHES "Clang")
   target_compile_options(main_lib INTERFACE -Wno-c11-extensions)
 endif()
 
-check_c_compiler_flag(-Wimplicit-fallthrough HAVE_WIMPLICIT_FALLTHROUGH_FLAG)
-if(HAVE_WIMPLICIT_FALLTHROUGH_FLAG)
-  target_compile_options(main_lib INTERFACE -Wimplicit-fallthrough)
-endif()
+target_compile_options(main_lib INTERFACE -Wimplicit-fallthrough)
 
 option(ENABLE_COMPILER_SUGGESTIONS "Enable -Wsuggest compiler warnings" OFF)
 if(ENABLE_COMPILER_SUGGESTIONS)
@@ -150,24 +147,14 @@ if(WIN32)
   target_compile_definitions(main_lib INTERFACE _WIN32_WINNT=0x0602 MSWIN)
 endif()
 
-# OpenBSD's GCC (4.2.1) doesn't have -Wvla
-check_c_compiler_flag(-Wvla HAS_WVLA_FLAG)
-if(HAS_WVLA_FLAG)
-  target_compile_options(main_lib INTERFACE -Wvla)
-endif()
+target_compile_options(main_lib INTERFACE -Wvla)
 
-check_c_compiler_flag(-fno-common HAVE_FNO_COMMON)
-if (HAVE_FNO_COMMON)
-  target_compile_options(main_lib INTERFACE -fno-common)
-endif()
+target_compile_options(main_lib INTERFACE -fno-common)
 
-check_c_compiler_flag(-fdiagnostics-color=auto HAS_DIAG_COLOR_FLAG)
-if(HAS_DIAG_COLOR_FLAG)
-  if(CMAKE_GENERATOR MATCHES "Ninja")
-    target_compile_options(main_lib INTERFACE -fdiagnostics-color=always)
-  else()
-    target_compile_options(main_lib INTERFACE -fdiagnostics-color=auto)
-  endif()
+if(CMAKE_GENERATOR MATCHES "Ninja")
+  target_compile_options(main_lib INTERFACE -fdiagnostics-color=always)
+else()
+  target_compile_options(main_lib INTERFACE -fdiagnostics-color=auto)
 endif()
 
 if($ENV{CI})
@@ -189,49 +176,12 @@ if(UNSIGNED_CHAR)
   target_compile_options(main_lib INTERFACE -funsigned-char)
 endif()
 
-list(APPEND CMAKE_REQUIRED_INCLUDES "${MSGPACK_INCLUDE_DIRS}")
-check_c_source_compiles("
-#include <msgpack.h>
-
-int
-main(void)
-{
-  return MSGPACK_OBJECT_FLOAT32;
-}
-" MSGPACK_HAS_FLOAT32)
-list(REMOVE_ITEM CMAKE_REQUIRED_INCLUDES "${MSGPACK_INCLUDE_DIRS}")
-if(MSGPACK_HAS_FLOAT32)
-  target_compile_definitions(main_lib INTERFACE NVIM_MSGPACK_HAS_FLOAT32)
-endif()
+target_compile_definitions(main_lib INTERFACE NVIM_MSGPACK_HAS_FLOAT32)
 
 list(APPEND CMAKE_REQUIRED_INCLUDES "${TreeSitter_INCLUDE_DIRS}")
 list(APPEND CMAKE_REQUIRED_LIBRARIES "${TreeSitter_LIBRARIES}")
-check_c_source_compiles("
-#include <tree_sitter/api.h>
-int
-main(void)
-{
-  TSQueryCursor *cursor = ts_query_cursor_new();
-  ts_query_cursor_set_match_limit(cursor, 32);
-  return 0;
-}
-" TS_HAS_SET_MATCH_LIMIT)
-if(TS_HAS_SET_MATCH_LIMIT)
-  target_compile_definitions(main_lib INTERFACE NVIM_TS_HAS_SET_MATCH_LIMIT)
-endif()
-check_c_source_compiles("
-#include <stdlib.h>
-#include <tree_sitter/api.h>
-int
-main(void)
-{
-  ts_set_allocator(malloc, calloc, realloc, free);
-  return 0;
-}
-" TS_HAS_SET_ALLOCATOR)
-if(TS_HAS_SET_ALLOCATOR)
-  target_compile_definitions(main_lib INTERFACE NVIM_TS_HAS_SET_ALLOCATOR)
-endif()
+target_compile_definitions(main_lib INTERFACE NVIM_TS_HAS_SET_MATCH_LIMIT)
+target_compile_definitions(main_lib INTERFACE NVIM_TS_HAS_SET_ALLOCATOR)
 list(REMOVE_ITEM CMAKE_REQUIRED_INCLUDES "${TreeSitter_INCLUDE_DIRS}")
 list(REMOVE_ITEM CMAKE_REQUIRED_LIBRARIES "${TreeSitter_LIBRARIES}")
 
@@ -291,9 +241,9 @@ endif()
 
 if(UNIX)
   # -fstack-protector breaks non Unix builds even in Mingw-w64
-  check_c_compiler_flag(-fstack-protector-strong HAS_FSTACK_PROTECTOR_STRONG_FLAG)
-  check_c_compiler_flag(-fstack-protector HAS_FSTACK_PROTECTOR_FLAG)
-  if(HAS_FSTACK_PROTECTOR_STRONG_FLAG)
+  #check_c_compiler_flag(-fstack-protector-strong HAS_FSTACK_PROTECTOR_STRONG_FLAG)
+  #check_c_compiler_flag(-fstack-protector HAS_FSTACK_PROTECTOR_FLAG)
+  if(TRUE)
     target_compile_options(main_lib INTERFACE -fstack-protector-strong)
     target_link_libraries(main_lib INTERFACE -fstack-protector-strong)
   elseif(HAS_FSTACK_PROTECTOR_FLAG)
