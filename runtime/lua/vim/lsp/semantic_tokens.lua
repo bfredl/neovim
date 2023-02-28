@@ -398,8 +398,10 @@ function STHighlighter:on_win(topline, botline)
           -- preamble while the new one is still being built. Once the preamble
           -- finishes, clangd sends a refresh request which lets the client
           -- re-synchronize the tokens.
+          local ft = vim.bo[self.bufnr].filetype
+          local lang_suffix = (ft ~= "") and ('.'..ft) or ''
           api.nvim_buf_set_extmark(self.bufnr, state.namespace, token.line, token.start_col, {
-            hl_group = '@' .. token.type,
+            hl_group = '@' .. token.type .. lang_suffix,
             end_col = token.end_col,
             priority = vim.highlight.priorities.semantic_tokens,
             strict = false,
@@ -409,7 +411,7 @@ function STHighlighter:on_win(topline, botline)
           if #token.modifiers > 0 then
             for _, modifier in pairs(token.modifiers) do
               api.nvim_buf_set_extmark(self.bufnr, state.namespace, token.line, token.start_col, {
-                hl_group = '@' .. modifier,
+                hl_group = '@' .. modifier .. lang_suffix,
                 end_col = token.end_col,
                 priority = vim.highlight.priorities.semantic_tokens + 1,
                 strict = false,
