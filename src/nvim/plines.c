@@ -225,20 +225,24 @@ int win_lbr_chartabsize(chartabsize_T *cts, int *headp)
         break;
       } else if (mark.pos.col == col) {
         if (!mt_end(mark)) {
-          Decoration decor = get_decor(mark);
-          if (decor.virt_text_pos == kVTInline) {
-            if (mt_right(mark)) {
-              cts->cts_cur_text_width_right += decor.virt_text_width;
-            } else {
-              cts->cts_cur_text_width_left += decor.virt_text_width;
+          DecorInline decor = mt_decor(mark);
+          DecorVirtText *vt = decor.ext ? decor.data.ext.vt : NULL;
+          while (vt) {
+            if (!(vt->flags & kVTIsLines) && vt->pos == kVPosInline) {
+              if (mt_right(mark)) {
+                cts->cts_cur_text_width_right += vt->width;
+              } else {
+                cts->cts_cur_text_width_left += vt->width;
+              }
+              size += vt->width;
+              if (*s == TAB) {
+                // tab size changes because of the inserted text
+                size -= tab_size;
+                tab_size = win_chartabsize(wp, s, vcol + size);
+                size += tab_size;
+              }
             }
-            size += decor.virt_text_width;
-            if (*s == TAB) {
-              // tab size changes because of the inserted text
-              size -= tab_size;
-              tab_size = win_chartabsize(wp, s, vcol + size);
-              size += tab_size;
-            }
+            vt = vt->next;
           }
         }
       }

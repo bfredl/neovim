@@ -7,6 +7,7 @@
 
 #include "klib/kvec.h"
 #include "nvim/assert.h"
+#include "nvim/decoration_defs.h"
 #include "nvim/garray.h"
 #include "nvim/map.h"
 #include "nvim/pos.h"
@@ -47,6 +48,8 @@ typedef struct {
 } MarkTreeIter;
 
 #define marktree_itr_valid(itr) ((itr)->x != NULL)
+// accces raw key: flags in MT_FLAG_EXTERNAL_MASK_XX and decor_data are safe to modify.
+#define mt_itr_rawkey(itr) ((itr)->x->key[(itr)->i])
 
 // Internal storage
 //
@@ -56,10 +59,8 @@ typedef struct {
   MTPos pos;
   uint32_t ns;
   uint32_t id;
-  int32_t hl_id;
   uint16_t flags;
-  uint16_t priority;
-  Decoration *decor_full;
+  DecorInlineData decor_data;  // "ext" tag in flags
 } MTKey;
 
 typedef struct {
@@ -68,29 +69,34 @@ typedef struct {
   bool end_right_gravity;
 } MTPair;
 
-#define MT_INVALID_KEY (MTKey) { { -1, -1 }, 0, 0, 0, 0, 0, NULL }
+#define MT_INVALID_KEY (MTKey) { { -1, -1 }, 0, 0, 0, { .hl = DECOR_HIGHLIGHT_INLINE_INIT } }
 
 #define MT_FLAG_REAL (((uint16_t)1) << 0)
 #define MT_FLAG_END (((uint16_t)1) << 1)
 #define MT_FLAG_PAIRED (((uint16_t)1) << 2)
 // orphaned: the other side of this paired mark was deleted. this mark must be deleted very soon!
 #define MT_FLAG_ORPHANED (((uint16_t)1) << 3)
-#define MT_FLAG_HL_EOL (((uint16_t)1) << 4)
-#define MT_FLAG_NO_UNDO (((uint16_t)1) << 5)
-#define MT_FLAG_INVALIDATE (((uint16_t)1) << 6)
-#define MT_FLAG_INVALID (((uint16_t)1) << 7)
+#define MT_FLAG_NO_UNDO (((uint16_t)1) << 4)
+#define MT_FLAG_INVALIDATE (((uint16_t)1) << 5)
+#define MT_FLAG_INVALID (((uint16_t)1) << 6)
+// discriminant for union; ignored if decor level is zero
+#define MT_FLAG_DECOR_EXT (((uint16_t)1) << 7)
 
 #define DECOR_LEVELS 4
 #define MT_FLAG_DECOR_OFFSET 8
-#define MT_FLAG_DECOR_MASK (((uint16_t)(DECOR_LEVELS - 1)) << MT_FLAG_DECOR_OFFSET)
+#define MT_FLAG_DECOR_MASK ((((uint16_t)(DECOR_LEVELS - 1)) << MT_FLAG_DECOR_OFFSET) \
+                            | MT_FLAG_DECOR_EXT)
 
 // These _must_ be last to preserve ordering of marks
 #define MT_FLAG_RIGHT_GRAVITY (((uint16_t)1) << 14)
 #define MT_FLAG_LAST (((uint16_t)1) << 15)
 
-#define MT_FLAG_EXTERNAL_MASK (MT_FLAG_DECOR_MASK | MT_FLAG_RIGHT_GRAVITY | MT_FLAG_HL_EOL \
+#define MT_FLAG_EXTERNAL_MASK (MT_FLAG_DECOR_MASK | MT_FLAG_RIGHT_GRAVITY \
                                | MT_FLAG_NO_UNDO | MT_FLAG_INVALIDATE | MT_FLAG_INVALID)
 
+// TODO
+#define MT_FLAG_EXTERNAL_MASK_XX (MT_FLAG_DECOR_MASK  \
+                               | MT_FLAG_NO_UNDO | MT_FLAG_INVALIDATE | MT_FLAG_INVALID)
 // this is defined so that start and end of the same range have adjacent ids
 #define MARKTREE_END_FLAG ((uint64_t)1)
 static inline uint64_t mt_lookup_id(uint32_t ns, uint32_t id, bool enda)
@@ -148,20 +154,25 @@ static inline uint8_t marktree_decor_level(MTKey key)
   return (uint8_t)((key.flags&MT_FLAG_DECOR_MASK) >> MT_FLAG_DECOR_OFFSET);
 }
 
-static inline uint16_t mt_flags(bool right_gravity, bool hl_eol, bool no_undo, bool invalidate,
-                                uint8_t decor_level)
+static inline uint16_t mt_flags(bool right_gravity, bool no_undo, bool invalidate,
+                                uint8_t decor_level, bool decor_ext)
 {
   assert(decor_level < DECOR_LEVELS);
   return (uint16_t)((right_gravity ? MT_FLAG_RIGHT_GRAVITY : 0)
-                    | (hl_eol ? MT_FLAG_HL_EOL : 0)
                     | (no_undo ? MT_FLAG_NO_UNDO : 0)
                     | (invalidate ? MT_FLAG_INVALIDATE : 0)
+                    | (decor_ext ? MT_FLAG_DECOR_EXT : 0)
                     | (decor_level << MT_FLAG_DECOR_OFFSET));
 }
 
 static inline MTPair mtpair_from(MTKey start, MTKey end)
 {
   return (MTPair){ .start = start, .end_pos = end.pos, .end_right_gravity = mt_right(end) };
+}
+
+static inline DecorInline mt_decor(MTKey key)
+{
+  return (DecorInline){ .ext = key.flags & MT_FLAG_DECOR_EXT, .data = key.decor_data };
 }
 
 typedef kvec_withinit_t(uint64_t, 4) Intersection;
@@ -186,8 +197,6 @@ static inline uint64_t mt_dbg_id(uint64_t id)
 typedef struct {
   MTNode *root;
   size_t n_keys, n_nodes;
-  // TODO(bfredl): the pointer to node could be part of the larger
-  // Map(uint64_t, ExtmarkItem) essentially;
   PMap(uint64_t) id2node[1];
 } MarkTree;
 
