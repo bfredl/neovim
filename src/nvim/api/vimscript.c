@@ -104,6 +104,76 @@ theend:
   return (String)STRING_INIT;
 }
 
+// TODO: merga into nvim_exec2
+Array nvim__exec_color(uint64_t channel_id, String src, Boolean output, Arena *arena, Error *err)
+  FUNC_API_SINCE(7)
+{
+  const int save_msg_silent = msg_silent;
+  garray_T *const save_capture_ga = capture_ga;
+  CaptureColors *const save_capture_ga_colors = capture_ga_colors;
+  const int save_msg_col = msg_col;
+  garray_T capture_local;
+  CaptureColors capture_colors_local = KV_INITIAL_VALUE;
+  if (output) {
+    ga_init(&capture_local, 1, 80);
+    capture_ga = &capture_local;
+    capture_ga_colors = &capture_colors_local;
+    capture_color_current = 0;
+  }
+
+  try_start();
+  if (output) {
+    msg_silent++;
+    msg_col = 0;  // prevent leading spaces
+  }
+
+  const sctx_T save_current_sctx = api_set_sctx(channel_id);
+
+  do_source_str(src.data, "nvim_exec()");
+  if (output) {
+    capture_ga = save_capture_ga;
+    capture_ga_colors = save_capture_ga_colors;
+    msg_silent = save_msg_silent;
+    // Put msg_col back where it was, since nothing should have been written.
+    msg_col = save_msg_col;
+  }
+
+  current_sctx = save_current_sctx;
+  try_end(err);
+
+  if (ERROR_SET(err)) {
+    goto theend;
+  }
+
+  if (output && capture_local.ga_len > 1) {
+    kv_push(capture_colors_local, ((struct capturecolor_item) { capture_local.ga_len, 0 }));
+
+    int cur_pos = 0;
+    int cur_attr = 0;
+    Array rv = arena_array(arena, kv_size(capture_colors_local));
+    String mem = arena_string(arena, cbuf_as_string(capture_local.ga_data, (size_t)capture_local.ga_len));
+    for (size_t i = 0; i < kv_size(capture_colors_local); i++) {
+      int next_pos = kv_A(capture_colors_local, i).pos;
+      int next_attr = kv_A(capture_colors_local, i).attr;
+      if (next_pos > cur_pos) {
+        Array item = arena_array(arena, 2);
+        ADD_C(item, STRING_OBJ(cbuf_as_string(mem.data+cur_pos, (size_t)(next_pos - cur_pos))));
+        ADD_C(item, INTEGER_OBJ(cur_attr));
+        ADD_C(rv, ARRAY_OBJ(item));
+      }
+      cur_pos = next_pos;
+      cur_attr = next_attr;
+    }
+
+    return rv;  // Caller will free the memory.
+  }
+theend:
+  if (output) {
+    ga_clear(&capture_local);
+  }
+  return (Array)ARRAY_DICT_INIT;
+}
+
 /// Executes an Ex command.
 ///
 /// On execution error: fails with VimL error, updates v:errmsg.

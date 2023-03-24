@@ -783,11 +783,21 @@ EXTERN int keep_help_flag INIT(= false);  // doing :ta from help file
 // everywhere.
 EXTERN char *empty_option INIT(= "");
 
+
+// TODO: messages.h
 EXTERN bool redir_off INIT(= false);        // no redirection for a moment
 EXTERN FILE *redir_fd INIT(= NULL);         // message redirection file
 EXTERN int redir_reg INIT(= 0);             // message redirection register
 EXTERN int redir_vname INIT(= 0);           // message redirection variable
 EXTERN garray_T *capture_ga INIT(= NULL);   // captured output for execute()
+
+typedef kvec_t(struct capturecolor_item {
+  int pos;
+  int attr;
+}) CaptureColors;
+
+EXTERN CaptureColors *capture_ga_colors INIT(= NULL);   // captured colors for execute()
+EXTERN int capture_color_current INIT(= -1);   // captured colors for execute()
 
 EXTERN uint8_t langmap_mapchar[256];     // mapping for language keys
 

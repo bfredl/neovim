@@ -643,7 +643,7 @@ int emsg_not_now(void)
 
 static bool emsg_multiline(const char *s, bool multiline)
 {
-  int attr;
+  int attr = HL_ATTR(HLF_E);      // highlight mode for error messages
   bool ignore = false;
 
   // Skip this if not giving error messages at the moment.
@@ -690,17 +690,17 @@ static bool emsg_multiline(const char *s, bool multiline)
         if (p != NULL) {
           const size_t p_len = strlen(p);
           p[p_len] = '\n';
-          redir_write(p, (ptrdiff_t)p_len + 1);
+          redir_write(p, (ptrdiff_t)p_len + 1, attr);
           xfree(p);
         }
         p = get_emsg_lnum();
         if (p != NULL) {
           const size_t p_len = strlen(p);
           p[p_len] = '\n';
-          redir_write(p, (ptrdiff_t)p_len + 1);
+          redir_write(p, (ptrdiff_t)p_len + 1, attr);
           xfree(p);
         }
-        redir_write(s, (ptrdiff_t)strlen(s));
+        redir_write(s, (ptrdiff_t)strlen(s), attr);
       }
 
       // Log (silent) errors as debug messages.
@@ -740,7 +740,6 @@ static bool emsg_multiline(const char *s, bool multiline)
   }
 
   emsg_on_display = true;     // remember there is an error message
-  attr = HL_ATTR(HLF_E);      // set highlight mode for error messages
   if (msg_scrolled != 0) {
     need_wait_return = true;  // needed in case emsg() is called after
   }                           // wait_return() has reset need_wait_return
@@ -1450,7 +1449,7 @@ void msg_start(void)
 
   // When redirecting, may need to start a new line.
   if (!did_return) {
-    redir_write("\n", 1);
+    redir_write("\n", 1, 0);
   }
 }
 
@@ -2047,7 +2046,7 @@ void msg_puts_attr_len(const char *const str, const ptrdiff_t len, int attr)
 {
   assert(len < 0 || memchr(str, 0, (size_t)len) == NULL);
   // If redirection is on, also write to the redirection file.
-  redir_write(str, len);
+  redir_write(str, len, attr);
 
   // Don't print anything when using ":silent cmd".
   if (msg_silent != 0) {
@@ -3260,7 +3259,7 @@ void msg_check(void)
 /// May write a string to the redirection file.
 ///
 /// @param maxlen  if -1, write the whole string, otherwise up to "maxlen" bytes.
-static void redir_write(const char *const str, const ptrdiff_t maxlen)
+static void redir_write(const char *const str, const ptrdiff_t maxlen, int attr)
 {
   const char *s = str;
   static int cur_col = 0;
@@ -3280,6 +3279,13 @@ static void redir_write(const char *const str, const ptrdiff_t maxlen)
   }
 
   if (redirecting()) {
+    if (capture_ga_colors) {
+      if (attr != capture_color_current) {
+        kv_push(*capture_ga_colors, ((struct capturecolor_item) { capture_ga->ga_len, attr }));
+        capture_color_current = attr;
+      }
+    }
+
     // If the string doesn't start with CR or NL, go to msg_col
     if (*s != '\n' && *s != '\r') {
       while (cur_col < msg_col) {
