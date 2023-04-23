@@ -157,6 +157,7 @@ struct terminal {
   bool color_set[16];
 
   size_t refcount;                  // reference count
+  FILE *log;
 };
 
 static VTermScreenCallbacks vterm_screen_callbacks = {
@@ -212,6 +213,13 @@ Terminal *terminal_open(buf_T *buf, TerminalOptions opts)
   // Associate the terminal instance with the new buffer
   rv->buf_handle = buf->handle;
   buf->terminal = rv;
+
+  char namm[512];
+  snprintf(namm, sizeof namm, "/tmp/term_%d.log", getpid());
+  rv->log = fopen(namm, "wb");
+
+  fprintf(rv->log, "the init functions\n");
+
   // Create VTerm
   rv->vt = vterm_new(opts.height, opts.width);
   vterm_set_utf8(rv->vt, 1);
@@ -404,8 +412,12 @@ void terminal_check_size(Terminal *term)
     return;
   }
 
+  fprintf(term->log, "vterm_set_size(term->vt, %d, %d);\n", height, width);
+  fflush(term->log);
   vterm_set_size(term->vt, height, width);
+  fprintf(term->log, "vterm_screen_flush_damage(term->vts);\n");
   vterm_screen_flush_damage(term->vts);
+  fflush(term->log);
   term->pending_resize = true;
   invalidate_terminal(term, -1, -1);
 }
@@ -777,7 +789,12 @@ void terminal_receive(Terminal *term, char *data, size_t len)
     return;
   }
 
+  fprintf(term->log, "vterm_input_write(term->vt, data, %zd);\n", len);
   vterm_input_write(term->vt, data, len);
+  fprintf(term->log, "DATA VERBATIM START\n");
+  fwrite(data, len, 1, term->log);
+  fprintf(term->log, "\nDATA VERBATIM END\n");
+  fprintf(term->log, "vterm_screen_flush_damage(term->vts);\n");
   vterm_screen_flush_damage(term->vts);
 }
 
