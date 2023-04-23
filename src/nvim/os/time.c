@@ -73,55 +73,27 @@ uint64_t os_now(void)
 void os_delay(uint64_t ms, bool ignoreinput)
 {
   DLOG("%" PRIu64 " ms", ms);
-  if (ignoreinput) {
-    if (ms > INT_MAX) {
-      ms = INT_MAX;
-    }
-    LOOP_PROCESS_EVENTS_UNTIL(&main_loop, NULL, (int)ms, got_int);
-  } else {
-    os_microdelay(ms * 1000U, ignoreinput);
+  if (ms > INT_MAX) {
+    ms = INT_MAX;
   }
+  LOOP_PROCESS_EVENTS_UNTIL(&main_loop, NULL, (int)ms, ignoreinput ? got_int : os_char_avail_nopoll());
 }
 
-/// Sleeps for `us` microseconds.
+/// Sleeps for `ms` milliseconds without checking for events or interrupts.
+///
+/// This blocks even "fast" events which is quite disruptive. This should only
+/// be used in debug code. Prefer os_delay() and decide if the delay should be
+/// interupted by input or only a CTRL-C.
 ///
 /// @see uv_sleep() (libuv v1.34.0)
 ///
 /// @param us          Number of microseconds to sleep.
-/// @param ignoreinput If true, ignore all input (including SIGINT/CTRL-C).
-///                    If false, waiting is aborted on any input.
-void os_microdelay(uint64_t us, bool ignoreinput)
+void os_sleep(uint64_t ms)
 {
-  uint64_t elapsed = 0U;
-  uint64_t base = uv_hrtime();
-  // Convert microseconds to nanoseconds, or UINT64_MAX on overflow.
-  const uint64_t ns = (us < UINT64_MAX / 1000U) ? us * 1000U : UINT64_MAX;
-
-  uv_mutex_lock(&delay_mutex);
-
-  while (elapsed < ns) {
-    // If ignoring input, we simply wait the full delay.
-    // Else we check for input in ~100ms intervals.
-    const uint64_t ns_delta = ignoreinput
-                              ? ns - elapsed
-                              : MIN(ns - elapsed, 100000000U);  // 100ms
-
-    const int rv = uv_cond_timedwait(&delay_cond, &delay_mutex, ns_delta);
-    if (0 != rv && UV_ETIMEDOUT != rv) {
-      abort();
-      break;
-    }  // Else: Timeout proceeded normally.
-
-    if (!ignoreinput && os_char_avail()) {
-      break;
-    }
-
-    const uint64_t now = uv_hrtime();
-    elapsed += now - base;
-    base = now;
+  if (ms > UINT_MAX) {
+    ms = UINT_MAX;
   }
-
-  uv_mutex_unlock(&delay_mutex);
+  uv_sleep((unsigned int)ms);
 }
 
 // Cache of the current timezone name as retrieved from TZ, or an empty string

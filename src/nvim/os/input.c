@@ -179,6 +179,11 @@ bool os_char_avail(void)
   return inbuf_poll(0, NULL) == kInputAvail;
 }
 
+bool os_char_avail_nopoll(void)
+{
+  return input_ready(NULL);
+}
+
 /// Poll for fast events. `got_int` will be set to `true` if CTRL-C was typed.
 ///
 /// This invokes a full libuv loop iteration which can be quite costly.
