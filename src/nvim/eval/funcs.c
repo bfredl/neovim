@@ -2101,7 +2101,7 @@ static void f_filereadable(typval_T *argvars, typval_T *rettv, EvalFuncData fptr
 {
   const char *const p = tv_get_string(&argvars[0]);
   rettv->vval.v_number =
-    (*p && !os_isdir(p) && os_file_is_readable(p));
+    (*p && !os_isdir(p) && os_file_is_readable(false, p));
 }
 
 /// @return  0 for not writable

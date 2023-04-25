@@ -45,9 +45,11 @@
 
 struct iovec;
 
-#define RUN_UV_FS_FUNC(ret, func, ...) \
+#define RUN_UV_FS_FUNC(ret, func, ...) RUN_UV_FS_FUNC_MAYFREE(true, ret, func, __VA_ARGS__)
+
+#define RUN_UV_FS_FUNC_MAYFREE(may_free, ret, func, ...) \
   do { \
-    bool did_try_to_free = false; \
+    bool did_try_to_free = !(may_free); \
 uv_call_start: {} \
     uv_fs_t req; \
     ret = func(NULL, &req, __VA_ARGS__); \
@@ -854,11 +856,11 @@ int os_file_settime(const char *path, double atime, double mtime)
 /// Check if a file is readable.
 ///
 /// @return true if `name` is readable, otherwise false.
-bool os_file_is_readable(const char *name)
+bool os_file_is_readable(bool thread, const char *name)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
 {
   int r;
-  RUN_UV_FS_FUNC(r, uv_fs_access, name, R_OK, NULL);
+  RUN_UV_FS_FUNC_MAYFREE(!thread, r, uv_fs_access, name, R_OK, NULL);
   return (r == 0);
 }
 

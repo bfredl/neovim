@@ -232,7 +232,7 @@ describe('fs.c', function()
     end
 
     local function os_file_is_readable(filename)
-      return fs.os_file_is_readable((to_cstr(filename)))
+      return fs.os_file_is_readable(false, (to_cstr(filename)))
     end
 
     local function os_file_is_writable(filename)
