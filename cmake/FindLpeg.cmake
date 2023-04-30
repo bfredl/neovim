@@ -9,6 +9,3 @@ ubuntu()
 
 find_package_handle_standard_args(Lpeg DEFAULT_MSG LPEG_LIBRARY)
 mark_as_advanced(LPEG_LIBRARY)
-
-add_library(lpeg INTERFACE)
-target_link_libraries(lpeg INTERFACE ${LPEG_LIBRARY})

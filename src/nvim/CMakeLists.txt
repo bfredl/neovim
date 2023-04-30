@@ -39,9 +39,9 @@ target_link_libraries(main_lib INTERFACE
   libvterm
   msgpack
   treesitter
-  unibilium
-  lpeg)
-target_link_libraries(nlua0 PUBLIC lpeg)
+  unibilium)
+target_link_libraries(main_lib INTERFACE ${LPEG_LIBRARY})
+target_link_libraries(nlua0 PUBLIC ${LPEG_LIBRARY})
 
 # Libintl (not Intl) selects our FindLibintl.cmake script. #8464
 find_package(Libintl REQUIRED)
