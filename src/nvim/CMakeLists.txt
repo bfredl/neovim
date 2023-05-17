@@ -340,6 +340,7 @@ foreach(subdir
         eval
         lua
         viml
+        lib
         viml/parser
        )
 

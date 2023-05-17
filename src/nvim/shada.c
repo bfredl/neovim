@@ -1396,7 +1396,7 @@ shada_read_main_cycle_end:
       hms_dealloc(&hms[i]);
     }
   }
-  if (cl_bufs.n_occupied) {
+  if (cl_bufs.h.n_occupied) {
     FOR_ALL_TAB_WINDOWS(tp, wp) {
       (void)tp;
       if (set_has(ptr_t, &cl_bufs, wp->w_buffer)) {
@@ -2867,7 +2867,7 @@ static ShaDaWriteResult shada_write(ShaDaWriteDef *const sd_writer, ShaDaReadDef
     xmalloc(file_markss_size * sizeof(*all_file_markss));
   FileMarks **cur_file_marks = all_file_markss;
   ptr_t val;
-  map_foreach_value(ptr_t, &wms->file_marks, val, {
+  map_foreach_value(&wms->file_marks, val, {
     *cur_file_marks++ = val;
   })
   qsort((void *)all_file_markss, file_markss_size, sizeof(*all_file_markss),
@@ -2922,7 +2922,7 @@ shada_write_exit:
       hms_dealloc(&wms->hms[i]);
     }
   }
-  map_foreach_value(ptr_t, &wms->file_marks, val, {
+  map_foreach_value(&wms->file_marks, val, {
     xfree(val);
   })
   map_destroy(cstr_t, &wms->file_marks);
