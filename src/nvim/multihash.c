@@ -45,7 +45,11 @@ void kh_clear(MultiHashTab *h)
   }
 }
 
-uint32_t kh_get(const MultiHashTab *h, testkey *keys, testkey key)
+// INNER get, exceptions:
+// rv == h->n_buckets: rare, but not found (completely full table)
+// is_either(hash[rv]) : not found, but this is the place to put
+// otherwise: hash[rv] is index into key/value arrays
+uint32_t mh_get_inner(const MultiHashTab *h, testkey *keys, testkey key)
 {
   if (h->n_buckets == 0) {
     return 0;
@@ -55,18 +59,38 @@ uint32_t kh_get(const MultiHashTab *h, testkey *keys, testkey key)
   uint32_t k = testkey_hash(key);
   uint32_t i = k & mask;
   uint32_t last = i;
-  while (!is_empty(h, i) && (is_del(h, i) || !testkey_equal(keys[i], key))) {
+  uint32_t site = h->n_buckets;
+  while (!is_empty(h, i)) {
+    if (is_del(h, i)) {
+      site = i;
+    } else if (testkey_equal(keys[i], key)) {
+      return i;
+    }
     i = (i + (++step)) & mask;
     if (i == last) {
-      return h->n_buckets;
+      return site;
     }
   }
-  return is_either(h, i) ? h->n_buckets : i;
+  return site;
+}
+
+// TODO: this should be _less_ for the h->hash part as this is now small (4 bytes per value)
+#define UPPER_FILL 0.77
+
+void mh_alloc(MultiHashTab *h, uint32_t n_buckets) {
+  // sets all buckets to EMPTY
+  h->hash = calloc(n_buckets, sizeof *h->hash);
+  h->n_buckets = n_buckets;
+  h->n_occupied = h->size = 0;
+  h->upper_bound = (uint32_t)(h->n_buckets * UPPER_FILL + 0.5);
+  h->n_deleted = 0;
+}
+
+void mh_put(MultiHashTab *h, testkey **keys, uint32_t n_buckets) {
 }
 
 # define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, \
                         ++(x))
-#define UPPER_FILL 0.77
 
 void kh_resize(MultiHashTab *h, uint32_t new_n_buckets, size_t val_size)
 {  /* This function uses 0.25*n_buckets bytes of working space instead of */
