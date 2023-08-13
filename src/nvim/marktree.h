@@ -86,10 +86,11 @@ typedef struct {
 
 #define MT_FLAG_EXTERNAL_MASK (MT_FLAG_DECOR_MASK | MT_FLAG_RIGHT_GRAVITY | MT_FLAG_HL_EOL)
 
-#define MARKTREE_END_FLAG (((uint64_t)1) << 63)
+// this is defined so that start and end of the same range have adjacent ids
+#define MARKTREE_END_FLAG ((uint64_t)1)
 static inline uint64_t mt_lookup_id(uint32_t ns, uint32_t id, bool enda)
 {
-  return (uint64_t)ns << 32 | id | (enda ? MARKTREE_END_FLAG : 0);
+  return (uint64_t)ns << 33 | (id <<1) | (enda ? MARKTREE_END_FLAG : 0);
 }
 
 static inline uint64_t mt_lookup_key_side(mtkey_t key, bool end)

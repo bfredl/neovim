@@ -108,7 +108,6 @@ static void compose(mtpos_t *base, mtpos_t val)
 
 typedef struct {
   uint64_t id;
-  bool end;
   bool left; // if true, node was moved forward
   mtnode_t *old, *new;
   int old_i, new_i;
@@ -1470,12 +1469,11 @@ static void swap_keys(MarkTree *b, MarkTreeIter *itr1, MarkTreeIter *itr2,
 {
   if (itr1->x != itr2->x) {
     if (mt_paired(rawkey(itr1))) {
-      // TODO: fix the mt_end cruft
-      kvi_push(*damage, ((Damage){ mt_lookup_id(rawkey(itr1).ns, rawkey(itr1).id, false), mt_end(rawkey(itr1)), true, itr1->x, itr2->x,
+      kvi_push(*damage, ((Damage){ mt_lookup_key(rawkey(itr1)), true, itr1->x, itr2->x,
                                    itr1->i, itr2->i }));
     }
     if (mt_paired(rawkey(itr2))) {
-      kvi_push(*damage, ((Damage){ mt_lookup_id(rawkey(itr2).ns, rawkey(itr2).id, false), mt_end(rawkey(itr2)), false, itr2->x, itr1->x,
+      kvi_push(*damage, ((Damage){ mt_lookup_key(rawkey(itr2)), false, itr2->x, itr1->x,
                                    itr2->i, itr1->i }));
     }
   }
@@ -1493,11 +1491,7 @@ static void swap_keys(MarkTree *b, MarkTreeIter *itr1, MarkTreeIter *itr2,
 static int damage_cmp(const void *s1, const void *s2)
 {
   Damage *d1 = (Damage *)s1, *d2 = (Damage *)s2;
-  // TODO: change over mt_lookup_key so that END is LSBit so that this is not needed
-  if (d1->id == d2->id) {
-    assert (d1->end != d2->end);
-    return d1->end;
-  }
+  assert(d1->id != d2->id);
   return d1->id > d2->id;
 }
 
@@ -1657,15 +1651,17 @@ past_continue_same_node:
   }
 
   if (kv_size(damage)) {
+    // TODO(bfredl): a full sort is not really needed. we just need a "start" node to find
+    // its corresponding "end" node. Set up some dedicated hash for this later (c.f. the
+    // "grow only" variant of khash_t branch)
     qsort((void *)&kv_A(damage, 0), kv_size(damage), sizeof(kv_A(damage, 0)),
           damage_cmp);
 
     for (size_t i = 0; i < kv_size(damage); i++) {
       Damage d = kv_A(damage, i);
-      if (!d.end) { // start
-        if (i+1 < kv_size(damage) && kv_A(damage, i+1).id == d.id) {
+      if (!(d.id & MARKTREE_END_FLAG)) { // start
+        if (i+1 < kv_size(damage) && kv_A(damage, i+1).id == (d.id | MARKTREE_END_FLAG)) {
           Damage d2 = kv_A(damage, i+1);
-          assert(d2.end);
 
           // pair
           marktree_itr_set_node(b, itr, d.old, d.old_i);
@@ -1693,14 +1689,16 @@ past_continue_same_node:
       } else {
         // d is lone end, start didn't move
         MarkTreeIter startpos[1];
-        marktree_lookup(b, d.id, startpos);
+        uint64_t start_id = d.id & ~MARKTREE_END_FLAG;
+
+        marktree_lookup(b, start_id, startpos);
         if (startpos->x) {
           *itr = *startpos;
           marktree_itr_set_node(b, enditr, d.old, d.old_i);
-          marktree_intersect_pair(b, d.id, itr, enditr, true);
+          marktree_intersect_pair(b, start_id, itr, enditr, true);
           *itr = *startpos;
           marktree_itr_set_node(b, enditr, d.new, d.new_i);
-          marktree_intersect_pair(b, d.id, itr, enditr, false);
+          marktree_intersect_pair(b, start_id, itr, enditr, false);
         }
       }
     }
