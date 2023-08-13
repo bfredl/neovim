@@ -1470,11 +1470,12 @@ static void swap_keys(MarkTree *b, MarkTreeIter *itr1, MarkTreeIter *itr2,
 {
   if (itr1->x != itr2->x) {
     if (mt_paired(rawkey(itr1))) {
-      kvi_push(*damage, ((Damage){ rawkey(itr1).id, mt_end(rawkey(itr1)), true, itr1->x, itr2->x,
+      // TODO: fix the mt_end cruft
+      kvi_push(*damage, ((Damage){ mt_lookup_id(rawkey(itr1).ns, rawkey(itr1).id, false), mt_end(rawkey(itr1)), true, itr1->x, itr2->x,
                                    itr1->i, itr2->i }));
     }
     if (mt_paired(rawkey(itr2))) {
-      kvi_push(*damage, ((Damage){ rawkey(itr2).id, mt_end(rawkey(itr2)), false, itr2->x, itr1->x,
+      kvi_push(*damage, ((Damage){ mt_lookup_id(rawkey(itr2).ns, rawkey(itr2).id, false), mt_end(rawkey(itr2)), false, itr2->x, itr1->x,
                                    itr2->i, itr1->i }));
     }
   }
@@ -1492,7 +1493,11 @@ static void swap_keys(MarkTree *b, MarkTreeIter *itr1, MarkTreeIter *itr2,
 static int damage_cmp(const void *s1, const void *s2)
 {
   Damage *d1 = (Damage *)s1, *d2 = (Damage *)s2;
-  assert(d1->id != d2->id);
+  // TODO: change over mt_lookup_key so that END is LSBit so that this is not needed
+  if (d1->id == d2->id) {
+    assert (d1->end != d2->end);
+    return d1->end;
+  }
   return d1->id > d2->id;
 }
 
