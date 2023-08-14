@@ -236,7 +236,7 @@ static inline void *_memcpy_free(void *const restrict dest, void *const restrict
 /// Copy a vector to a preallocated vector
 ///
 /// @param[out] v1 destination
-/// @param[in] v2 source (can be either vector or preallocated vector)
+/// @param[in] v0 source (can be either vector or preallocated vector)
 #define kvi_copy(v1, v0) \
     do { \
       if ((v1).capacity < (v0).size) { \
