@@ -516,6 +516,29 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     mtkey_t deleted = cur->key[curi];
     cur->key[curi] = intkey;
     refkey(b, cur, curi);
+    if (mt_end(cur->key[curi])) {
+      if (cur->level > 1) {
+        // TODO: intkey was moved UP here. need to bubble intersections
+        fprintf(stderr, "eeeeek\n");
+        abort();
+      } else {
+        // TODO: this is very similar to code in pivot_right, abstract?
+        uint64_t start_id = mt_lookup_key_side(cur->key[curi], false);
+        mtkey_t start =  marktree_lookup(b, start_id, NULL);
+        mtkey_t first = x->key[0];
+        // make pos of first absolute: first pos relative cur instead of x, and then use p_pos
+        if (curi > 0) {
+          unrelative(cur->key[curi-1].pos, &first.pos);
+        }
+        // itr has pos of x
+        unrelative(itr->pos, &first.pos);
+        if (key_cmp(start, first) < 0) {
+          // printf("intersect end\n"); fflush(enheten); // TODO: 
+          intersect_node(b, x, start_id);
+        }
+      }
+    }
+
     relative(intkey.pos, &deleted.pos);
     mtnode_t *y = cur->ptr[curi + 1];
     if (deleted.pos.row || deleted.pos.col) {
@@ -995,14 +1018,13 @@ static void pivot_left(MarkTree *b, mtpos_t p_pos, mtnode_t *p, int i)
       uint64_t end_id = mt_lookup_key_side(p->key[i], true);
       mtkey_t end =  marktree_lookup(b, end_id, NULL);
       mtkey_t last = y->key[y->n-1];
-      // make pos of last absolute: first pos relative p instead of x, and then use p_pos
-      if (i > 0) {
-        unrelative(p->key[i].pos, &last.pos);
-      }
+
+      // make pos of last absolute: first pos relative p instead of y, and then use p_pos
+      unrelative(p->key[i].pos, &last.pos);
       unrelative(p_pos, &last.pos);
       if (key_cmp(end, last) > 0) {
-        // printf("intersect start\n"); fflush(stdout); // TODO:
-        intersect_node(b, x, mt_lookup_key(p->key[i]));
+        // printf("intersect start\n"); fflush(enheten); // TODO:
+        intersect_node(b, y, mt_lookup_key(p->key[i]));
       }
     }
 
@@ -2095,7 +2117,7 @@ void mt_inspect_dotfile_node(MarkTree *b, garray_T *ga,
       if (i > 0) {
         GA_PUT(", ");
       }
-      GA_PRINT("%"PRIu64, kv_A(n->intersect, i) & 0xFFFFFFFF);
+      GA_PRINT("%"PRIu64, (kv_A(n->intersect, i)>>1) & 0xFFFFFFFF);
     }
     GA_PUT("</td></tr>\n");
   }
