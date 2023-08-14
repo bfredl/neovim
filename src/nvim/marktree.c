@@ -761,8 +761,9 @@ static void intersect_add(Intersection *x, Intersection *y)
     if (kv_A(*x, xi) == kv_A(*y, yi)) {
       xi++;
       yi++;
-    } else if (kv_A(*x, yi) < kv_A(*y, xi)) {
-      size_t n = kv_size(*y) - yi;  // at least one
+    } else if (kv_A(*y, yi) < kv_A(*x, xi)) {
+      size_t n = kv_size(*x) - xi;  // at least one
+      // printf("moved %lu because %d vs %d\n", n, );
       kvi_pushp(*x);
       memmove(&kv_A(*x, xi+1), &kv_A(*x, xi), n*sizeof(kv_A(*x, 0)));
       kv_A(*x, xi) = kv_A(*y, yi);
