@@ -671,11 +671,22 @@ static void merge_intersection(Intersection *restrict m, Intersection *restrict 
       kv_A(*y, yn++) = kv_A(*y, yi++);
     }
   }
+
+  // TODO: use memmove, special case xi=xn
+  while (xi < kv_size(*x)) {
+    kv_A(*x, xn++) = kv_A(*x, xi++);
+  }
+  while (yi < kv_size(*y)) {
+    kv_A(*y, yn++) = kv_A(*y, yi++);
+  }
+
   kv_size(*x) = xn;
   kv_size(*y) = yn;
 }
 
 
+// w used to be a child of x but it is now a child of y, adjust intersections accordingly
+// @param[out] d are intersections which should be added to the old children of y
 static void intersect_mov(Intersection *restrict x, Intersection *restrict y,
                           Intersection *restrict w, Intersection *restrict d)
 {
@@ -735,6 +746,42 @@ static void intersect_mov(Intersection *restrict x, Intersection *restrict y,
   }
   kv_size(*w) = wn;
   kv_size(*y) = yn;
+}
+
+bool intersect_mov_test(uint64_t *x, size_t nx,
+                        uint64_t *y, size_t ny,
+                        uint64_t *win, size_t nwin,
+                        uint64_t *wout, size_t *nwout,
+                        uint64_t *dout, size_t *ndout
+                        ) {
+  // these are immutable in the context of intersect_mov
+  Intersection xi = {.items = x, .size = nx };
+  Intersection yi = {.items = y, .size = ny };
+
+  Intersection w;
+  kvi_init(w);
+  for (size_t i = 0; i < nwin; i++) {
+    kvi_push(w, win[i]);
+  }
+  Intersection d;
+  kvi_init(d);
+
+  intersect_mov(&xi, &yi, &w, &d);
+
+  if (w.size > *nwout || d.size > *ndout) {
+    return false;
+  }
+
+  memcpy(wout, w.items, sizeof(w.items[0])*w.size);
+  *nwout = w.size;
+  //printf("\n\nweee %lu %lu %lu\n", w.size, w.items[0], w.items[1]);
+  // printf("nwoooeee %lu %lu %lu\n", *nwout, wout[0], wout[1]);
+  // fflush(stdout);
+
+  memcpy(dout, d.items, sizeof(d.items[0])*d.size);
+  *ndout = d.size;
+
+  return true;
 }
 
 static void intersect(Intersection *i, Intersection *x, Intersection *y)
@@ -839,11 +886,13 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
     unrelative(x->key[x->n].pos, &x->key[x->n + 1 + k].pos);
   }
   if (x->level) {
+    // bubble down: ranges that intersected old-x but not old-y or vice versa
+    // must be moved to their respective children
     memmove(&x->ptr[x->n + 1], y->ptr, ((size_t)y->n + 1) * sizeof(mtnode_t *));
     for (int k = 0; k < x->n + 1; k++) {
       // TODO(bfredl): dedicated impl for "Z |= Y"
-      for (size_t idx = 0; idx < kv_size(y->intersect); idx++) {
-        intersect_node(b,x->ptr[k],kv_A(y->intersect, idx));
+      for (size_t idx = 0; idx < kv_size(x->intersect); idx++) {
+        intersect_node(b,x->ptr[k],kv_A(x->intersect, idx));
       }
     }
     for (int ky = 0; ky < y->n + 1; ky++) {
@@ -851,8 +900,8 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
       // nodes that used to be in y, now the second half of x
       x->ptr[k]->parent = x;
       // TODO(bfredl): dedicated impl for "Z |= X"
-      for (size_t idx = 0; idx < kv_size(x->intersect); idx++) {
-        intersect_node(b,x->ptr[k],kv_A(x->intersect, idx));
+      for (size_t idx = 0; idx < kv_size(y->intersect); idx++) {
+        intersect_node(b,x->ptr[k],kv_A(y->intersect, idx));
       }
     }
   }
@@ -885,7 +934,6 @@ void kvi_move(Intersection *dest, Intersection* src)
   } else {
     dest->items = src->items;
   }
-
 }
 
 

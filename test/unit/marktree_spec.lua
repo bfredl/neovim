@@ -222,68 +222,142 @@ describe('marktree', function()
     eq(12, iter[0].x.key[iter[0].i].pos.col)
   end)
 
+  itp("'intersect_mov' function works correctly #thetest", function()
+    local function mov(x, y, w)
+      local xa = ffi.new("uint64_t[?]", #x)
+      for i, xi in ipairs(x) do xa[i-1] = xi end
+      local ya = ffi.new("uint64_t[?]", #y)
+      for i, yi in ipairs(y) do ya[i-1] = yi end
+      local wa = ffi.new("uint64_t[?]", #w)
+      for i, wi in ipairs(w) do wa[i-1] = wi end
+
+      local dummy_size = #x + #y + #w
+      local wouta = ffi.new("uint64_t[?]", dummy_size)
+      local douta = ffi.new("uint64_t[?]", dummy_size)
+      local wsize = ffi.new("size_t[1]")
+      wsize[0] = dummy_size
+      local dsize = ffi.new("size_t[1]")
+      dsize[0] = dummy_size
+
+      local status = lib.intersect_mov_test(xa, #x, ya, #y, wa, #w, wouta, wsize, douta, dsize)
+      if status == 0 then error'wowza' end
+
+      local wout, dout = {}, {}
+      for i = 0,tonumber(wsize[0])-1 do table.insert(wout, tonumber(wouta[i])) end
+      for i = 0,tonumber(dsize[0])-1 do table.insert(dout, tonumber(douta[i])) end
+      return {wout, dout}
+    end
+
+    eq({{}, {}}, mov({}, {2, 3}, {2, 3}))
+    eq({{2, 3}, {}}, mov({}, {}, {2, 3}))
+    eq({{2, 3}, {}}, mov({2, 3}, {}, {}))
+    eq({{}, {2,3}}, mov({}, {2,3}, {}))
+
+    eq({{1, 5}, {}}, mov({1,2,5}, {2, 3}, {3}))
+    eq({{1, 2}, {}}, mov({1,2,5}, {5, 10}, {10}))
+    eq({{1, 2}, {5}}, mov({1,2}, {5, 10}, {10}))
+    eq({{1,3,5,7,9}, {2,4,6,8,10}}, mov({1,3,5,7,9}, {2,4,6,8,10}, {}))
+    eq({{1,3,5,7,9}, {2,6,10}}, mov({1,3,5,7,9}, {2,4,6,8,10}, {4, 8}))
+    eq({{1,4,7}, {2,5,8}}, mov({1,3,4,6,7,9}, {2,3,5,6,8,9}, {}))
+    eq({{1,4,7}, {}}, mov({1,3,4,6,7,9}, {2,3,5,6,8,9}, {2,5,8}))
+    eq({{0,1,4,7,10}, {}}, mov({1,3,4,6,7,9}, {2,3,5,6,8,9}, {0,2,5,8,10}))
+  end)
+
+
+  local function check_intersections(tree)
+    if false then
+      ok(lib.marktree_check_intersections(tree))
+      return
+    end
+    local str1 = lib.mt_inspect(tree, true, true)
+    local dot1 = ffi.string(str1.data, str1.size)
+
+    local val = lib.marktree_check_intersections(tree)
+    if not val then
+      local str2 = lib.mt_inspect(tree, true, true)
+      local dot2 = ffi.string(str2.data, str2.size)
+      print("actual:\n\n".."Xafile.dot".."\n\nexpected:\n\n".."Xefile.dot".."\n")
+      print("nivå", tree[0].root.level);
+      io.stdout:flush()
+      local afil = io.open("Xafile.dot", "wb")
+      afil:write(dot1)
+      afil:close()
+      local efil = io.open("Xefile.dot", "wb")
+      efil:write(dot2)
+      efil:close()
+      ok(false)
+    else
+      ffi.C.xfree(str1.data)
+    end
+  end
+
   itp('works with intersections', function()
     io.stdout:write("\n")
     io.stdout:flush()
-
     local tree = ffi.new("MarkTree[1]") -- zero initialized by luajit
-    local shadow = {}
-    local iter = ffi.new("MarkTreeIter[1]")
-
-    function check_intersections()
-      if false then
-        ok(lib.marktree_check_intersections(tree))
-        return
-      end
-      local str1 = lib.mt_inspect(tree, true, true)
-      local dot1 = ffi.string(str1.data, str1.size)
-
-      local val = lib.marktree_check_intersections(tree)
-      if not val then
-        local str2 = lib.mt_inspect(tree, true, true)
-        local dot2 = ffi.string(str2.data, str2.size)
-        print("actual:\n\n".."Xafile.dot".."\n\nexpected:\n\n".."Xefile.dot".."\n")
-        io.stdout:flush()
-        local afil = io.open("Xafile.dot", "wb")
-        afil:write(dot1)
-        afil:close()
-        local efil = io.open("Xefile.dot", "wb")
-        efil:write(dot2)
-        efil:close()
-        ok(false)
-      else
-        ffi.C.xfree(str1.data)
-      end
-    end
 
     local ids = {}
 
     for i = 1,80 do
       table.insert(ids, put(tree, 1, i, false, 2, 100-i, false))
-      check_intersections()
+      check_intersections(tree)
     end
     for i = 1,80 do
       lib.marktree_del_pair_test(tree, ns, ids[i])
-      check_intersections()
+      check_intersections(tree)
     end
     ids = {}
 
     for i = 1,80 do
       table.insert(ids, put(tree, 1, i, false, 2, 100-i, false))
-      check_intersections()
+      check_intersections(tree)
     end
 
     for i = 1,10 do
       for j = 1,8 do
         local ival = (j-1)*10+i
-        print("IVAR",  ival, ids[ival])io.stdout:flush()
         lib.marktree_del_pair_test(tree, ns, ids[ival])
-        check_intersections()
+        check_intersections(tree)
       end
     end
     ids = {}
 
     io.stdout:write("GOOFBALL\n")
+    io.stdout:flush()
+  end)
+
+  itp('works with intersections with a HUGE tree #thetest', function()
+    io.stdout:write("\n")
+    io.stdout:flush()
+    local tree = ffi.new("MarkTree[1]") -- zero initialized by luajit
+
+    local ids = {}
+
+    for i = 1,1000 do
+      table.insert(ids, put(tree, 1, i, false, 2, 1000-i, false))
+      -- print("nivå", i, tree[0].root.level);
+      check_intersections(tree)
+    end
+
+    for i = 1,20 do
+      for j = 1,50 do
+        local ival = (j-1)*20+i
+        print("IVAR",  ival, ids[ival])io.stdout:flush()
+        if ival == 1 then
+          local str1 = lib.mt_inspect(tree, true, true)
+          local dot1 = ffi.string(str1.data, str1.size)
+          local forfil = io.open("Xforfile.dot", "wb")
+          forfil:write(dot1)
+          forfil:close()
+          print("forfil")io.stdout:flush()
+        end
+        lib.marktree_del_pair_test(tree, ns, ids[ival])
+        check_intersections(tree)
+      end
+    end
+    ids = {}
+
+    io.stdout:write("GOOFBALL2\n")
     io.stdout:flush()
   end)
 end)
