@@ -68,6 +68,8 @@
 
 #define rawkey(itr) ((itr)->x->key[(itr)->i])
 
+#define enheten stdout
+
 static bool pos_leq(mtpos_t a, mtpos_t b)
 {
   return a.row < b.row || (a.row == b.row && a.col <= b.col);
@@ -103,6 +105,12 @@ static void compose(mtpos_t *base, mtpos_t val)
   } else {
     base->row += val.row;
     base->col = val.col;
+  }
+}
+
+static void dumpi(Intersection *x) {
+  for (size_t i = 0; i < x->size; i++) {
+    printf("%lu, ", (x->items[i]>>1)&0xffffffff);
   }
 }
 
@@ -452,7 +460,7 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   mtnode_t *cur = itr->x;
   int curi = itr->i;
   uint64_t id = mt_lookup_key(cur->key[curi]);
-  // fprintf(stderr, "\nDELET %lu\n", id);
+  fprintf(enheten, "\nDELET %u %u %d\n", cur->key[curi].ns, cur->key[curi].id, cur->key[curi].flags & MT_FLAG_END);
 
   mtkey_t raw = rawkey(itr);
   uint64_t other = 0;
@@ -475,7 +483,7 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     if (rev) {
       abort();
     } else {
-      // fprintf(stderr, "INTERNAL %d\n", cur->level);
+       fprintf(enheten, "INTERNAL %d\n", cur->level);
       // steal previous node
       marktree_itr_prev(b, itr);
       adjustment = -1;
@@ -576,20 +584,19 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     // ppos is now the pos of p
 
     if (pi > 0 && p->ptr[pi - 1]->n > T - 1) {
-      // printf("pivot_right\n");fflush(stdout);
+      fprintf(enheten, "pivot_right\n");fflush(enheten);
       *lasti += 1;
       itr_dirty = true;
       // steal one key from the left neighbour
       pivot_right(b, ppos, p, pi - 1);
       break;
     } else if (pi < p->n && p->ptr[pi + 1]->n > T - 1) {
-      // printf("pivot_left\n");fflush(stdout);
+      fprintf(enheten, "pivot_left\n");fflush(enheten);
       // steal one key from right neighbour
       pivot_left(b, ppos, p, pi);
       break;
     } else if (pi > 0) {
-      // printf("merga\n");fflush(stdout);
-      // fprintf(stderr, "LEFT ");
+      fprintf(enheten, "merga LEFT\n");fflush(enheten);
       assert(p->ptr[pi - 1]->n == T - 1);
       // merge with left neighbour
       *lasti += T;
@@ -601,7 +608,7 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       itr->s[rlvl].i--;
       itr_dirty = true;
     } else {
-      // fprintf(stderr, "RIGHT ");
+      fprintf(enheten, "merga RIGHT\n");fflush(enheten);
       assert(pi < p->n && p->ptr[pi + 1]->n == T - 1);
       merge_node(b, p, pi);
       // no iter adjustment needed
@@ -857,6 +864,7 @@ static void bubble_up(mtnode_t *x)
   Intersection xi;
   kvi_init(xi);
   intersect(&xi, &x->ptr[0]->intersect, &x->ptr[x->n]->intersect);
+  // printf("BUBBLAN %lu\n", kv_size(xi));
   if (kv_size(xi)) {
     for (int i = 0; i < x->n+1; i++) {
       intersect_sub(&x->ptr[i]->intersect, &xi);
@@ -948,11 +956,11 @@ static void pivot_right(MarkTree *b, mtpos_t p_pos, mtnode_t *p, const int i)
   if (y->level) {
     memmove(&y->ptr[1], y->ptr, ((size_t)y->n + 1) * sizeof(mtnode_t *));
   }
-  // printf("old %d, ", p->key[i].id);
+  printf("pos %d: old %d%c, ", i, p->key[i].id, mt_end(p->key[i]) ? 'e' : 's');
   y->key[0] = p->key[i];
   refkey(b, y, 0);
   p->key[i] = x->key[x->n - 1];
-  // printf("new %d\n", p->key[i].id);
+  printf("new %d%c\n", p->key[i].id, mt_end(p->key[i]) ? 'e' : 's');
   refkey(b, p, i);
   if (x->level) {
     y->ptr[0] = x->ptr[x->n];
@@ -977,9 +985,16 @@ static void pivot_right(MarkTree *b, mtpos_t p_pos, mtnode_t *p, const int i)
     // adjust y->ptr[0] for a difference between the parents
     // in addition, this might cause some intersection of the old y
     // to bubble down to the old children of y (if y->ptr[0] wasn't intersected)
+    printf("x: "); dumpi(&x->intersect);
+    printf("\ny: "); dumpi(&y->intersect);
+    printf("\ny[0]: "); dumpi(&y->ptr[0]->intersect);
+    printf("\nBEGO\n");
     intersect_mov(&x->intersect, &y->intersect, &y->ptr[0]->intersect, &d);
+    printf("y[0]: "); dumpi(&y->ptr[0]->intersect);
+    printf("\nd: "); dumpi(&d);
+    printf("\n");
     if (kv_size(d)) {
-      // printf("Coverage: X-right");  // TODO:
+      printf("Coverage: X-right");  // TODO:
       for (int yi = 1; yi < y->n+1; yi++) {
         intersect_add(&y->ptr[yi]->intersect, &d);
       }
@@ -999,7 +1014,7 @@ static void pivot_right(MarkTree *b, mtpos_t p_pos, mtnode_t *p, const int i)
       }
       unrelative(p_pos, &first.pos);
       if (key_cmp(start, first) < 0) {
-        // printf("intersect end\n"); fflush(stdout); // TODO: 
+        // printf("intersect end\n"); fflush(enheten); // TODO: 
         intersect_node(b, x, start_id);
       }
     }
@@ -1009,7 +1024,6 @@ static void pivot_right(MarkTree *b, mtpos_t p_pos, mtnode_t *p, const int i)
       unintersect_node(b, y, mt_lookup_key(y->key[0]), false);
     }
   }
-
 }
 
 static void pivot_left(MarkTree *b, mtpos_t p_pos, mtnode_t *p, int i)
@@ -1051,9 +1065,16 @@ static void pivot_left(MarkTree *b, mtpos_t p_pos, mtnode_t *p, int i)
     // adjust x->ptr[x->n] for a difference between the parents
     // in addition, this might cause some intersection of the old y
     // to bubble down to the old children of y (if y->ptr[0] wasn't intersected)
+    printf("y: "); dumpi(&y->intersect);
+    printf("\nx: "); dumpi(&x->intersect);
+    printf("\nx[n]: "); dumpi(&x->ptr[x->n]->intersect);
+    printf("\nBEGO\n");
     intersect_mov(&y->intersect, &x->intersect, &x->ptr[x->n]->intersect, &d);
+    printf("x[n]: "); dumpi(&x->ptr[x->n]->intersect);
+    printf("\nd: "); dumpi(&d);
+    printf("\n");
     if (kv_size(d)) {
-      // printf("Coverage: X-left");  // TODO:
+      printf("Coverage: X-left\n");  // TODO:
       for (int xi = 0; xi < x->n; xi++) { // ptr[x->n| deliberately skipped
         intersect_add(&y->ptr[xi]->intersect, &d);
       }
@@ -2167,6 +2188,7 @@ void mt_inspect_dotfile_node(MarkTree *b, garray_T *ga,
         GA_PUT(", ");
       }
       GA_PRINT("%"PRIu64, (kv_A(n->intersect, i)>>1) & 0xFFFFFFFF);
+      GA_PRINT("~~%"PRIu64, (kv_A(n->intersect, i)));
     }
     GA_PUT("</td></tr>\n");
   }
