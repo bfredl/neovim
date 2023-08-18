@@ -292,8 +292,6 @@ describe('marktree', function()
   end
 
   itp('works with intersections', function()
-    io.stdout:write("\n")
-    io.stdout:flush()
     local tree = ffi.new("MarkTree[1]") -- zero initialized by luajit
 
     local ids = {}
@@ -320,37 +318,74 @@ describe('marktree', function()
         check_intersections(tree)
       end
     end
-    ids = {}
-
-    io.stdout:write("GOOFBALL\n")
-    io.stdout:flush()
   end)
 
-  itp('works with intersections with a HUGE tree #thetest', function()
-    io.stdout:write("\n")
-    io.stdout:flush()
+  itp('works with intersections with a big tree #thetest', function()
     local tree = ffi.new("MarkTree[1]") -- zero initialized by luajit
 
     local ids = {}
 
     for i = 1,1000 do
       table.insert(ids, put(tree, 1, i, false, 2, 1000-i, false))
-      -- print("nivå", i, tree[0].root.level);
-      check_intersections(tree)
+      if i % 10 == 1 then
+        check_intersections(tree)
+      end
     end
+
+    check_intersections(tree)
+    eq(2000, tree[0].n_keys)
+    ok(tree[0].root.level >= 2)
 
     local iter = ffi.new("MarkTreeIter[1]")
 
+    local ne = 0
     for i = 1,20 do
       for j = 1,50 do
+        ne = ne + 1
         local ival = (j-1)*20+i
-        print("IVAR",  ival, ids[ival])io.stdout:flush()
-        print('\nxx', ival)
-        local p = lib.marktree_lookup_ns(tree, ns, ids[ival], false, iter)
-        lib.marktree_del_itr(tree, iter, false)
+        if false then -- if there actually is a failure, this branch will fail out at the actual spot of the error
+          lib.marktree_lookup_ns(tree, ns, ids[ival], false, iter)
+          lib.marktree_del_itr(tree, iter, false)
+          check_intersections(tree)
+
+          lib.marktree_lookup_ns(tree, ns, ids[ival], true, iter)
+          lib.marktree_del_itr(tree, iter, false)
+          check_intersections(tree)
+        else
+          lib.marktree_del_pair_test(tree, ns, ids[ival])
+          if ne % 3 == 1 then
+            check_intersections(tree)
+          end
+        end
+      end
+    end
+
+    eq(0, tree[0].n_keys)
+  end)
+
+  itp('works with intersections with a HUMONGOUS tree #thetest', function()
+    local tree = ffi.new("MarkTree[1]") -- zero initialized by luajit
+
+    local ids = {}
+
+    for i = 1,10000 do
+      table.insert(ids, put(tree, 1, i, false, 2, 10000-i, false))
+      -- print("nivå", i, tree[0].root.level);
+      if i % 1000 == 0 then
         check_intersections(tree)
-        print('\nyy', ival, '\n')
-        if ival == 201 then
+      end
+    end
+    eq(20000, tree[0].n_keys)
+    ok(tree[0].root.level >= 3)
+
+    local iter = ffi.new("MarkTreeIter[1]")
+
+    local ne = 0
+    for i = 1,200 do
+      for j = 1,50 do
+        ne = ne + 1
+        local ival = (j-1)*200+i
+        if false and ival == 201 then
           local str1 = lib.mt_inspect(tree, true, true)
           local dot1 = ffi.string(str1.data, str1.size)
           local forfil = io.open("Xforfile.dot", "wb")
@@ -358,15 +393,15 @@ describe('marktree', function()
           forfil:close()
           print("forfil")io.stdout:flush()
         end
-
-        local p = lib.marktree_lookup_ns(tree, ns, ids[ival], true, iter)
-        lib.marktree_del_itr(tree, iter, false)
-        check_intersections(tree)
+        lib.marktree_del_pair_test(tree, ns, ids[ival])
+        -- just a few stickprov, if there is trouble we need to check
+        -- everyone using the code in the "big tree" case above
+        if ne % 1000 == 1 or ne <= 20 then
+          check_intersections(tree)
+        end
       end
     end
-    ids = {}
 
-    io.stdout:write("GOOFBALL2\n")
-    io.stdout:flush()
+    eq(0, tree[0].n_keys)
   end)
 end)
