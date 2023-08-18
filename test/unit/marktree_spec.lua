@@ -339,11 +339,18 @@ describe('marktree', function()
       check_intersections(tree)
     end
 
+    local iter = ffi.new("MarkTreeIter[1]")
+
     for i = 1,20 do
       for j = 1,50 do
         local ival = (j-1)*20+i
         print("IVAR",  ival, ids[ival])io.stdout:flush()
-        if ival == 1 then
+        print('\nxx', ival)
+        local p = lib.marktree_lookup_ns(tree, ns, ids[ival], false, iter)
+        lib.marktree_del_itr(tree, iter, false)
+        check_intersections(tree)
+        print('\nyy', ival, '\n')
+        if ival == 201 then
           local str1 = lib.mt_inspect(tree, true, true)
           local dot1 = ffi.string(str1.data, str1.size)
           local forfil = io.open("Xforfile.dot", "wb")
@@ -351,7 +358,9 @@ describe('marktree', function()
           forfil:close()
           print("forfil")io.stdout:flush()
         end
-        lib.marktree_del_pair_test(tree, ns, ids[ival])
+
+        local p = lib.marktree_lookup_ns(tree, ns, ids[ival], true, iter)
+        lib.marktree_del_itr(tree, iter, false)
         check_intersections(tree)
       end
     end

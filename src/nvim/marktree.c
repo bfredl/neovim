@@ -310,6 +310,18 @@ void marktree_put(MarkTree *b, mtkey_t key, int end_row, int end_col, bool end_r
   }
 }
 
+// this is currently not used very often, but if it was it should use binary search
+static bool intersection_has(Intersection *x, uint64_t id) {
+  for (size_t i = 0; i < kv_size(*x); i++) {
+    if (kv_A(*x, i-1) == id) {
+      return true;
+    } else if (kv_A(*x, i-1) >= id) {
+      return false;
+    }
+  }
+  return false;
+}
+
 static void intersect_node(MarkTree *b, mtnode_t *x, uint64_t id)
 {
   assert(!(id & MARKTREE_END_FLAG));
@@ -506,17 +518,36 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
   // }
   if (adjustment == -1) {
     int ilvl = itr->lvl - 1;
-    const mtnode_t *lnode = x;
+    mtnode_t *lnode = x;
+    uint64_t start_id = 0;
+    bool did_bubble = false;
+    if (mt_end(cur->key[curi])) {
+      start_id = mt_lookup_key_side(cur->key[curi], false);
+    }
     do {
-      const mtnode_t *const p = lnode->parent;
+      mtnode_t *p = lnode->parent;
       if (ilvl < 0) {
         abort();
       }
-      const int i = itr->s[ilvl].i;
+      int i = itr->s[ilvl].i;
       assert(p->ptr[i] == lnode);
       if (i > 0) {
         unrelative(p->key[i - 1].pos, &intkey.pos);
       }
+
+      if (p != cur && start_id) {
+        if (intersection_has(&p->ptr[0]->intersect, start_id)) {
+          // if not the first time, we need to undo the addition in the
+          // previous step (`intersect_node` just below)
+          int last = (lnode != x) ? 1 : 0;
+          for (int k = 0; k < p->n + last; k++) { // one less as p->ptr[n] is the last
+            unintersect_node(b, x->ptr[k], start_id, true);
+          }
+          intersect_node(b, x, start_id);
+          did_bubble = true;
+        }
+      }
+
       lnode = p;
       ilvl--;
     } while (lnode != cur);
@@ -524,26 +555,20 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     mtkey_t deleted = cur->key[curi];
     cur->key[curi] = intkey;
     refkey(b, cur, curi);
-    if (mt_end(cur->key[curi])) {
-      if (cur->level > 1) {
-        // TODO: intkey was moved UP here. need to bubble intersections
-        fprintf(stderr, "eeeeek\n");
-        abort();
-      } else {
-        // TODO: this is very similar to code in pivot_right, abstract?
-        uint64_t start_id = mt_lookup_key_side(cur->key[curi], false);
-        mtkey_t start =  marktree_lookup(b, start_id, NULL);
-        mtkey_t first = x->key[0];
-        // make pos of first absolute: first pos relative cur instead of x, and then use p_pos
-        if (curi > 0) {
-          unrelative(cur->key[curi-1].pos, &first.pos);
-        }
-        // itr has pos of x
-        unrelative(itr->pos, &first.pos);
-        if (key_cmp(start, first) < 0) {
-          // printf("intersect end\n"); fflush(enheten); // TODO: 
-          intersect_node(b, x, start_id);
-        }
+    // if `did_bubble` then we already added `start_id` to some parent
+    if (mt_end(cur->key[curi]) && !did_bubble) {
+      // TODO: this is very similar to code in pivot_right, abstract?
+      mtkey_t start =  marktree_lookup(b, start_id, NULL);
+      mtkey_t first = x->key[0];
+      // make pos of first absolute: first pos relative cur instead of x, and then use p_pos
+      if (curi > 0) {
+        unrelative(cur->key[curi-1].pos, &first.pos);
+      }
+      // itr has pos of x
+      unrelative(itr->pos, &first.pos);
+      if (key_cmp(start, first) < 0) {
+        // printf("intersect end\n"); fflush(enheten); // TODO: 
+        intersect_node(b, x, start_id);
       }
     }
 
@@ -1063,8 +1088,8 @@ static void pivot_left(MarkTree *b, mtpos_t p_pos, mtnode_t *p, int i)
     kvi_init(d);
     // x->ptr[x->n] was moved from y to x
     // adjust x->ptr[x->n] for a difference between the parents
-    // in addition, this might cause some intersection of the old y
-    // to bubble down to the old children of y (if y->ptr[0] wasn't intersected)
+    // in addition, this might cause some intersection of the old x
+    // to bubble down to the old children of x (if x->ptr[n] wasn't intersected)
     printf("y: "); dumpi(&y->intersect);
     printf("\nx: "); dumpi(&x->intersect);
     printf("\nx[n]: "); dumpi(&x->ptr[x->n]->intersect);
@@ -1076,7 +1101,7 @@ static void pivot_left(MarkTree *b, mtpos_t p_pos, mtnode_t *p, int i)
     if (kv_size(d)) {
       printf("Coverage: X-left\n");  // TODO:
       for (int xi = 0; xi < x->n; xi++) { // ptr[x->n| deliberately skipped
-        intersect_add(&y->ptr[xi]->intersect, &d);
+        intersect_add(&x->ptr[xi]->intersect, &d);
       }
     }
     kvi_destroy(d);
@@ -2035,9 +2060,11 @@ bool marktree_check_intersections(MarkTree *b)
       MarkTreeIter start_itr[1];
       MarkTreeIter end_itr[1];
       uint64_t end_id = mt_lookup_id(mark.ns, mark.id, true);
-      marktree_lookup(b, end_id, end_itr);
-      *start_itr = *itr;
-      marktree_intersect_pair(b, mt_lookup_key(mark), start_itr, end_itr, false);
+      mtkey_t k = marktree_lookup(b, end_id, end_itr);
+      if (k.pos.row >= 0) {
+        *start_itr = *itr;
+        marktree_intersect_pair(b, mt_lookup_key(mark), start_itr, end_itr, false);
+      }
     }
 
     marktree_itr_next(b, itr);
@@ -2188,7 +2215,7 @@ void mt_inspect_dotfile_node(MarkTree *b, garray_T *ga,
         GA_PUT(", ");
       }
       GA_PRINT("%"PRIu64, (kv_A(n->intersect, i)>>1) & 0xFFFFFFFF);
-      GA_PRINT("~~%"PRIu64, (kv_A(n->intersect, i)));
+      //GA_PRINT("~~%"PRIu64, (kv_A(n->intersect, i)));
     }
     GA_PUT("</td></tr>\n");
   }
