@@ -222,7 +222,7 @@ describe('marktree', function()
     eq(12, iter[0].x.key[iter[0].i].pos.col)
   end)
 
-  itp("'intersect_mov' function works correctly #thetest", function()
+  itp("'intersect_mov' function works correctly", function()
     local function mov(x, y, w)
       local xa = ffi.new("uint64_t[?]", #x)
       for i, xi in ipairs(x) do xa[i-1] = xi end
@@ -320,7 +320,7 @@ describe('marktree', function()
     end
   end)
 
-  itp('works with intersections with a big tree #thetest', function()
+  itp('works with intersections with a big tree', function()
     local tree = ffi.new("MarkTree[1]") -- zero initialized by luajit
 
     local ids = {}
@@ -363,7 +363,7 @@ describe('marktree', function()
     eq(0, tree[0].n_keys)
   end)
 
-  itp('works with intersections with a HUMONGOUS tree #thetest', function()
+  itp('works with intersections with a HUMONGOUS tree', function()
     local tree = ffi.new("MarkTree[1]") -- zero initialized by luajit
 
     local ids = {}
