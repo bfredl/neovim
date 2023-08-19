@@ -208,18 +208,29 @@ static inline void split_node(MarkTree *b, mtnode_t *x, const int i, mtkey_t nex
   // no alloc in the common case (less than 4 intersects)
   kvi_copy(z->intersect, y->intersect);
 
+  printf("SPLITTER %d because %d+%d \n", y->level, next.id, next.flags & MT_FLAG_END);
+
   if (!y->level) {
+    uint64_t pi = pseudo_index(y, 0);  // note: sloppy pseudo-index
+    printf("MEIN %lu ===== ZZZZ\n", pi);
     for (int j = 0; j < T; j++) {
       mtkey_t k = y->key[j];
-      if (mt_start(k) && id2node(b, mt_lookup_id(k.ns, k.id, true)) != y
-          && mt_lookup_key(k) != last_start) {
+      uint64_t pi_end = pseudo_index_for_id(b, mt_lookup_id(k.ns, k.id, true), true);
+      if(mt_start(k)) printf("zconsider %d: %d%c %lu\n", j, k.id, mt_end(k) ? 'e' : 's', pi_end);
+      if (mt_start(k) && pi_end > pi && mt_lookup_key(k) != last_start) {
+        printf("YES!\n");
         intersect_node(b, z, mt_lookup_id(k.ns, k.id, false));
       }
     }
+
+    printf("MEIN %lu ===== YYYY\n", pi);
     // note: y->key[T-1] is moved up and thus checked for both
     for (int j = T-1; j < (T * 2)-1; j++) {
       mtkey_t k = y->key[j];
-      if (mt_end(k) && id2node(b, mt_lookup_id(k.ns, k.id, false)) != y) {
+      uint64_t pi_start = pseudo_index_for_id(b, mt_lookup_id(k.ns, k.id, false), true);
+      if(mt_end(k)) printf("yconsider %d: %d%c %lu\n", j, k.id, mt_end(k) ? 'e' : 's', pi_start);
+      if (mt_end(k) && pi_start > 0 && pi_start < pi) {
+        printf("YES!\n");
         intersect_node(b, y, mt_lookup_id(k.ns, k.id, false));
       }
     }
@@ -233,6 +244,7 @@ static inline void split_node(MarkTree *b, mtnode_t *x, const int i, mtkey_t nex
     memcpy(z->ptr, &y->ptr[T], sizeof(mtnode_t *) * T);
     for (int j = 0; j < T; j++) {
       z->ptr[j]->parent = z;
+      z->ptr[j]->p_idx = (int16_t)j;
     }
   }
   y->n = T - 1;
@@ -240,6 +252,9 @@ static inline void split_node(MarkTree *b, mtnode_t *x, const int i, mtkey_t nex
           sizeof(mtnode_t *) * (size_t)(x->n - i));
   x->ptr[i + 1] = z;
   z->parent = x;  // == y->parent
+  for (int j = i + 1; j < x->n+2; j ++) {
+    x->ptr[j]->p_idx = (int16_t)j;
+  }
   memmove(&x->key[i + 1], &x->key[i], sizeof(mtkey_t) * (size_t)(x->n - i));
 
   // move key to internal layer:
@@ -379,6 +394,19 @@ void marktree_intersect_pair(MarkTree *b, uint64_t id, MarkTreeIter *itr, MarkTr
     }
   }
 
+  if (false) {
+  printf("LEVELS %lu: %d %d\nstart: ", dbg_id(id), itr->lvl, end_itr->lvl);
+  for (int i = 0; i < itr->lvl; i++) {
+    printf("%d, ", itr->s[i].i);
+  }
+  printf("%d\nendan: ", itr->i);
+  for (int i = 0; i < end_itr->lvl; i++) {
+    printf("%d, ", end_itr->s[i].i);
+  }
+  printf("%d\n", end_itr->i);
+  fflush(stdout);
+  }
+
   while (itr->x) {
     bool skip = false;
     if (itr->x == end_itr->x) {
@@ -437,6 +465,7 @@ void marktree_put_key(MarkTree *b, mtkey_t k)
     b->root = s; s->level = r->level + 1; s->n = 0;
     s->ptr[0] = r;
     r->parent = s;
+    r->p_idx = 0;
     split_node(b, s, 0, k);
     r = s;
   }
@@ -499,7 +528,7 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     if (rev) {
       abort();
     } else {
-       // fprintf(enheten, "INTERNAL %d\n", cur->level);
+       fprintf(enheten, "INTERNAL %d\n", cur->level);
       // steal previous node
       marktree_itr_prev(b, itr);
       adjustment = -1;
@@ -540,7 +569,7 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       }
 
       if (p != cur && start_id) {
-        // printf("try bubble: %d\n", p->level);
+        printf("try bubble: %d\n", p->level);
         if (intersection_has(&p->ptr[0]->intersect, start_id)) {
           // if not the first time, we need to undo the addition in the
           // previous step (`intersect_node` just below)
@@ -563,14 +592,12 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     refkey(b, cur, curi);
     // if `did_bubble` then we already added `start_id` to some parent
     if (mt_end(cur->key[curi]) && !did_bubble) {
-      // printf("icke-bubblare %lu in i tag=%d%c\n", (start_id>>1)&0xffffffff,  x->key[0].id, mt_end(x->key[0]) ? 'e' : 's');
+      printf("icke-bubblare %lu in i tag=%d%c\n", dbg_id(start_id),  x->key[0].id, mt_end(x->key[0]) ? 'e' : 's');
       // printf("onivå %d\n", cur->level);
-      mtkey_t start =  marktree_lookup(b, start_id, NULL);
-      mtkey_t first = x->key[0];
-      // itr has pos of x
-      unrelative(itr->pos, &first.pos);
-      if (key_cmp(start, first) < 0) {
-        // printf("intersect end\n"); fflush(enheten); // TODO: 
+      uint64_t pi = pseudo_index(x, 0);  // note: sloppy pseudo-index
+      uint64_t pi_start =  pseudo_index_for_id(b, start_id, true);
+      if (pi_start > 0 && pi_start < pi) {
+        printf("intersect end\n"); fflush(enheten); // TODO: 
         intersect_node(b, x, start_id);
       }
     }
@@ -612,19 +639,19 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
     // ppos is now the pos of p
 
     if (pi > 0 && p->ptr[pi - 1]->n > T - 1) {
-      // fprintf(enheten, "pivot_right\n");fflush(enheten);
+      fprintf(enheten, "pivot_right\n");fflush(enheten);
       *lasti += 1;
       itr_dirty = true;
       // steal one key from the left neighbour
       pivot_right(b, ppos, p, pi - 1);
       break;
     } else if (pi < p->n && p->ptr[pi + 1]->n > T - 1) {
-      // fprintf(enheten, "pivot_left\n");fflush(enheten);
+      fprintf(enheten, "pivot_left\n");fflush(enheten);
       // steal one key from right neighbour
       pivot_left(b, ppos, p, pi);
       break;
     } else if (pi > 0) {
-      // fprintf(enheten, "merga LEFT\n");fflush(enheten);
+      fprintf(enheten, "merga LEFT\n");fflush(enheten);
       assert(p->ptr[pi - 1]->n == T - 1);
       // merge with left neighbour
       *lasti += T;
@@ -636,7 +663,7 @@ uint64_t marktree_del_itr(MarkTree *b, MarkTreeIter *itr, bool rev)
       itr->s[rlvl].i--;
       itr_dirty = true;
     } else {
-      // fprintf(enheten, "merga RIGHT\n");fflush(enheten);
+      fprintf(enheten, "merga RIGHT\n");fflush(enheten);
       assert(pi < p->n && p->ptr[pi + 1]->n == T - 1);
       merge_node(b, p, pi);
       // no iter adjustment needed
@@ -935,6 +962,7 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
       int k = x->n + ky + 1;
       // nodes that used to be in y, now the second half of x
       x->ptr[k]->parent = x;
+      x->ptr[k]->p_idx = (int16_t)k;
       // TODO(bfredl): dedicated impl for "Z |= X"
       for (size_t idx = 0; idx < kv_size(y->intersect); idx++) {
         intersect_node(b,x->ptr[k],kv_A(y->intersect, idx));
@@ -945,6 +973,9 @@ static mtnode_t *merge_node(MarkTree *b, mtnode_t *p, int i)
   memmove(&p->key[i], &p->key[i + 1], (size_t)(p->n - i - 1) * sizeof(mtkey_t));
   memmove(&p->ptr[i + 1], &p->ptr[i + 2],
           (size_t)(p->n - i - 1) * sizeof(mtkey_t *));
+  for (int j = i + 1; j < p->n; j++) {  // note: one has been deleted
+    p->ptr[j]->p_idx = (int16_t)j;
+  }
   p->n--;
   marktree_free_node(b, y);
 
@@ -983,16 +1014,21 @@ static void pivot_right(MarkTree *b, mtpos_t p_pos, mtnode_t *p, const int i)
   memmove(&y->key[1], y->key, (size_t)y->n * sizeof(mtkey_t));
   if (y->level) {
     memmove(&y->ptr[1], y->ptr, ((size_t)y->n + 1) * sizeof(mtnode_t *));
+    for (int j = 1; j < y->n+2; j ++) {
+      y->ptr[j]->p_idx = (int16_t)j;
+    }
   }
-  // printf("pos %d: old %d%c, ", i, p->key[i].id, mt_end(p->key[i]) ? 'e' : 's');
+  printf("nivå %d\n", y->level);
+  printf("pos %d: old %d%c, ", i, p->key[i].id, mt_end(p->key[i]) ? 'e' : 's');
   y->key[0] = p->key[i];
   refkey(b, y, 0);
   p->key[i] = x->key[x->n - 1];
-  // printf("new %d%c\n", p->key[i].id, mt_end(p->key[i]) ? 'e' : 's');
+  printf("new %d%c\n", p->key[i].id, mt_end(p->key[i]) ? 'e' : 's');
   refkey(b, p, i);
   if (x->level) {
     y->ptr[0] = x->ptr[x->n];
     y->ptr[0]->parent = y;
+    y->ptr[0]->p_idx = 0;
   }
   x->n--;
   y->n++;
@@ -1033,21 +1069,18 @@ static void pivot_right(MarkTree *b, mtpos_t p_pos, mtnode_t *p, const int i)
   } else {
     // if the last element of x used to be an end node, check if it now covers all of x
     if (mt_end(p->key[i])) {
+      uint64_t pi = pseudo_index(x, 0);  // note: sloppy pseudo-index
+      printf("the key 1: %u\n", p->key[i].id);
       uint64_t start_id = mt_lookup_key_side(p->key[i], false);
-      mtkey_t start =  marktree_lookup(b, start_id, NULL);
-      mtkey_t first = x->key[0];
-      // make pos of first absolute: first pos relative p instead of x, and then use p_pos
-      if (i > 0) {
-        unrelative(p->key[i-1].pos, &first.pos);
-      }
-      unrelative(p_pos, &first.pos);
-      if (key_cmp(start, first) < 0) {
+      uint64_t pi_start =  pseudo_index_for_id(b, start_id, true);
+      if (pi_start > 0 && pi_start < pi) {
         // printf("intersect end\n"); fflush(enheten); // TODO: 
         intersect_node(b, x, start_id);
       }
     }
 
     if (mt_start(y->key[0])) {
+      printf("the key 2: %u\n", y->key[0].id);
       // no need for a check, just delet it if it was there
       unintersect_node(b, y, mt_lookup_key(y->key[0]), false);
     }
@@ -1075,10 +1108,14 @@ static void pivot_left(MarkTree *b, mtpos_t p_pos, mtnode_t *p, int i)
   if (x->level) {
     x->ptr[x->n + 1] = y->ptr[0];
     x->ptr[x->n + 1]->parent = x;
+    x->ptr[x->n + 1]->p_idx = (int16_t)(x->n + 1);
   }
   memmove(y->key, &y->key[1], (size_t)(y->n - 1) * sizeof(mtkey_t));
   if (y->level) {
     memmove(y->ptr, &y->ptr[1], (size_t)y->n * sizeof(mtnode_t *));
+    for (int j = 0; j < y->n; j ++) { // note: last item deleted
+      y->ptr[j]->p_idx = (int16_t)j;
+    }
   }
   x->n++;
   y->n--;
@@ -1113,14 +1150,12 @@ static void pivot_left(MarkTree *b, mtpos_t p_pos, mtnode_t *p, int i)
   } else {
     // if the first element of y used to be an start node, check if it now covers all of y
     if (mt_start(p->key[i])) {
-      uint64_t end_id = mt_lookup_key_side(p->key[i], true);
-      mtkey_t end =  marktree_lookup(b, end_id, NULL);
-      mtkey_t last = y->key[y->n-1];
+      uint64_t pi = pseudo_index(y, 0);  // note: sloppy pseudo-index
 
-      // make pos of last absolute: first pos relative p instead of y, and then use p_pos
-      unrelative(p->key[i].pos, &last.pos);
-      unrelative(p_pos, &last.pos);
-      if (key_cmp(end, last) > 0) {
+      uint64_t end_id = mt_lookup_key_side(p->key[i], true);
+      uint64_t pi_end =  pseudo_index_for_id(b, end_id, true);
+
+      if (pi_end > pi) {
         // printf("intersect start\n"); fflush(enheten); // TODO:
         intersect_node(b, y, mt_lookup_key(p->key[i]));
       }
@@ -1870,6 +1905,44 @@ mtkey_t marktree_lookup_ns(MarkTree *b, uint32_t ns, uint32_t id, bool end, Mark
   return marktree_lookup(b, mt_lookup_id(ns, id, end), itr);
 }
 
+static uint64_t pseudo_index(mtnode_t *x, int i) {
+  int off = MT_LOG2_BRANCH*x->level;
+  uint64_t index = 0;
+
+  while (x) {
+    index |= (uint64_t)(i+1) << off;
+    off += MT_LOG2_BRANCH;
+    i = x->p_idx;
+    x = x->parent;
+  }
+
+  return index;
+}
+
+/// @param itr OPTIONAL. set itr to pos.
+/// if sloppy, two keys at the same _leaf_ node has the same index
+static uint64_t pseudo_index_for_id(MarkTree *b, uint64_t id, bool sloppy) {
+  mtnode_t *n = id2node(b, id);
+  if (n == NULL) {
+    return 0;  // a valid pseudo-index is never zero!
+  }
+
+  int i = 0;
+  if (n->level || !sloppy) {
+    for (i = 0; i < n->n; i++) {
+      if (mt_lookup_key(n->key[i]) == id) {
+        break;
+      }
+    }
+    assert(i < n->n);
+    if (n->level) {
+      i += 1; // internal key i comes after ptr[i]
+    }
+  }
+
+  return pseudo_index(n, i);
+}
+
 /// @param itr OPTIONAL. set itr to pos.
 mtkey_t marktree_lookup(MarkTree *b, uint64_t id, MarkTreeIter *itr)
 {
@@ -1899,13 +1972,11 @@ mtkey_t marktree_itr_set_node(MarkTree *b, MarkTreeIter *itr, mtnode_t *n, int i
   }
   while (n->parent != NULL) {
     mtnode_t *p = n->parent;
-    for (i = 0; i < p->n + 1; i++) {
-      if (p->ptr[i] == n) {
-        goto found_node;
-      }
+    i = n->p_idx;
+    if (p->ptr[i] != n) {
+      abort();
     }
-    abort();
-found_node:
+
     if (itr) {
       itr->s[b->root->level - p->level].i = i;
     }
@@ -2029,6 +2100,7 @@ size_t marktree_check_node(MarkTree *b, mtnode_t *x, mtpos_t *last, bool *last_r
 
     for (int i = 0; i < x->n + 1; i++) {
       assert(x->ptr[i]->parent == x);
+      assert(x->ptr[i]->p_idx == i);
       assert(x->ptr[i]->level == x->level - 1);
       // PARANOIA: check no double node ref
       for (int j = 0; j < i; j++) {
@@ -2172,7 +2244,7 @@ void mt_inspect_node(MarkTree *b, garray_T *ga, bool keys,
     for (size_t i = 0; i < kv_size(n->intersect); i++) {
       GA_PUT(i == 0 ? "{" : ";");
       //GA_PRINT("%"PRIu64, kv_A(n->intersect, i));
-      GA_PRINT("%"PRIu64, kv_A(n->intersect, i) & 0xFFFFFFFF);
+      GA_PRINT("%"PRIu64, dbg_id(kv_A(n->intersect, i)));
     }
     GA_PUT("},");
   }
@@ -2217,7 +2289,7 @@ void mt_inspect_dotfile_node(MarkTree *b, garray_T *ga,
       if (i > 0) {
         GA_PUT(", ");
       }
-      GA_PRINT("%"PRIu64, (kv_A(n->intersect, i)>>1) & 0xFFFFFFFF);
+      GA_PRINT("%"PRIu64, dbg_id(kv_A(n->intersect, i)));
       //GA_PRINT("~~%"PRIu64, (kv_A(n->intersect, i)));
     }
     GA_PUT("</td></tr>\n");

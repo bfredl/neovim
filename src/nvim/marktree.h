@@ -20,6 +20,10 @@ struct mtnode_s;
 
 #define MT_MAX_DEPTH 20
 #define MT_BRANCH_FACTOR 10
+// note max branch is actually 2*MT_BRANCH_FACTOR
+// and strictly this is ceil(log2(2*MT_BRANCH_FACTOR + 1))
+// as we need a pseudo-index for "right before this node"
+#define MT_LOG2_BRANCH 5
 
 typedef struct {
   int32_t row;
@@ -139,7 +143,8 @@ typedef kvec_withinit_t(uint64_t, 4) Intersection;
 
 struct mtnode_s {
   int32_t n;
-  int32_t level;
+  int16_t level;
+  int16_t p_idx; // index in parent
   Intersection intersect;
   // TODO(bfredl): we could consider having a only-sometimes-valid
   // index into parent for faster "cached" lookup.

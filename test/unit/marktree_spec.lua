@@ -265,6 +265,9 @@ describe('marktree', function()
 
 
   local function check_intersections(tree)
+    if true then
+      lib.marktree_check(tree)
+    end
     if false then
       ok(lib.marktree_check_intersections(tree))
       return
@@ -353,7 +356,7 @@ describe('marktree', function()
           check_intersections(tree)
         else
           lib.marktree_del_pair_test(tree, ns, ids[ival])
-          if ne % 3 == 1 then
+          if ne % 5 == 1 then
             check_intersections(tree)
           end
         end
@@ -368,23 +371,38 @@ describe('marktree', function()
 
     local ids = {}
 
-    for i = 1,10000 do
-      table.insert(ids, put(tree, 1, i, false, 2, 10000-i, false))
-      -- print("nivå", i, tree[0].root.level);
-      if i % 1000 == 0 then
-        check_intersections(tree)
+    local size = 5000
+
+    local k = 1
+    while k <= size do
+      --print('hammer', k)io.stdout:flush()
+      for row1 = 1,9 do
+        for row2 = row1,10 do
+          if k > size then
+            break
+          end
+          table.insert(ids, put(tree, row1, k, false, row2, size-k, false))
+          k = k + 1
+          -- print("nivå", i, tree[0].root.level);
+          --if k % 1 == 0 then
+          if k > 2700 then
+            print("k", k, ids[#ids])io.stdout:flush()
+            check_intersections(tree)
+          end
+        end
       end
     end
-    eq(20000, tree[0].n_keys)
+    eq(2*size, tree[0].n_keys)
     ok(tree[0].root.level >= 3)
+    check_intersections(tree)
 
     local iter = ffi.new("MarkTreeIter[1]")
 
     local ne = 0
-    for i = 1,200 do
+    for i = 1,100 do
       for j = 1,50 do
         ne = ne + 1
-        local ival = (j-1)*200+i
+        local ival = (j-1)*100+i
         if false and ival == 201 then
           local str1 = lib.mt_inspect(tree, true, true)
           local dot1 = ffi.string(str1.data, str1.size)
@@ -393,12 +411,24 @@ describe('marktree', function()
           forfil:close()
           print("forfil")io.stdout:flush()
         end
-        lib.marktree_del_pair_test(tree, ns, ids[ival])
+          print("ne", ne, ids[ival])io.stdout:flush()
+
+          lib.marktree_lookup_ns(tree, ns, ids[ival], false, iter)
+          lib.marktree_del_itr(tree, iter, false)
+          check_intersections(tree)
+
+          print("nene", ne, ids[ival])io.stdout:flush()
+
+          lib.marktree_lookup_ns(tree, ns, ids[ival], true, iter)
+          lib.marktree_del_itr(tree, iter, false)
+          check_intersections(tree)
+
+        --lib.marktree_del_pair_test(tree, ns, ids[ival])
         -- just a few stickprov, if there is trouble we need to check
         -- everyone using the code in the "big tree" case above
-        if ne % 1000 == 1 or ne <= 20 then
-          check_intersections(tree)
-        end
+        --if ne % 500 == 1 or ne <= 10 then
+          --check_intersections(tree)
+        --end
       end
     end
 
