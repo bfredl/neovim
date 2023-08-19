@@ -108,9 +108,13 @@ static void compose(mtpos_t *base, mtpos_t val)
   }
 }
 
+static uint64_t dbg_id(uint64_t id) {
+  return (id>>1)&0xffffffff;
+}
+
 static void dumpi(Intersection *x) {
   for (size_t i = 0; i < x->size; i++) {
-    printf("%lu, ", (x->items[i]>>1)&0xffffffff);
+    printf("%lu, ", dbg_id(x->items[i]));
   }
 }
 
@@ -341,28 +345,26 @@ static void unintersect_node(MarkTree *b, mtnode_t *x, uint64_t id, bool strict)
 {
   assert(!(id & MARKTREE_END_FLAG));
   bool seen = false;
-  for (size_t i = 0; i < kv_size(x->intersect); i++) {
+  size_t i;
+  for (i = 0; i < kv_size(x->intersect); i++) {
     if (kv_A(x->intersect, i) < id) {
       continue;
     } else if (kv_A(x->intersect, i) == id) {
       seen = true;
+      break;
     } else { // (kv_A(x->intersect, i) > id)
-      if (strict) {
-        assert(seen);
-      } else {
-        return;
-      }
-      // alternatively if(!seen) break;
-    }
-
-    if (i == kv_size(x->intersect)-1) {
-      kv_size(x->intersect)--;
       break;
     }
-    kv_A(x->intersect, i) = kv_A(x->intersect, i+1);
   }
   if (strict) {
     assert(seen);
+  }
+
+  if (seen) {
+    if (i < kv_size(x->intersect)-1) {
+      memmove(&kv_A(x->intersect, i), &kv_A(x->intersect, i+1), (kv_size(x->intersect)-i-1)*sizeof(kv_A(x->intersect, i)));
+    }
+    kv_size(x->intersect)--;
   }
 }
 
@@ -390,8 +392,10 @@ void marktree_intersect_pair(MarkTree *b, uint64_t id, MarkTreeIter *itr, MarkTr
     } else {
 #define iat(itr, lvl) ((lvl == itr->lvl) ? itr->i+1 : itr->s[lvl].i)
       if (iat(itr, lvl) < iat(end_itr, lvl)) {
-#undef iat
         skip = true;
+      } else if (iat(itr, lvl) > iat(end_itr, lvl)) {
+        break;
+#undef iat
       } else {
         lvl++;
       }
