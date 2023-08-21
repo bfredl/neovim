@@ -164,7 +164,7 @@ static int read_buffer(int read_stdin, exarg_T *eap, int flags)
     // Set or reset 'modified' before executing autocommands, so that
     // it can be changed there.
     if (!readonlymode && !buf_is_empty(curbuf)) {
-      changed();
+      changed(curbuf);
     } else if (retval != FAIL) {
       unchanged(curbuf, false, true);
     }
@@ -343,7 +343,7 @@ int open_buffer(int read_stdin, exarg_T *eap, int flags_arg)
   if ((got_int && vim_strchr(p_cpo, CPO_INTMOD) != NULL)
       || modified_was_set               // ":set modified" used in autocmd
       || (aborting() && vim_strchr(p_cpo, CPO_INTMOD) != NULL)) {
-    changed();
+    changed(curbuf);
   } else if (retval != FAIL && !read_stdin && !read_fifo) {
     unchanged(curbuf, false, true);
   }

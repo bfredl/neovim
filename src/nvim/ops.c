@@ -1628,12 +1628,12 @@ int op_delete(oparg_T *oap)
 
       // leave cursor past last char in line
       if (oap->line_count > 1) {
-        u_clearline();              // "U" command not possible after "2cc"
+        u_clearline(curbuf);  // "U" command not possible after "2cc"
       }
     } else {
       del_lines(oap->line_count, true);
       beginline(BL_WHITE | BL_FIX);
-      u_clearline();            // "U" command not possible after "dd"
+      u_clearline(curbuf); //  "U" command not possible after "dd"
     }
   } else {
     if (virtual_op) {

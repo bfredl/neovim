@@ -4795,7 +4795,7 @@ static void n_swapchar(cmdarg_T *cap)
           if (u_savesub(curwin->w_cursor.lnum) == false) {
             break;
           }
-          u_clearline();
+          u_clearline(curbuf);
         }
       } else {
         break;
