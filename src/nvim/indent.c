@@ -1110,7 +1110,7 @@ void ex_retab(exarg_T *eap)
   }
   coladvance(curwin->w_curswant);
 
-  u_clearline();
+  u_clearline(curbuf);
 }
 
 /// Get indent level from 'indentexpr'.

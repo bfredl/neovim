@@ -386,27 +386,25 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
   }
 
   try_start();
-  aco_save_T aco;
-  aucmd_prepbuf(&aco, buf);
 
   if (!MODIFIABLE(buf)) {
     api_set_error(err, kErrorTypeException, "Buffer is not 'modifiable'");
     goto end;
   }
 
-  if (u_save((linenr_T)(start - 1), (linenr_T)end) == FAIL) {
+  if (u_save_buf(buf, (linenr_T)(start - 1), (linenr_T)end) == FAIL) {
     api_set_error(err, kErrorTypeException, "Failed to save undo information");
     goto end;
   }
 
-  bcount_t deleted_bytes = get_region_bytecount(curbuf, (linenr_T)start, (linenr_T)end, 0, 0);
+  bcount_t deleted_bytes = get_region_bytecount(buf, (linenr_T)start, (linenr_T)end, 0, 0);
 
   // If the size of the range is reducing (ie, new_len < old_len) we
   // need to delete some old_len. We do this at the start, by
   // repeatedly deleting line "start".
   size_t to_delete = (new_len < old_len) ? old_len - new_len : 0;
   for (size_t i = 0; i < to_delete; i++) {
-    if (ml_delete((linenr_T)start, false) == FAIL) {
+    if (ml_delete_buf(buf, (linenr_T)start, false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to delete line");
       goto end;
     }
@@ -428,7 +426,7 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
       goto end;
     });
 
-    if (ml_replace((linenr_T)lnum, lines[i], false) == FAIL) {
+    if (ml_replace_buf(buf, (linenr_T)lnum, lines[i], false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to replace line");
       goto end;
     }
@@ -447,7 +445,8 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
       goto end;
     });
 
-    if (ml_append((linenr_T)lnum, lines[i], 0, false) == FAIL) {
+    // TODO: buf open in old ml_append() ???
+    if (ml_append_buf(buf, (linenr_T)lnum, lines[i], 0, false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to insert line");
       goto end;
     }
@@ -464,18 +463,23 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
   // changed range, and move any in the remainder of the buffer.
   // Only adjust marks if we managed to switch to a window that holds
   // the buffer, otherwise line numbers will be invalid.
-  mark_adjust((linenr_T)start,
+  mark_adjust_buf(buf,
+                  (linenr_T)start,
               (linenr_T)(end - 1),
               MAXLNUM,
               (linenr_T)extra,
+              true,
               kExtmarkNOOP);
 
-  extmark_splice(curbuf, (int)start - 1, 0, (int)(end - start), 0,
+  extmark_splice(buf, (int)start - 1, 0, (int)(end - start), 0,
                  deleted_bytes, (int)new_len, 0, inserted_bytes,
                  kExtmarkUndo);
 
-  changed_lines((linenr_T)start, 0, (linenr_T)end, (linenr_T)extra, true);
-  fix_cursor((linenr_T)start, (linenr_T)end, (linenr_T)extra);
+  buf_changed_lines(buf, (linenr_T)start, 0, (linenr_T)end, (linenr_T)extra, true);
+  // TODO: non-current window????
+  if (curwin->w_buffer == buf) {
+    fix_cursor((linenr_T)start, (linenr_T)end, (linenr_T)extra);
+  }
 
 end:
   for (size_t i = 0; i < new_len; i++) {
@@ -483,7 +487,6 @@ end:
   }
 
   xfree(lines);
-  aucmd_restbuf(&aco);
   try_end(err);
 }
 
@@ -630,8 +633,6 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
   }
 
   try_start();
-  aco_save_T aco;
-  aucmd_prepbuf(&aco, buf);
 
   if (!MODIFIABLE(buf)) {
     api_set_error(err, kErrorTypeException, "Buffer is not 'modifiable'");
@@ -640,7 +641,7 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
 
   // Small note about undo states: unlike set_lines, we want to save the
   // undo state of one past the end_row, since end_row is inclusive.
-  if (u_save((linenr_T)start_row - 1, (linenr_T)end_row + 1) == FAIL) {
+  if (u_save_buf(buf, (linenr_T)start_row - 1, (linenr_T)end_row + 1) == FAIL) {
     api_set_error(err, kErrorTypeException, "Failed to save undo information");
     goto end;
   }
@@ -653,7 +654,7 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
   // repeatedly deleting line "start".
   size_t to_delete = (new_len < old_len) ? old_len - new_len : 0;
   for (size_t i = 0; i < to_delete; i++) {
-    if (ml_delete((linenr_T)start_row, false) == FAIL) {
+    if (ml_delete_buf(buf, (linenr_T)start_row, false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to delete line");
       goto end;
     }
@@ -674,7 +675,7 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
       goto end;
     });
 
-    if (ml_replace((linenr_T)lnum, lines[i], false) == FAIL) {
+    if (ml_replace_buf(buf, (linenr_T)lnum, lines[i], false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to replace line");
       goto end;
     }
@@ -691,7 +692,8 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
       goto end;
     });
 
-    if (ml_append((linenr_T)lnum, lines[i], 0, false) == FAIL) {
+    // TODO: ml_append() used to "open" for us, check??
+    if (ml_append_buf(buf, (linenr_T)lnum, lines[i], 0, false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to insert line");
       goto end;
     }
@@ -704,10 +706,11 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
 
   // Adjust marks. Invalidate any which lie in the
   // changed range, and move any in the remainder of the buffer.
-  mark_adjust((linenr_T)start_row,
+  mark_adjust_buf(buf, (linenr_T)start_row,
               (linenr_T)end_row,
               MAXLNUM,
               (linenr_T)extra,
+              true,
               kExtmarkNOOP);
 
   colnr_T col_extent = (colnr_T)(end_col
@@ -717,20 +720,22 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
                  (int)new_len - 1, (colnr_T)last_item.size, new_byte,
                  kExtmarkUndo);
 
-  changed_lines((linenr_T)start_row, 0, (linenr_T)end_row + 1, (linenr_T)extra, true);
+  buf_changed_lines(buf, (linenr_T)start_row, 0, (linenr_T)end_row + 1, (linenr_T)extra, true);
 
-  // adjust cursor like an extmark ( i e it was inside last_part_len)
-  if (curwin->w_cursor.lnum == end_row && curwin->w_cursor.col > end_col) {
-    curwin->w_cursor.col -= col_extent - (colnr_T)last_item.size;
+  // TODO: also of any non-current window!!!
+  if (curwin->w_buffer == buf) {
+    // adjust cursor like an extmark ( i e it was inside last_part_len)
+    if (curwin->w_cursor.lnum == end_row && curwin->w_cursor.col > end_col) {
+      curwin->w_cursor.col -= col_extent - (colnr_T)last_item.size;
+    }
+    fix_cursor((linenr_T)start_row, (linenr_T)end_row, (linenr_T)extra);
   }
-  fix_cursor((linenr_T)start_row, (linenr_T)end_row, (linenr_T)extra);
 
 end:
   for (size_t i = 0; i < new_len; i++) {
     xfree(lines[i]);
   }
   xfree(lines);
-  aucmd_restbuf(&aco);
   try_end(err);
 
 early_end:

@@ -1784,7 +1784,7 @@ failed:
       curbuf->b_p_ro = true;
     }
 
-    u_clearline();          // cannot use "U" command after adding lines
+    u_clearline(curbuf);   // cannot use "U" command after adding lines
 
     // In Ex mode: cursor at last new line.
     // Otherwise: cursor at first new line.
