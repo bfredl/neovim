@@ -749,8 +749,6 @@ void buf_clear(void)
     ml_delete((linenr_T)1, false);
   }
   deleted_lines_mark(1, line_count);  // prepare for display
-  ml_close(curbuf, true);             // free memline_T
-  buf_clear_file(curbuf);
 }
 
 /// buf_freeall() - free all things allocated for a buffer that are related to

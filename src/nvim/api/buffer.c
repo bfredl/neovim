@@ -392,7 +392,7 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
     goto end;
   }
 
-  if (!ensure_open_buf(buf)) {
+  if (!buf_ensure_ml(buf)) {
     goto end;
   }
 
@@ -642,7 +642,7 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
     goto end;
   }
 
-  if (!ensure_open_buf(buf)) {
+  if (!buf_ensure_ml(buf)) {
     goto end;
   }
 
@@ -750,7 +750,7 @@ early_end:
 }
 
 /// assumes caller does try_start/try_end if desired
-static bool ensure_open_buf(buf_T *buf) {
+bool buf_ensure_ml(buf_T *buf) {
   // already open (common case)
   if (buf->b_ml.ml_mfp) {
     return true;

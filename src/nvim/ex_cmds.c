@@ -19,6 +19,7 @@
 #include "klib/kvec.h"
 #include "nvim/arglist.h"
 #include "nvim/ascii.h"
+#include "nvim/api/buffer.h"
 #include "nvim/autocmd.h"
 #include "nvim/buffer.h"
 #include "nvim/buffer_defs.h"
@@ -4611,15 +4612,15 @@ static int show_sub(exarg_T *eap, pos_T old_cusr, PreviewLines *preview_lines, i
   linenr_T linenr_origbuf = 0;  // last line added to original buffer
   linenr_T next_linenr = 0;     // next line to show for the match
 
-  // Temporarily switch to preview buffer
-  aco_save_T aco;
-
   for (size_t matchidx = 0; matchidx < lines.subresults.size; matchidx++) {
     SubResult match = lines.subresults.items[matchidx];
 
     if (cmdpreview_buf) {
       lpos_T p_start = { 0, match.start.col };  // match starts here in preview
       lpos_T p_end   = { 0, match.end.col };    // ... and ends here
+
+      // You Might Gonna Need It
+      buf_ensure_ml(cmdpreview_buf);
 
       if (match.pre_match == 0) {
         next_linenr = match.start.lnum;
@@ -4656,14 +4657,11 @@ static int show_sub(exarg_T *eap, pos_T old_cusr, PreviewLines *preview_lines, i
         // Put "|lnum| line" into `str` and append it to the preview buffer.
         snprintf(str, line_size, "|%*" PRIdLINENR "| %s", col_width - 3,
                  next_linenr, line);
-        // Temporarily switch to preview buffer
-        aucmd_prepbuf(&aco, cmdpreview_buf);
         if (linenr_preview == 0) {
-          ml_replace(1, str, true);
+          ml_replace_buf(cmdpreview_buf, 1, str, true);
         } else {
-          ml_append(linenr_preview, str, (colnr_T)line_size, false);
+          ml_append_buf(cmdpreview_buf, linenr_preview, str, (colnr_T)line_size, false);
         }
-        aucmd_restbuf(&aco);
         linenr_preview += 1;
       }
       linenr_origbuf = match.end.lnum;
