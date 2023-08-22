@@ -392,6 +392,10 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
     goto end;
   }
 
+  if (!ensure_open_buf(buf)) {
+    goto end;
+  }
+
   if (u_save_buf(buf, (linenr_T)(start - 1), (linenr_T)end) == FAIL) {
     api_set_error(err, kErrorTypeException, "Failed to save undo information");
     goto end;
@@ -445,7 +449,6 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
       goto end;
     });
 
-    // TODO: buf open in old ml_append() ???
     if (ml_append_buf(buf, (linenr_T)lnum, lines[i], 0, false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to insert line");
       goto end;
@@ -639,6 +642,10 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
     goto end;
   }
 
+  if (!ensure_open_buf(buf)) {
+    goto end;
+  }
+
   // Small note about undo states: unlike set_lines, we want to save the
   // undo state of one past the end_row, since end_row is inclusive.
   if (u_save_buf(buf, (linenr_T)start_row - 1, (linenr_T)end_row + 1) == FAIL) {
@@ -692,7 +699,6 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
       goto end;
     });
 
-    // TODO: ml_append() used to "open" for us, check??
     if (ml_append_buf(buf, (linenr_T)lnum, lines[i], 0, false) == FAIL) {
       api_set_error(err, kErrorTypeException, "Failed to insert line");
       goto end;
@@ -741,6 +747,21 @@ end:
 early_end:
   xfree(str_at_start);
   xfree(str_at_end);
+}
+
+/// assumes caller does try_start/try_end if desired
+static bool ensure_open_buf(buf_T *buf) {
+  // already open (common case)
+  if (buf->b_ml.ml_mfp) {
+    return true;
+  }
+
+  aco_save_T aco;
+  aucmd_prepbuf(&aco, buf);
+  // status can be OK or NOTDONE (which also means ok/done)
+  int status = open_buffer(false, NULL, 0);
+  aucmd_restbuf(&aco);
+  return (status != FAIL);
 }
 
 /// Gets a range from the buffer.
