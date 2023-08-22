@@ -2832,7 +2832,9 @@ describe('API', function()
 
     it('does not cause heap-use-after-free on exit while setting options', function()
       command('au OptionSet * q')
-      expect_exit(command, 'silent! call nvim_create_buf(0, 1)')
+      command('silent! call nvim_create_buf(0, 1)')
+      -- nowadays this works because we don't execute any stupid autocmds at all #24824
+      assert_alive()
     end)
   end)
 

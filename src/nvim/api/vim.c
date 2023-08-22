@@ -912,14 +912,17 @@ Buffer nvim_create_buf(Boolean listed, Boolean scratch, Error *err)
     goto fail;
   }
 
+  // TODO: was implicitly done (and is only needed) for scratch, but there is
+  // no reason not to initialize options right now. it would have been done at
+  // the first aucmd_prepbuf anyway :zany_face:
+  buf_copy_options(buf, BCO_ENTER | BCO_NOHELP);
+
   if (scratch) {
-    aco_save_T aco;
-    aucmd_prepbuf(&aco, buf);
-    set_option_value("bufhidden", STATIC_CSTR_AS_OPTVAL("hide"), OPT_LOCAL);
-    set_option_value("buftype", STATIC_CSTR_AS_OPTVAL("nofile"), OPT_LOCAL);
-    set_option_value("swapfile", BOOLEAN_OPTVAL(false), OPT_LOCAL);
-    set_option_value("modeline", BOOLEAN_OPTVAL(false), OPT_LOCAL);  // 'nomodeline'
-    aucmd_restbuf(&aco);
+    set_string_option_direct_in_buf(buf, "bufhidden", -1, "hide", OPT_LOCAL, 0);
+    set_string_option_direct_in_buf(buf, "buftype", -1, "nofile", OPT_LOCAL, 0);
+    assert((!buf->b_ml.ml_mfp) || buf->b_ml.ml_mfp->mf_fd < 0);
+    buf->b_p_swf = false;
+    buf->b_p_ml = false;
   }
   return buf->b_fnum;
 

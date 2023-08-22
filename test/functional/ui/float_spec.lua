@@ -2596,10 +2596,10 @@ describe('float window', function()
           {0:~                                       }|
         ## grid 3
                                                   |
-        ## grid 5
+        ## grid 4
           {1:x}|
         ]], float_pos={
-          [5] = {{id = 1002}, "NW", 2, 0, 4, false}
+          [4] = {{id = 1001}, "NW", 2, 0, 4, false}
         }}
       else
         screen:expect([[
@@ -2633,10 +2633,10 @@ describe('float window', function()
           {0:~                                       }|
         ## grid 3
                                                   |
-        ## grid 5
+        ## grid 4
           {1:x}|
         ]], float_pos={
-          [5] = {{id = 1002}, "NW", 2, 0, 15, false}
+          [4] = {{id = 1001}, "NW", 2, 0, 15, false}
         }}
       else
         screen:expect([[
@@ -3797,10 +3797,10 @@ describe('float window', function()
           {0:~                             }|
         ## grid 3
                                         |
-        ## grid 5
+        ## grid 4
           {1:some floaty text    }|
         ]], float_pos={
-          [5] = {{id = 1002}, "NW", 1, 3, 1, true}
+          [4] = {{id = 1001}, "NW", 1, 3, 1, true}
         }}
       else
         screen:expect([[
@@ -5045,12 +5045,12 @@ describe('float window', function()
             {13:aa             }|
             {1:word           }|
             {1:longtext       }|
-          ## grid 6
+          ## grid 5
             {15:some info   }|
             {15:about item  }|
           ]], float_pos={
             [4] = {{id = -1}, "NW", 2, 1, 0, false, 100},
-            [6] = {{id = 1002}, "NW", 2, 1, 12, true, 50},
+            [5] = {{id = 1001}, "NW", 2, 1, 12, true, 50},
           }}
         else
           screen:expect([[
@@ -5086,11 +5086,11 @@ describe('float window', function()
             {0:~                                       }|
           ## grid 3
             {3:-- INSERT --}                            |
-          ## grid 6
+          ## grid 5
             {15:some info   }|
             {15:about item  }|
           ]], float_pos={
-            [6] = {{id = 1002}, "NW", 2, 1, 12, true},
+            [5] = {{id = 1001}, "NW", 2, 1, 12, true},
           }}
         else
           screen:expect([[
@@ -8568,11 +8568,11 @@ describe('float window', function()
 		  {1:~                                       }|
 		## grid 3
 		                                          |
-		## grid 5
+		## grid 4
 		  {2:^long   }|
 		  {2:longer }|
 		  {2:longest}|
-		## grid 6
+		## grid 5
 		  {2:---------}|
 		  {2:-       -}|
 		  {2:-       -}|
@@ -8582,11 +8582,11 @@ describe('float window', function()
           [1] = {foreground = Screen.colors.Blue1, bold = true};
           [2] = {background = Screen.colors.LightMagenta};
         }, float_pos={
+           [4] = { {
+               id = 1001
+             }, "NW", 1, 1, 1, true },
            [5] = { {
                id = 1002
-             }, "NW", 1, 1, 1, true },
-           [6] = { {
-               id = 1003
              }, "NW", 1, 0, 0, true }
         }}
       else
@@ -8636,11 +8636,11 @@ describe('float window', function()
           {1:~                                       }|
         ## grid 3
                                                   |
-        ## grid 5
+        ## grid 4
           {2:^l}|
           {2:o}|
           {2:n}|
-        ## grid 6
+        ## grid 5
           {2:---}|
           {2:- -}|
           {2:- -}|
@@ -8650,12 +8650,8 @@ describe('float window', function()
           [1] = {foreground = Screen.colors.Blue1, bold = true};
           [2] = {background = Screen.colors.LightMagenta};
         }, float_pos={
-          [5] = { {
-              id = 1002
-            }, "NW", 1, 1, 1, true },
-          [6] = { {
-              id = 1003
-            }, "NW", 1, 0, 0, true }
+          [4] = { { id = 1001 }, "NW", 1, 1, 1, true },
+          [5] = { { id = 1002 }, "NW", 1, 0, 0, true }
         }}
       else
         screen:expect([[
@@ -9066,7 +9062,7 @@ describe('float window', function()
           {0:~                                       }|
           {0:~                                       }|
         ## grid 3
-        ## grid 5
+        ## grid 4
           {5:┌────────────────────────────────────────┐}|
           {5:│}{1:                                        }{5:│}|
           {5:│}{1:                                        }{5:│}|
@@ -9074,10 +9070,10 @@ describe('float window', function()
           {5:│}{1:                                        }{5:│}|
           {5:└────────────────────────────────────────┘}|
         ]], float_pos={
-          [5] = {{id = 1002}, "SW", 1, 9, 0, true, 50};
+          [4] = {{id = 1001}, "SW", 1, 9, 0, true, 50};
         }, win_viewport={
           [2] = {win = {id = 1000}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
-          [5] = {win = {id = 1002}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
+          [4] = {win = {id = 1001}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
         }}
       else
         screen:expect{grid=[[
@@ -9122,16 +9118,16 @@ describe('float window', function()
           {0:~                                       }|
           {0:~                                       }|
         ## grid 3
-        ## grid 5
+        ## grid 4
           {5:┌────────────────────────────────────────┐}|
           {5:│}{1:                                        }{5:│}|
           {5:│}{1:                                        }{5:│}|
           {5:└────────────────────────────────────────┘}|
         ]], float_pos={
-          [5] = {{id = 1002}, "SW", 1, 9, 0, true, 50};
+          [4] = {{id = 1001}, "SW", 1, 9, 0, true, 50};
         }, win_viewport={
           [2] = {win = {id = 1000}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
-          [5] = {win = {id = 1002}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
+          [4] = {win = {id = 1001}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
         }}
       else
         screen:expect{grid=[[
@@ -9218,7 +9214,7 @@ describe('float window', function()
           {0:~                                       }|
         ## grid 3
                                                   |
-        ## grid 5
+        ## grid 4
           {5:┌────────────────────────────────────────┐}|
           {5:│}{1:                                        }{5:│}|
           {5:│}{1:                                        }{5:│}|
@@ -9226,10 +9222,10 @@ describe('float window', function()
           {5:│}{1:                                        }{5:│}|
           {5:└────────────────────────────────────────┘}|
         ]], float_pos={
-          [5] = {{id = 1002}, "SW", 1, 8, 0, true, 50};
+          [4] = {{id = 1001}, "SW", 1, 8, 0, true, 50};
         }, win_viewport={
           [2] = {win = {id = 1000}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
-          [5] = {win = {id = 1002}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
+          [4] = {win = {id = 1001}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
         }}
       else
         screen:expect{grid=[[
@@ -9278,7 +9274,7 @@ describe('float window', function()
         ## grid 3
                                                   |
           {8:Press ENTER or type command to continue}^ |
-        ## grid 5
+        ## grid 4
           {5:┌────────────────────────────────────────┐}|
           {5:│}{1:                                        }{5:│}|
           {5:│}{1:                                        }{5:│}|
@@ -9286,10 +9282,10 @@ describe('float window', function()
           {5:│}{1:                                        }{5:│}|
           {5:└────────────────────────────────────────┘}|
         ]], float_pos={
-          [5] = {{id = 1002}, "SW", 1, 8, 0, true, 50};
+          [4] = {{id = 1001}, "SW", 1, 8, 0, true, 50};
         }, win_viewport={
           [2] = {win = {id = 1000}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
-          [5] = {win = {id = 1002}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
+          [4] = {win = {id = 1001}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
         }}
       else
         screen:expect{grid=[[
@@ -9329,16 +9325,16 @@ describe('float window', function()
           {0:~                                       }|
         ## grid 3
                                                   |
-        ## grid 5
+        ## grid 4
           {5:┌────────────────────────────────────────┐}|
           {5:│}{1:                                        }{5:│}|
           {5:│}{1:                                        }{5:│}|
           {5:└────────────────────────────────────────┘}|
         ]], float_pos={
-          [5] = {{id = 1002}, "SW", 1, 8, 0, true, 50};
+          [4] = {{id = 1001}, "SW", 1, 8, 0, true, 50};
         }, win_viewport={
           [2] = {win = {id = 1000}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
-          [5] = {win = {id = 1002}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
+          [4] = {win = {id = 1001}, topline = 0, botline = 2, curline = 0, curcol = 0, linecount = 1, sum_scroll_delta = 0};
         }}
       else
         screen:expect{grid=[[
