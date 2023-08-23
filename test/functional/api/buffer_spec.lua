@@ -41,7 +41,7 @@ describe('api/buf', function()
       eq(1, curbuf_depr('line_count'))
     end)
 
-    it('cursor position is maintained after lines are inserted #9961', function()
+    it('cursor position is maintained after lines are inserted #9961 #thetest', function()
       -- replace the buffer contents with these three lines.
       request('nvim_buf_set_lines', 0, 0, -1, 1, {"line1", "line2", "line3", "line4"})
       -- Set the current cursor to {3, 2}.
@@ -482,6 +482,51 @@ describe('api/buf', function()
       eq('hello foo!', curbuf_depr('get_line', 0))
       -- cursor should be moved left by two columns (replacement is shorter by 2 chars)
       eq({1, 9}, curwin('get_cursor'))
+    end)
+
+    it('updates the cursor position in non-current window', function()
+      insert([[
+      hello world!]])
+
+      -- position the cursor on `!`
+      meths.win_set_cursor(0, {1, 11})
+
+      local win = meths.get_current_win()
+      local buf = meths.get_current_buf()
+
+      command("new")
+
+      -- replace 'world' with 'foo'
+      meths.buf_set_text(buf, 0, 6, 0, 11, {'foo'})
+      eq({'hello foo!'}, meths.buf_get_lines(buf, 0, -1, true))
+      -- cursor should be moved left by two columns (replacement is shorter by 2 chars)
+      eq({1, 9}, meths.win_get_cursor(win))
+    end)
+
+    it('updates the cursor position in TWO non-current windows', function()
+      insert([[
+      hello world!]])
+
+      -- position the cursor on `!`
+      meths.win_set_cursor(0, {1, 11})
+
+      local win = meths.get_current_win()
+      local buf = meths.get_current_buf()
+
+      command("split")
+
+      local win2 = meths.get_current_win()
+      -- position the cursor on `w`
+      meths.win_set_cursor(0, {1, 6})
+
+      command("new")
+
+      -- replace 'hello' with 'foo'
+      meths.buf_set_text(buf, 0, 0, 0, 5, {'foo'})
+      eq({'foo world!'}, meths.buf_get_lines(buf, 0, -1, true))
+      -- both cursors should be moved left by two columns (replacement is shorter by 2 chars)
+      eq({1, 9}, meths.win_get_cursor(win))
+      eq({1, 4}, meths.win_get_cursor(win2))
     end)
 
     it('can handle NULs', function()
