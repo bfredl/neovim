@@ -137,11 +137,14 @@ void nlua_error(lua_State *const lstate, const char *const msg)
   if (!str) {
     // defer to lua default conversion, this will render tables as [NULL].
     str = lua_tolstring(lstate, -1, &len);
+    if (!str) {
+      str = "[UNKNOWN ERROR]";  // now you really done it
+      len = strlen(str);
+    }
   }
 
   if (in_script) {
-    os_errmsg(str);
-    os_errmsg("\n");
+    fprintf(stderr, msg, (int)len, str);
   } else {
     msg_ext_set_kind("lua_error");
     semsg_multiline(msg, (int)len, str);
