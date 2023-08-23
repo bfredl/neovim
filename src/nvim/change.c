@@ -302,7 +302,7 @@ static void changed_common(buf_T *buf, linenr_T lnum, colnr_T col, linenr_T lnum
       if (wp->w_cursor.lnum > lnum) {
         changed_line_abv_curs_win(wp);
       } else if (wp->w_cursor.lnum == lnum && wp->w_cursor.col >= col) {
-        changed_cline_bef_curs_win(wp);
+        changed_cline_bef_curs(wp);
       }
       if (wp->w_botline >= lnum) {
         // Assume that botline doesn't change (inserted lines make
@@ -1974,7 +1974,7 @@ void del_lines(long nlines, bool undo)
   // Correct the cursor position before calling deleted_lines_mark(), it may
   // trigger a callback to display the cursor.
   curwin->w_cursor.col = 0;
-  check_cursor_lnum();
+  check_cursor_lnum(curwin);
 
   // adjust marks, mark the buffer as changed and prepare for displaying
   deleted_lines_mark(first, n);

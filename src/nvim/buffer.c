@@ -2122,7 +2122,7 @@ void buflist_getfpos(void)
   fpos = &buflist_findfmark(curbuf)->mark;
 
   curwin->w_cursor.lnum = fpos->lnum;
-  check_cursor_lnum();
+  check_cursor_lnum(curwin);
 
   if (p_sol) {
     curwin->w_cursor.col = 0;

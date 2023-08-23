@@ -1793,7 +1793,7 @@ failed:
     } else {
       curwin->w_cursor.lnum = from + 1;
     }
-    check_cursor_lnum();
+    check_cursor_lnum(curwin);
     beginline(BL_WHITE | BL_FIX);           // on first non-blank
 
     if ((cmdmod.cmod_flags & CMOD_LOCKMARKS) == 0) {

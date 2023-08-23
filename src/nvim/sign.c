@@ -1168,7 +1168,7 @@ static linenr_T sign_jump(int sign_id, char *sign_group, buf_T *buf)
   // goto a sign ...
   if (buf_jump_open_win(buf) != NULL) {     // ... in a current window
     curwin->w_cursor.lnum = lnum;
-    check_cursor_lnum();
+    check_cursor_lnum(curwin);
     beginline(BL_WHITE);
   } else {      // ... not currently in a window
     if (buf->b_fname == NULL) {

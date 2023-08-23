@@ -1125,7 +1125,7 @@ static void do_filter(linenr_T line1, linenr_T line2, exarg_T *eap, char *cmd, b
   curwin->w_cursor.lnum = line1;
   curwin->w_cursor.col = 0;
   changed_line_abv_curs();
-  invalidate_botline();
+  invalidate_botline(curwin);
 
   // When using temp files:
   // 1. * Form temp file names
@@ -2089,7 +2089,7 @@ int getfile(int fnum, char *ffname_arg, char *sfname_arg, int setpm, linenr_T ln
     if (lnum != 0) {
       curwin->w_cursor.lnum = lnum;
     }
-    check_cursor_lnum();
+    check_cursor_lnum(curwin);
     beginline(BL_SOL | BL_FIX);
     retval = GETFILE_SAME_FILE;     // it's in the same file
   } else if (do_ecmd(fnum, ffname, sfname, NULL, lnum,
@@ -2653,7 +2653,7 @@ int do_ecmd(int fnum, char *ffname, char *sfname, exarg_T *eap, linenr_T newlnum
       check_cursor();
     } else if (newlnum > 0) {  // line number from caller or old position
       curwin->w_cursor.lnum = newlnum;
-      check_cursor_lnum();
+      check_cursor_lnum(curwin);
       if (solcol >= 0 && !p_sol) {
         // 'sol' is off: Use last known column.
         curwin->w_cursor.col = solcol;
@@ -2884,7 +2884,7 @@ void ex_append(exarg_T *eap)
     curbuf->b_op_start.col = curbuf->b_op_end.col = 0;
   }
   curwin->w_cursor.lnum = lnum;
-  check_cursor_lnum();
+  check_cursor_lnum(curwin);
   beginline(BL_SOL | BL_FIX);
 
   need_wait_return = false;     // don't use wait_return() now
@@ -2914,7 +2914,7 @@ void ex_change(exarg_T *eap)
   }
 
   // make sure the cursor is not beyond the end of the file now
-  check_cursor_lnum();
+  check_cursor_lnum(curwin);
   deleted_lines_mark(eap->line1, (eap->line2 - lnum));
 
   // ":append" on the line above the deleted lines.

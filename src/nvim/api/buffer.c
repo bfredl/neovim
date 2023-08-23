@@ -464,25 +464,16 @@ void nvim_buf_set_lines(uint64_t channel_id, Buffer buffer, Integer start, Integ
 
   // Adjust marks. Invalidate any which lie in the
   // changed range, and move any in the remainder of the buffer.
-  // Only adjust marks if we managed to switch to a window that holds
-  // the buffer, otherwise line numbers will be invalid.
-  mark_adjust_buf(buf,
-                  (linenr_T)start,
-              (linenr_T)(end - 1),
-              MAXLNUM,
-              (linenr_T)extra,
-              true,
-              kExtmarkNOOP);
+  mark_adjust_buf(buf, (linenr_T)start, (linenr_T)(end - 1), MAXLNUM, (linenr_T)extra,
+                  true, true, kExtmarkNOOP);
 
   extmark_splice(buf, (int)start - 1, 0, (int)(end - start), 0,
                  deleted_bytes, (int)new_len, 0, inserted_bytes,
                  kExtmarkUndo);
 
   buf_changed_lines(buf, (linenr_T)start, 0, (linenr_T)end, (linenr_T)extra, true);
-  // TODO: non-current window????
-  if (curwin->w_buffer == buf) {
-    fix_cursor((linenr_T)start, (linenr_T)end, (linenr_T)extra);
-  }
+  // mark_adjust_buf handles non-current windows
+  fix_cursor(curwin, (linenr_T)start, (linenr_T)end, (linenr_T)extra);
 
 end:
   for (size_t i = 0; i < new_len; i++) {
@@ -710,17 +701,15 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
     extra++;
   }
 
-  // Adjust marks. Invalidate any which lie in the
-  // changed range, and move any in the remainder of the buffer.
-  mark_adjust_buf(buf, (linenr_T)start_row,
-              (linenr_T)end_row,
-              MAXLNUM,
-              (linenr_T)extra,
-              true,
-              kExtmarkNOOP);
-
   colnr_T col_extent = (colnr_T)(end_col
                                  - ((end_row == start_row) ? start_col : 0));
+
+  // Adjust marks. Invalidate any which lie in the
+  // changed range, and move any in the remainder of the buffer.
+  // Do not adjust any cursors. need to use column-aware logic (below)
+  mark_adjust_buf(buf, (linenr_T)start_row, (linenr_T)end_row, MAXLNUM, (linenr_T)extra,
+                  true, false, kExtmarkNOOP);
+
   extmark_splice(buf, (int)start_row - 1, (colnr_T)start_col,
                  (int)(end_row - start_row), col_extent, old_byte,
                  (int)new_len - 1, (colnr_T)last_item.size, new_byte,
@@ -728,18 +717,14 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
 
   buf_changed_lines(buf, (linenr_T)start_row, 0, (linenr_T)end_row + 1, (linenr_T)extra, true);
 
-
   FOR_ALL_TAB_WINDOWS(tp, win) {
     if (win->w_buffer == buf) {
       // adjust cursor like an extmark ( i e it was inside last_part_len)
       if (win->w_cursor.lnum == end_row && win->w_cursor.col > end_col) {
         win->w_cursor.col -= col_extent - (colnr_T)last_item.size;
       }
+      fix_cursor(win, (linenr_T)start_row, (linenr_T)end_row, (linenr_T)extra);
     }
-  }
-  // TODO: also of any non-current window!!!
-  if (curwin->w_buffer == buf) {
-    fix_cursor((linenr_T)start_row, (linenr_T)end_row, (linenr_T)extra);
   }
 
 end:
@@ -1348,21 +1333,19 @@ Dictionary nvim__buf_stats(Buffer buffer, Error *err)
 
 // Check if deleting lines made the cursor position invalid.
 // Changed lines from `lo` to `hi`; added `extra` lines (negative if deleted).
-static void fix_cursor(linenr_T lo, linenr_T hi, linenr_T extra)
+static void fix_cursor(win_T *win, linenr_T lo, linenr_T hi, linenr_T extra)
 {
-  if (curwin->w_cursor.lnum >= lo) {
+  if (win->w_cursor.lnum >= lo) {
     // Adjust cursor position if it's in/after the changed lines.
-    if (curwin->w_cursor.lnum >= hi) {
-      curwin->w_cursor.lnum += extra;
-      check_cursor_col();
+    if (win->w_cursor.lnum >= hi) {
+      win->w_cursor.lnum += extra;
     } else if (extra < 0) {
-      check_cursor();
-    } else {
-      check_cursor_col();
+      check_cursor_lnum(win);
     }
-    changed_cline_bef_curs();
+    check_cursor_col_win(win);
+    changed_cline_bef_curs(win);
   }
-  invalidate_botline();
+  invalidate_botline(win);
 }
 
 /// Initialise a string array either:
