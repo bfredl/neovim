@@ -728,12 +728,17 @@ void nvim_buf_set_text(uint64_t channel_id, Buffer buffer, Integer start_row, In
 
   buf_changed_lines(buf, (linenr_T)start_row, 0, (linenr_T)end_row + 1, (linenr_T)extra, true);
 
+
+  FOR_ALL_TAB_WINDOWS(tp, win) {
+    if (win->w_buffer == buf) {
+      // adjust cursor like an extmark ( i e it was inside last_part_len)
+      if (win->w_cursor.lnum == end_row && win->w_cursor.col > end_col) {
+        win->w_cursor.col -= col_extent - (colnr_T)last_item.size;
+      }
+    }
+  }
   // TODO: also of any non-current window!!!
   if (curwin->w_buffer == buf) {
-    // adjust cursor like an extmark ( i e it was inside last_part_len)
-    if (curwin->w_cursor.lnum == end_row && curwin->w_cursor.col > end_col) {
-      curwin->w_cursor.col -= col_extent - (colnr_T)last_item.size;
-    }
     fix_cursor((linenr_T)start_row, (linenr_T)end_row, (linenr_T)extra);
   }
 
