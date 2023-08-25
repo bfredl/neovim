@@ -22,6 +22,8 @@
 #define cstr_t_eq kh_str_hash_equal
 #define uint64_t_hash kh_int64_hash_func
 #define uint64_t_eq kh_int64_hash_equal
+#define int64_t_hash(x) uint64_t_hash((uint64_t)x)
+#define int64_t_eq kh_int64_hash_equal
 #define uint32_t_hash kh_int_hash_func
 #define uint32_t_eq kh_int_hash_equal
 #define int_hash kh_int_hash_func
@@ -158,6 +160,7 @@ KEY_IMPL(int)
 KEY_IMPL(cstr_t)
 KEY_IMPL(ptr_t)
 KEY_IMPL(uint64_t)
+KEY_IMPL(int64_t)
 KEY_IMPL(uint32_t)
 KEY_IMPL(String)
 KEY_IMPL(HlEntry)
@@ -173,6 +176,8 @@ MAP_IMPL(uint32_t, ptr_t, DEFAULT_INITIALIZER)
 MAP_IMPL(uint64_t, ptr_t, DEFAULT_INITIALIZER)
 MAP_IMPL(uint64_t, ssize_t, SSIZE_INITIALIZER)
 MAP_IMPL(uint64_t, uint64_t, DEFAULT_INITIALIZER)
+MAP_IMPL(int64_t, int64_t, DEFAULT_INITIALIZER)
+MAP_IMPL(int64_t, ptr_t, DEFAULT_INITIALIZER)
 MAP_IMPL(uint32_t, uint32_t, DEFAULT_INITIALIZER)
 MAP_IMPL(HlEntry, int, DEFAULT_INITIALIZER)
 MAP_IMPL(String, handle_T, 0)
