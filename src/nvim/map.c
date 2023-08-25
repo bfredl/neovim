@@ -25,6 +25,8 @@
 #define equal_uint32_t equal_simple
 #define hash_int(x) hash_uint32_t((uint32_t)(x))
 #define equal_int equal_simple
+#define hash_int64_t(key) hash_uint64_t((uint64_t)key)
+#define equal_int64_t equal_simple
 
 #if defined(ARCH_64)
 # define hash_ptr_t(key) hash_uint64_t((uint64_t)(key))
@@ -99,6 +101,7 @@ static const ptr_t value_init_ptr_t = NULL;
 static const ssize_t value_init_ssize_t = -1;
 static const uint32_t value_init_uint32_t = 0;
 static const uint64_t value_init_uint64_t = 0;
+static const uint64_t value_init_int64_t = 0;
 static const String value_init_String = STRING_INIT;
 static const ColorItem value_init_ColorItem = COLOR_ITEM_INITIALIZER;
 
@@ -185,6 +188,16 @@ void mh_clear(HashTab *h)
 #include "nvim/map_value_impl.inc.h"
 #undef VAL_NAME
 #define VAL_NAME(x) quasiquote(x, uint64_t)
+#include "nvim/map_value_impl.inc.h"
+#undef VAL_NAME
+#undef KEY_NAME
+
+#define KEY_NAME(x) x ## int64_t
+#include "nvim/map_key_impl.inc.h"
+#define VAL_NAME(x) quasiquote(x, ptr_t)
+#include "nvim/map_value_impl.inc.h"
+#undef VAL_NAME
+#define VAL_NAME(x) quasiquote(x, int64_t)
 #include "nvim/map_value_impl.inc.h"
 #undef VAL_NAME
 #undef KEY_NAME
