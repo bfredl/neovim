@@ -46,6 +46,7 @@
 
 #include "auto/config.h"
 #include "klib/kvec.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/ascii.h"
 #include "nvim/autocmd.h"
 #include "nvim/buffer.h"
@@ -3050,6 +3051,19 @@ static void ml_lineadd(buf_T *buf, int count)
     ip->ip_high += count;
     mf_put(mfp, hp, true, false);
   }
+}
+
+Dictionary ml_info(buf_T *buf)
+{
+  blocknr_T bnum = 1;                         // start at the root of the tree
+  memfile_T *mfp = buf->b_ml.ml_mfp;
+  int page_count = 1;
+  bhdr_T *hp = mf_get(mfp, bnum, (unsigned)page_count);
+
+  Dictionary dict =ARRAY_DICT_INIT;
+  PointerBlock *p = (PointerBlock *)hp->bh_data;
+  PUT(dict, "root_count", INTEGER_OBJ(p->pb_count));
+  return dict;
 }
 
 #if defined(HAVE_READLINK)

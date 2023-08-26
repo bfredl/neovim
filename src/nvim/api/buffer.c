@@ -1315,6 +1315,16 @@ Dictionary nvim__buf_stats(Buffer buffer, Error *err)
   return rv;
 }
 
+Dictionary nvim__buf_memline_info(Buffer buffer, Error *err)
+{
+  buf_T *buf = find_buffer_by_handle(buffer, err);
+  if (!buf) {
+    return (Dictionary)ARRAY_DICT_INIT;
+  }
+
+  return ml_info(buf);
+}
+
 // Check if deleting lines made the cursor position invalid.
 // Changed lines from `lo` to `hi`; added `extra` lines (negative if deleted).
 static void fix_cursor(linenr_T lo, linenr_T hi, linenr_T extra)
