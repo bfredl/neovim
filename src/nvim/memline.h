@@ -5,6 +5,8 @@
 #include "nvim/pos.h"
 #include "nvim/types.h"
 
+EXTERN bool process_still_running INIT(= false);
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "memline.h.generated.h"
 #endif

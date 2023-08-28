@@ -81,6 +81,7 @@
 #include "nvim/statusline.h"
 #include "nvim/strings.h"
 #include "nvim/syntax.h"
+#include "nvim/swapfile.h"
 #include "nvim/terminal.h"
 #include "nvim/types.h"
 #include "nvim/ui.h"

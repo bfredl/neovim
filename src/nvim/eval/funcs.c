@@ -112,6 +112,7 @@
 #include "nvim/state.h"
 #include "nvim/strings.h"
 #include "nvim/syntax.h"
+#include "nvim/swapfile.h"
 #include "nvim/tag.h"
 #include "nvim/ui.h"
 #include "nvim/version.h"

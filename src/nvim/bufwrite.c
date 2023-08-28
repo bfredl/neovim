@@ -44,6 +44,7 @@
 #include "nvim/pos.h"
 #include "nvim/sha256.h"
 #include "nvim/strings.h"
+#include "nvim/swapfile.h"
 #include "nvim/types.h"
 #include "nvim/ui.h"
 #include "nvim/undo.h"
