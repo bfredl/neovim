@@ -492,6 +492,86 @@ bool set_leftcol(colnr_T leftcol)
   return retval;
 }
 
+/// Increment the line pointer "lp" crossing line boundaries as necessary.
+///
+/// @return   1 when going to the next line.
+///           2 when moving forward onto a NUL at the end of the line).
+///          -1 when at the end of file.
+///           0 otherwise.
+int inc(pos_T *lp)
+{
+  // when searching position may be set to end of a line
+  if (lp->col != MAXCOL) {
+    const char *const p = ml_get_pos(lp);
+    if (*p != NUL) {  // still within line, move to next char (may be NUL)
+      const int l = utfc_ptr2len(p);
+
+      lp->col += l;
+      return ((p[l] != NUL) ? 0 : 2);
+    }
+  }
+  if (lp->lnum != curbuf->b_ml.ml_line_count) {     // there is a next line
+    lp->col = 0;
+    lp->lnum++;
+    lp->coladd = 0;
+    return 1;
+  }
+  return -1;
+}
+
+/// Same as inc(), but skip NUL at the end of non-empty lines.
+int incl(pos_T *lp)
+{
+  int r;
+
+  if ((r = inc(lp)) >= 1 && lp->col) {
+    r = inc(lp);
+  }
+  return r;
+}
+
+int dec(pos_T *lp)
+{
+  lp->coladd = 0;
+  if (lp->col == MAXCOL) {
+    // past end of line
+    char *p = ml_get(lp->lnum);
+    lp->col = (colnr_T)strlen(p);
+    lp->col -= utf_head_off(p, p + lp->col);
+    return 0;
+  }
+
+  if (lp->col > 0) {
+    // still within line
+    lp->col--;
+    char *p = ml_get(lp->lnum);
+    lp->col -= utf_head_off(p, p + lp->col);
+    return 0;
+  }
+  if (lp->lnum > 1) {
+    // there is a prior line
+    lp->lnum--;
+    char *p = ml_get(lp->lnum);
+    lp->col = (colnr_T)strlen(p);
+    lp->col -= utf_head_off(p, p + lp->col);
+    return 1;
+  }
+
+  // at start of file
+  return -1;
+}
+
+/// Same as dec(), but skip NUL at the end of non-empty lines.
+int decl(pos_T *lp)
+{
+  int r;
+
+  if ((r = dec(lp)) == 1 && lp->col) {
+    r = dec(lp);
+  }
+  return r;
+}
+
 int gchar_cursor(void)
 {
   return utf_ptr2char(get_cursor_pos_ptr());
