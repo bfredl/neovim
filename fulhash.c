@@ -20,14 +20,12 @@ typedef struct {
 #define HASH_TOMBSTONE UINT32_MAX
 
 #define is_empty(h, i) (h->hash[i] == 0)
-#define is_del(h, i) (h->hash[i] == TOMBSTONE)
+#define is_del(h, i) (h->hash[i] == HASH_TOMBSTONE)
 #define is_either(h, i) ((uint32_t)(h->hash[i]+1U) <= 1U)
 
 # define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, \
                         ++(x))
 
-// this should be _less_ for the h->hash part as this is now small (4 bytes per value)
-#define UPPER_FILL 0.77
 
 static inline uint32_t testkey_hash(const char *s)
 {
@@ -94,13 +92,15 @@ uint32_t mh_get_inner(const MultiHashTab *h, testkey *keys, testkey key)
   return site;
 }
 
-void mh_resize(MultiHashTab *h, testkeys *keys, uint32_t new_n_buckets)
+void mh_rehash(MultiHashTab *h, testkeys *keys, uint32_t new_n_buckets)
 {
   // This function uses no working space (yet, needed if we both resize hash and keys array[s] at the same time)
 
   free(h->hash);
   kroundup32(new_n_buckets);
   mh_alloc(h, new_n_buckets);
+  h->n_occupied = h->next_id;
+  h->size = h->next_id;
 
   for (uint32_t k = 1; k < h->next_id; k++) {
     uint32_t idx = mh_get_inner(h, keys, keys[k]);
@@ -109,18 +109,14 @@ void mh_resize(MultiHashTab *h, testkeys *keys, uint32_t new_n_buckets)
     }
     h->hash[idx] = k;
   }
-  h->n_occupied = h->next_id;
-  h->size = h->next_id;
 }
 
 // return: index in (*keys)[]
 uint32_t mh_put(MultiHashTab *h, testkey **keys, testkey key)
 {
-  if (!h->hash) {
-    mh_alloc(h, 16);
-    *keys = calloc(4, sizeof(testkey));
-    h->n_keys = 4;
-    h->next_id = 1;
+  if (h->n_occupied >= h->upper_bound) {
+    // TODO: check shrink if a lot of tombstones
+    mh_realloc(h, h->n_buckets + 1);
   }
 
   uint32_t idx = mh_get_inner(h, *keys, key);
@@ -143,7 +139,7 @@ uint32_t mh_put(MultiHashTab *h, testkey **keys, testkey key)
   }
 }
 
-void kh_del(MultiHashTab *h, uint32_t x)
+void mh_del(MultiHashTab *h, uint32_t x)
 {
   if (!is_either(h, x)) {
     h->hash[x] = HASH_TOMBSTONE;
