@@ -24,11 +24,11 @@ typedef void *ptr_t;
 #define PMap(T) Map(T, ptr_t)
 
 #define KEY_DECLS(T) \
-  MULTI_HASH_DECLS(MultiHash_##T, T) \
+  MULTI_HASH_DECLS(T) \
   KHASH_DECLARE(T) \
   static inline bool set_put_##T(Set(T) *set, T key, T **key_alloc) { \
     MhPutStatus status; \
-    uint32_t k = MultiHash_##T##_put(set, key, &status); \
+    uint32_t k = mh_put_##T(set, key, &status); \
     if (key_alloc) { \
       *key_alloc = &set->keys[k]; \
     } \
@@ -36,15 +36,16 @@ typedef void *ptr_t;
   } \
   static inline void set_del_##T(Set(T) *set, T key) \
   { \
-    uint32_t k = MultiHash_##T##_get(set, key); \
+    uint32_t k = mh_get_##T(set, key); \
     if (k != MH_TOMBSTONE) { \
       /* TODO: get k out of set->keys */ \
       k = mh_unhash(&set->h, k); \
     } \
   } \
   static inline bool set_has_##T(Set(T) *set, T key) { \
-    uint32_t k = MultiHash_##T##_get(set, key); \
-    return (k != MH_TOMBSTONE); \
+    if (set->h.size == 0) return false; \
+    uint32_t k = mh_get_##T(set, key); \
+    return !mh_is_either(&(set->h), k); \
   } \
 
 #define MAP_DECLS(T, U) \
@@ -63,7 +64,7 @@ typedef void *ptr_t;
 
 // NOTE: Keys AND values must be allocated! khash.h does not make a copy.
 
-#define Set(type) MultiHash_##type
+#define Set(type) MHTable_##type
 
 KEY_DECLS(int)
 KEY_DECLS(cstr_t)

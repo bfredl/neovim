@@ -163,11 +163,31 @@ KEY_IMPL(String)
 KEY_IMPL(HlEntry)
 KEY_IMPL(ColorKey)
 
-#define MH_NAME(x) MultiHash_int ## x
-#define MultiHash_int_hash(x) ((uint32_t)(x))
-#define MultiHash_int_equal(x, y) ((x) == (y))
+#define hash_int(x) ((uint32_t)(x))
+#define equal_int(x, y) ((x) == (y))
+
+#define hash_ptr_t(x) ptr_t_hash(x) // TODO: KNÖVEL
+#define equal_ptr_t(x, y) ((x) == (y))
+
+#define hash_cstr_t(x) cstr_t_hash(x) // TODO: KNÖVEL
+#define equal_cstr_t(x, y) cstr_t_eq(x, y)
+
+#define hash_String(x) String_hash(x) // TODO: KNÖVEL
+#define equal_String(x, y) String_eq(x, y)
+
+#define MH_NAME(x) x ## int
 #include "nvim/lib/multihash_impl.inc.h"
 #undef MH_NAME
+#define MH_NAME(x) x ## ptr_t
+#include "nvim/lib/multihash_impl.inc.h"
+#undef MH_NAME
+#define MH_NAME(x) x ## cstr_t
+#include "nvim/lib/multihash_impl.inc.h"
+#undef MH_NAME
+#define MH_NAME(x) x ## String
+#include "nvim/lib/multihash_impl.inc.h"
+#undef MH_NAME
+
 
 MAP_IMPL(int, int, DEFAULT_INITIALIZER)
 MAP_IMPL(int, ptr_t, DEFAULT_INITIALIZER)

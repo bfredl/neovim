@@ -11,8 +11,8 @@ typedef struct {
   uint32_t n_occupied;
   uint32_t n_deleted;
   uint32_t upper_bound;
-  uint32_t next_id;  // TODO: more like actual n_keys!
-  uint32_t n_keys;  // TODO: more like capacity
+  uint32_t n_keys;  // this is almost always "size", but keys[] could contain ded items..
+  uint32_t keys_capacity;
   uint32_t *hash;
 } MultiHashTab;
 
@@ -44,25 +44,22 @@ static inline uint32_t mh_unhash(MultiHashTab *h, uint32_t idx)
 #define mh_foreach_key(t, kvar, code) \
   { \
     uint32_t __i; \
-    for (__i = 0; __i < (t)->h.next_id; __i++) { \
+    for (__i = 0; __i < (t)->h.n_keys; __i++) { \
       (kvar) = (t)->keys[__i]; \
       code; \
     } \
   }
 
-#define MULTI_HASH_DECLS(name, T) \
-  typedef T name##_key; \
+#define MULTI_HASH_DECLS(k) \
   typedef struct { \
     MultiHashTab h; \
-    name##_key *keys; \
-  } name; \
+    k *keys; \
+  } MHTable_##k; \
   \
-  uint32_t name##_get(name *t, name##_key key); \
-  void name##_rehash(name *t); \
-  uint32_t name##_put(name *t, name##_key key, MhPutStatus *new); \
-  uint32_t name##_unhash(name *t, name##_key key); \
-
-MULTI_HASH_DECLS(FooTable, char *)
+  uint32_t mh_get_##k(MHTable_##k *t, k key); \
+  void mh_rehash_##k(MHTable_##k *t); \
+  uint32_t mh_put_##k(MHTable_##k *t, k key, MhPutStatus *new); \
+  uint32_t mh_unhash_##k(MHTable_##k *t, k key); \
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "lib/multihash.h.generated.h"

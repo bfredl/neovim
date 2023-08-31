@@ -31,6 +31,6 @@ void mh_clear(MultiHashTab *h)
     memset(h->hash, 0, h->n_buckets * sizeof(*h->hash));
     h->size = h->n_occupied = 0;
     h->n_deleted = 0;
-    h->next_id = 1;
+    h->n_keys = 0;
   }
 }
