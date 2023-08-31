@@ -54,6 +54,7 @@ void MH_NAME(mh_rehash_)(MH_TABLE *t)
     }
     t->h.hash[idx] = k+1;
   }
+  t->h.n_occupied = t->h.size = t->h.n_keys;
 }
 
 // @return keys index
@@ -72,6 +73,7 @@ uint32_t MH_NAME(mh_put_)(MH_TABLE *t, MH_KEY key, MhPutStatus *new)
 
   if (mh_is_either(h, idx)) {
     h->size++;
+    h->n_occupied++;
     uint32_t pos = h->n_keys++;
     if (pos >= h->keys_capacity) {
       h->keys_capacity = MAX(h->keys_capacity * 2, 8);
