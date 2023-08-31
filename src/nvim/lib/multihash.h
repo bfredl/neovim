@@ -20,9 +20,9 @@ typedef struct {
 
 #define HASH_TOMBSTONE UINT32_MAX
 
-#define mh_is_empty(h, i) (h->hash[i] == 0)
-#define mh_is_del(h, i) (h->hash[i] == HASH_TOMBSTONE)
-#define mh_is_either(h, i) ((uint32_t)(h->hash[i]+1U) <= 1U)
+#define mh_is_empty(h, i) ((h)->hash[i] == 0)
+#define mh_is_del(h, i) ((h)->hash[i] == HASH_TOMBSTONE)
+#define mh_is_either(h, i) ((uint32_t)((h)->hash[i]+1U) <= 1U)
 
 # define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, \
                         ++(x))
