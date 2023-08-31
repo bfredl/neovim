@@ -49,7 +49,7 @@ void MH_NAME(mh_rehash_)(MH_TABLE *t)
   for (uint32_t k = 0; k < t->h.n_keys; k++) {
     uint32_t idx = MH_NAME(mh_get_)(t, t->keys[k]);
     // there must be tombstones when we do a rehash
-    if (mh_is_either((&t->h), idx)) {
+    if (!mh_is_empty((&t->h), idx)) {
       abort();
     }
     t->h.hash[idx] = k+1;
