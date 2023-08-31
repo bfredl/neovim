@@ -1396,7 +1396,7 @@ shada_read_main_cycle_end:
       hms_dealloc(&hms[i]);
     }
   }
-  if (cl_bufs.n_occupied) {
+  if (cl_bufs.h.n_occupied) {
     FOR_ALL_TAB_WINDOWS(tp, wp) {
       (void)tp;
       if (set_has(ptr_t, &cl_bufs, wp->w_buffer)) {

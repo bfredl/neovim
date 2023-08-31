@@ -3,6 +3,7 @@
 
 #include "nvim/lib/multihash.h"
 #include "nvim/memory.h"
+#include "nvim/strings.h"
 
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "lib/multihash.c.generated.h"
@@ -33,4 +34,3 @@ void mh_clear(MultiHashTab *h)
     h->next_id = 1;
   }
 }
-

@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "klib/khash.h"
+#include "lib/multihash.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/assert.h"
 #include "nvim/highlight_defs.h"
@@ -23,24 +24,27 @@ typedef void *ptr_t;
 #define PMap(T) Map(T, ptr_t)
 
 #define KEY_DECLS(T) \
+  MULTI_HASH_DECLS(MultiHash_##T, T) \
   KHASH_DECLARE(T) \
   static inline bool set_put_##T(Set(T) *set, T key, T **key_alloc) { \
-    int kh_ret; \
-    khiter_t k = kh_put(T, set, key, &kh_ret, 0); \
+    MhPutStatus status; \
+    uint32_t k = MultiHash_##T##_put(set, key, &status); \
     if (key_alloc) { \
-      *key_alloc = &kh_key(set, k); \
+      *key_alloc = &set->keys[k]; \
     } \
-    return kh_ret; \
+    return status != kMHExisting; \
   } \
   static inline void set_del_##T(Set(T) *set, T key) \
   { \
-    khiter_t k; \
-    if ((k = kh_get(T, set, key)) != kh_end(set)) { \
-      kh_del(T, set, k); \
+    uint32_t k = MultiHash_##T##_get(set, key); \
+    if (k != MH_TOMBSTONE) { \
+      /* TODO: get k out of set->keys */ \
+      k = mh_unhash(&set->h, k); \
     } \
   } \
   static inline bool set_has_##T(Set(T) *set, T key) { \
-    return (kh_get(T, set, key) != kh_end(set)); \
+    uint32_t k = MultiHash_##T##_get(set, key); \
+    return (k != MH_TOMBSTONE); \
   } \
 
 #define MAP_DECLS(T, U) \
@@ -59,7 +63,7 @@ typedef void *ptr_t;
 
 // NOTE: Keys AND values must be allocated! khash.h does not make a copy.
 
-#define Set(type) khash_t(type)
+#define Set(type) MultiHash_##type
 
 KEY_DECLS(int)
 KEY_DECLS(cstr_t)
@@ -87,8 +91,8 @@ MAP_DECLS(String, int)
 MAP_DECLS(int, String)
 MAP_DECLS(ColorKey, ColorItem)
 
-#define SET_INIT { 0, 0, 0, 0, NULL, NULL, NULL }
-#define MAP_INIT { SET_INIT }
+#define SET_INIT MULTIHASH_SET_INIT
+#define MAP_INIT { { 0, 0, 0, 0, NULL, NULL, NULL } }
 
 #define map_get(T, U) map_##T##_##U##_get
 #define map_has(T, U) map_##T##_##U##_has
@@ -113,7 +117,7 @@ MAP_DECLS(ColorKey, ColorItem)
 
 #define map_foreach_value(U, map, value, block) kh_foreach_value(U, &(map)->table, value, block)
 #define map_foreach_key(map, key, block) kh_foreach_key(&(map)->table, key, block)
-#define set_foreach(set, key, block) kh_foreach_key(set, key, block)
+#define set_foreach(set, key, block) mh_foreach_key(set, key, block)
 
 #define pmap_foreach_value(map, value, block) map_foreach_value(ptr_t, map, value, block)
 #define pmap_foreach(map, key, value, block) map_foreach(ptr_t, map, key, value, block)
@@ -124,7 +128,8 @@ void pmap_del2(PMap(cstr_t) *map, const char *key);
 #define set_put(T, set, key) set_put_##T(set, key, NULL)
 #define set_put_ref(T, set, key, key_alloc) set_put_##T(set, key, key_alloc)
 #define set_del(T, set, key) set_del_##T(set, key)
-#define set_destroy(T, set) kh_dealloc(T, set)
-#define set_clear(T, set) kh_clear(T, set)
+// TODO: inline!
+#define set_destroy(T, set) (xfree((set)->keys), xfree((set)->h.hash))
+#define set_clear(T, set) mh_clear(&(set)->h)
 
 #endif  // NVIM_MAP_H
