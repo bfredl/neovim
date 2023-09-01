@@ -57,7 +57,7 @@ void extmark_set(buf_T *buf, uint32_t ns_id, uint32_t *idp, int row, colnr_T col
                  colnr_T end_col, Decoration *decor, bool right_gravity, bool end_right_gravity,
                  ExtmarkOp op, Error *err)
 {
-  uint32_t *ns = map_put_ref(uint32_t, uint32_t)(buf->b_extmark_ns, ns_id, NULL, NULL);
+  uint32_t *ns = map_put_ref_val(uint32_t, uint32_t, buf->b_extmark_ns, ns_id, NULL);
   uint32_t id = idp ? *idp : 0;
   bool decor_full = false;
 

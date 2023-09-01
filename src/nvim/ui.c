@@ -711,7 +711,7 @@ void ui_add_cb(uint32_t ns_id, LuaRef cb, bool *ext_widgets)
     event_cb->ext_widgets[kUICmdline] = true;
   }
 
-  ptr_t *item = pmap_put_ref(uint32_t)(&ui_event_cbs, ns_id, NULL, NULL);
+  ptr_t *item = pmap_put_ref_val(uint32_t, &ui_event_cbs, ns_id, NULL);
   if (*item) {
     free_ui_event_callback((UIEventCallback *)(*item));
   }

@@ -120,7 +120,12 @@ void mh_realloc(HashTab *h, uint32_t n_min_buckets);
   U map_get_##T##U(Map(T, U) *map, T key); \
   void map_put_##T##U(Map(T, U) *map, T key, U value); \
   U *map_ref_##T##U(Map(T, U) *map, T key, T **key_alloc); \
-  U *map_put_ref_##T##U(Map(T, U) *map, T key, T **key_alloc, bool *new_item); \
+  uint32_t map_put_ref_##T##U(Map(T, U) *map, T key, bool *new_item); \
+  static inline U *map_put_ref_val_##T##U(Map(T, U) *map, T key, bool *new_item) \
+  { \
+    uint32_t k = map_put_ref_##T##U(map, key, new_item); \
+    return &map->values[k]; \
+  } \
   U map_del_##T##U(Map(T, U) *map, T key, T *key_alloc); \
 
 // NOTE: Keys AND values must be allocated! Map and Set does not make a copy.
@@ -164,15 +169,18 @@ MAP_DECLS(ColorKey, ColorItem)
 #define map_put(T, U) map_put_##T##U
 #define map_ref(T, U) map_ref_##T##U
 #define map_put_ref(T, U) map_put_ref_##T##U
+#define map_put_ref_val(T, U, m, k, n) map_put_ref_val_##T##U(m, k, n)
 #define map_del(T, U) map_del_##T##U
 #define map_destroy(T, map) (set_destroy(T, &(map)->t), xfree((map)->values))
 #define map_clear(T, map) set_clear(T, &(map)->t)
 #define map_size(map) ((map)->t.h.size)
+#define map_key(map, it) ((map)->t.keys[it])
 
 #define pmap_get(T) map_get(T, ptr_t)
 #define pmap_put(T) map_put(T, ptr_t)
 #define pmap_ref(T) map_ref(T, ptr_t)
 #define pmap_put_ref(T) map_put_ref(T, ptr_t)
+#define pmap_put_ref_val(T, m, k, n) map_put_ref_val(T, ptr_t, m, k, n)
 /// @see pmap_del2
 #define pmap_del(T) map_del(T, ptr_t)
 

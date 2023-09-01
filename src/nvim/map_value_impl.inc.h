@@ -35,7 +35,7 @@ VALUE_TYPE *MAP_NAME(map_ref_)(MAP_TYPE *map, KEY_TYPE key, KEY_TYPE **key_alloc
   return &map->values[k];
 }
 
-VALUE_TYPE *MAP_NAME(map_put_ref_)(MAP_TYPE *map, KEY_TYPE key, KEY_TYPE **key_alloc, bool *new_item)
+uint32_t MAP_NAME(map_put_ref_)(MAP_TYPE *map, KEY_TYPE key, bool *new_item)
 {
   MhPutStatus status;
   uint32_t k = KEY_NAME(mh_put_)(&map->t, key, &status);
@@ -48,10 +48,7 @@ VALUE_TYPE *MAP_NAME(map_put_ref_)(MAP_TYPE *map, KEY_TYPE key, KEY_TYPE **key_a
   if (new_item) {
     *new_item = (status != kMHExisting);
   }
-  if (key_alloc) {
-    *key_alloc = &map->t.keys[k];
-  }
-  return &map->values[k];
+  return k;
 }
 
 VALUE_TYPE MAP_NAME(map_del_)(MAP_TYPE *map, KEY_TYPE key, KEY_TYPE *key_alloc)

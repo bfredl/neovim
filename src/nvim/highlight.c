@@ -419,7 +419,7 @@ void update_ns_hl(int ns_id)
     return;
   }
 
-  NSHlAttr **alloc = (NSHlAttr **)pmap_put_ref(int)(&ns_hl_attr, ns_id, NULL, NULL);
+  NSHlAttr **alloc = (NSHlAttr **)pmap_put_ref_val(int, &ns_hl_attr, ns_id, NULL);
   if (*alloc == NULL) {
     *alloc = xmalloc(sizeof(**alloc));
   }

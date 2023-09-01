@@ -569,8 +569,8 @@ static inline void hmll_insert(HMLList *const hmll, HMLListEntry *hmll_entry, co
   target_entry->data = data;
   target_entry->can_free_entry = can_free_entry;
   bool new_item = false;
-  ptr_t *val = pmap_put_ref(cstr_t)(&hmll->contained_entries, data.data.history_item.string,
-                                    NULL, &new_item);
+  ptr_t *val = pmap_put_ref_val(cstr_t, &hmll->contained_entries, data.data.history_item.string,
+                                &new_item);
   if (new_item) {
     *val = target_entry;
   }
@@ -1008,24 +1008,22 @@ static inline void hms_dealloc(HistoryMergerState *const hms_p)
 static buf_T *find_buffer(PMap(cstr_t) *const fname_bufs, const char *const fname)
   FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ALL
 {
-  cstr_t *key_alloc = NULL;
   bool new_item = false;
-  buf_T **ref = (buf_T **)pmap_put_ref(cstr_t)(fname_bufs, fname, &key_alloc, &new_item);
+  uint32_t it = pmap_put_ref(cstr_t)(fname_bufs, fname, &new_item);
   if (new_item) {
-    *key_alloc = xstrdup(fname);
+    map_key(fname_bufs, it) = xstrdup(fname);
   } else {
-    return *ref;  // item already existed (can be a NULL value)
+    return fname_bufs->values[it];  // item already existed (can be a NULL value)
   }
 
   FOR_ALL_BUFFERS(buf) {
     if (buf->b_ffname != NULL) {
       if (path_fnamecmp(fname, buf->b_ffname) == 0) {
-        *ref = buf;
+        fname_bufs->values[it] = buf;
         return buf;
       }
     }
   }
-  *ref = NULL;
   return NULL;
 }
 
@@ -2176,12 +2174,12 @@ static inline ShaDaWriteResult shada_read_when_writing(ShaDaReadDef *const sd_re
         break;
       }
       const char *const fname = entry.data.filemark.fname;
-      cstr_t *key = NULL;
-      ptr_t *val = pmap_put_ref(cstr_t)(&wms->file_marks, fname, &key, NULL);
-      if (*val == NULL) {
-        *val = xcalloc(1, sizeof(FileMarks));
+      bool new_item;
+      uint32_t it = pmap_put_ref(cstr_t)(&wms->file_marks, fname, &new_item);
+      if (new_item) {
+        wms->file_marks.values[it] = xcalloc(1, sizeof(FileMarks));
       }
-      FileMarks *const filemarks = *val;
+      FileMarks *const filemarks = wms->file_marks.values[it];
       if (entry.timestamp > filemarks->greatest_timestamp) {
         filemarks->greatest_timestamp = entry.timestamp;
       }
@@ -2202,8 +2200,8 @@ static inline ShaDaWriteResult shada_read_when_writing(ShaDaReadDef *const sd_re
               break;
             }
             if (wms_entry->can_free_entry) {
-              if (*key == wms_entry->data.data.filemark.fname) {
-                *key = entry.data.filemark.fname;
+              if (map_key(&wms->file_marks, it) == wms_entry->data.data.filemark.fname) {
+                map_key(&wms->file_marks, it) = entry.data.filemark.fname;
               }
               shada_free_shada_entry(&wms_entry->data);
             }
@@ -2741,7 +2739,7 @@ static ShaDaWriteResult shada_write(ShaDaWriteDef *const sd_writer, ShaDaReadDef
       }
       const void *local_marks_iter = NULL;
       const char *const fname = buf->b_ffname;
-      ptr_t *val = pmap_put_ref(cstr_t)(&wms->file_marks, fname, NULL, NULL);
+      ptr_t *val = pmap_put_ref_val(cstr_t, &wms->file_marks, fname, NULL);
       if (*val == NULL) {
         *val = xcalloc(1, sizeof(FileMarks));
       }
