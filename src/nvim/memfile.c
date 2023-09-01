@@ -101,8 +101,6 @@ memfile_T *mf_open(char *fname, int flags)
   }
 
   mfp->mf_free_first = NULL;         // free list is empty
-  mfp->mf_used_first = NULL;         // used list is empty
-  mfp->mf_used_last = NULL;
   mfp->mf_dirty = MF_DIRTY_NO;
   mfp->mf_hash = (PMap(int64_t)) MAP_INIT;
   mfp->mf_trans = (Map(int64_t, int64_t)) MAP_INIT;
@@ -182,10 +180,10 @@ void mf_close(memfile_T *mfp, bool del_file)
   }
 
   // free entries in used list
-  for (bhdr_T *hp = mfp->mf_used_first, *nextp; hp != NULL; hp = nextp) {
-    nextp = hp->bh_next;
+  bhdr_T *hp;
+  map_foreach_value(&mfp->mf_hash, hp, {
     mf_free_bhdr(hp);
-  }
+  })
   while (mfp->mf_free_first != NULL) {  // free entries in free list
     xfree(mf_rem_free(mfp));
   }
@@ -271,7 +269,6 @@ bhdr_T *mf_new(memfile_T *mfp, bool negative, unsigned page_count)
   hp->bh_flags = BH_LOCKED | BH_DIRTY;    // new block is always dirty
   mfp->mf_dirty = MF_DIRTY_YES;
   hp->bh_page_count = page_count;
-  mf_ins_used(mfp, hp);
   pmap_put(int64_t)(&mfp->mf_hash, hp->bh_bnum, hp);
 
   // Init the data to all zero, to avoid reading uninitialized data.
@@ -317,12 +314,10 @@ bhdr_T *mf_get(memfile_T *mfp, blocknr_T nr, unsigned page_count)
       return NULL;
     }
   } else {
-    mf_rem_used(mfp, hp);       // remove from list, insert in front below
     pmap_del(int64_t)(&mfp->mf_hash, hp->bh_bnum, NULL);
   }
 
   hp->bh_flags |= BH_LOCKED;
-  mf_ins_used(mfp, hp);         // put in front of used list
   pmap_put(int64_t)(&mfp->mf_hash, hp->bh_bnum, hp);  // put in front of hash table
 
   return hp;
@@ -357,7 +352,6 @@ void mf_free(memfile_T *mfp, bhdr_T *hp)
 {
   xfree(hp->bh_data);           // free data
   pmap_del(int64_t)(&mfp->mf_hash, hp->bh_bnum, NULL);  // get *hp out of the hash table
-  mf_rem_used(mfp, hp);         // get *hp out of the used list
   if (hp->bh_bnum < 0) {
     xfree(hp);                  // don't want negative numbers in free list
     mfp->mf_neg_count--;
@@ -399,7 +393,8 @@ int mf_sync(memfile_T *mfp, int flags)
   // fails then we give up.
   int status = OK;
   bhdr_T *hp;
-  for (hp = mfp->mf_used_last; hp != NULL; hp = hp->bh_prev) {
+  // note, "last" block is typically earlier in the hash list
+  map_foreach_value(&mfp->mf_hash, hp, {
     if (((flags & MFS_ALL) || hp->bh_bnum >= 0)
         && (hp->bh_flags & BH_DIRTY)
         && (status == OK || (hp->bh_bnum >= 0
@@ -424,7 +419,7 @@ int mf_sync(memfile_T *mfp, int flags)
         break;
       }
     }
-  }
+  })
 
   // If the whole list is flushed, the memfile is not dirty anymore.
   // In case of an error, dirty flag is also set, to avoid trying all the time.
@@ -447,41 +442,13 @@ int mf_sync(memfile_T *mfp, int flags)
 /// These are blocks that need to be written to a newly created swapfile.
 void mf_set_dirty(memfile_T *mfp)
 {
-  for (bhdr_T *hp = mfp->mf_used_last; hp != NULL; hp = hp->bh_prev) {
+  bhdr_T *hp;
+  map_foreach_value(&mfp->mf_hash, hp, {
     if (hp->bh_bnum > 0) {
       hp->bh_flags |= BH_DIRTY;
     }
-  }
+  })
   mfp->mf_dirty = MF_DIRTY_YES;
-}
-
-/// Insert block at the front of memfile's used list.
-static void mf_ins_used(memfile_T *mfp, bhdr_T *hp)
-{
-  hp->bh_next = mfp->mf_used_first;
-  mfp->mf_used_first = hp;
-  hp->bh_prev = NULL;
-  if (hp->bh_next == NULL) {    // list was empty, adjust last pointer
-    mfp->mf_used_last = hp;
-  } else {
-    hp->bh_next->bh_prev = hp;
-  }
-}
-
-/// Remove block from memfile's used list.
-static void mf_rem_used(memfile_T *mfp, bhdr_T *hp)
-{
-  if (hp->bh_next == NULL) {               // last block in used list
-    mfp->mf_used_last = hp->bh_prev;
-  } else {
-    hp->bh_next->bh_prev = hp->bh_prev;
-  }
-
-  if (hp->bh_prev == NULL) {               // first block in used list
-    mfp->mf_used_first = hp->bh_next;
-  } else {
-    hp->bh_prev->bh_next = hp->bh_next;
-  }
 }
 
 /// Release as many blocks as possible.
@@ -502,17 +469,17 @@ bool mf_release_all(void)
 
       // Flush as many blocks as possible, only if there is a swapfile.
       if (mfp->mf_fd >= 0) {
-        for (bhdr_T *hp = mfp->mf_used_last; hp != NULL;) {
+        for (int i = 0; i < (int)map_size(&mfp->mf_hash); ) {
+          bhdr_T *hp = mfp->mf_hash.values[i];
           if (!(hp->bh_flags & BH_LOCKED)
               && (!(hp->bh_flags & BH_DIRTY)
                   || mf_write(mfp, hp) != FAIL)) {
-            mf_rem_used(mfp, hp);
             pmap_del(int64_t)(&mfp->mf_hash, hp->bh_bnum, NULL);
             mf_free_bhdr(hp);
-            hp = mfp->mf_used_last;    // restart, list was changed
+            i = 0; // restart, list was changed
             retval = true;
           } else {
-            hp = hp->bh_prev;
+            i++;
           }
         }
       }
@@ -540,7 +507,7 @@ static void mf_free_bhdr(bhdr_T *hp)
 /// Insert a block in the free list.
 static void mf_ins_free(memfile_T *mfp, bhdr_T *hp)
 {
-  hp->bh_next = mfp->mf_free_first;
+  hp->bh_data = mfp->mf_free_first;
   mfp->mf_free_first = hp;
 }
 
@@ -550,7 +517,7 @@ static void mf_ins_free(memfile_T *mfp, bhdr_T *hp)
 static bhdr_T *mf_rem_free(memfile_T *mfp)
 {
   bhdr_T *hp = mfp->mf_free_first;
-  mfp->mf_free_first = hp->bh_next;
+  mfp->mf_free_first = hp->bh_data;
   return hp;
 }
 

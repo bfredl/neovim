@@ -30,8 +30,6 @@ typedef int64_t blocknr_T;
 typedef struct bhdr {
   blocknr_T bh_bnum;                 ///< key used in hash table
 
-  struct bhdr *bh_next;              ///< next block header in free or used list
-  struct bhdr *bh_prev;              ///< previous block header in used list
   void *bh_data;                     ///< pointer to memory (for used block)
   unsigned bh_page_count;            ///< number of pages in this block
 
@@ -52,8 +50,6 @@ typedef struct memfile {
   char *mf_ffname;                   ///< idem, full path
   int mf_fd;                         ///< file descriptor
   bhdr_T *mf_free_first;             ///< first block header in free list
-  bhdr_T *mf_used_first;             ///< mru block header in used list
-  bhdr_T *mf_used_last;              ///< lru block header in used list
 
   /// The used blocks are kept in mf_hash.
   /// mf_hash are used to quickly find a block in the used list.
