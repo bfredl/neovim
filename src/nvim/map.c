@@ -96,6 +96,16 @@ static inline bool equal_ColorKey(ColorKey ae1, ColorKey ae2)
   return memcmp(&ae1, &ae2, sizeof(ae1)) == 0;
 }
 
+static inline uint32_t hash_bhdr_T(bhdr_T ae)
+{
+  return hash_int64_t(ae.bh_bnum);
+}
+
+static inline bool equal_bhdr_T(bhdr_T ae1, bhdr_T ae2)
+{
+  return ae1.bh_bnum == ae2.bh_bnum;
+}
+
 // TODO(bfredl): this could be _less_ for the h->hash part as this is now small (4 bytes per value)
 #define UPPER_FILL 0.77
 
@@ -186,9 +196,6 @@ void mh_clear(MapHash *h)
 
 #define KEY_NAME(x) x##int64_t
 #include "nvim/map_key_impl.c.h"
-#define VAL_NAME(x) quasiquote(x, ptr_t)
-#include "nvim/map_value_impl.c.h"
-#undef VAL_NAME
 #define VAL_NAME(x) quasiquote(x, int64_t)
 #include "nvim/map_value_impl.c.h"
 #undef VAL_NAME
@@ -206,6 +213,10 @@ void mh_clear(MapHash *h)
 #define VAL_NAME(x) quasiquote(x, ColorItem)
 #include "nvim/map_value_impl.c.h"
 #undef VAL_NAME
+#undef KEY_NAME
+
+#define KEY_NAME(x) x##bhdr_T
+#include "nvim/map_key_impl.c.h"
 #undef KEY_NAME
 
 /// Deletes a key:value pair from a string:pointer map, and frees the

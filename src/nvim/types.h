@@ -46,4 +46,30 @@ typedef enum {
 
 typedef struct Decoration Decoration;
 
+/// A block number.
+///
+/// Blocks numbered from 0 upwards have been assigned a place in the actual
+/// file. The block number is equal to the page number in the file. The blocks
+/// with negative numbers are currently in memory only.
+typedef int64_t blocknr_T;
+
+/// A block header.
+///
+/// There is a block header for each previously used block in the memfile.
+///
+/// The used list is a doubly linked list, most recently used block first.
+/// The blocks in the used list have a block of memory allocated.
+/// The free list is a single linked list, not sorted.
+/// The blocks in the free list have no block of memory allocated and
+/// the contents of the block in the file (if any) is irrelevant.
+typedef struct bhdr {
+  blocknr_T bh_bnum;                 ///< key used in hash table
+
+  void *bh_data;                     ///< pointer to memory (for used block)
+  unsigned bh_page_count;            ///< number of pages in this block
+
+  unsigned bh_flags;                 ///< BH_DIRTY or BH_LOCKED
+} bhdr_T;
+
+
 #endif  // NVIM_TYPES_H

@@ -129,6 +129,7 @@ KEY_DECLS(uint32_t)
 KEY_DECLS(String)
 KEY_DECLS(HlEntry)
 KEY_DECLS(ColorKey)
+KEY_DECLS(bhdr_T)
 
 MAP_DECLS(int, int)
 MAP_DECLS(int, ptr_t)

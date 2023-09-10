@@ -9,34 +9,8 @@
 #include "nvim/pos.h"
 #include "nvim/types.h"
 
-/// A block number.
-///
-/// Blocks numbered from 0 upwards have been assigned a place in the actual
-/// file. The block number is equal to the page number in the file. The blocks
-/// with negative numbers are currently in memory only.
-typedef int64_t blocknr_T;
-
-/// A block header.
-///
-/// There is a block header for each previously used block in the memfile.
-///
-/// The block may be linked in the used list OR in the free list.
-///
-/// The used list is a doubly linked list, most recently used block first.
-/// The blocks in the used list have a block of memory allocated.
-/// The free list is a single linked list, not sorted.
-/// The blocks in the free list have no block of memory allocated and
-/// the contents of the block in the file (if any) is irrelevant.
-typedef struct bhdr {
-  blocknr_T bh_bnum;                 ///< key used in hash table
-
-  void *bh_data;                     ///< pointer to memory (for used block)
-  unsigned bh_page_count;            ///< number of pages in this block
-
 #define BH_DIRTY    1U
 #define BH_LOCKED   2U
-  unsigned bh_flags;                 ///< BH_DIRTY or BH_LOCKED
-} bhdr_T;
 
 typedef enum {
   MF_DIRTY_NO = 0,      ///< no dirty blocks
@@ -49,11 +23,14 @@ typedef struct memfile {
   char *mf_fname;                    ///< name of the file
   char *mf_ffname;                   ///< idem, full path
   int mf_fd;                         ///< file descriptor
-  bhdr_T *mf_free_first;             ///< first block header in free list
 
   /// The used blocks are kept in mf_hash.
   /// mf_hash are used to quickly find a block in the used list.
-  PMap(int64_t) mf_hash;
+  Set(bhdr_T) mf_hash;
+
+  // list of free blocks. These have no memory allocated, but they
+  // have reserved space in the swapfile, if any
+  kvec_t(bhdr_T) mf_free;
 
   /// When a block with a negative number is flushed to the file, it gets
   /// a positive number. Because the reference to the block is still the negative
