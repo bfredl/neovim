@@ -1904,7 +1904,7 @@ static void mouse_check_grid(colnr_T *vcolp, int *flagsp)
 
       // Remember the character under the mouse, might be one of foldclose or
       // foldopen fillchars in the fold column.
-      mouse_char = utf_ptr2char((char *)gp->chars[off]);
+      mouse_char = schar_get_ascii(gp->chars[off]);
     }
 
     // Check for position outside of the fold column.

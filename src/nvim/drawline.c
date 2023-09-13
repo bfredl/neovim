@@ -221,11 +221,11 @@ static int line_putchar(buf_T *buf, LineState *s, schar_T *dest, int maxcells, b
   if (*p == TAB) {
     cells = MIN(tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array), maxcells);
     for (int c = 0; c < cells; c++) {
-      schar_from_ascii(dest[c], ' ');
+      dest[c] = schar_from_ascii(' ');
     }
     goto done;
   } else if ((uint8_t)(*p) < 0x80 && u8cc[0] == 0) {
-    schar_from_ascii(dest[0], *p);
+    dest[0] = schar_from_ascii(*p);
     s->prev_c = u8c;
   } else {
     if (p_arshape && !p_tbidi && ARABIC_CHAR(u8c)) {
@@ -252,10 +252,10 @@ static int line_putchar(buf_T *buf, LineState *s, schar_T *dest, int maxcells, b
     } else {
       s->prev_c = u8c;
     }
-    schar_from_cc(dest[0], u8c, u8cc);
+    dest[0] = schar_from_cc(u8c, u8cc);
   }
   if (cells > 1) {
-    dest[1][0] = 0;
+    dest[1] = 0;
   }
 done:
   s->p += c_len;
@@ -348,17 +348,17 @@ static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode,
                              max_col - col, false, vcol);
     // If we failed to emit a char, we still need to put a space and advance.
     if (cells < 1) {
-      schar_from_ascii(linebuf_char[col], ' ');
+      linebuf_char[col] = schar_from_ascii(' ');
       cells = 1;
     }
     for (int c = 0; c < cells; c++) {
       linebuf_attr[col++] = attr;
     }
-    if (col < max_col && linebuf_char[col][0] == 0) {
+    if (col < max_col && linebuf_char[col] == 0) {
       // If the left half of a double-width char is overwritten,
       // change the right half to a space so that grid redraws properly,
       // but don't advance the current column.
-      schar_from_ascii(linebuf_char[col], ' ');
+      linebuf_char[col] = schar_from_ascii(' ');
     }
     vcol += cells;
   }
@@ -2737,7 +2737,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
           wlv.col += n;
         } else {
           // Add a blank character to highlight.
-          schar_from_ascii(linebuf_char[wlv.off], ' ');
+          linebuf_char[wlv.off] = schar_from_ascii(' ');
         }
         if (area_attr == 0 && !has_fold) {
           // Use attributes from match with highest priority among
@@ -2839,7 +2839,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
         int col_stride = wp->w_p_rl ? -1 : 1;
 
         while (wp->w_p_rl ? wlv.col >= 0 : wlv.col < grid->cols) {
-          schar_from_ascii(linebuf_char[wlv.off], ' ');
+          linebuf_char[wlv.off] = schar_from_ascii(' ');
           linebuf_vcol[wlv.off] = MAXCOL;
           wlv.col += col_stride;
           if (draw_color_col) {
@@ -2873,7 +2873,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
         // logical line
         int n = wp->w_p_rl ? -1 : 1;
         while (wlv.col >= 0 && wlv.col < grid->cols) {
-          schar_from_ascii(linebuf_char[wlv.off], ' ');
+          linebuf_char[wlv.off] = schar_from_ascii(' ');
           linebuf_attr[wlv.off] = wlv.vcol >= TERM_ATTRS_MAX ? 0 : term_attrs[wlv.vcol];
           linebuf_vcol[wlv.off] = wlv.vcol;
           wlv.off += n;
@@ -2973,9 +2973,9 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
         wlv.col--;
       }
       if (mb_utf8) {
-        schar_from_cc(linebuf_char[wlv.off], mb_c, u8cc);
+        linebuf_char[wlv.off] = schar_from_cc(mb_c, u8cc);
       } else {
-        schar_from_ascii(linebuf_char[wlv.off], (char)c);
+        linebuf_char[wlv.off] = schar_from_ascii((char)c);
       }
       if (multi_attr) {
         linebuf_attr[wlv.off] = multi_attr;
@@ -2991,7 +2991,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
         wlv.off++;
         wlv.col++;
         // UTF-8: Put a 0 in the second screen char.
-        linebuf_char[wlv.off][0] = 0;
+        linebuf_char[wlv.off] = 0;
         linebuf_attr[wlv.off] = linebuf_attr[wlv.off - 1];
         if (wlv.draw_state > WL_STC && wlv.filler_todo <= 0) {
           wlv.vcol++;
