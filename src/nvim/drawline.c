@@ -106,6 +106,8 @@ typedef struct {
   int c_extra;               ///< extra chars, all the same
   int c_final;               ///< final char, mandatory if set
 
+  colnr_T n_closing;         ///< number of chars in fdc which will be closing
+
   bool extra_for_extmark;    ///< n_extra set for inline virtual text
 
   // saved "extra" items for when draw_state becomes WL_LINE (again)
@@ -384,7 +386,7 @@ static void handle_foldcolumn(win_T *wp, winlinevars_T *wlv)
   // Allocate a buffer, "wlv->extra[]" may already be in use.
   xfree(wlv->p_extra_free);
   wlv->p_extra_free = xmalloc(MAX_MCO * (size_t)fdc + 1);
-  wlv->n_extra = (int)fill_foldcolumn(wlv->p_extra_free, wp, wlv->foldinfo, wlv->lnum);
+  wlv->n_extra = (int)fill_foldcolumn(wlv->p_extra_free, wp, wlv->foldinfo, wlv->lnum, &wlv->n_closing);
   wlv->p_extra_free[wlv->n_extra] = NUL;
   wlv->p_extra = wlv->p_extra_free;
   wlv->c_extra = NUL;
@@ -405,7 +407,7 @@ static void handle_foldcolumn(win_T *wp, winlinevars_T *wlv)
 ///
 /// Assume monocell characters
 /// @return number of chars added to \param p
-size_t fill_foldcolumn(char *p, win_T *wp, foldinfo_T foldinfo, linenr_T lnum)
+size_t fill_foldcolumn(char *p, win_T *wp, foldinfo_T foldinfo, linenr_T lnum, colnr_T *n_closing)
 {
   int i = 0;
   int level;
@@ -447,14 +449,21 @@ size_t fill_foldcolumn(char *p, win_T *wp, foldinfo_T foldinfo, linenr_T lnum)
     }
   }
 
+  colnr_T n_closing_val = i;
+
   if (closed) {
     if (symbol != 0) {
       // rollback previous write
       char_counter -= (size_t)len;
       memset(&p[char_counter], ' ', (size_t)len);
+      n_closing_val--;
     }
     len = utf_char2bytes(wp->w_p_fcs_chars.foldclosed, &p[char_counter]);
     char_counter += (size_t)len;
+  }
+
+  if (n_closing) {
+    *n_closing = n_closing_val;
   }
 
   return MAX(char_counter + (size_t)(fdc - i), (size_t)fdc);
@@ -2029,6 +2038,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
           }
         }
         wlv.extra_for_extmark = false;
+
       }
     } else if (has_fold) {
       // skip writing the buffer line itself
@@ -2985,6 +2995,14 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
       }
 
       linebuf_vcol[wlv.off] = wlv.vcol;
+
+      if (wlv.draw_state == WL_FOLD) {
+        linebuf_vcol[wlv.off] = -2;
+        if (wlv.n_closing > 0) {
+          linebuf_vcol[wlv.off] = -3;
+          wlv.n_closing--;
+        }
+      }
 
       if (utf_char2cells(mb_c) > 1) {
         // Need to fill two screen columns.
