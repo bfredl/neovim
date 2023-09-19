@@ -2192,7 +2192,7 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       if (msg_row_pending >= 0) {
         grid_line_flush_if_valid_row();
       }
-      grid_line_start(&msg_grid_adj, msg_row);
+      grid_line_start(&msg_grid_adj, msg_row, cmdmsg_rl);
       msg_row_pending = msg_row;
     }
 

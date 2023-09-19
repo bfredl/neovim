@@ -507,7 +507,7 @@ void pum_redraw(void)
     const int *const attrs = (idx == pum_selected) ? attrsSel : attrsNorm;
     int attr = attrs[0];  // start with "word" highlight
 
-    grid_line_start(&pum_grid, row);
+    grid_line_start(&pum_grid, row, pum_rl);
 
     // prepend a space if there is room
     if (extra_space) {

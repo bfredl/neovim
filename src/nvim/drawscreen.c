@@ -754,7 +754,7 @@ static void win_redr_border(win_T *wp)
   int irow = wp->w_height_inner + wp->w_winbar_height, icol = wp->w_width_inner;
 
   if (adj[0]) {
-    grid_line_start(grid, 0);
+    grid_line_start(grid, 0, false);
     if (adj[3]) {
       grid_line_put_schar(0, chars[0], attrs[0]);
     }
@@ -776,20 +776,20 @@ static void win_redr_border(win_T *wp)
 
   for (int i = 0; i < irow; i++) {
     if (adj[3]) {
-      grid_line_start(grid, i + adj[0]);
+      grid_line_start(grid, i + adj[0], false);
       grid_line_put_schar(0, chars[7], attrs[7]);
       grid_line_flush();
     }
     if (adj[1]) {
       int ic = (i == 0 && !adj[0] && chars[2]) ? 2 : 3;
-      grid_line_start(grid, i + adj[0]);
+      grid_line_start(grid, i + adj[0], false);
       grid_line_put_schar(icol + adj[3], chars[ic], attrs[ic]);
       grid_line_flush();
     }
   }
 
   if (adj[2]) {
-    grid_line_start(grid, irow + adj[0]);
+    grid_line_start(grid, irow + adj[0], false);
     if (adj[3]) {
       grid_line_put_schar(0, chars[6], attrs[6]);
     }
@@ -1096,7 +1096,7 @@ int showmode(void)
   win_T *ruler_win = curwin->w_status_height == 0 ? curwin : lastwin_nofloating();
   if (redrawing() && ruler_win->w_status_height == 0 && global_stl_height() == 0
       && !(p_ch == 0 && !ui_has(kUIMessages))) {
-    grid_line_start(&msg_grid_adj, Rows - 1);
+    grid_line_start(&msg_grid_adj, Rows - 1, false);
     win_redr_ruler(ruler_win);
     grid_line_flush();
   }
@@ -1371,22 +1371,22 @@ static void draw_sep_connectors_win(win_T *wp)
   bool bot_right = !(win_at_bottom || win_at_right);
 
   if (top_left) {
-    grid_line_start(&default_grid, wp->w_winrow - 1);
+    grid_line_start(&default_grid, wp->w_winrow - 1, false);
     grid_line_put_schar(wp->w_wincol - 1, get_corner_sep_connector(wp, WC_TOP_LEFT), hl);
     grid_line_flush();
   }
   if (top_right) {
-    grid_line_start(&default_grid, wp->w_winrow - 1);
+    grid_line_start(&default_grid, wp->w_winrow - 1, false);
     grid_line_put_schar(W_ENDCOL(wp), get_corner_sep_connector(wp, WC_TOP_RIGHT), hl);
     grid_line_flush();
   }
   if (bot_left) {
-    grid_line_start(&default_grid, W_ENDROW(wp));
+    grid_line_start(&default_grid, W_ENDROW(wp), false);
     grid_line_put_schar(wp->w_wincol - 1, get_corner_sep_connector(wp, WC_BOTTOM_LEFT), hl);
     grid_line_flush();
   }
   if (bot_right) {
-    grid_line_start(&default_grid, W_ENDROW(wp));
+    grid_line_start(&default_grid, W_ENDROW(wp), false);
     grid_line_put_schar(W_ENDCOL(wp), get_corner_sep_connector(wp, WC_BOTTOM_RIGHT), hl);
     grid_line_flush();
   }
@@ -2396,7 +2396,7 @@ static void win_update(win_T *wp, DecorProviders *providers)
       // Last line isn't finished: Display "@@@" at the end.
       // TODO(bfredl): this display ">@@@" when ">" was a left-halve
       // maybe "@@@@" is preferred when this happens.
-      grid_line_start(&wp->w_grid, wp->w_grid.rows - 1);
+      grid_line_start(&wp->w_grid, wp->w_grid.rows - 1, false);
       grid_line_fill(MAX(start_col, 0), wp->w_grid.cols, symbol, at_attr);
       grid_line_flush();
       set_empty_rows(wp, srow);

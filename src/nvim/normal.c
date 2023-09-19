@@ -2078,7 +2078,7 @@ static void display_showcmd(void)
 
   msg_grid_validate();
   int showcmd_row = Rows - 1;
-  grid_line_start(&msg_grid_adj, showcmd_row);
+  grid_line_start(&msg_grid_adj, showcmd_row, false);
 
   if (!showcmd_is_clear) {
     grid_line_puts(sc_col, showcmd_buf, -1, HL_ATTR(HLF_MSG));
