@@ -662,7 +662,7 @@ void pum_redraw(void)
                      ? attr_thumb : attr_scroll);
       }
     }
-    grid_puts_line_flush(false);
+    grid_puts_line_flush(false, pum_rl);
     row++;
   }
 }
