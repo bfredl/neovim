@@ -2198,7 +2198,7 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       if (msg_row_pending >= 0) {
         grid_line_flush_if_valid_row();
       }
-      grid_line_start(&msg_grid_adj, msg_row);
+      grid_line_start(&msg_grid_adj, msg_row, cmdmsg_rl);
       msg_row_pending = msg_row;
     }
 
@@ -2960,7 +2960,7 @@ void os_msg(const char *str)
 void msg_moremsg(int full)
 {
   int attr = hl_combine_attr(HL_ATTR(HLF_MSG), HL_ATTR(HLF_M));
-  grid_line_start(&msg_grid_adj, Rows - 1);
+  grid_line_start(&msg_grid_adj, Rows - 1, false);
   int len = grid_line_puts(0, _("-- More --"), -1, attr);
   if (full) {
     len += grid_line_puts(len, _(" SPACE/d/j: screen/page/line down, b/u/k: up, q: quit "),

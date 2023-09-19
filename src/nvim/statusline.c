@@ -149,7 +149,7 @@ void win_redr_status(win_T *wp)
       }
     }
 
-    grid_line_start(&default_grid, is_stl_global ? (Rows - (int)p_ch - 1) : W_ENDROW(wp));
+    grid_line_start(&default_grid, is_stl_global ? (Rows - (int)p_ch - 1) : W_ENDROW(wp), false);
     int col = is_stl_global ? 0 : wp->w_wincol;
 
     int width = grid_line_puts(col, p, -1, attr);
@@ -182,7 +182,7 @@ void win_redr_status(win_T *wp)
       attr = win_hl_attr(wp, HLF_C);
       fillchar = wp->w_p_fcs_chars.vert;
     }
-    grid_line_start(&default_grid, W_ENDROW(wp));
+    grid_line_start(&default_grid, W_ENDROW(wp), false);
     grid_line_put_schar(W_ENDCOL(wp), schar_from_char(fillchar), attr);
     grid_line_flush();
   }
@@ -420,7 +420,7 @@ static void win_redr_custom(win_T *wp, bool draw_winbar, bool draw_ruler)
 
   // Draw each snippet with the specified highlighting.
   if (!draw_ruler) {
-    grid_line_start(grid, row);
+    grid_line_start(grid, row, false);
   }
 
   int curattr = attr;
@@ -735,7 +735,7 @@ void draw_tabline(void)
     int c;
     int len;
     char *p;
-    grid_line_start(&default_grid, 0);
+    grid_line_start(&default_grid, 0, false);
     FOR_ALL_TABS(tp) {
       tabcount++;
     }

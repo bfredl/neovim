@@ -2852,7 +2852,7 @@ static void do_intro_line(int row, char *mesg, int attr)
     col = 0;
   }
 
-  grid_line_start(&default_grid, row);
+  grid_line_start(&default_grid, row, false);
   // Split up in parts to highlight <> items differently.
   for (p = mesg; *p != NUL; p += l) {
     for (l = 0;

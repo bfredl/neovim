@@ -175,6 +175,11 @@ jobs:
         timeout-minutes: 20
         run: cmake --build build --target functionaltest
 
+      - if: success() || failure() && steps.abort_job.outputs.status == 'success'
+        name: ShowDiagLogs
+        timeout-minutes: 20
+        run: cat /Users/runner/Library/Logs/DiagnosticReports/nvim-*.ips
+
       - if: matrix.flavor != 'tsan' && (success() || failure() && steps.abort_job.outputs.status == 'success')
         name: Oldtest
         run: make oldtest

@@ -1434,7 +1434,7 @@ void edit_putchar(int c, bool highlight)
     }
     pc_row = curwin->w_wrow;
     pc_status = PC_STATUS_UNSET;
-    grid_line_start(&curwin->w_grid, pc_row);
+    grid_line_start(&curwin->w_grid, pc_row, false);
     if (curwin->w_p_rl) {
       pc_col = curwin->w_grid.cols - 1 - curwin->w_wcol;
 
@@ -1541,7 +1541,7 @@ void edit_unputchar(void)
       redrawWinline(curwin, curwin->w_cursor.lnum);
     } else {
       // TODO(bfredl): this could be smarter and also handle the dubyawidth case
-      grid_line_start(&curwin->w_grid, pc_row);
+      grid_line_start(&curwin->w_grid, pc_row, false);
       grid_line_put_schar(pc_col, pc_schar, pc_attr);
       grid_line_flush();
     }
