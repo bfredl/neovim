@@ -13,6 +13,7 @@
 #include "nvim/api/private/helpers.h"
 #include "nvim/api/private/validate.h"
 #include "nvim/api/ui.h"
+#include "nvim/arabic.h"
 #include "nvim/ascii.h"
 #include "nvim/autocmd.h"
 #include "nvim/buffer.h"
@@ -62,6 +63,10 @@ static bool has_mouse = false;
 static int pending_has_mouse = -1;
 
 static Array call_buf = ARRAY_DICT_INIT;
+
+// for shaping
+static size_t bufsize = 0;
+static schar_T *linebuf;
 
 #ifdef NVIM_LOG_DEBUG
 static size_t uilog_seen = 0;
@@ -417,8 +422,105 @@ void ui_set_ext_option(UI *ui, UIExtension ext, bool active)
   }
 }
 
+bool schar_in_arabic_block(schar_T sc)
+{
+  char first_byte = schar_get_first_byte(sc);
+  return ((uint8_t)first_byte & 0xFE) == 0xD8;
+}
+
+/// Get the first two codepoints of an schar, or NUL when not available
+void schar_get_first_two(schar_T sc, int *c0, int *c1) {
+  char sc_buf[MAX_SCHAR_SIZE];
+  schar_get(sc_buf, sc);
+
+  *c0 = utf_ptr2char(sc_buf);
+  int len = utf_ptr2len(sc_buf);
+  if (*c0 == NUL) {
+    *c1 = NUL;
+  } else {
+    *c1 = utf_ptr2char(sc_buf+len);
+  }
+}
+
+const schar_T *line_do_arabic_shape(const schar_T *orig_line, int cols, schar_T before, schar_T after, bool rl) {
+  schar_T *buf = NULL;
+
+  int i = 0;
+
+  for (i = 0; i < cols; i++) {
+    // quickly skip over non-arabic text
+    if (schar_in_arabic_block(orig_line[i])) {
+      break;
+    }
+  }
+
+  if (i == cols) {
+    return orig_line;
+  }
+
+  int c0prev, c1prev;
+  schar_get_first_two(i > 0 ? orig_line[i-1] : before, &c0prev, &c1prev);
+  int c0, c1;
+  schar_get_first_two(orig_line[i], &c0, &c1);
+
+  for (; i < cols; i++) {
+    int c0next, c1next;
+    schar_get_first_two(i+1 < cols ? orig_line[i+1] : after, &c0next, &c1next);
+
+    if (!ARABIC_CHAR(c0)) {
+      goto next;
+    }
+
+    int c1new = c1;
+    // The idea of what is the previous and next character depends on 'rightleft'.
+    int c0new = arabic_shape(c0, &c1new, rl ? c0prev : c0next,
+                             rl ? c1prev : c1next, rl ? c0next : c0prev);
+
+    if (c0new == c0 && c1new == c1) {
+      goto next;  // unchanged
+    }
+
+    // only allocate buf when we know we really need it
+    if (buf == NULL) {
+      if (bufsize < (size_t)cols) {
+        size_t new_bufsize = (size_t)cols;
+        xfree(linebuf);
+        linebuf = xmalloc(new_bufsize * sizeof(*linebuf));
+        bufsize = new_bufsize;
+      }
+      buf = linebuf;
+      memcpy(buf, orig_line, (size_t)cols*sizeof(*buf));
+    }
+    char scbuf[MAX_SCHAR_SIZE];
+    schar_get(scbuf, orig_line[i]);
+
+    char scbuf_new[MAX_SCHAR_SIZE];
+    int len = utf_char2bytes(c0new, scbuf_new);
+    if (c1new) {
+      len += utf_char2bytes(c1new, scbuf_new+len);
+    }
+      int off = utf_char2len(c0) + (c1 ? utf_char2len(c1) : 0);
+      size_t rest = strlen(scbuf+off);
+      if (rest+(size_t)off+1 > MAX_SCHAR_SIZE) {
+        // TODO: scale back the last cc from "rest"
+        abort();
+      }
+      memcpy(scbuf_new+len, scbuf+off, rest);
+      buf[i] = schar_from_buf(scbuf_new, (size_t)len+rest);
+
+next:
+    c0prev = c0;
+    c1prev = c1;
+    c0 = c0next;
+    c1 = c1next;
+  }
+  return buf ? (const schar_T *)buf : orig_line;
+}
+
+/// @param rl if text comes from a 'rightleft' window. Doesn't do any mirroring
+///           on its own, but it does affect the implementation of 'arabicshape'
 void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol, int clearattr,
-             bool wrap)
+             bool wrap, bool rl)
 {
   assert(0 <= row && row < grid->rows);
   LineFlags flags = wrap ? kLineFlagWrap : 0;
@@ -427,11 +529,19 @@ void ui_line(ScreenGrid *grid, int row, int startcol, int endcol, int clearcol, 
     flags |= kLineFlagInvalid;
   }
 
+
   size_t off = grid->line_offset[row] + (size_t)startcol;
+  const schar_T *chars = grid->chars + off;
+
+  if (p_arshape && !p_tbidi) {
+    schar_T before = (startcol > 0) ? chars[-1] : 0;
+    schar_T after = (endcol < grid->cols-1) ? chars[endcol] : 0;
+    // might return chars unchanged or use "linebuf" if mutated
+    chars = line_do_arabic_shape(chars, endcol-startcol, before, after, rl);
+  }
 
   ui_call_raw_line(grid->handle, row, startcol, endcol, clearcol, clearattr,
-                   flags, (const schar_T *)grid->chars + off,
-                   (const sattr_T *)grid->attrs + off);
+                   flags, chars, (const sattr_T *)grid->attrs + off);
 
   // 'writedelay': flush & delay each time.
   if (p_wd && (rdb_flags & RDB_LINE)) {

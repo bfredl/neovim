@@ -2452,8 +2452,9 @@ void msg_scroll_flush(void)
     for (int i = MAX(Rows - MAX(delta, 1), 0); i < Rows; i++) {
       int row = i - msg_grid_pos;
       assert(row >= 0);
+      bool msg_rl = (State & MODE_CMDLINE) && cmdmsg_rl;
       ui_line(&msg_grid, row, 0, msg_grid.dirty_col[row], msg_grid.cols,
-              HL_ATTR(HLF_MSG), false);
+              HL_ATTR(HLF_MSG), false, msg_rl);
       msg_grid.dirty_col[row] = 0;
     }
   }

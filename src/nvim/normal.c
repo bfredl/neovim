@@ -2089,7 +2089,7 @@ static void display_showcmd(void)
   grid_puts(&msg_grid_adj, (char *)"          " + len, showcmd_row,
             sc_col + len, HL_ATTR(HLF_MSG));
 
-  grid_puts_line_flush(false);
+  grid_puts_line_flush(false, false);
 }
 
 /// When "check" is false, prepare for commands that scroll the window.

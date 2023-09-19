@@ -772,20 +772,20 @@ static void win_redr_border(win_T *wp)
     if (adj[1]) {
       grid_put_schar(grid, 0, icol + adj[3], chars[2], attrs[2]);
     }
-    grid_puts_line_flush(false);
+    grid_puts_line_flush(false, false);
   }
 
   for (int i = 0; i < irow; i++) {
     if (adj[3]) {
       grid_puts_line_start(grid, i + adj[0]);
       grid_put_schar(grid, i + adj[0], 0, chars[7], attrs[7]);
-      grid_puts_line_flush(false);
+      grid_puts_line_flush(false, false);
     }
     if (adj[1]) {
       int ic = (i == 0 && !adj[0] && chars[2]) ? 2 : 3;
       grid_puts_line_start(grid, i + adj[0]);
       grid_put_schar(grid, i + adj[0], icol + adj[3], chars[ic], attrs[ic]);
-      grid_puts_line_flush(false);
+      grid_puts_line_flush(false, false);
     }
   }
 
@@ -808,7 +808,7 @@ static void win_redr_border(win_T *wp)
     if (adj[1]) {
       grid_put_schar(grid, irow + adj[0], icol + adj[3], chars[4], attrs[4]);
     }
-    grid_puts_line_flush(false);
+    grid_puts_line_flush(false, false);
   }
 }
 

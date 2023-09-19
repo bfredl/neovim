@@ -448,7 +448,7 @@ static void win_redr_custom(win_T *wp, bool draw_winbar, bool draw_ruler)
   // fill up with "fillchar"
   grid_fill(grid, row, row + 1, col, maxcol, fillchar, fillchar, curattr);
 
-  grid_puts_line_flush(false);
+  grid_puts_line_flush(false, false);
 
   // Fill the tab_page_click_defs, w_status_click_defs or w_winbar_click_defs array for clicking
   // in the tab page line, status line or window bar
