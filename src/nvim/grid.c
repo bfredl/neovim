@@ -283,11 +283,6 @@ bool grid_invalid_row(ScreenGrid *grid, int row)
   return grid->attrs[grid->line_offset[row]] < 0;
 }
 
-static int line_off2cells(schar_T *line, size_t off, size_t max_off)
-{
-  return (off + 1 < max_off && line[off + 1] == 0) ? 2 : 1;
-}
-
 /// Return number of display cells for char at grid->chars[off].
 /// We make sure that the offset used is less than "max_off".
 static int grid_off2cells(ScreenGrid *grid, size_t off, size_t max_off)
@@ -664,18 +659,17 @@ static int grid_char_needs_redraw(ScreenGrid *grid, size_t off_from, size_t off_
 /// "endcol" gives the columns where valid characters are.
 /// "clear_width" is the width of the window.  It's > 0 if the rest of the line
 /// needs to be cleared, negative otherwise.
-/// "rlflag" is true in a rightleft window:
+/// "rl" is true for rightleft text, like a window with 'rightleft' option set
 ///    When true and "clear_width" > 0, clear columns 0 to "endcol"
 ///    When false and "clear_width" > 0, clear columns "endcol" to "clear_width"
 /// If "wrap" is true, then hint to the UI that "row" contains a line
 /// which has wrapped into the next row.
 void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol, int clear_width,
-                      int rlflag, win_T *wp, int bg_attr, bool wrap)
+                      int rl, int bg_attr, bool wrap)
 {
   int col = 0;
   bool redraw_next;                         // redraw_this for next character
   bool clear_next = false;
-  bool topline = row == 0;
   int char_cells;                           // 1: normal char
                                             // 2: occupies two display cells
   assert(row < grid->rows);
@@ -698,40 +692,12 @@ void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol, int cle
   size_t off_to = grid->line_offset[row] + (size_t)coloff;
   const size_t max_off_to = grid->line_offset[row] + (size_t)grid->cols;
 
-  // Take care of putting "<<<" on the first line for 'smoothscroll'.
-  if (topline && wp->w_skipcol > 0
-      // do not overwrite the 'showbreak' text with "<<<"
-      && *get_showbreak_value(wp) == NUL
-      // do not overwrite the 'listchars' "precedes" text with "<<<"
-      && !(wp->w_p_list && wp->w_p_lcs_chars.prec != 0)) {
-    size_t off = 0;
-    size_t skip = 0;
-    if (wp->w_p_nu && wp->w_p_rnu) {
-      // do not overwrite the line number, change "123 text" to
-      // "123<<<xt".
-      while (skip < max_off_from && ascii_isdigit(schar_get_ascii(linebuf_char[off]))) {
-        off++;
-        skip++;
-      }
-    }
-
-    for (size_t i = 0; i < 3 && i + skip < max_off_from; i++) {
-      if (line_off2cells(linebuf_char, off, max_off_from) > 1) {
-        // When the first half of a double-width character is
-        // overwritten, change the second half to a space.
-        linebuf_char[off + 1] = schar_from_ascii(' ');
-      }
-      linebuf_char[off] = schar_from_ascii('<');
-      linebuf_attr[off] = HL_ATTR(HLF_AT);
-      off++;
-    }
-  }
 
   if (p_arshape && !p_tbidi) {
-    line_do_arabic_shape(linebuf_char, clear_width, rlflag);
+    line_do_arabic_shape(linebuf_char, clear_width, rl);
   }
 
-  if (rlflag) {
+  if (rl) {
     // Clear rest first, because it's left of the text.
     if (clear_width > 0) {
       while (col <= endcol && grid->chars[off_to] == schar_from_ascii(' ')
@@ -820,7 +786,7 @@ void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol, int cle
   }
 
   int clear_end = -1;
-  if (clear_width > 0 && !rlflag) {
+  if (clear_width > 0 && !rl) {
     // blank out the rest of the line
     // TODO(bfredl): we could cache winline widths
     while (col < clear_width) {
@@ -841,12 +807,6 @@ void grid_put_linebuf(ScreenGrid *grid, int row, int coloff, int endcol, int cle
       col++;
       off_to++;
     }
-  }
-
-  if (clear_width > 0 || wp->w_width != grid->cols) {
-    // If we cleared after the end of the line, it did not wrap.
-    // For vsplit, line wrapping is not possible.
-    grid->line_wraps[row] = false;
   }
 
   if (clear_end < end_dirty) {

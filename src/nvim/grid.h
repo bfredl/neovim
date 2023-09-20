@@ -54,6 +54,12 @@ static inline schar_T schar_from_char(int c)
   return sc;
 }
 
+static inline int line_off2cells(schar_T *line, size_t off, size_t max_off)
+{
+  return (off + 1 < max_off && line[off + 1] == 0) ? 2 : 1;
+}
+
+
 #ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "grid.h.generated.h"
 #endif
