@@ -1964,21 +1964,18 @@ void msg_prt_line(const char *s, int list)
 /// Use grid_puts() to output one multi-byte character.
 ///
 /// @return  the pointer "s" advanced to the next character.
-static const char *screen_puts_mbyte(const char *s, int l, int attr)
+static const char *msg_grid_putchar(const char *s, int l, int attr)
 {
-  int cw;
-  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
 
   msg_didout = true;            // remember that line is not empty
-  cw = utf_ptr2cells(s);
-  if (cw > 1
-      && (cmdmsg_rl ? msg_col <= 1 : msg_col == Columns - 1)) {
+  int cw = utf_ptr2cells(s);
+  if (cw > 1 && (cmdmsg_rl ? msg_col <= 1 : msg_col == Columns - 1)) {
     // Doesn't fit, print a highlighted '>' to fill it up.
-    msg_screen_putchar('>', HL_ATTR(HLF_AT));
+    msg_grid_putchar(">", 1, HL_ATTR(HLF_AT));
     return s;
   }
 
-  grid_puts(&msg_grid_adj, s, l, msg_row, msg_col, attr);
+  grid_line_puts(msg_col, s, l, attr);
   if (cmdmsg_rl) {
     msg_col -= cw;
     if (msg_col == 0) {
@@ -2138,8 +2135,6 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
   int cw;
   const char *sb_str = str;
   int sb_col = msg_col;
-  int wrap;
-  int did_last_char;
 
   did_wait_return = false;
 
@@ -2155,11 +2150,21 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
     return;
   }
 
+  int print_attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
+
   msg_grid_validate();
+  grid_line_start(&msg_grid_adj, msg_row);
+  int msg_row_now = msg_row;
 
   cmdline_was_last_drawn = redrawing_cmdline;
 
   while ((maxlen < 0 || (int)(s - str) < maxlen) && *s != NUL) {
+    if (msg_row_now != msg_row) {
+      grid_line_flush();
+      grid_line_start(&msg_grid_adj, msg_row);
+      msg_row_now = msg_row;
+    }
+
     // We are at the end of the screen line when:
     // - When outputting a newline.
     // - When outputting a character in the last column.
@@ -2169,17 +2174,15 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
                               || (*s == TAB && msg_col <= 7)
                               || (utf_ptr2cells(s) > 1
                                   && msg_col <= 2))
-                           : ((*s != '\r' && msg_col + t_col >= Columns - 1)
+                           : ((*s != '\r' && msg_col + t_col >= Columns)
                               || (*s == TAB
-                                  && msg_col + t_col >= ((Columns - 1) & ~7))
+                                  && msg_col + t_col >= ((Columns) & ~7))
                               || (utf_ptr2cells(s) > 1
-                                  && msg_col + t_col >= Columns - 2))))) {
-      // The screen is scrolled up when at the last row (some terminals
-      // scroll automatically, some don't.  To avoid problems we scroll
-      // ourselves).
+                                  && msg_col + t_col >= Columns - 1))))) {
+      // The screen is scrolled up when at the last row .
       if (t_col > 0) {
         // output postponed text
-        t_puts(&t_col, t_s, s, attr);
+        msg_grid_puts(&t_col, t_s, s, print_attr);
       }
 
       // When no more prompt and no more room, truncate here
@@ -2187,37 +2190,16 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
         break;
       }
 
+      grid_line_flush();
+
       // Scroll the screen up one line.
-      bool has_last_char = ((uint8_t)(*s) >= ' ' && !cmdmsg_rl);
-      msg_scroll_up(!has_last_char, false);
+      msg_scroll_up(true, false);
 
-      msg_row = Rows - 2;
-      if (msg_col >= Columns) {         // can happen after screen resize
-        msg_col = Columns - 1;
-      }
+      msg_row = Rows - 1;
+      msg_col = cmdmsg_rl ? Columns -1 : 0;
 
-      // Display char in last column before showing more-prompt.
-      if (has_last_char) {
-        if (maxlen >= 0) {
-          // Avoid including composing chars after the end.
-          l = utfc_ptr2len_len(s, (int)((str + maxlen) - s));
-        } else {
-          l = utfc_ptr2len(s);
-        }
-        s = screen_puts_mbyte(s, l, attr);
-        did_last_char = true;
-      } else {
-        did_last_char = false;
-      }
-
-      // Tricky: if last cell will be written, delay the throttle until
-      // after the first scroll. Otherwise we would need to keep track of it.
-      if (has_last_char && msg_do_throttle()) {
-        if (!msg_grid.throttled) {
-          msg_grid_scroll_discount++;
-        }
-        msg_grid.throttled = true;
-      }
+      grid_line_start(&msg_grid_adj, msg_row);
+      msg_row_now = msg_row;
 
       if (p_more) {
         // Store text for scrolling back.
@@ -2238,35 +2220,38 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       }
       if (p_more && lines_left == 0 && State != MODE_HITRETURN
           && !msg_no_more && !exmode_active) {
+        grid_line_flush();
         if (do_more_prompt(NUL)) {
           s = confirm_msg_tail;
         }
         if (quit_more) {
           return;
         }
+        grid_line_start(&msg_grid_adj, msg_row);
+      }
+    } else {
+
+      bool wrap = *s == '\n'
+             || msg_col + t_col >= Columns
+             || (utf_ptr2cells(s) > 1
+                 && msg_col + t_col >= Columns - 1)
+      ;
+      if (t_col > 0 && (wrap || *s == '\r' || *s == '\b'
+                        || *s == '\t' || *s == BELL)) {
+        // Output any postponed text.
+        msg_grid_puts(&t_col, t_s, s, print_attr);
       }
 
-      // When we displayed a char in last column need to check if there
-      // is still more.
-      if (did_last_char) {
-        continue;
+      if (wrap && p_more && !recurse) {
+        // Store text for scrolling back.
+        store_sb_text(&sb_str, s, attr, &sb_col, true);
       }
-    }
 
-    wrap = *s == '\n'
-           || msg_col + t_col >= Columns
-           || (utf_ptr2cells(s) > 1
-               && msg_col + t_col >= Columns - 1)
-    ;
-    if (t_col > 0 && (wrap || *s == '\r' || *s == '\b'
-                      || *s == '\t' || *s == BELL)) {
-      // Output any postponed text.
-      t_puts(&t_col, t_s, s, attr);
-    }
-
-    if (wrap && p_more && !recurse) {
-      // Store text for scrolling back.
-      store_sb_text(&sb_str, s, attr, &sb_col, true);
+      if (msg_row_now != msg_row) {
+        grid_line_flush();
+        grid_line_start(&msg_grid_adj, msg_row);
+        msg_row_now = msg_row;
+      }
     }
 
     if (*s == '\n') {               // go to next line
@@ -2287,7 +2272,7 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       }
     } else if (*s == TAB) {       // translate Tab into spaces
       do {
-        msg_screen_putchar(' ', attr);
+        msg_grid_putchar(" ", 1, print_attr);
       } while (msg_col & 7);
     } else if (*s == BELL) {  // beep (from ":sh")
       vim_beep(BO_SH);
@@ -2303,11 +2288,7 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       // doesn't fit, draw a single character here.  Otherwise collect
       // characters and draw them all at once later.
       if (cmdmsg_rl || (cw > 1 && msg_col + t_col >= Columns - 1)) {
-        if (l > 1) {
-          s = screen_puts_mbyte(s, l, attr) - 1;
-        } else {
-          msg_screen_putchar(*s, attr);
-        }
+        s = msg_grid_putchar(s, l, print_attr) - 1;
       } else {
         // postpone this character until later
         if (t_col == 0) {
@@ -2322,13 +2303,23 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
 
   // Output any postponed text.
   if (t_col > 0) {
-    t_puts(&t_col, t_s, s, attr);
+    msg_grid_puts(&t_col, t_s, s, print_attr);
   }
   if (p_more && !recurse && !(s == sb_str + 1 && *sb_str == '\n')) {
     store_sb_text(&sb_str, s, attr, &sb_col, false);
   }
+  grid_line_flush();
+
+  msg_cursor_goto(msg_row, msg_col);
 
   msg_check();
+}
+
+void msg_cursor_goto(int row, int col)
+{
+  ScreenGrid *grid = &msg_grid_adj;
+  grid_adjust(&grid, &row, &col);
+  ui_grid_cursor_goto(grid->handle, row, col);
 }
 
 /// @return  true when ":filter pattern" was used and "msg" does not match
@@ -2422,8 +2413,12 @@ void msg_scroll_flush(void)
       assert(row >= 0);
       ui_line(&msg_grid, row, 0, msg_grid.dirty_col[row], msg_grid.cols,
               HL_ATTR(HLF_MSG), false);
+      if (i == Rows-1) {
+        ui_grid_cursor_goto(msg_grid.handle, row, msg_grid.dirty_col[row]);
+      }
       msg_grid.dirty_col[row] = 0;
     }
+
   }
   msg_scrolled_at_flush = msg_scrolled;
   msg_grid_scroll_discount = 0;
@@ -2668,12 +2663,11 @@ static msgchunk_T *disp_sb_line(int row, msgchunk_T *smp)
 }
 
 /// Output any postponed text for msg_puts_len().
-static void t_puts(int *t_col, const char *t_s, const char *s, int attr)
+static void msg_grid_puts(int *t_col, const char *t_s, const char *s, int attr)
 {
-  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
   // Output postponed text.
   msg_didout = true;  // Remember that line is not empty.
-  grid_puts(&msg_grid_adj, t_s, (int)(s - t_s), msg_row, msg_col, attr);
+  grid_line_puts(msg_col, t_s, (int)(s - t_s), attr);
   msg_col += *t_col;
   *t_col = 0;
   // If the string starts with a composing character don't increment the
@@ -3032,26 +3026,6 @@ void os_msg(const char *str)
   do_msg(str, false);
 }
 #endif  // MSWIN
-
-/// Put a character on the screen at the current message position and advance
-/// to the next position.  Only for printable ASCII!
-static void msg_screen_putchar(int c, int attr)
-{
-  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
-  msg_didout = true;            // remember that line is not empty
-  grid_putchar(&msg_grid_adj, c, msg_row, msg_col, attr);
-  if (cmdmsg_rl) {
-    if (--msg_col == 0) {
-      msg_col = Columns;
-      msg_row++;
-    }
-  } else {
-    if (++msg_col >= Columns) {
-      msg_col = 0;
-      msg_row++;
-    }
-  }
-}
 
 void msg_moremsg(int full)
 {

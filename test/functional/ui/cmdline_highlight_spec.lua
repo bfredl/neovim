@@ -577,10 +577,10 @@ describe('Command-line coloring', function()
                                               |
       {EOB:~                                       }|
       {EOB:~                                       }|
+      {EOB:~                                       }|
       {MSEP:                                        }|
       :+                                      |
       {ERR:E5404: Chunk 1 end 3 not in range (1, 2]}|
-                                              |
       :++^                                     |
     ]])
   end)
@@ -798,7 +798,7 @@ describe('Ex commands coloring', function()
        curbufmeths.get_lines(0, -1, false))
     eq('', funcs.execute('messages'))
   end)
-  it('does not crash when using `n` in debug mode', function()
+  it('does not crash when using `n` in debug mode #thetest', function()
     feed(':debug execute "echo 1"\n')
     screen:expect([[
                                               |
