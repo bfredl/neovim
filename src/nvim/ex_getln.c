@@ -1324,7 +1324,7 @@ static int command_line_execute(VimState *state, int key)
 
       if (!cmd_silent) {
         if (!ui_has(kUICmdline)) {
-          cmd_cursor_goto(msg_row, 0);
+          msg_cursor_goto(msg_row, 0);
         }
         ui_flush();
       }
@@ -3878,7 +3878,7 @@ void redrawcmd(void)
 
   // when 'incsearch' is set there may be no command line while redrawing
   if (ccline.cmdbuff == NULL) {
-    cmd_cursor_goto(cmdline_row, 0);
+    msg_cursor_goto(cmdline_row, 0);
     msg_clr_eos();
     return;
   }
@@ -3955,14 +3955,7 @@ void cursorcmd(void)
     }
   }
 
-  cmd_cursor_goto(msg_row, msg_col);
-}
-
-static void cmd_cursor_goto(int row, int col)
-{
-  ScreenGrid *grid = &msg_grid_adj;
-  grid_adjust(&grid, &row, &col);
-  ui_grid_cursor_goto(grid->handle, row, col);
+  msg_cursor_goto(msg_row, msg_col);
 }
 
 void gotocmdline(bool clr)
@@ -3979,7 +3972,7 @@ void gotocmdline(bool clr)
   if (clr) {  // clear the bottom line(s)
     msg_clr_eos();  // will reset clear_cmdline
   }
-  cmd_cursor_goto(cmdline_row, 0);
+  msg_cursor_goto(cmdline_row, 0);
 }
 
 // Check the word in front of the cursor for an abbreviation.
