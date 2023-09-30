@@ -1961,39 +1961,6 @@ void msg_prt_line(const char *s, int list)
   msg_clr_eos();
 }
 
-/// Use grid_puts() to output one multi-byte character.
-///
-/// @return  the pointer "s" advanced to the next character.
-static const char *screen_puts_mbyte(const char *s, int l, int attr)
-{
-  int cw;
-  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
-
-  msg_didout = true;            // remember that line is not empty
-  cw = utf_ptr2cells(s);
-  if (cw > 1
-      && (cmdmsg_rl ? msg_col <= 1 : msg_col == Columns - 1)) {
-    // Doesn't fit, print a highlighted '>' to fill it up.
-    msg_screen_putchar('>', HL_ATTR(HLF_AT));
-    return s;
-  }
-
-  grid_puts(&msg_grid_adj, s, l, msg_row, msg_col, attr);
-  if (cmdmsg_rl) {
-    msg_col -= cw;
-    if (msg_col == 0) {
-      msg_col = Columns;
-      msg_row++;
-    }
-  } else {
-    msg_col += cw;
-    if (msg_col >= Columns) {
-      msg_col = 0;
-      msg_row++;
-    }
-  }
-  return s + l;
-}
 
 /// Output a string to the screen at position msg_row, msg_col.
 /// Update msg_row and msg_col for the next message.
@@ -2152,6 +2119,7 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
     return;
   }
 
+  int print_attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
   msg_grid_validate();
 
   cmdline_was_last_drawn = redrawing_cmdline;
@@ -2193,7 +2161,14 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
         } else {
           l = utfc_ptr2len(s);
         }
-        s = screen_puts_mbyte(s, l, attr);
+        int cw = utf_ptr2cells(s);
+        if (cw > 1) {
+          // Doesn't fit, print a highlighted '>' to fill it up.
+          msg_grid_putchar(">", 1, 1, HL_ATTR(HLF_AT));
+        } else {
+          msg_grid_putchar(s, l, cw, print_attr);
+          s += l;
+        }
         did_last_char = true;
       } else {
         did_last_char = false;
@@ -2271,7 +2246,7 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       }
     } else if (*s == TAB) {       // translate Tab into spaces
       do {
-        msg_screen_putchar(' ', attr);
+        msg_grid_putchar(" ", 1, 1, print_attr);
       } while (msg_col & 7);
     } else if (*s == BELL) {  // beep (from ":sh")
       vim_beep(BO_SH);
@@ -2283,11 +2258,14 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       } else {
         l = utfc_ptr2len(s);
       }
-      if (l > 1) {
-        s = screen_puts_mbyte(s, l, attr) - 1;
+      if (cw > 1 && (cmdmsg_rl ? msg_col <= 1 : msg_col == Columns - 1)) {
+        // Doesn't fit, print a highlighted '>' to fill it up.
+        msg_grid_putchar(">", 1, 1, HL_ATTR(HLF_AT));
       } else {
-        msg_screen_putchar(*s, attr);
+        msg_grid_putchar(s, l, cw, print_attr);
+        s += l;
       }
+      continue;  // s already updated
     }
     s++;
   }
@@ -2297,6 +2275,26 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
   }
 
   msg_check();
+}
+
+/// Use grid_puts() to output one character and update msg_col/msg_row
+static void msg_grid_putchar(const char *s, int l, int cw, int attr)
+{
+  msg_didout = true;            // remember that line is not empty
+  grid_puts(&msg_grid_adj, s, l, msg_row, msg_col, attr);
+  if (cmdmsg_rl) {
+    msg_col -= cw;
+    if (msg_col == 0) {
+      msg_col = Columns;
+      msg_row++;
+    }
+  } else {
+    msg_col += cw;
+    if (msg_col >= Columns) {
+      msg_col = 0;
+      msg_row++;
+    }
+  }
 }
 
 /// @return  true when ":filter pattern" was used and "msg" does not match
@@ -2980,26 +2978,6 @@ void os_msg(const char *str)
   do_msg(str, false);
 }
 #endif  // MSWIN
-
-/// Put a character on the screen at the current message position and advance
-/// to the next position.  Only for printable ASCII!
-static void msg_screen_putchar(int c, int attr)
-{
-  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
-  msg_didout = true;            // remember that line is not empty
-  grid_putchar(&msg_grid_adj, c, msg_row, msg_col, attr);
-  if (cmdmsg_rl) {
-    if (--msg_col == 0) {
-      msg_col = Columns;
-      msg_row++;
-    }
-  } else {
-    if (++msg_col >= Columns) {
-      msg_col = 0;
-      msg_row++;
-    }
-  }
-}
 
 void msg_moremsg(int full)
 {
