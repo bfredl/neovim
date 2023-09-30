@@ -2132,10 +2132,7 @@ static void msg_ext_emit_chunk(void)
 static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
 {
   const char *s = str;
-  const char *t_s = str;  // String from "t_s" to "s" is still todo.
-  int t_col = 0;  // Screen cells todo, 0 when "t_s" not used.
   int l;
-  int cw;
   const char *sb_str = str;
   int sb_col = msg_col;
   int wrap;
@@ -2169,19 +2166,11 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
                               || (*s == TAB && msg_col <= 7)
                               || (utf_ptr2cells(s) > 1
                                   && msg_col <= 2))
-                           : ((*s != '\r' && msg_col + t_col >= Columns - 1)
+                           : ((*s != '\r' && msg_col >= Columns - 1)
                               || (*s == TAB
-                                  && msg_col + t_col >= ((Columns - 1) & ~7))
+                                  && msg_col >= ((Columns - 1) & ~7))
                               || (utf_ptr2cells(s) > 1
-                                  && msg_col + t_col >= Columns - 2))))) {
-      // The screen is scrolled up when at the last row (some terminals
-      // scroll automatically, some don't.  To avoid problems we scroll
-      // ourselves).
-      if (t_col > 0) {
-        // output postponed text
-        t_puts(&t_col, t_s, s, attr);
-      }
-
+                                  && msg_col >= Columns - 2))))) {
       // When no more prompt and no more room, truncate here
       if (msg_no_more && lines_left == 0) {
         break;
@@ -2254,15 +2243,10 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
     }
 
     wrap = *s == '\n'
-           || msg_col + t_col >= Columns
+           || msg_col >= Columns
            || (utf_ptr2cells(s) > 1
-               && msg_col + t_col >= Columns - 1)
+               && msg_col >= Columns - 1)
     ;
-    if (t_col > 0 && (wrap || *s == '\r' || *s == '\b'
-                      || *s == '\t' || *s == BELL)) {
-      // Output any postponed text.
-      t_puts(&t_col, t_s, s, attr);
-    }
 
     if (wrap && p_more && !recurse) {
       // Store text for scrolling back.
@@ -2292,38 +2276,22 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
     } else if (*s == BELL) {  // beep (from ":sh")
       vim_beep(BO_SH);
     } else if ((uint8_t)(*s) >= 0x20) {  // printable char
-      cw = utf_ptr2cells(s);
+      int cw = utf_ptr2cells(s);
       if (maxlen >= 0) {
         // avoid including composing chars after the end
         l = utfc_ptr2len_len(s, (int)((str + maxlen) - s));
       } else {
         l = utfc_ptr2len(s);
       }
-      // When drawing from right to left or when a double-wide character
-      // doesn't fit, draw a single character here.  Otherwise collect
-      // characters and draw them all at once later.
-      if (cmdmsg_rl || (cw > 1 && msg_col + t_col >= Columns - 1)) {
-        if (l > 1) {
-          s = screen_puts_mbyte(s, l, attr) - 1;
-        } else {
-          msg_screen_putchar(*s, attr);
-        }
+      if (l > 1) {
+        s = screen_puts_mbyte(s, l, attr) - 1;
       } else {
-        // postpone this character until later
-        if (t_col == 0) {
-          t_s = s;
-        }
-        t_col += cw;
-        s += l - 1;
+        msg_screen_putchar(*s, attr);
       }
     }
     s++;
   }
 
-  // Output any postponed text.
-  if (t_col > 0) {
-    t_puts(&t_col, t_s, s, attr);
-  }
   if (p_more && !recurse && !(s == sb_str + 1 && *sb_str == '\n')) {
     store_sb_text(&sb_str, s, attr, &sb_col, false);
   }
@@ -2665,26 +2633,6 @@ static msgchunk_T *disp_sb_line(int row, msgchunk_T *smp)
   }
 
   return mp->sb_next;
-}
-
-/// Output any postponed text for msg_puts_len().
-static void t_puts(int *t_col, const char *t_s, const char *s, int attr)
-{
-  attr = hl_combine_attr(HL_ATTR(HLF_MSG), attr);
-  // Output postponed text.
-  msg_didout = true;  // Remember that line is not empty.
-  grid_puts(&msg_grid_adj, t_s, (int)(s - t_s), msg_row, msg_col, attr);
-  msg_col += *t_col;
-  *t_col = 0;
-  // If the string starts with a composing character don't increment the
-  // column position for it.
-  if (utf_iscomposing(utf_ptr2char(t_s))) {
-    msg_col--;
-  }
-  if (msg_col >= Columns) {
-    msg_col = 0;
-    msg_row++;
-  }
 }
 
 /// @return  true when messages should be printed to stdout/stderr:
