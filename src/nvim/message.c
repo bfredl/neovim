@@ -2121,6 +2121,8 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
 
   cmdline_was_last_drawn = redrawing_cmdline;
 
+  int msg_row_pending = -1;
+
   while (true) {
     if (cmdmsg_rl ? msg_col <= 0 : msg_col >= Columns) {
       if (p_more && !recurse) {
@@ -2147,6 +2149,11 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       }
 
       if (!recurse) {
+        if (msg_row_pending >= 0) {
+          grid_line_flush();
+          msg_row_pending = -1;
+        }
+
         // Scroll the screen up one line.
         msg_scroll_up(true, false);
 
@@ -2187,12 +2194,23 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
       } else {
         l = utfc_ptr2len(s);
       }
+
+      if (msg_row != msg_row_pending) {
+        // TODO(bfredl): this logic is messier that it has to be. What
+        // messages really want is its own private linebuf_char buffer.
+        if (msg_row_pending >= 0) {
+          grid_line_flush();
+        }
+        grid_line_start(&msg_grid_adj, msg_row);
+        msg_row_pending = msg_row;
+      }
+
       if (cw > 1 && (cmdmsg_rl ? msg_col <= 1 : msg_col == Columns - 1)) {
         // Doesn't fit, print a highlighted '>' to fill it up.
-        grid_puts(&msg_grid_adj, ">", 1, msg_row, msg_col, HL_ATTR(HLF_AT));
+        grid_line_puts(msg_col, ">", 1, HL_ATTR(HLF_AT));
         cw = 1;
       } else {
-        grid_puts(&msg_grid_adj, s, l, msg_row, msg_col, print_attr);
+        grid_line_puts(msg_col, s, l, print_attr);
         s += l;
       }
       msg_didout = true;  // remember that line is not empty
@@ -2236,11 +2254,23 @@ static void msg_puts_display(const char *str, int maxlen, int attr, int recurse)
     }
   }
 
+  if (msg_row_pending >= 0) {
+    grid_line_flush();
+  }
+  msg_cursor_goto(msg_row, msg_col);
+
   if (p_more && !recurse && !(s == sb_str + 1 && *sb_str == '\n')) {
     store_sb_text(&sb_str, s, attr, &sb_col, false);
   }
 
   msg_check();
+}
+
+void msg_cursor_goto(int row, int col)
+{
+  ScreenGrid *grid = &msg_grid_adj;
+  grid_adjust(&grid, &row, &col);
+  ui_grid_cursor_goto(grid->handle, row, col);
 }
 
 /// @return  true when ":filter pattern" was used and "msg" does not match
