@@ -11,7 +11,7 @@ describe('listlbr', function()
   -- luacheck: ignore 621 (Indentation)
   -- luacheck: ignore 611 (Line contains only whitespaces)
   -- luacheck: ignore 613 (Trailing whitespaces in a string)
-  it('is working', function()
+  it('is working #thetest', function()
     insert([[
       dummy text]])
 
@@ -22,6 +22,18 @@ describe('listlbr', function()
     feed_command([[put =\"\tabcdef hijklmn\tpqrstuvwxyz_1060ABCDEFGHIJKLMNOP \"]])
     feed_command('norm! zt')
     feed_command('set ts=4 sw=4 sts=4 linebreak sbr=+ wrap')
+
+    local screen = Screen.new(80, 24)
+    screen:set_default_attr_ids({
+      [0] = {bold = true, foreground = Screen.colors.Blue},  -- NonText
+      [1] = {background = Screen.colors.LightGrey},  -- Visual
+      [2] = {background = Screen.colors.Red, foreground = Screen.colors.White},  -- ErrorMsg
+      [3] = {bold = true, reverse = true};
+      [4] = {reverse = true};
+      [5] = {foreground = Screen.colors.Blue};
+    })
+    screen:attach()
+
     source([[
       fu! ScreenChar(width)
         let c=''
@@ -44,18 +56,96 @@ describe('listlbr', function()
     feed_command('redraw!')
     feed_command('let line=ScreenChar(winwidth(0))')
     feed_command('call DoRecordScreen()')
+    screen:expect{grid=[[
+          ^abcdef          │                                                           |
+      {0:+}hijklmn            │    abcdef hijklmn  pqrstuvwxyz_1060ABCDEFGHIJKLMNOP       |
+      {0:+}pqrstuvwxyz_1060ABC│                                                           |
+      {0:+}DEFGHIJKLMNOP      │Test 1: set linebreak                                      |
+                          │    abcdef                                                 |
+      Test 1: set         │+hijklmn                                                   |
+      {0:+}linebreak          │+pqrstuvwxyz_1060ABC                                       |
+          abcdef          │+DEFGHIJKLMNOP                                             |
+      +hijklmn            │{0:~                                                          }|
+      +pqrstuvwxyz_1060ABC│{0:~                                                          }|
+      {3:[No Name] [+]        }{4:[No Name] [+]                                              }|
+      dummy text                                                                      |
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {4:[No Name] [+]                                                                   }|
+      4 more lines                                                                    |
+    ]]}
 
     feed_command('let g:test="Test 2: set linebreak + set list"')
     feed_command('set linebreak list listchars=')
     feed_command('redraw!')
     feed_command('let line=ScreenChar(winwidth(0))')
     feed_command('call DoRecordScreen()')
+    screen:expect{grid=[[
+      {5:^I}^abcdef hijklmn{5:^I  }│    abcdef                                                 |
+      {0:+}pqrstuvwxyz_1060ABC│+hijklmn                                                   |
+      {0:+}DEFGHIJKLMNOP      │+pqrstuvwxyz_1060ABC                                       |
+                          │+DEFGHIJKLMNOP                                             |
+      Test 1: set         │                                                           |
+      {0:+}linebreak          │Test 2: set linebreak + set list                           |
+          abcdef          │^Iabcdef hijklmn^I                                         |
+      +hijklmn            │+pqrstuvwxyz_1060ABC                                       |
+      +pqrstuvwxyz_1060ABC│+DEFGHIJKLMNOP                                             |
+      +DEFGHIJKLMNOP      │                                                           |
+      {3:[No Name] [+]        }{4:[No Name] [+]                                              }|
+      dummy text                                                                      |
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {4:[No Name] [+]                                                                   }|
+      4 more lines                                                                    |
+    ]]}
 
     feed_command('let g:test ="Test 3: set linebreak nolist"')
     feed_command('set nolist linebreak')
     feed_command('redraw!')
     feed_command('let line=ScreenChar(winwidth(0))')
     feed_command('call DoRecordScreen()')
+    screen:expect{grid=[[
+          ^abcdef          │^Iabcdef hijklmn^I                                         |
+      {0:+}hijklmn            │+pqrstuvwxyz_1060ABC                                       |
+      {0:+}pqrstuvwxyz_1060ABC│+DEFGHIJKLMNOP                                             |
+      {0:+}DEFGHIJKLMNOP      │                                                           |
+                          │                                                           |
+      Test 1: set         │Test 3: set linebreak nolist                               |
+      {0:+}linebreak          │    abcdef                                                 |
+          abcdef          │+hijklmn                                                   |
+      +hijklmn            │+pqrstuvwxyz_1060ABC                                       |
+      +pqrstuvwxyz_1060ABC│+DEFGHIJKLMNOP                                             |
+      {3:[No Name] [+]        }{4:[No Name] [+]                                              }|
+      dummy text                                                                      |
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {4:[No Name] [+]                                                                   }|
+      4 more lines                                                                    |
+    ]]}
 
     feed_command('let g:test ="Test 4: set linebreak with tab and 1 line as long as screen: should break!"')
     feed_command('set nolist linebreak ts=8')
@@ -66,6 +156,33 @@ describe('listlbr', function()
     feed_command('redraw!')
     feed_command('let line=ScreenChar(winwidth(0))')
     feed_command('call DoRecordScreen()')
+    screen:expect{grid=[[
+      ^1                   │+pqrstuvwxyz_1060ABC                                       |
+      {0:+}aaaaaaaaaaaaaaaaaa │+DEFGHIJKLMNOP                                             |
+                          │1       aaaaaaaaaaaaaaaaaa                                 |
+      Test 4: set         │                                                           |
+      {0:+}linebreak with tab │Test 4: set linebreak with tab and 1 line as long as screen|
+      {0:+}and 1 line as long │{0:+}: should break!                                           |
+      {0:+}as screen: should  │1                                                          |
+      {0:+}break!             │+aaaaaaaaaaaaaaaaaa                                        |
+      1                   │~                                                          |
+      +aaaaaaaaaaaaaaaaaa │~                                                          |
+      {3:[No Name] [+]        }{4:[No Name] [+]                                              }|
+      dummy text                                                                      |
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {4:[No Name] [+]                                                                   }|
+      4 more lines                                                                    |
+    ]]}
+
     feed_command([[let line="_S_\t bla"]])
     feed_command('$put =line')
     feed_command('$')
@@ -77,6 +194,32 @@ describe('listlbr', function()
     feed_command('syn match All /.*/ contains=ConcealVar')
     feed_command('let line=ScreenChar(winwidth(0))')
     feed_command('call DoRecordScreen()')
+    screen:expect{grid=[[
+      ^S{0:abbbbbb} bla        │~                                                          |
+                          │~                                                          |
+      Test 5: set         │_S_      bla                                               |
+      {0:+}linebreak with     │                                                           |
+      {0:+}conceal and set    │Test 5: set linebreak with conceal and set list and tab dis|
+      {0:+}list and tab       │{0:+}played by different char (line may not be truncated)      |
+      {0:+}displayed by       │Sabbbbbb bla                                               |
+      {0:+}different char     │~                                                          |
+      {0:+}(line may not be   │~                                                          |
+      {0:+}truncated)         │~                                                          |
+      {3:[No Name] [+]        }{4:[No Name] [+]                                              }|
+      dummy text                                                                      |
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {4:[No Name] [+]                                                                   }|
+      4 more lines                                                                    |
+    ]]}
     feed_command('set cpo&vim linebreak')
 
     feed_command('let g:test ="Test 6: set linebreak with visual block mode"')
@@ -130,6 +273,32 @@ describe('listlbr', function()
     feed_command('redraw!')
     feed_command('let line=ScreenChar(winwidth(0))')
     feed_command('call DoRecordScreen()')
+    screen:expect{grid=[[
+      ^a{0:_}                  │Test 12: set linebreak list listchars=space:_,tab:>-,tail:-|
+      aaaaaaaaaaaaaaaaaaaa│,eol:$                                                     |
+      aa{0:>-----}a{0:-$}         │a aaaaaaaaaaaaaaaaaaaaaa        a                          |
+      {0:$}                   │                                                           |
+      Test{0:_}12:{0:_}set{0:_}       │Test 12: set linebreak list listchars=space:_,tab:>-,tail:-|
+      linebreak{0:_}list{0:_}     │,eol:$                                                     |
+      listchars=space:,   │a_                                                         |
+      tab:>-,tail:-,eol:${0:$}│aaaaaaaaaaaaaaaaaaaa                                       |
+      a{0:------------------} │aa>-----a-$                                                |
+      {0:$}                   │~                                                          |
+      {3:[No Name] [+]        }{4:[No Name] [+]                                              }|
+      dummy text                                                                      |
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {0:~                                                                               }|
+      {4:[No Name] [+]                                                                   }|
+      4 more lines                                                                    |
+    ]]}
 
     -- Assert buffer contents.
     expect([[

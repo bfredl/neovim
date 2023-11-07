@@ -2529,7 +2529,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
           }
           wlv.c_extra = NUL;
           wlv.c_final = NUL;
-          if (wp->w_p_lbr) {
+          if (false) {
             char *p;
 
             c = (uint8_t)(*wlv.p_extra);
