@@ -54,11 +54,8 @@
 
 /// possible draw states in win_line(), drawn in sequence.
 typedef enum {
-  WL_START = 0,  // nothing done yet
-  WL_CMDLINE,    // cmdline window column
   WL_FOLD,       // 'foldcolumn'
   WL_SIGN,       // column for signs
-  WL_NR,         // line number
   WL_STC,        // 'statuscolumn'
   WL_BRI,        // 'breakindent'
   WL_SBR,        // 'showbreak' or 'diff'
@@ -1555,18 +1552,12 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
 
       assert (wlv.off == 0);
 
-      /*
-      if (wlv.draw_state == WL_CMDLINE - 1 && wlv.n_extra == 0) {
-        wlv.draw_state = WL_CMDLINE;
-        if (cmdwin_type != 0 && wp == curwin) {
-          // Draw the cmdline character.
-          wlv.n_extra = 1;
-          wlv.c_extra = cmdwin_type;
-          wlv.c_final = NUL;
-          wlv.char_attr = win_hl_attr(wp, HLF_AT);
-        }
+      if (cmdwin_type != 0 && wp == curwin) {
+        // Draw the cmdline character.
+        draw_col_fill(&wlv, schar_from_ascii(cmdwin_type), 1, win_hl_attr(wp, HLF_AT));
       }
 
+      /*
       if (wlv.draw_state == WL_FOLD - 1 && wlv.n_extra == 0) {
         if (wlv.filler_todo > 0) {
           int index = wlv.filler_todo - (wlv.filler_lines - wlv.n_virt_lines);
