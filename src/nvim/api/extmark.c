@@ -683,9 +683,8 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer line, Integer
   }
 
   if (HAS_KEY(opts, set_extmark, sign_text)) {
-    sign.text.ptr = NULL;
-    VALIDATE_S(init_sign_text(NULL, &sign.text.ptr, opts->sign_text.data),
-               "sign_text", "", {
+    sign.text.sc[0] = 0;
+    VALIDATE_S(init_sign_text(NULL, sign.text.sc, opts->sign_text.data), "sign_text", "", {
       goto error;
     });
     sign.flags |= kSHIsSign;

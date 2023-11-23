@@ -214,7 +214,7 @@ void buf_put_decor_sh(buf_T *buf, DecorSignHighlight *sh, int row)
   if (sh->flags & kSHIsSign) {
     sh->sign_add_id = sign_add_id++;
     buf->b_signs++;
-    if (sh->text.ptr) {
+    if (sh->text.sc[0]) {
       buf->b_signs_with_text++;
       buf_signcols_add_check(buf, row + 1);
     }
@@ -260,7 +260,7 @@ void buf_remove_decor_sh(buf_T *buf, int row, int row2, DecorSignHighlight *sh)
   if (sh->flags & kSHIsSign) {
     assert(buf->b_signs > 0);
     buf->b_signs--;
-    if (sh->text.ptr) {
+    if (sh->text.sc[0]) {
       assert(buf->b_signs_with_text > 0);
       buf->b_signs_with_text--;
       if (row2 >= row) {
@@ -318,7 +318,7 @@ void decor_free_inner(DecorVirtText *vt, uint32_t first_idx)
   uint32_t idx = first_idx;
   while (idx != DECOR_ID_INVALID) {
     DecorSignHighlight *sh = &kv_A(decor_items, idx);
-    if (sh->flags & (kSHIsSign | kSHConcealAlloc)) {
+    if (sh->flags & (kSHConcealAlloc)) {
       xfree(sh->text.ptr);
     }
     if (sh->flags & kSHIsSign) {
@@ -727,7 +727,7 @@ void decor_redraw_signs(win_T *wp, buf_T *buf, int row, SignTextAttrs sattrs[], 
     if (!mt_invalid(pair.start) && mt_decor_sign(pair.start)) {
       DecorSignHighlight *sh = decor_find_sign(mt_decor(pair.start));
       if (sh) {
-        num_text += (sh->text.ptr != NULL);
+        num_text += (sh->text.sc[0]);
         kv_push(signs, ((SignItem){ sh, pair.start.id }));
       }
     }
@@ -741,7 +741,7 @@ void decor_redraw_signs(win_T *wp, buf_T *buf, int row, SignTextAttrs sattrs[], 
     if (!mt_end(mark) && !mt_invalid(mark) && mt_decor_sign(mark)) {
       DecorSignHighlight *sh = decor_find_sign(mt_decor(mark));
       if (sh) {
-        num_text += (sh->text.ptr != NULL);
+        num_text += (sh->text.sc[0]);
         kv_push(signs, ((SignItem){ sh, mark.id }));
       }
     }
@@ -756,8 +756,8 @@ void decor_redraw_signs(win_T *wp, buf_T *buf, int row, SignTextAttrs sattrs[], 
 
     for (size_t i = 0; i < kv_size(signs); i++) {
       DecorSignHighlight *sh = kv_A(signs, i).sh;
-      if (idx >= 0 && sh->text.ptr) {
-        sattrs[idx].text = sh->text.ptr;
+      if (idx >= 0 && sh->text.sc[0]) {
+        memcpy(sattrs[idx].text, sh->text.sc, 2*sizeof(sattr_T));
         sattrs[idx--].hl_id = sh->hl_id;
       }
       if (*num_id == 0) {
@@ -828,7 +828,7 @@ int decor_signcols(buf_T *buf, int row, int end_row, int max)
       }
       if (!mt_invalid(mark) && !mt_end(mark) && (mark.flags & MT_FLAG_DECOR_SIGNTEXT)) {
         DecorSignHighlight *sh = decor_find_sign(mt_decor(mark));
-        if (sh && sh->text.ptr) {
+        if (sh && sh->text.sc[0]) {
           count++;
         }
       }
@@ -1018,8 +1018,10 @@ void decor_to_dict_legacy(Dictionary *dict, DecorInline decor, bool hl_name)
   }
 
   if (sh_sign.flags & kSHIsSign) {
-    if (sh_sign.text.ptr) {
-      PUT(*dict, "sign_text", CSTR_TO_OBJ(sh_sign.text.ptr));
+    if (sh_sign.text.sc[0]) {
+      char buf[2*MAX_SCHAR_SIZE];
+      describe_sign_text(buf, sh_sign.text.sc);
+      PUT(*dict, "sign_text", CSTR_TO_OBJ(buf));
     }
 
     if (sh_sign.sign_name) {

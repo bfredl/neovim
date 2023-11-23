@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "klib/kvec.h"
+#include "nvim/types.h"
 
 #define DECOR_ID_INVALID UINT32_MAX
 
@@ -65,6 +66,7 @@ typedef struct {
     // 2. conceal char is allocated if larger than 8 bytes.
     char *ptr;  // sign or conceal text
     char data[8];
+    schar_T sc[2];
   } text;
   // NOTE: if more functionality is added to a Highlight these should be overloaded
   // or restructured

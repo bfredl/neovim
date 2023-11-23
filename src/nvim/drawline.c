@@ -87,8 +87,6 @@ typedef struct {
   int c_extra;               ///< extra chars, all the same
   int c_final;               ///< final char, mandatory if set
 
-  int n_closing;             ///< number of chars in fdc which will be closing
-
   bool extra_for_extmark;    ///< n_extra set for inline virtual text
 
   char extra[57];            ///< sign, line number and 'fdc' must fit in here
@@ -362,28 +360,18 @@ static bool use_cursor_line_highlight(win_T *wp, linenr_T lnum)
          && (wp->w_p_culopt_flags & CULOPT_NBR);
 }
 
-static char fdc_buf[MB_MAXCHAR * 10 + 1];
-
 /// Setup for drawing the 'foldcolumn', if there is one.
-static void handle_foldcolumn(win_T *wp, winlinevars_T *wlv)
+static void draw_foldcolumn(win_T *wp, winlinevars_T *wlv)
 {
   int fdc = compute_foldcolumn(wp, 0);
   if (fdc <= 0) {
     return;
   }
 
-  // Use a separate buffer as `extra_buf` might be in use.
-  wlv->n_extra = (int)fill_foldcolumn(fdc_buf, wp, wlv->foldinfo, wlv->lnum,
-                                      &wlv->n_closing);
-  fdc_buf[wlv->n_extra] = NUL;
-  wlv->p_extra = fdc_buf;
-  wlv->c_extra = NUL;
-  wlv->c_final = NUL;
-  if (use_cursor_line_highlight(wp, wlv->lnum)) {
-    wlv->char_attr = win_hl_attr(wp, HLF_CLF);
-  } else {
-    wlv->char_attr = win_hl_attr(wp, HLF_FC);
-  }
+  int attr = use_cursor_line_highlight(wp, wlv->lnum)
+             ? win_hl_attr(wp, HLF_CLF) : win_hl_attr(wp, HLF_FC);
+
+  fill_foldcolumn(wlv, wp, wlv->foldinfo, wlv->lnum, attr);
 }
 
 /// Fills the foldcolumn at "p" for window "wp".
@@ -395,29 +383,22 @@ static void handle_foldcolumn(win_T *wp, winlinevars_T *wlv)
 ///
 /// Assume monocell characters
 /// @return number of chars added to \param p
-size_t fill_foldcolumn(char *p, win_T *wp, foldinfo_T foldinfo, linenr_T lnum, int *n_closing)
+static size_t fill_foldcolumn(winlinevars_T *wlv, win_T *wp, foldinfo_T foldinfo, linenr_T lnum, int attr)
 {
   int i = 0;
   int fdc = compute_foldcolumn(wp, 0);    // available cell width
-  size_t char_counter = 0;
-  int symbol = 0;
-  int len = 0;
+  int char_counter = 0;
   bool closed = foldinfo.fi_level != 0 && foldinfo.fi_lines > 0;
-  // Init to all spaces.
-  memset(p, ' ', MB_MAXCHAR * (size_t)fdc + 1);
 
   int level = foldinfo.fi_level;
 
   // If the column is too narrow, we start at the lowest level that
   // fits and use numbers to indicate the depth.
-  int first_level = level - fdc - closed + 1;
-  if (first_level < 1) {
-    first_level = 1;
-  }
+  int first_level = MAX(level - fdc - closed + 1, 1);
 
   for (i = 0; i < MIN(fdc, level); i++) {
-    if (foldinfo.fi_lnum == lnum
-        && first_level + i >= foldinfo.fi_low_level) {
+    int symbol = 0;
+    if (foldinfo.fi_lnum == lnum && first_level + i >= foldinfo.fi_low_level) {
       symbol = wp->w_p_fcs_chars.foldopen;
     } else if (first_level == 1) {
       symbol = wp->w_p_fcs_chars.foldsep;
@@ -427,64 +408,59 @@ size_t fill_foldcolumn(char *p, win_T *wp, foldinfo_T foldinfo, linenr_T lnum, i
       symbol = '>';
     }
 
-    len = utf_char2bytes(symbol, &p[char_counter]);
-    char_counter += (size_t)len;
+    linebuf_vcol[wlv->off] = -3;
+    linebuf_attr[wlv->off] = attr;
+    linebuf_char[wlv->off++] = schar_from_char(symbol);
+    char_counter++;
+
     if (first_level + i >= level) {
       i++;
       break;
     }
   }
 
-  int n_closing_val = i;
-
   if (closed) {
-    if (symbol != 0) {
+    if (char_counter > 0) {
       // rollback previous write
-      char_counter -= (size_t)len;
-      memset(&p[char_counter], ' ', (size_t)len);
-      n_closing_val--;
+      char_counter--;
+      wlv->off--;
     }
-    len = utf_char2bytes(wp->w_p_fcs_chars.foldclosed, &p[char_counter]);
-    char_counter += (size_t)len;
+    linebuf_vcol[wlv->off] = -2;
+    linebuf_attr[wlv->off] = attr;
+    linebuf_char[wlv->off++] = schar_from_char(wp->w_p_fcs_chars.foldclosed);
+    char_counter++;
   }
 
-  if (n_closing) {
-    *n_closing = n_closing_val;
+  int width = MAX(char_counter + (fdc - i), fdc);
+  if (char_counter < width) {
+    draw_col_fill(wlv, schar_from_ascii(' '), width - char_counter, attr);
   }
-
-  return MAX(char_counter + (size_t)(fdc - i), (size_t)fdc);
+  return (size_t)width;
 }
 
 /// Get information needed to display the sign in line "wlv->lnum" in window "wp".
 /// If "nrcol" is true, the sign is going to be displayed in the number column.
 /// Otherwise the sign is going to be displayed in the sign column. If there is no
 /// sign, draw blank cells instead.
-static void get_sign_display_info(bool nrcol, win_T *wp, winlinevars_T *wlv, int sign_idx,
-                                  int sign_cul_attr)
+static void draw_sign(bool nrcol, win_T *wp, winlinevars_T *wlv, int sign_idx, int sign_cul_attr)
 {
   SignTextAttrs sattr = wlv->sattrs[sign_idx];
   wlv->c_final = NUL;
 
-  if (sattr.text && wlv->row == wlv->startrow + wlv->filler_lines && wlv->filler_todo <= 0) {
-    size_t fill = nrcol ? (size_t)number_width(wp) - SIGN_WIDTH : 0;
-    size_t sign_len = strlen(sattr.text);
-
-    // Spaces + sign:    "  " + ">>"     + ' '
-    wlv->n_extra = (int)(fill + sign_len + nrcol);
-    if (nrcol) {
-      memset(wlv->extra, ' ', (size_t)wlv->n_extra);
-    }
-    memcpy(wlv->extra + fill, sattr.text, sign_len);
-    wlv->p_extra = wlv->extra;
-    wlv->c_extra = NUL;
-    wlv->char_attr = (use_cursor_line_highlight(wp, wlv->lnum) && sign_cul_attr)
-                     ? sign_cul_attr : sattr.hl_id ? syn_id2attr(sattr.hl_id) : 0;
+  if (sattr.text[0] && wlv->row == wlv->startrow + wlv->filler_lines && wlv->filler_todo <= 0) {
+    int attr = (use_cursor_line_highlight(wp, wlv->lnum) && sign_cul_attr)
+                ? sign_cul_attr : sattr.hl_id ? syn_id2attr(sattr.hl_id) : 0;
+    int fill = nrcol ? number_width(wp) : SIGN_WIDTH;
+    draw_col_fill(wlv, schar_from_ascii(' '), fill, attr);
+    linebuf_char[wlv->off-2] = sattr.text[0];  // TODO: falgli
+    linebuf_char[wlv->off-1] = sattr.text[1];
+    draw_col_fill(wlv, schar_from_ascii(' '), nrcol, attr);
   } else {
     wlv->c_extra = ' ';
-    wlv->n_extra = nrcol ? number_width(wp) + 1 : SIGN_WIDTH;
-    if (!nrcol) {
-      wlv->char_attr = win_hl_attr(wp, use_cursor_line_highlight(wp, wlv->lnum) ? HLF_CLS : HLF_SC);
-    }
+    int width = nrcol ? number_width(wp) + 1 : SIGN_WIDTH;
+    // TODO: pass in attr for nrcol !
+    int attr = win_hl_attr(wp, use_cursor_line_highlight(wp, wlv->lnum) ? HLF_CLS : HLF_SC);
+    draw_col_fill(wlv, schar_from_ascii(' '), width, attr);
   }
 }
 
@@ -562,9 +538,8 @@ static void draw_lnum_col(win_T *wp, winlinevars_T *wlv, int sign_num_attr, int 
       && !((has_cpo_n && !wp->w_p_bri) && wp->w_skipcol > 0 && wlv->lnum == wp->w_topline)) {
     // If 'signcolumn' is set to 'number' and a sign is present in "lnum",
     // then display the sign instead of the line number.
-    if (wp->w_minscwidth == SCL_NUM && wlv->sattrs[0].text) {
-      // TODO:
-      get_sign_display_info(true, wp, wlv, 0, sign_cul_attr);
+    if (wp->w_minscwidth == SCL_NUM && wlv->sattrs[0].text[0]) {
+      draw_sign(true, wp, wlv, 0, sign_cul_attr);
     } else {
       // Draw the line number (empty space after wrapping).
       int width = number_width(wp) + 1;
@@ -1523,7 +1498,6 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
 
   int coloff = win_col_off(wp);
 
-  int sign_idx = 0;
   int virt_line_index;
   int virt_line_offset = -1;
   // Repeat for the whole displayed line.
@@ -1548,52 +1522,20 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
         draw_col_fill(&wlv, schar_from_ascii(cmdwin_type), 1, win_hl_attr(wp, HLF_AT));
       }
 
-      /*
-      if (wlv.draw_state == WL_FOLD - 1 && wlv.n_extra == 0) {
-        if (wlv.filler_todo > 0) {
-          int index = wlv.filler_todo - (wlv.filler_lines - wlv.n_virt_lines);
-          if (index > 0) {
-            virt_line_index = (int)kv_size(virt_lines) - index;
-            assert(virt_line_index >= 0);
-            virt_line_offset = kv_A(virt_lines, virt_line_index).left_col ? 0 : win_col_off(wp);
-          }
-        }
-        if (virt_line_offset == 0) {
-          // Skip the column states if there is a "virt_left_col" line.
-          wlv.draw_state = WL_BRI - 1;
-        } else if (statuscol.draw) {
-          // Skip fold, sign and number states if 'statuscolumn' is set.
-          wlv.draw_state = WL_STC - 1;
+      if (wlv.filler_todo > 0) {
+        int index = wlv.filler_todo - (wlv.filler_lines - wlv.n_virt_lines);
+        if (index > 0) {
+          virt_line_index = (int)kv_size(virt_lines) - index;
+          assert(virt_line_index >= 0);
+          virt_line_offset = kv_A(virt_lines, virt_line_index).left_col ? 0 : win_col_off(wp);
         }
       }
 
-      if (wlv.draw_state == WL_FOLD - 1 && wlv.n_extra == 0) {
-        wlv.draw_state = WL_FOLD;
-        handle_foldcolumn(wp, &wlv);
-      }
-
-      // sign column, this is hit until sign_idx reaches count
-      if (wlv.draw_state == WL_SIGN - 1 && wlv.n_extra == 0) {
-        // Show the sign column when desired.
-        wlv.draw_state = WL_SIGN;
-        if (wp->w_scwidth > 0) {
-          get_sign_display_info(false, wp, &wlv, sign_idx, sign_cul_attr);
-          if (++sign_idx < wp->w_scwidth) {
-            wlv.draw_state = WL_SIGN - 1;
-          } else {
-            sign_idx = 0;
-          }
-        }
-      }
-      */
-
-      draw_lnum_col(wp, &wlv, sign_num_attr, sign_cul_attr);
-
-      /*
-      if (wlv.draw_state == WL_STC - 1 && wlv.n_extra == 0) {
-        wlv.draw_state = WL_STC;
-        // Draw the 'statuscolumn' if option is set.
-        if (statuscol.draw) {
+      if (virt_line_offset == 0) {
+        // skip columns
+      } else if (statuscol.draw) {
+        // Skip fold, sign and number states if 'statuscolumn' is set.
+        //
           if (sign_num_attr == 0) {
             statuscol.num_attr = get_line_number_attr(wp, &wlv);
           }
@@ -1610,9 +1552,20 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
             }
           }
           get_statuscol_display_info(&statuscol, &wlv);
+
+      } else {
+        // draw builtin info columns: fold, sign, number
+        draw_foldcolumn(wp, &wlv);
+
+        // wp->w_scwidth is zero if signcol=number is used
+        for (int sign_idx = 0; sign_idx < wp->w_scwidth; sign_idx++)  {
+          draw_sign(false, wp, &wlv, sign_idx, sign_cul_attr);
         }
+
+        draw_lnum_col(wp, &wlv, sign_num_attr, sign_cul_attr);
       }
 
+      /*
       if (wlv.draw_state == WL_STC && wlv.n_extra == 0) {
         win_col_offset = wlv.off;
       }
@@ -2776,13 +2729,6 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
 
       if (wlv.filler_todo <= 0) {
         linebuf_vcol[wlv.off] = wlv.vcol;
-      } else if (false) {  // TODO: flytta uPP wlv.draw_state == WL_FOLD
-        if (wlv.n_closing > 0) {
-          linebuf_vcol[wlv.off] = -3;
-          wlv.n_closing--;
-        } else {
-          linebuf_vcol[wlv.off] = -2;
-        }
       } else {
         // TODO: rather memset at start
         linebuf_vcol[wlv.off] = -1;

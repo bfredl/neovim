@@ -7,7 +7,7 @@
 
 /// Sign attributes. Used by the screen refresh routines.
 typedef struct {
-  char *text;
+  schar_T text[2];
   int hl_id;
 } SignTextAttrs;
 
@@ -15,7 +15,7 @@ typedef struct {
 typedef struct sign {
   char *sn_name;   // name of sign
   char *sn_icon;   // name of pixmap
-  char *sn_text;   // text used instead of pixmap
+  schar_T sn_text[2];   // text used instead of pixmap
   int sn_line_hl;  // highlight ID for line
   int sn_text_hl;  // highlight ID for text
   int sn_cul_hl;   // highlight ID for text on current line when 'cursorline' is set

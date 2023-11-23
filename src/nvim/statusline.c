@@ -1641,20 +1641,26 @@ int build_stl_str_hl(win_T *wp, char *out, size_t outlen, char *fmt, char *opt_n
 
       char *p = NULL;
       if (fold) {
-        size_t n = fill_foldcolumn(out_p, wp, stcp->foldinfo,
-                                   (linenr_T)get_vim_var_nr(VV_LNUM), NULL);
+        abort(); // TODO
+        // size_t n = fill_foldcolumn(out_p, wp, stcp->foldinfo,
+        //                           (linenr_T)get_vim_var_nr(VV_LNUM), NULL);
         stl_items[curitem].minwid = -((stcp->use_cul ? HLF_CLF : HLF_FC) + 1);
         p = out_p;
-        p[n] = NUL;
+        // p[n] = NUL;
       }
 
+      char buf[2*MAX_SCHAR_SIZE];
       size_t buflen = 0;
       varnumber_T virtnum = get_vim_var_nr(VV_VIRTNUM);
       for (int i = 0; i < width; i++) {
         if (!fold) {
           SignTextAttrs *sattr = virtnum ? NULL : &stcp->sattrs[i];
-          p = sattr && sattr->text ? sattr->text : "  ";
-          stl_items[curitem].minwid = -(sattr && sattr->text
+          p = "  ";
+          if (sattr && sattr->text[0]) {
+            describe_sign_text(buf, sattr->text);
+            p = buf;
+          }
+          stl_items[curitem].minwid = -(sattr && sattr->text[0]
                                         ? (stcp->sign_cul_id ? stcp->sign_cul_id : sattr->hl_id)
                                         : (stcp->use_cul ? HLF_CLS : HLF_SC) + 1);
         }
