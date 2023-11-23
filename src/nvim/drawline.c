@@ -546,18 +546,18 @@ static void draw_lnum_col(win_T *wp, winlinevars_T *wlv, int sign_num_attr, int 
       int attr = sign_num_attr > 0 ? sign_num_attr : get_line_number_attr(wp, wlv);
       if (wlv->row == wlv->startrow + wlv->filler_lines
           && (wp->w_skipcol == 0 || wlv->row > 0 || (wp->w_p_nu && wp->w_p_rnu))) {
-        // TODO: wlv->extra delenda est
-        get_line_number_str(wp, wlv->lnum, wlv->extra, sizeof(wlv->extra));
+        char buf[32];
+        get_line_number_str(wp, wlv->lnum, buf, sizeof(buf));
         if (wp->w_skipcol > 0 && wlv->startrow == 0) {
-          for (char *c = wlv->extra; *c == ' '; c++) {
+          for (char *c = buf; *c == ' '; c++) {
             *c = '-';
           }
         }
         if (wp->w_p_rl) {  // reverse line numbers
-          char *num = skipwhite(wlv->extra);
+          char *num = skipwhite(buf);
           rl_mirror_ascii(num, skiptowhite(num));
         }
-        draw_col_ascii(wlv, wlv->extra, width, attr);
+        draw_col_ascii(wlv, buf, width, attr);
       } else {
         draw_col_fill(wlv, schar_from_ascii(' '), width, attr);
       }
@@ -628,31 +628,36 @@ static void get_statuscol_str(win_T *wp, linenr_T lnum, int virtnum, statuscol_T
 ///
 /// @param stcp  Status column attributes
 /// @param[in,out]  wlv
-static void get_statuscol_display_info(statuscol_T *stcp, winlinevars_T *wlv)
+static void draw_statuscol(win_T *wp, statuscol_T *stcp, winlinevars_T *wlv)
 {
-  wlv->c_extra = NUL;
-  wlv->c_final = NUL;
   do {
-    // wlv->draw_state = WL_STC;
-    wlv->char_attr = stcp->cur_attr;
-    wlv->p_extra = stcp->textp;
-    char *const section_end = stcp->hlrecp->start ? stcp->hlrecp->start : stcp->text_end;
-    wlv->n_extra = (int)(section_end - stcp->textp);
+    int attr = stcp->cur_attr;
+    char *text = stcp->textp;
+    char *section_end = stcp->hlrecp->start ? stcp->hlrecp->start : stcp->text_end;
+    ptrdiff_t len = section_end - text;
     // Prepare for next highlight section if not yet at the end
     if (section_end < stcp->text_end) {
       int hl = stcp->hlrecp->userhl;
       stcp->textp = stcp->hlrecp->start;
       stcp->cur_attr = hl < 0 ? syn_id2attr(-hl) : stcp->num_attr;
       stcp->hlrecp++;
-      // wlv->draw_state = WL_STC - 1;
+    } else {
+      stcp->textp = section_end;  // TODO: mög
     }
     // Skip over empty highlight sections
-  } while (wlv->n_extra == 0 && stcp->textp < stcp->text_end);
-  if (wlv->n_extra > 0) {
-    static char transbuf[(MAX_NUMBERWIDTH + 9 + 9 * 2) * MB_MAXBYTES + 1];
-    wlv->n_extra = (int)transstr_buf(wlv->p_extra, wlv->n_extra, transbuf, sizeof transbuf, true);
-    wlv->p_extra = transbuf;
-  }
+    if (len) {
+      static char transbuf[(MAX_NUMBERWIDTH + 9 + 9 * 2) * MB_MAXBYTES + 1];
+      len = (int)transstr_buf(text, len, transbuf, sizeof transbuf, true);
+      const char *ptr = transbuf;
+      while (ptr < transbuf + len) {
+        int cells = line_putchar(wp->w_buffer, &ptr, &linebuf_char[wlv->off], wp->w_grid.cols - wlv->off, wlv->off);
+        for (int c = 0; c < cells; c++) {
+          linebuf_attr[wlv->off] = attr;
+          wlv->off++;
+        }
+      }
+    }
+  } while (stcp->textp < stcp->text_end);
 }
 
 static void handle_breakindent(win_T *wp, winlinevars_T *wlv)
@@ -1496,6 +1501,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
     extra_check = true;
   }
 
+  // TODO: with statuscol this is BULL
   int coloff = win_col_off(wp);
 
   int virt_line_index;
@@ -1536,22 +1542,22 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
       } else if (statuscol.draw) {
         // Skip fold, sign and number states if 'statuscolumn' is set.
         //
-          if (sign_num_attr == 0) {
-            statuscol.num_attr = get_line_number_attr(wp, &wlv);
+        if (sign_num_attr == 0) {
+          statuscol.num_attr = get_line_number_attr(wp, &wlv);
+        }
+        if (statuscol.textp == NULL) {
+          v = (ptr - line);
+          get_statuscol_str(wp, lnum, wlv.row - startrow - wlv.filler_lines, &statuscol);
+          if (!end_fill) {
+            // Get the line again as evaluating 'statuscolumn' may free it.
+            line = ml_get_buf(wp->w_buffer, lnum);
+            ptr = line + v;
           }
-          if (statuscol.textp == NULL) {
-            v = (ptr - line);
-            get_statuscol_str(wp, lnum, wlv.row - startrow - wlv.filler_lines, &statuscol);
-            if (!end_fill) {
-              // Get the line again as evaluating 'statuscolumn' may free it.
-              line = ml_get_buf(wp->w_buffer, lnum);
-              ptr = line + v;
-            }
-            if (wp->w_redr_statuscol) {
-              break;
-            }
+          if (wp->w_redr_statuscol) {
+            break;  // TODO
           }
-          get_statuscol_display_info(&statuscol, &wlv);
+        }
+        draw_statuscol(wp, &statuscol, &wlv);
 
       } else {
         // draw builtin info columns: fold, sign, number
@@ -1583,7 +1589,8 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, bool number_onl
 
       */
 
-      assert (wlv.off <= coloff);
+      // TODO: with statuscol this is BULL
+      // assert (wlv.off <= coloff);
       while (wlv.off < coloff) {
         linebuf_char[wlv.off] = schar_from_ascii('Q');
         linebuf_attr[wlv.off] = 0;
