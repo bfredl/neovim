@@ -374,7 +374,7 @@ static void win_redr_custom(win_T *wp, bool draw_winbar, bool draw_ruler)
         grid = &msg_grid_adj;
         row = Rows - 1;
         maxwidth--;  // writing in last column may cause scrolling
-        fillchar = ' ';
+        fillchar = schar_from_ascii(' ');
         attr = HL_ATTR(HLF_MSG);
       }
     } else {
@@ -870,7 +870,7 @@ int build_statuscol_str(win_T *wp, linenr_T lnum, linenr_T relnum, char *buf, st
 
   StlClickRecord *clickrec;
   char *stc = xstrdup(wp->w_p_stc);
-  int width = build_stl_str_hl(wp, buf, MAXPATHL, stc, kOptStatuscolumn, OPT_LOCAL, ' ',
+  int width = build_stl_str_hl(wp, buf, MAXPATHL, stc, kOptStatuscolumn, OPT_LOCAL, 0,
                                stcp->width, &stcp->hlrec, fillclick ? &clickrec : NULL, stcp);
   xfree(stc);
 
