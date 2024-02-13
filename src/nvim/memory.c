@@ -675,6 +675,7 @@ char *arena_memdupz(Arena *arena, const char *buf, size_t size)
   return mem;
 }
 
+
 #if defined(EXITFREE)
 
 # include "nvim/autocmd.h"

@@ -1456,10 +1456,10 @@ Dictionary nvim_get_mode(Arena *arena)
 /// @param  mode       Mode short-name ("n", "i", "v", ...)
 /// @returns Array of |maparg()|-like dictionaries describing mappings.
 ///          The "buffer" key is always zero.
-ArrayOf(Dictionary) nvim_get_keymap(String mode)
+ArrayOf(Dictionary) nvim_get_keymap(String mode, Arena *arena)
   FUNC_API_SINCE(3)
 {
-  return keymap_array(mode, NULL);
+  return keymap_array(mode, NULL, arena);
 }
 
 /// Sets a global |mapping| for the given mode.
@@ -1633,7 +1633,7 @@ void nvim_set_client_info(uint64_t channel_id, String name, Dictionary version, 
 ///                 the RPC channel), if provided by it via
 ///                 |nvim_set_client_info()|.
 ///
-Dictionary nvim_get_chan_info(uint64_t channel_id, Integer chan, Error *err)
+Dictionary nvim_get_chan_info(uint64_t channel_id, Integer chan, Arena *arena, Error *err)
   FUNC_API_SINCE(4)
 {
   if (chan < 0) {
@@ -1644,17 +1644,17 @@ Dictionary nvim_get_chan_info(uint64_t channel_id, Integer chan, Error *err)
     assert(channel_id <= INT64_MAX);
     chan = (Integer)channel_id;
   }
-  return channel_info((uint64_t)chan);
+  return channel_info((uint64_t)chan, arena);
 }
 
 /// Get information about all open channels.
 ///
 /// @returns Array of Dictionaries, each describing a channel with
 ///          the format specified at |nvim_get_chan_info()|.
-Array nvim_list_chans(void)
+Array nvim_list_chans(Arena *arena)
   FUNC_API_SINCE(4)
 {
-  return channel_all_info();
+  return channel_all_info(arena);
 }
 
 /// Calls many API methods atomically.

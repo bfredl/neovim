@@ -6,6 +6,7 @@
 #include "auto/config.h"
 #include "klib/kvec.h"
 #include "nvim/eval/typval_defs.h"  // IWYU pragma: keep
+#include "nvim/api/private/defs.h"
 #include "nvim/func_attr.h"
 #include "nvim/os/os_defs.h"
 #include "nvim/types_defs.h"  // IWYU pragma: keep
