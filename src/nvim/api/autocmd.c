@@ -23,6 +23,7 @@
 #include "nvim/globals.h"
 #include "nvim/lua/executor.h"
 #include "nvim/memory.h"
+#include "nvim/strings.h"
 #include "nvim/types_defs.h"
 #include "nvim/vim_defs.h"
 
@@ -88,14 +89,14 @@ static int64_t next_autocmd_id = 1;
 ///             If the autocommand is buffer local |autocmd-buffer-local|:
 ///             - buflocal (boolean): true if the autocommand is buffer local.
 ///             - buffer (number): the buffer number.
-Array nvim_get_autocmds(Dict(get_autocmds) *opts, Error *err)
+Array nvim_get_autocmds(Dict(get_autocmds) *opts, Arena *arena, Error *err)
   FUNC_API_SINCE(9)
 {
   // TODO(tjdevries): Would be cool to add nvim_get_autocmds({ id = ... })
 
-  Array autocmd_list = ARRAY_DICT_INIT;
+  kvec_withinit_t(Object, 16) autocmd_list = KV_INITIAL_VALUE;
+  kvi_init(autocmd_list);
   char *pattern_filters[AUCMD_MAX_PATTERNS];
-  char pattern_buflocal[BUFLOCAL_PAT_LEN];
 
   Array buffers = ARRAY_DICT_INIT;
 
@@ -187,8 +188,9 @@ Array nvim_get_autocmds(Dict(get_autocmds) *opts, Error *err)
       goto cleanup;
     }
 
-    snprintf(pattern_buflocal, BUFLOCAL_PAT_LEN, "<buffer=%d>", (int)buf->handle);
-    ADD(buffers, CSTR_TO_OBJ(pattern_buflocal));
+    String pat = arena_printf(arena, "<buffer=%d>", (int)buf->handle);
+    buffers = arena_array(arena, 1);
+    ADD_C(buffers, STRING_OBJ(pat));
   } else if (opts->buffer.type == kObjectTypeArray) {
     if (opts->buffer.data.array.size > AUCMD_MAX_PATTERNS) {
       api_set_error(err, kErrorTypeValidation, "Too many buffers (maximum of %d)",
@@ -196,6 +198,7 @@ Array nvim_get_autocmds(Dict(get_autocmds) *opts, Error *err)
       goto cleanup;
     }
 
+    buffers = arena_array(arena, kv_size(opts->buffer.data.array));
     FOREACH_ITEM(opts->buffer.data.array, bufnr, {
       VALIDATE_EXP((bufnr.type == kObjectTypeInteger || bufnr.type == kObjectTypeBuffer),
                    "buffer", "Integer", api_typename(bufnr.type), {
@@ -207,8 +210,7 @@ Array nvim_get_autocmds(Dict(get_autocmds) *opts, Error *err)
         goto cleanup;
       }
 
-      snprintf(pattern_buflocal, BUFLOCAL_PAT_LEN, "<buffer=%d>", (int)buf->handle);
-      ADD(buffers, CSTR_TO_OBJ(pattern_buflocal));
+      ADD_C(buffers, STRING_OBJ(arena_printf(arena, "<buffer=%d>", (int)buf->handle)));
     });
   } else if (HAS_KEY(opts, get_autocmds, buffer)) {
     VALIDATE_EXP(false, "buffer", "Integer or Array", api_typename(opts->buffer.type), {
@@ -250,6 +252,7 @@ Array nvim_get_autocmds(Dict(get_autocmds) *opts, Error *err)
           char *pat = pattern_filters[j];
           int patlen = (int)strlen(pat);
 
+          char pattern_buflocal[BUFLOCAL_PAT_LEN];
           if (aupat_is_buflocal(pat, patlen)) {
             aupat_normalize_buflocal_pat(pattern_buflocal, pat, patlen,
                                          aupat_get_buflocal_nr(pat, patlen));
@@ -267,51 +270,51 @@ Array nvim_get_autocmds(Dict(get_autocmds) *opts, Error *err)
         }
       }
 
-      Dictionary autocmd_info = ARRAY_DICT_INIT;
+      Dictionary autocmd_info = arena_dict(arena, 11);
 
       if (ap->group != AUGROUP_DEFAULT) {
-        PUT(autocmd_info, "group", INTEGER_OBJ(ap->group));
-        PUT(autocmd_info, "group_name", CSTR_TO_OBJ(augroup_name(ap->group)));
+        PUT_C(autocmd_info, "group", INTEGER_OBJ(ap->group));
+        PUT_C(autocmd_info, "group_name", CSTR_AS_OBJ(augroup_name(ap->group)));
       }
 
       if (ac->id > 0) {
-        PUT(autocmd_info, "id", INTEGER_OBJ(ac->id));
+        PUT_C(autocmd_info, "id", INTEGER_OBJ(ac->id));
       }
 
       if (ac->desc != NULL) {
-        PUT(autocmd_info, "desc", CSTR_TO_OBJ(ac->desc));
+        PUT_C(autocmd_info, "desc", CSTR_AS_OBJ(ac->desc));
       }
 
       if (ac->exec.type == CALLABLE_CB) {
-        PUT(autocmd_info, "command", STRING_OBJ(STRING_INIT));
+        PUT_C(autocmd_info, "command", STRING_OBJ(STRING_INIT));
 
         Callback *cb = &ac->exec.callable.cb;
         switch (cb->type) {
         case kCallbackLua:
           if (nlua_ref_is_function(cb->data.luaref)) {
-            PUT(autocmd_info, "callback", LUAREF_OBJ(api_new_luaref(cb->data.luaref)));
+            PUT_C(autocmd_info, "callback", LUAREF_OBJ(api_new_luaref(cb->data.luaref)));
           }
           break;
         case kCallbackFuncref:
         case kCallbackPartial:
-          PUT(autocmd_info, "callback", CSTR_AS_OBJ(callback_to_string(cb)));
+          PUT_C(autocmd_info, "callback", CSTR_AS_OBJ(callback_to_string(cb, arena)));
           break;
         case kCallbackNone:
           abort();
         }
       } else {
-        PUT(autocmd_info, "command", CSTR_TO_OBJ(ac->exec.callable.cmd));
+        PUT_C(autocmd_info, "command", CSTR_TO_OBJ(ac->exec.callable.cmd));
       }
 
-      PUT(autocmd_info, "pattern", CSTR_TO_OBJ(ap->pat));
-      PUT(autocmd_info, "event", CSTR_TO_OBJ(event_nr2name(event)));
-      PUT(autocmd_info, "once", BOOLEAN_OBJ(ac->once));
+      PUT_C(autocmd_info, "pattern", CSTR_TO_OBJ(ap->pat));
+      PUT_C(autocmd_info, "event", CSTR_TO_OBJ(event_nr2name(event)));
+      PUT_C(autocmd_info, "once", BOOLEAN_OBJ(ac->once));
 
       if (ap->buflocal_nr) {
-        PUT(autocmd_info, "buflocal", BOOLEAN_OBJ(true));
-        PUT(autocmd_info, "buffer", INTEGER_OBJ(ap->buflocal_nr));
+        PUT_C(autocmd_info, "buflocal", BOOLEAN_OBJ(true));
+        PUT_C(autocmd_info, "buffer", INTEGER_OBJ(ap->buflocal_nr));
       } else {
-        PUT(autocmd_info, "buflocal", BOOLEAN_OBJ(false));
+        PUT_C(autocmd_info, "buflocal", BOOLEAN_OBJ(false));
       }
 
       // TODO(sctx): It would be good to unify script_ctx to actually work with lua
@@ -328,16 +331,17 @@ Array nvim_get_autocmds(Dict(get_autocmds) *opts, Error *err)
       //  Once we do that, we can put these into the autocmd_info, but I don't think it's
       //  useful to do that at this time.
       //
-      // PUT(autocmd_info, "sid", INTEGER_OBJ(ac->script_ctx.sc_sid));
-      // PUT(autocmd_info, "lnum", INTEGER_OBJ(ac->script_ctx.sc_lnum));
+      // PUT_C(autocmd_info, "sid", INTEGER_OBJ(ac->script_ctx.sc_sid));
+      // PUT_C(autocmd_info, "lnum", INTEGER_OBJ(ac->script_ctx.sc_lnum));
 
-      ADD(autocmd_list, DICTIONARY_OBJ(autocmd_info));
+      kvi_push(autocmd_list, DICTIONARY_OBJ(autocmd_info));
     }
   }
 
-cleanup:
-  api_free_array(buffers);
-  return autocmd_list;
+cleanup: {}
+  Array ret = arena_array(arena, kv_size(autocmd_list));
+  kv_copy(ret, autocmd_list);
+  return ret;
 }
 
 /// Creates an |autocommand| event handler, defined by `callback` (Lua function or Vimscript
