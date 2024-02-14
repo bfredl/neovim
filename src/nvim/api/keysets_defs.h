@@ -88,6 +88,29 @@ typedef struct {
 } Dict(keymap);
 
 typedef struct {
+  OptionalKeys is_set__keymap_desc_;
+  Integer noremap;
+  Integer nowait;
+  Integer silent;
+  Integer script;
+  Integer expr;
+  Integer unique;
+  Integer sid;
+  Integer scriptversion;
+  Integer lnum;
+  Buffer buffer;
+  LuaRef callback;
+  String desc;
+  String rhs;
+  String lhsraw;
+  String lhsrawalt;
+  Integer replace_keycodes;
+  String mode;
+  Integer abbr;
+  Integer mode_bits;
+} Dict(keymap_desc);
+
+typedef struct {
   Boolean builtin;
 } Dict(get_commands);
 

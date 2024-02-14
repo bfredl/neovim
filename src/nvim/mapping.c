@@ -2070,10 +2070,11 @@ void f_hasmapto(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
 ///
 /// @return  A Dictionary.
 static Dictionary mapblock_fill_dict(const mapblock_T *const mp, const char *lhsrawalt,
-                                     const int buffer_value, const bool abbr, const bool compatible)
+                                     const int buffer_value, const bool abbr,
+                                     const bool compatible, Arena *arena)
   FUNC_ATTR_NONNULL_ARG(1)
 {
-  Dictionary dict = ARRAY_DICT_INIT;
+  Dict(keymap_desc) dict = KEYDICT_INIT;
   char *const lhs = str2special_save(mp->m_keys, compatible, !compatible);
   char *const mapmode = map_mode_to_chars(mp->m_mode);
   int noremap_value;
@@ -2088,39 +2089,40 @@ static Dictionary mapblock_fill_dict(const mapblock_T *const mp, const char *lhs
     noremap_value = mp->m_noremap == REMAP_SCRIPT ? 2 : !!mp->m_noremap;
   }
 
+#define PUT_KEY_X(d, key, value) PUT_KEY(d, keymap_desc, key, value)
   if (mp->m_luaref != LUA_NOREF) {
-    PUT(dict, "callback", LUAREF_OBJ(api_new_luaref(mp->m_luaref)));
+    PUT_KEY_X(dict, callback, api_new_luaref(mp->m_luaref));
   } else {
-    PUT(dict, "rhs", STRING_OBJ(compatible
-                                ? cstr_to_string(mp->m_orig_str)
+    PUT_KEY_X(dict, rhs, (compatible
+                                ? cstr_as_string(mp->m_orig_str)
                                 : cstr_as_string(str2special_save(mp->m_str, false, true))));
   }
   if (mp->m_desc != NULL) {
-    PUT(dict, "desc", CSTR_TO_OBJ(mp->m_desc));
+    PUT_KEY_X(dict, desc, cstr_as_string(mp->m_desc));
   }
-  PUT(dict, "lhs", CSTR_AS_OBJ(lhs));
-  PUT(dict, "lhsraw", CSTR_TO_OBJ(mp->m_keys));
+  PUT_KEY_X(dict, lhs, cstr_as_string(lhs));
+  PUT_KEY_X(dict, lhsraw, cstr_as_string(mp->m_keys));
   if (lhsrawalt != NULL) {
     // Also add the value for the simplified entry.
-    PUT(dict, "lhsrawalt", CSTR_TO_OBJ(lhsrawalt));
+    PUT_KEY_X(dict, lhsrawalt, CSTR_TO_OBJ(lhsrawalt));
   }
-  PUT(dict, "noremap", INTEGER_OBJ(noremap_value));
-  PUT(dict, "script", INTEGER_OBJ(mp->m_noremap == REMAP_SCRIPT ? 1 : 0));
-  PUT(dict, "expr", INTEGER_OBJ(mp->m_expr ? 1 : 0));
-  PUT(dict, "silent", INTEGER_OBJ(mp->m_silent ? 1 : 0));
-  PUT(dict, "sid", INTEGER_OBJ(mp->m_script_ctx.sc_sid));
-  PUT(dict, "scriptversion", INTEGER_OBJ(1));
-  PUT(dict, "lnum", INTEGER_OBJ(mp->m_script_ctx.sc_lnum));
-  PUT(dict, "buffer", INTEGER_OBJ(buffer_value));
-  PUT(dict, "nowait", INTEGER_OBJ(mp->m_nowait ? 1 : 0));
+  PUT_KEY_X(dict, noremap, noremap_value);
+  PUT_KEY_X(dict, script, (mp->m_noremap == REMAP_SCRIPT ? 1 : 0));
+  PUT_KEY_X(dict, expr, mp->m_expr ? 1 : 0);
+  PUT_KEY_X(dict, silent, mp->m_silent ? 1 : 0);
+  PUT_KEY_X(dict, sid, mp->m_script_ctx.sc_sid));
+  PUT_KEY_X(dict, scriptversion, 1);
+  PUT_KEY_X(dict, lnum, mp->m_script_ctx.sc_lnum);
+  PUT_KEY_X(dict, buffer, buffer_value);
+  PUT_KEY_X(dict, nowait, mp->m_nowait ? 1 : 0);
   if (mp->m_replace_keycodes) {
-    PUT(dict, "replace_keycodes", INTEGER_OBJ(1));
+    PUT_KEY_X(dict, replace_keycodes, 1);
   }
-  PUT(dict, "mode", CSTR_AS_OBJ(mapmode));
-  PUT(dict, "abbr", INTEGER_OBJ(abbr ? 1 : 0));
-  PUT(dict, "mode_bits", INTEGER_OBJ(mp->m_mode));
+  PUT_KEY_X(dict, mode, cstr_as_string(mapmode));
+  PUT_KEY_X(dict, abbr, abbr ? 1 : 0);
+  PUT_KEY_X(dict, mode_bits, mp->m_mode);
 
-  return dict;
+  return api_keydict_to_dict(dict, keymap_desc_table, ARRAY_SIZE(keymap_desc_table), arena)
 }
 
 static void get_maparg(typval_T *argvars, typval_T *rettv, int exact)
@@ -2189,9 +2191,8 @@ static void get_maparg(typval_T *argvars, typval_T *rettv, int exact)
   } else {
     // Return a dictionary.
     if (mp != NULL && (rhs != NULL || rhs_lua != LUA_NOREF)) {
-      Dictionary dict = mapblock_fill_dict(mp,
-                                           did_simplify ? keys_simplified : NULL,
-                                           buffer_local, abbr, true);
+      Dictionary dict = mapblock_fill_dict(mp, did_simplify ? keys_simplified : NULL,
+                                                  buffer_local, abbr, true, arena);
       object_to_vim(DICTIONARY_OBJ(dict), rettv, NULL);
       api_free_dictionary(dict);
     } else {
@@ -2396,9 +2397,8 @@ void f_maplist(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
                           p_cpo);
         xfree(lhs);
 
-        Dictionary dict = mapblock_fill_dict(mp,
-                                             did_simplify ? keys_buf : NULL,
-                                             buffer_local, abbr, true);
+        Dictionary dict = mapblock_fill_dict(mp, did_simplify ? keys_buf : NULL,
+                                                    buffer_local, abbr, true);
         typval_T d = TV_INITIAL_VALUE;
         object_to_vim(DICTIONARY_OBJ(dict), &d, NULL);
         assert(d.v_type == VAR_DICT);
