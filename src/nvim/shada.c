@@ -480,6 +480,69 @@ static const ShadaEntry sd_default_values[] = {
 #undef DEFAULT_POS
 #undef DEF_SDE
 
+static bool msgpack_rpc_to_string(const msgpack_object *const obj, String *const arg)
+  FUNC_ATTR_NONNULL_ALL
+{
+  if (obj->type == MSGPACK_OBJECT_BIN || obj->type == MSGPACK_OBJECT_STR) {
+    arg->data = obj->via.bin.ptr != NULL
+                    ? xmemdupz(obj->via.bin.ptr, obj->via.bin.size)
+                    : NULL;
+    arg->size = obj->via.bin.size;
+    return true;
+  }
+  return false;
+}
+
+static bool shada_unpack_header(const msgpack_object *const obj, Dictionary *const arg)
+  FUNC_ATTR_NONNULL_ALL
+{
+  if (obj->type != MSGPACK_OBJECT_MAP) {
+    return false;
+  }
+
+  arg->size = obj->via.array.size;
+  arg->items = xcalloc(obj->via.map.size, sizeof(KeyValuePair));
+
+  for (uint32_t i = 0; i < obj->via.map.size; i++) {
+    if (!msgpack_rpc_to_string(&obj->via.map.ptr[i].key, &arg->items[i].key)) {
+      return false;
+    }
+
+    msgpack_object *val = &obj->via.map.ptr[i].val;
+    switch (val->type) {
+    case MSGPACK_OBJECT_NEGATIVE_INTEGER:
+      STATIC_ASSERT(sizeof(Integer) == sizeof(val->via.i64),
+                    "Msgpack integer size does not match API integer");
+      arg->items[i].value = INTEGER_OBJ(val->via.i64);
+      break;
+    case MSGPACK_OBJECT_POSITIVE_INTEGER:
+      STATIC_ASSERT(sizeof(Integer) == sizeof(val->via.u64),
+                    "Msgpack integer size does not match API integer");
+      if (val->via.u64 > API_INTEGER_MAX) {
+        return false;
+      } else {
+        arg->items[i].value = INTEGER_OBJ((Integer)val->via.u64);
+      }
+      break;
+
+    case MSGPACK_OBJECT_STR:
+    case MSGPACK_OBJECT_BIN: {
+      String str;
+      if (!msgpack_rpc_to_string(obj, &str)) {
+        return false;
+      }
+      arg->items[i].value = STRING_OBJ(str);
+      break;
+    }
+
+    default:
+        return false;
+    }
+  }
+
+  return true;
+}
+
 /// Initialize new linked list
 ///
 /// @param[out]  hmll       List to initialize.
@@ -3629,7 +3692,7 @@ shada_read_next_item_start:
   entry->data = sd_default_values[type_u64].data;
   switch ((ShadaEntryType)type_u64) {
   case kSDItemHeader:
-    if (!msgpack_rpc_to_dictionary(&(unpacked.data), &(entry->data.header))) {
+    if (!shada_unpack_header(&(unpacked.data), &(entry->data.header))) {
       semsg(_(READERR("header", "is not a dictionary")), initial_fpos);
       goto shada_read_next_item_error;
     }
