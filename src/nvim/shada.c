@@ -379,7 +379,7 @@ struct sd_read_def {
   ShaDaFileReader read;   ///< Reader function.
   ShaDaReadCloser close;  ///< Close function.
   ShaDaFileSkipper skip;  ///< Function used to skip some bytes.
-  void *cookie;           ///< Data describing object read from.
+  FileDescriptor cookie;           ///< Data describing object read from.
   bool eof;               ///< True if reader reached end of file.
   const char *error;      ///< Error message in case of error.
   uintmax_t fpos;         ///< Current position (amount of bytes read since
@@ -402,7 +402,7 @@ typedef ptrdiff_t (*ShaDaFileWriter)(ShaDaWriteDef *const sd_writer,
 struct sd_write_def {
   ShaDaFileWriter write;   ///< Writer function.
   ShaDaWriteCloser close;  ///< Close function.
-  void *cookie;            ///< Data describing object written to.
+  FileDescriptor cookie;            ///< Data describing object written to.
   const char *error;       ///< Error message in case of error.
 };
 
@@ -614,8 +614,8 @@ static inline void hmll_dealloc(HMLList *const hmll)
 static ptrdiff_t read_file(ShaDaReadDef *const sd_reader, void *const dest, const size_t size)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
 {
-  const ptrdiff_t ret = file_read(sd_reader->cookie, dest, size);
-  sd_reader->eof = file_eof(sd_reader->cookie);
+  const ptrdiff_t ret = file_read(&sd_reader->cookie, dest, size);
+  sd_reader->eof = file_eof(&sd_reader->cookie);
   if (ret < 0) {
     sd_reader->error = os_strerror((int)ret);
     return -1;
@@ -643,7 +643,7 @@ static ptrdiff_t write_file(ShaDaWriteDef *const sd_writer, const void *const de
                             const size_t size)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
 {
-  const ptrdiff_t ret = file_write(sd_writer->cookie, dest, size);
+  const ptrdiff_t ret = file_write(&sd_writer->cookie, dest, size);
   if (ret < 0) {
     sd_writer->error = os_strerror((int)ret);
     return -1;
@@ -655,14 +655,14 @@ static ptrdiff_t write_file(ShaDaWriteDef *const sd_writer, const void *const de
 static void close_sd_reader(ShaDaReadDef *const sd_reader)
   FUNC_ATTR_NONNULL_ALL
 {
-  close_file(sd_reader->cookie);
+  close_file(&sd_reader->cookie);
 }
 
 /// Wrapper for closing file descriptors opened for writing
 static void close_sd_writer(ShaDaWriteDef *const sd_writer)
   FUNC_ATTR_NONNULL_ALL
 {
-  close_file(sd_writer->cookie);
+  close_file(&sd_writer->cookie);
 }
 
 /// Wrapper for read that reads to IObuff and ignores bytes read
@@ -677,13 +677,13 @@ static void close_sd_writer(ShaDaWriteDef *const sd_writer)
 static int sd_reader_skip_read(ShaDaReadDef *const sd_reader, const size_t offset)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
 {
-  const ptrdiff_t skip_bytes = file_skip(sd_reader->cookie, offset);
+  const ptrdiff_t skip_bytes = file_skip(&sd_reader->cookie, offset);
   if (skip_bytes < 0) {
     sd_reader->error = os_strerror((int)skip_bytes);
     return FAIL;
   } else if (skip_bytes != (ptrdiff_t)offset) {
     assert(skip_bytes < (ptrdiff_t)offset);
-    sd_reader->eof = file_eof(sd_reader->cookie);
+    sd_reader->eof = file_eof(&sd_reader->cookie);
     if (!sd_reader->eof) {
       sd_reader->error = _("too few bytes read");
     }
@@ -731,8 +731,6 @@ static ShaDaReadResult sd_reader_skip(ShaDaReadDef *const sd_reader, const size_
 static int open_shada_file_for_reading(const char *const fname, ShaDaReadDef *sd_reader)
   FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ALL
 {
-  int error;
-
   *sd_reader = (ShaDaReadDef) {
     .read = &read_file,
     .close = &close_sd_reader,
@@ -740,9 +738,10 @@ static int open_shada_file_for_reading(const char *const fname, ShaDaReadDef *sd
     .error = NULL,
     .eof = false,
     .fpos = 0,
-    .cookie = file_open_new(&error, fname, kFileReadOnly, 0),
+    .cookie = {0},
   };
-  if (sd_reader->cookie == NULL) {
+  int error = file_open(&sd_reader->cookie, fname, kFileReadOnly, 0);
+  if (error) {
     return error;
   }
 
@@ -754,7 +753,7 @@ static int open_shada_file_for_reading(const char *const fname, ShaDaReadDef *sd
 /// Wrapper for closing file descriptors
 static void close_file(void *cookie)
 {
-  const int error = file_free(cookie, !!p_fs);
+  const int error = file_close(cookie, !!p_fs);
   if (error != 0) {
     semsg(_(SERR "System error while closing ShaDa file: %s"),
           os_strerror(error));
@@ -3003,6 +3002,8 @@ int shada_write_file(const char *const file, bool nomerge)
     .error = NULL,
   };
   ShaDaReadDef sd_reader = { .close = NULL };
+  // TODO: these should be checked directly on the object, fd != -1 or something?
+  bool did_open_writer = false, did_open_reader = false;
 
   if (!nomerge) {
     int error;
@@ -3016,6 +3017,8 @@ int shada_write_file(const char *const file, bool nomerge)
       }
       nomerge = true;
       goto shada_write_file_nomerge;
+    } else {
+      did_open_reader = true;
     }
     tempname = modname(fname, ".tmp.a", false);
     if (tempname == NULL) {
@@ -3032,8 +3035,8 @@ int shada_write_file(const char *const file, bool nomerge)
     // 3: If somebody happened to delete the file after it was opened for
     //    reading use u=rw permissions.
 shada_write_file_open: {}
-    sd_writer.cookie = file_open_new(&error, tempname, kFileCreateOnly|kFileNoSymlink, perm);
-    if (sd_writer.cookie == NULL) {
+    error = file_open(&sd_writer.cookie, tempname, kFileCreateOnly|kFileNoSymlink, perm);
+    if (error) {
       if (error == UV_EEXIST || error == UV_ELOOP) {
         // File already exists, try another name
         char *const wp = tempname + strlen(tempname) - 1;
@@ -3054,6 +3057,8 @@ shada_write_file_open: {}
         semsg(_(SERR "System error while opening temporary ShaDa file %s "
                 "for writing: %s"), tempname, os_strerror(error));
       }
+    } else {
+      did_open_writer = true;
     }
   }
   if (nomerge) {
@@ -3076,16 +3081,16 @@ shada_write_file_nomerge: {}
       }
       *tail = tail_save;
     }
-    int error;
-    sd_writer.cookie = file_open_new(&error, fname, kFileCreate|kFileTruncate,
-                                     0600);
-    if (sd_writer.cookie == NULL) {
+    int error = file_open(&sd_writer.cookie, fname, kFileCreate|kFileTruncate, 0600);
+    if (error) {
       semsg(_(SERR "System error while opening ShaDa file %s for writing: %s"),
             fname, os_strerror(error));
+    } else {
+      did_open_writer = true;
     }
   }
 
-  if (sd_writer.cookie == NULL) {
+  if (!did_open_writer) {
     xfree(fname);
     xfree(tempname);
     if (sd_reader.cookie != NULL) {

@@ -65,7 +65,7 @@
 #include "nvim/vim_defs.h"
 
 /// Index in scriptin
-static int curscript = 0;
+static int curscript = -1;
 FileDescriptor *scriptin[NSCRIPT] = { NULL };
 
 // These buffers are used for storing:
@@ -1176,7 +1176,7 @@ void ungetchars(int len)
 void may_sync_undo(void)
 {
   if ((!(State & (MODE_INSERT | MODE_CMDLINE)) || arrow_used)
-      && scriptin[curscript] == NULL) {
+      && curscript < 0) {
     u_sync(false);
   }
 }
@@ -1216,8 +1216,9 @@ void free_typebuf(void)
 /// restored when "file" has been read completely.
 static typebuf_T saved_typebuf[NSCRIPT];
 
-void save_typebuf(void)
+static void save_typebuf(void)
 {
+  assert (curscript >= 0);
   init_typebuf();
   saved_typebuf[curscript] = typebuf;
   alloc_typebuf();
@@ -1292,18 +1293,14 @@ void openscript(char *name, bool directly)
     return;
   }
 
-  if (scriptin[curscript] != NULL) {    // already reading script
-    curscript++;
-  }
+  curscript++;
   // use NameBuff for expanded name
   expand_env(name, NameBuff, MAXPATHL);
-  int error;
+  int error = ;
   if ((scriptin[curscript] = file_open_new(&error, NameBuff,
                                            kFileReadOnly, 0)) == NULL) {
     semsg(_(e_notopen_2), name, os_strerror(error));
-    if (curscript) {
-      curscript--;
-    }
+    curscript--;
     return;
   }
   save_typebuf();
@@ -1330,7 +1327,7 @@ void openscript(char *name, bool directly)
       update_topline_cursor();          // update cursor position and topline
       normal_cmd(&oa, false);           // execute one command
       vpeekc();                   // check for end of file
-    } while (scriptin[oldcurscript] != NULL);
+    } while (curscript >= oldcurscript);
 
     State = save_State;
     msg_scroll = save_msg_scroll;
@@ -1342,14 +1339,13 @@ void openscript(char *name, bool directly)
 /// Close the currently active input script.
 static void closescript(void)
 {
+  assert(curscript >= 0);
   free_typebuf();
   typebuf = saved_typebuf[curscript];
 
   file_free(scriptin[curscript], false);
   scriptin[curscript] = NULL;
-  if (curscript > 0) {
-    curscript--;
-  }
+  curscript--;
 }
 
 #if defined(EXITFREE)
@@ -1362,11 +1358,33 @@ void close_all_scripts(void)
 
 #endif
 
+void open_scriptin(char *scriptin)
+  FUNC_ATTR_NONNULL_ALL
+{
+  assert(curscript == -1);
+  curscript++;
+
+  int error;
+  if (strequal(parmp->scriptin, "-")) {
+    error = file_open_stdin(&scriptin[0]);
+  } else {
+    error = file_open(&scriptin[0], scriptin,
+                      kFileReadOnly|kFileNonBlocking, 0);
+  }
+  if (error) {
+    vim_snprintf(IObuff, IOSIZE,
+                 _("Cannot open for reading: \"%s\": %s\n"),
+                 scriptin, os_strerror(error));
+    fprintf(stderr, "%s", IObuff);
+    os_exit(2);
+  }
+  save_typebuf();
+}
 /// Return true when reading keys from a script file.
 int using_script(void)
   FUNC_ATTR_PURE
 {
-  return scriptin[curscript] != NULL;
+  return curscript >= 0;
 }
 
 /// This function is called just before doing a blocking wait.  Thus after
