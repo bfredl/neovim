@@ -1,0 +1,11 @@
+local build = "${NVIM_VERSION_BUILD}"
+return {
+  {"major", ${NVIM_VERSION_MAJOR}},
+  {"minor", ${NVIM_VERSION_MINOR}},
+  {"patch", ${NVIM_VERSION_PATCH}},
+  {"build", #build > 0 and build or vim.NIL},
+  {"prerelease", "$NVIM_VERSION_PRERELEASE" ~= ""},
+  {"api_level", ${NVIM_API_LEVEL}},
+  {"api_compatible", ${NVIM_API_LEVEL}},
+  {"api_prerelease", ${NVIM_API_PRERELEASE}},
+}

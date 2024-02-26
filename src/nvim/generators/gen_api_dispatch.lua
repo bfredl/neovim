@@ -2,15 +2,17 @@ local mpack = vim.mpack
 
 local hashy = require 'generators.hashy'
 
-assert(#arg >= 5)
+local pre_args = 6
+assert(#arg >= pre_args)
 -- output h file with generated dispatch functions (dispatch_wrappers.generated.h)
 local dispatch_outputf = arg[1]
--- output h file with packed metadata (funcs_metadata.generated.h)
-local funcs_metadata_outputf = arg[2]
+-- output h file with packed metadata (api_metadata.generated.h)
+local api_metadata_outputf = arg[2]
 -- output metadata mpack file, for use by other build scripts (api_metadata.mpack)
 local mpack_outputf = arg[3]
 local lua_c_bindings_outputf = arg[4] -- lua_api_c_bindings.generated.c
 local keysets_outputf = arg[5] -- keysets_defs.generated.h
+local ui_metadata_inputf = arg[6] -- ui fields in metadata
 
 local functions = {}
 
@@ -98,8 +100,10 @@ local function add_keyset(val)
   })
 end
 
+local ui_options_text = nil
+
 -- read each input file, parse and append to the api metadata
-for i = 6, #arg do
+for i = pre_args+1, #arg do
   local full_path = arg[i]
   local parts = {}
   for part in string.gmatch(full_path, '[^/]+') do
@@ -109,7 +113,8 @@ for i = 6, #arg do
 
   local input = assert(io.open(full_path, 'rb'))
 
-  local tmp = c_grammar.grammar:match(input:read('*all'))
+  local text = input:read('*all')
+  local tmp = c_grammar.grammar:match(text)
   for j = 1, #tmp do
     local val = tmp[j]
     if val.keyset_name then
@@ -118,6 +123,10 @@ for i = 6, #arg do
       add_function(val)
     end
   end
+
+  local ui_match = string.match(text, "ui_ext_names%[][^{]+{([^}]+)}")
+  ui_options_text = ui_options_text or ui_match
+  
   input:close()
 end
 
@@ -218,13 +227,64 @@ for _, f in ipairs(functions) do
   end
 end
 
+-- metadata: fields from ui events generator
+local ui_metadata = mpack.decode(io.open(ui_metadata_inputf, 'rb'):read('*all'))
+
+local ui_options = {"rgb"}
+for x in string.gmatch(ui_options_text, '"([a-z][a-z_]+)"') do
+  table.insert(ui_options, x)
+end
+
 -- serialize the API metadata using msgpack and embed into the resulting
 -- binary for easy querying by clients
-local funcs_metadata_output = assert(io.open(funcs_metadata_outputf, 'wb'))
-local packed = mpack.encode(exported_functions)
+local api_metadata_output = assert(io.open(api_metadata_outputf, 'wb'))
+local pieces = {}
+local function fixdict(num)
+  if num > 15 then
+    error 'implement more dict codes'
+  end
+  table.insert(pieces, string.char(128+num))
+end
+local function put(item, item2)
+  table.insert(pieces, mpack.encode(item))
+  if item2 ~= nil then
+    table.insert(pieces, mpack.encode(item2))
+  end
+end
+fixdict(6)
+put("version")
+local version = require'nvim_version'
+print("KNAAK", vim.inspect(version))
+
+fixdict(#version)
+for _,item in ipairs(version) do
+  put(unpack(item))
+end
+
+put("functions", exported_functions)
+put("ui_events")
+table.insert(pieces, io.open(ui_metadata_inputf, 'rb'):read('*all'))
+put("ui_options", ui_options)
+
+put("error_types")
+fixdict(2)
+put("Exception", {id=0})
+put("Validation", {id=1})
+
+put("types")
+local types = {{"Buffer", "nvim_buf_"}, {"Window", "nvim_win_"}, {"Tabpage", "nvim_tabpage_"}}
+fixdict(#types)
+for i,item in ipairs(types) do
+  put(item[1])
+  fixdict(2)
+  put("id", i-1)
+  put("prefix", item[2])
+end
+
+local packed = table.concat(pieces)
 local dump_bin_array = require('generators.dump_bin_array')
-dump_bin_array(funcs_metadata_output, 'funcs_metadata', packed)
-funcs_metadata_output:close()
+dump_bin_array(api_metadata_output, 'packed_api_metadata', packed)
+api_metadata_output:close()
 
 -- start building the dispatch wrapper output
 local output = assert(io.open(dispatch_outputf, 'wb'))

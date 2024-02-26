@@ -10,6 +10,7 @@ execute_process(
 if(RES)
   message(STATUS "Using NVIM_VERSION: ${NVIM_VERSION}")
   file(WRITE "${OUTPUT}" "")
+  configure_file(${NVIM_VERSION_LUA_IN} ${NVIM_VERSION_LUA})
   return()
 endif()
 
@@ -29,13 +30,15 @@ endif()
 set(NVIM_VERSION_STRING "#define NVIM_VERSION_MEDIUM \"${NVIM_VERSION}\"\n#define NVIM_VERSION_BUILD \"${NVIM_VERSION_BUILD}\"\n")
 
 string(SHA1 CURRENT_VERSION_HASH "${NVIM_VERSION_STRING}")
-if(EXISTS ${OUTPUT})
+if(EXISTS ${OUTPUT} AND EXISTS ${NVIM_VERSION_LUA})
   file(SHA1 "${OUTPUT}" NVIM_VERSION_HASH)
 endif()
 
 if(NOT "${NVIM_VERSION_HASH}" STREQUAL "${CURRENT_VERSION_HASH}")
   message(STATUS "Using NVIM_VERSION: ${NVIM_VERSION}")
   file(WRITE "${OUTPUT}" "${NVIM_VERSION_STRING}")
+  configure_file(${NVIM_VERSION_LUA_IN} ${NVIM_VERSION_LUA})
+
   if(WIN32)
     configure_file("${OUTPUT}" "${OUTPUT}" NEWLINE_STYLE UNIX)
   endif()
