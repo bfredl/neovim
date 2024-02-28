@@ -58,6 +58,7 @@
 #include "nvim/move.h"
 #include "nvim/msgpack_rpc/channel.h"
 #include "nvim/msgpack_rpc/channel_defs.h"
+#include "nvim/msgpack_rpc/packer.h"
 #include "nvim/msgpack_rpc/unpacker.h"
 #include "nvim/ops.h"
 #include "nvim/option.h"
@@ -2037,6 +2038,58 @@ Object nvim__unpack(String str, Arena *arena, Error *err)
   FUNC_API_FAST
 {
   return unpack(str.data, str.size, arena, err);
+}
+
+typedef struct {
+  ArrayBuilder res;
+  Arena *arena;
+} PackData;
+
+static void flush_callback(PackerBuffer *self, size_t size_hint) {
+  // silly walk: reuse whatever buf size we started with
+  size_t bufsize = (size_t)(self->endptr - self->startptr);
+  size_t len = (size_t)(self->ptr - self->startptr);
+  PackData *data = self->anydata;
+  kvi_push(data->res, STRING_OBJ(cbuf_as_string(self->startptr, len)));
+
+  self->startptr = arena_allocz(data->arena, size_hint);
+  self->ptr = self->startptr;
+  self->endptr = self->startptr + bufsize;
+}
+
+/// test mpacking with buffer sizes
+///
+/// @return segments of data which should be concatenated togheter
+Array nvim__pack(Object obj, Integer bufsize, Boolean use_array, Arena *arena, Error *err) {
+  if (obj.type == kObjectTypeLuaRef) {
+    return (Array)KV_INITIAL_VALUE;
+  }
+
+  PackData data = {.res = KV_INITIAL_VALUE, .arena = arena};
+  kvi_init(data.res);
+  bufsize = MAX(bufsize, MPACK_ITEM_SIZE);
+
+  char *buf = arena_allocz(arena, (size_t)bufsize);
+  PackerBuffer packer = {
+    .startptr = buf,
+    .ptr = buf,
+    .endptr = buf + bufsize,
+    .anydata = &data,
+    .flush = flush_callback,
+  };
+
+  if (use_array && obj.type == kObjectTypeArray) {
+    mpack_object_array(obj.data.array, &packer);
+  } else {
+    mpack_object(&obj, &packer);
+  }
+
+  size_t len = (size_t)(packer.ptr - packer.startptr);
+  if (len > 0) {
+    kvi_push(data.res, STRING_OBJ(cbuf_as_string(packer.startptr, len)));
+  }
+
+  return arena_take_arraybuilder(arena, &data.res);
 }
 
 /// Deletes an uppercase/file named mark. See |mark-motions|.
