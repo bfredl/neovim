@@ -6330,6 +6330,7 @@ Dictionary get_all_vimoptions(Arena *arena)
 {
   Dictionary retval = arena_dict(arena, kOptIndexCount);
   fprintf(stderr, "BEFOR\n");
+  fflush(stderr);
   if (bloggfil) {
     fprintf(bloggfil, "IN FILE: INNAN\n");
     fflush(bloggfil);
@@ -6339,6 +6340,11 @@ Dictionary get_all_vimoptions(Arena *arena)
     PUT_C(retval, options[opt_idx].fullname, DICTIONARY_OBJ(opt_dict));
   }
   fprintf(stderr, "AFTOR\n");
+  fflush(stderr);
+  if (bloggfil) {
+    fprintf(bloggfil, "IN FILE: ETTERAT\n");
+    fflush(bloggfil);
+  }
   return retval;
 }
 
