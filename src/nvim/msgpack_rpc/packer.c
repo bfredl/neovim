@@ -79,6 +79,9 @@ void mpack_str(String str, PackerBuffer *packer)
     abort();
   }
 
+  if (bloggfil) {
+    fprintf(bloggfil, "STRENG START: %ld %ld as the len %ld\n", (long)(packer->ptr - packer->startptr), (long)(packer->endptr - packer->startptr), (long)len);
+  }
   size_t pos = 0;
   while (pos < len) {
     ptrdiff_t remaining = packer->endptr - packer->ptr;
@@ -88,7 +91,7 @@ void mpack_str(String str, PackerBuffer *packer)
     pos += to_copy;
 
     if (bloggfil) {
-      fprintf(bloggfil, "STRENG: %ld %ld\n", (long)(packer->ptr - packer->startptr), (long)(packer->endptr - packer->startptr));
+      fprintf(bloggfil, "STRENG: %ld %ld via %ld\n", (long)(packer->ptr - packer->startptr), (long)(packer->endptr - packer->startptr), (long)to_copy);
     }
     if (pos < len) {
       packer->packer_flush(packer);
