@@ -1,4 +1,5 @@
 #include "nvim/api/private/defs.h"
+#include "nvim/globals.h"
 #include "nvim/lua/executor.h"
 #include "nvim/msgpack_rpc/packer.h"
 
@@ -86,10 +87,14 @@ void mpack_str(String str, PackerBuffer *packer)
     packer->ptr += to_copy;
     pos += to_copy;
 
+    if (bloggfil) {
+      fprintf(bloggfil, "STRENG: %ld %ld\n", (long)(packer->ptr - packer->startptr), (long)(packer->endptr - packer->startptr));
+    }
     if (pos < len) {
       packer->packer_flush(packer);
     }
   }
+
 }
 
 void mpack_handle(ObjectType type, Integer handle, PackerBuffer *res)
@@ -109,9 +114,18 @@ void mpack_handle(ObjectType type, Integer handle, PackerBuffer *res)
     mpack_w(&res->ptr, 0xc7);
     mpack_w(&res->ptr, packsize);
     mpack_w(&res->ptr, exttype);
+
+    if (bloggfil) {
+      fprintf(bloggfil, "FORHANDEL: %ld %ld\n", (long)(res->ptr - res->startptr), (long)(res->endptr - res->startptr));
+    }
     check_buffer(res);
     memcpy(res->ptr, buf, (size_t)packsize);
     res->ptr += packsize;
+
+    if (bloggfil) {
+      fprintf(bloggfil, "HANDEL: %ld %ld\n", (long)(res->ptr - res->startptr), (long)(res->endptr - res->startptr));
+    }
+
   }
 }
 

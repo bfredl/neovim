@@ -419,8 +419,19 @@ free_ret:
   // e->args (and possibly result) are allocated in an arena
   arena_mem_free(arena_finish(&e->used_mem));
   channel_decref(channel);
+
+    if (bloggfil) {
+      fprintf(bloggfil, "IN FILE: AAA\n");
+      fflush(bloggfil);
+    }
+
   xfree(e);
   api_clear_error(&error);
+
+    if (bloggfil) {
+      fprintf(bloggfil, "IN FILE: freeing is done\n");
+      fflush(bloggfil);
+    }
 }
 
 bool rpc_write_raw(uint64_t id, WBuffer *buffer)
@@ -628,13 +639,24 @@ void serialize_response(Channel *channel, MsgpackRpcRequestHandler handler, Mess
     mpack_nil(&packer.ptr);
     // Return value
     fprintf(stderr, "PACKENZEIT\n");
-    os_write(STDERR_FILENO, S_LEN("PACKENAAAAAAA\n"), false);
+    if (bloggfil) {
+      fprintf(bloggfil, "IN FILE: PACKENZEIT\n");
+      fflush(bloggfil);
+    }
     mpack_object(arg, &packer);
     fprintf(stderr, "packen is done\n");
-    os_write(STDERR_FILENO, S_LEN("NO PACKENAAAAAAA\n"), false);
+    if (bloggfil) {
+      fprintf(bloggfil, "IN FILE: packen is done\n");
+      fflush(bloggfil);
+    }
   }
 
   packer_buffer_finish_channels(&packer);
+
+  if (bloggfil) {
+    fprintf(bloggfil, "IN FILE: flushen is done\n");
+    fflush(bloggfil);
+  }
 
   log_response(SEND, channel->id, ERROR_SET(err) ? ERR : RES, response_id);
 }
@@ -649,11 +671,25 @@ static void packer_buffer_init_channels(Channel **chans, size_t nchans, PackerBu
   packer->anylen = nchans;
 }
 
+void free_block_wrap(void *block) {
+  if (bloggfil) {
+    fprintf(bloggfil, "FREEN\n");
+    fflush(bloggfil);
+  }
+  free_block(block);
+}
+
 static void packer_buffer_finish_channels(PackerBuffer *packer)
 {
+  if (bloggfil) {
+    fprintf(bloggfil, "FIN: %ld %ld\n", (long)(packer->ptr - packer->startptr), (long)(packer->endptr - packer->startptr));
+    fprintf(bloggfil, "FEL: %ld\n", (long)(packer->anylen));
+    fflush(bloggfil);
+  }
+
   size_t len = (size_t)(packer->ptr - packer->startptr);
   if (len > 0) {
-    WBuffer *buf = wstream_new_buffer(packer->startptr, len, packer->anylen, free_block);
+    WBuffer *buf = wstream_new_buffer(packer->startptr, len, packer->anylen, free_block_wrap);
     Channel **chans = packer->anydata;
     for (size_t i = 0; i < packer->anylen; i++) {
       channel_write(chans[i], buf);
