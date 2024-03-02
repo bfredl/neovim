@@ -305,6 +305,11 @@ int main(int argc, char **argv)
   nlua_init(argv, argc, params.lua_arg0);
   TIME_MSG("init lua interpreter");
 
+  os_write(STDERR_FILENO, S_LEN("\n=========\nSTARTUP SONG SOUND!\n"), false);
+  if (os_getenv("BLOGGEN")) {
+    bloggfil = fopen("BLOGG", "wb");
+  }
+
   if (embedded_mode) {
     const char *err;
     if (!channel_from_stdio(true, CALLBACK_READER_INIT, &err)) {

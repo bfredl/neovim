@@ -127,6 +127,7 @@ function ChildProcessStream.spawn(argv, env, io_extra)
   local self = setmetatable({
     _child_stdin = uv.new_pipe(false),
     _child_stdout = uv.new_pipe(false),
+    _child_stderr = uv.new_pipe(false),
     _exiting = false,
   }, ChildProcessStream)
   local prog = argv[1]
@@ -134,9 +135,10 @@ function ChildProcessStream.spawn(argv, env, io_extra)
   for i = 2, #argv do
     args[#args + 1] = argv[i]
   end
+
   --- @diagnostic disable-next-line:missing-fields
   self._proc, self._pid = uv.spawn(prog, {
-    stdio = { self._child_stdin, self._child_stdout, 2, io_extra },
+    stdio = { self._child_stdin, self._child_stdout, self._child_stderr, io_extra },
     args = args,
     --- @diagnostic disable-next-line:assign-type-mismatch
     env = env,
@@ -144,6 +146,20 @@ function ChildProcessStream.spawn(argv, env, io_extra)
     self.status = status
     self.signal = signal
   end)
+
+  self._child_stderr:read_start(function(err, chunk)
+    if err then
+      print("REEEEEEE",  vim.inspect(err))
+    end
+    if chunk then
+      print("RAAAA", chunk)
+    end
+    if (not err) and (not chunk) then
+      print("FUUUUUUUU")
+    end
+    io.stdout:flush()
+  end)
+
 
   if not self._proc then
     local err = self._pid
@@ -184,6 +200,7 @@ function ChildProcessStream:close(signal)
   while self.status == nil do
     uv.run 'once'
   end
+  self._child_stderr:close()
   return self.status, self.signal
 end
 

@@ -30,6 +30,7 @@
 #include "nvim/msgpack_rpc/channel_defs.h"
 #include "nvim/msgpack_rpc/packer.h"
 #include "nvim/msgpack_rpc/unpacker.h"
+#include "nvim/os/fs.h"
 #include "nvim/os/input.h"
 #include "nvim/rbuffer.h"
 #include "nvim/rbuffer_defs.h"
@@ -404,6 +405,8 @@ static void request_event(void **argv)
   }
 
   Object result = handler.fn(channel->id, e->args, &e->used_mem, &error);
+  fprintf(stderr, "RESPONSE TIME %d\n", error.type);
+  os_write(STDERR_FILENO, S_LEN("RESPONSE TIMEAAA\n"), false);
   if (e->type == kMessageTypeRequest || ERROR_SET(&error)) {
     // Send the response.
     serialize_response(channel, e->handler, e->type, e->request_id, &error, &result);
@@ -624,7 +627,11 @@ void serialize_response(Channel *channel, MsgpackRpcRequestHandler handler, Mess
     // Nil error
     mpack_nil(&packer.ptr);
     // Return value
+    fprintf(stderr, "PACKENZEIT\n");
+    os_write(STDERR_FILENO, S_LEN("PACKENAAAAAAA\n"), false);
     mpack_object(arg, &packer);
+    fprintf(stderr, "packen is done\n");
+    os_write(STDERR_FILENO, S_LEN("NO PACKENAAAAAAA\n"), false);
   }
 
   packer_buffer_finish_channels(&packer);

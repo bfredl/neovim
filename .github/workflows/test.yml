@@ -195,6 +195,9 @@ jobs:
   windows:
     runs-on: windows-2022
     timeout-minutes: 45
+    env:
+      TEST_TAG: thetest
+      TEST_FILE: test/functional/api/vim_spec.lua
     strategy:
       fail-fast: false
       matrix:

@@ -6329,10 +6329,16 @@ Dictionary get_vimoption(String name, int scope, buf_T *buf, win_T *win, Arena *
 Dictionary get_all_vimoptions(Arena *arena)
 {
   Dictionary retval = arena_dict(arena, kOptIndexCount);
+  fprintf(stderr, "BEFOR\n");
+  if (bloggfil) {
+    fprintf(bloggfil, "IN FILE: INNAN\n");
+    fflush(bloggfil);
+  }
   for (OptIndex opt_idx = 0; opt_idx < kOptIndexCount; opt_idx++) {
     Dictionary opt_dict = vimoption2dict(&options[opt_idx], OPT_GLOBAL, curbuf, curwin, arena);
     PUT_C(retval, options[opt_idx].fullname, DICTIONARY_OBJ(opt_dict));
   }
+  fprintf(stderr, "AFTOR\n");
   return retval;
 }
 
