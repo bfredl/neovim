@@ -780,27 +780,17 @@ void remote_ui_raw_line(RemoteUI *ui, Integer grid, Integer row, Integer startco
     bool was_space = false;
     for (size_t i = 0; i < ncells; i++) {
       repeat++;
+
+      if (UI_BUF_SIZE - BUF_POS(ui) < 2 * (1 + 2 + sizeof(schar_T) + 5 + 5) + 1
+          || ui->ncells_pending >= 500) {
+        // close to overflowing the redraw buffer. For simplicity leave place for
+        // the final "clear" element as well, hence the factor of 2 in the check.
+        // Also just if there is a lot of cells, flush and let client start
+        // the work of unpacking in parallel.
+        ui_flush_buf(ui);
+      }
+
       if (i == ncells - 1 || attrs[i] != attrs[i + 1] || chunk[i] != chunk[i + 1]) {
-        if (UI_BUF_SIZE - BUF_POS(ui) < 2 * (1 + 2 + sizeof(schar_T) + 5 + 5) + 1) {
-          // close to overflowing the redraw buffer. finish this event,
-          // flush, and start a new "grid_line" event at the current position.
-          // For simplicity leave place for the final "clear" element
-          // as well, hence the factor of 2 in the check.
-          mpack_w2(&lenpos, nelem);
-
-          // We only ever set the wrap field on the final "grid_line" event for the line.
-          mpack_bool(buf, false);
-          ui_flush_buf(ui);
-
-          prepare_call(ui, "grid_line");
-          mpack_array(buf, 5);
-          mpack_uint(buf, (uint32_t)grid);
-          mpack_uint(buf, (uint32_t)row);
-          mpack_uint(buf, (uint32_t)startcol + (uint32_t)i - repeat + 1);
-          lenpos = mpack_array_dyn16(buf);
-          nelem = 0;
-          last_hl = -1;
-        }
         uint32_t csize = (repeat > 1) ? 3 : ((attrs[i] != last_hl) ? 2 : 1);
         nelem++;
         mpack_array(buf, csize);
@@ -832,10 +822,6 @@ void remote_ui_raw_line(RemoteUI *ui, Integer grid, Integer row, Integer startco
     mpack_w2(&lenpos, nelem);
     mpack_bool(buf, flags & kLineFlagWrap);
 
-    if (ui->ncells_pending > 500) {
-      // pass off cells to UI to let it start processing them
-      ui_flush_buf(ui);
-    }
   } else {
     for (int i = 0; i < endcol - startcol; i++) {
       remote_ui_cursor_goto(ui, row, startcol + i);
