@@ -82,6 +82,12 @@ describe('startup', function()
     clear()
     local screen
     screen = Screen.new(60, 7)
+    screen:set_default_attr_ids {
+      [1] = {background = Screen.colors.Yellow1, foreground = Screen.colors.Red1};
+      [2] = {background = Screen.colors.NvimLightGrey2, foreground = Screen.colors.NvimDarkGrey2};
+      [3] = {background = Screen.colors.NvimLightGrey2, foreground = Screen.colors.NvimLightGrey4};
+      [4] = {background = Screen.colors.NvimDarkGrey3, foreground = Screen.colors.NvimLightGrey3};
+    }
     screen:attach()
     local id = fn.termopen({
       nvim_prog,
@@ -108,10 +114,11 @@ describe('startup', function()
     ]])
     fn.chansend(id, 'cont\n')
     screen:expect([[
-      ^                                                            |
-      ~                                                           |*3
-      [No Name]                                                   |
-                                                                  |*2
+      {2:^                                                            }|
+      {3:~                                                           }|*3
+      {4:[No Name]                                                   }|
+      {2:                                                            }|
+                                                                  |
     ]])
   end)
 end)
@@ -326,6 +333,9 @@ describe('startup', function()
     local screen = Screen.new(25, 3)
     -- Remote UI connected by --embed.
     screen:attach()
+    -- TODO: a lot of tests in this file already use the new default color scheme.
+    -- once we do the batch update of tests to use it, remove this workarond
+    screen._default_attr_ids = nil
     command([[echo has('ttyin') has('ttyout')]])
     screen:expect([[
       ^                         |
@@ -337,6 +347,7 @@ describe('startup', function()
   it('in a TTY: has("ttyin")==1 has("ttyout")==1', function()
     local screen = Screen.new(25, 4)
     screen:attach()
+    screen._default_attr_ids = nil
     if is_os('win') then
       command([[set shellcmdflag=/s\ /c shellxquote=\"]])
     end
@@ -428,6 +439,7 @@ describe('startup', function()
   it('input from pipe (implicit) #7679', function()
     local screen = Screen.new(25, 4)
     screen:attach()
+    screen._default_attr_ids = nil
     if is_os('win') then
       command([[set shellcmdflag=/s\ /c shellxquote=\"]])
     end
@@ -589,6 +601,7 @@ describe('startup', function()
     local screen
     screen = Screen.new(60, 6)
     screen:attach()
+    screen._default_attr_ids = nil
     local id = fn.termopen({
       nvim_prog,
       '-u',
@@ -1123,6 +1136,7 @@ describe('user config init', function()
 
         local screen = Screen.new(50, 8)
         screen:attach()
+        screen._default_attr_ids = nil
         fn.termopen({ nvim_prog }, {
           env = {
             VIMRUNTIME = os.getenv('VIMRUNTIME'),

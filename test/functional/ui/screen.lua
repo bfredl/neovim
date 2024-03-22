@@ -509,7 +509,10 @@ function Screen:expect(expected, attr_ids, ...)
       attr_state.id_to_index = self:linegrid_check_attrs(attr_state.ids or {})
     end
 
-    local actual_rows = self:render(not expected.any, attr_state)
+    local actual_rows
+    if expected.any or grid then
+      actual_rows = self:render(not expected.any, attr_state)
+    end
 
     if expected.any then
       -- Search for `any` anywhere in the screen lines.

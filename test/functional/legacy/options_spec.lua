@@ -64,14 +64,14 @@ describe('set', function()
       set laststatus=2
     ]])
     command('verbose set scroll?')
-    screen:expect([[
+    screen:expect{grid=[[
                                                 |
-      ~                                         |*11
-                                                |
+      {1:~                                         }|*11
+      {3:                                          }|
         scroll=7                                |
               Last set from changed window size |
-      Press ENTER or type command to continue^   |
-    ]])
+      {6:Press ENTER or type command to continue}^   |
+    ]]}
   end)
 
   it('foldcolumn and signcolumn to empty string is disallowed', function()
