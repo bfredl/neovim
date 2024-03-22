@@ -139,6 +139,29 @@ local function _init_colors()
   end
   Screen.colors = colors
   Screen.colornames = colornames
+
+  Screen._global_default_attr_ids = {
+    [1] = {foreground = Screen.colors.Blue1, bold = true},
+    [2] = {reverse = true},
+    [3] = {bold = true, reverse = true},
+    [4] = {background = Screen.colors.LightMagenta},
+    [5] = {bold = true},
+    [6] = {foreground = Screen.colors.SeaGreen, bold = true},
+    [7] = {background = Screen.colors.Gray, foreground = Screen.colors.DarkBlue},
+    [8] = {foreground = Screen.colors.Brown},
+    [9] = {background = Screen.colors.Red, foreground = Screen.colors.Grey100},
+    [10] = {background = Screen.colors.Yellow},
+    [11] = {foreground = Screen.colors.Blue1, background = Screen.colors.LightMagenta, bold = true},
+    [12] = {background = Screen.colors.Gray},
+    [13] = {background = Screen.colors.LightGrey, foreground = Screen.colors.DarkBlue},
+    [14] = {background = Screen.colors.DarkGray, foreground = Screen.colors.LightGrey},
+    [15] = {foreground = Screen.colors.Brown, bold = true},
+    [16] = {foreground = Screen.colors.SlateBlue},
+    [17] = {background = Screen.colors.LightGrey, foreground = Screen.colors.Black},
+    [18] = {foreground = Screen.colors.Blue1},
+    [19] = {foreground = Screen.colors.Red},
+    [20] = {background = Screen.colors.Yellow, foreground = Screen.colors.Red},
+  }
 end
 
 --- @param width? integer
@@ -213,6 +236,7 @@ function Screen.new(width, height)
   return self
 end
 
+
 function Screen:set_default_attr_ids(attr_ids)
   self._default_attr_ids = attr_ids
 end
@@ -256,6 +280,11 @@ function Screen:attach(options, session)
   end
   if self._options.ext_multigrid then
     self._options.ext_linegrid = true
+  end
+
+  if self._default_attr_ids == nil then
+    -- TODO: eleminate deepcopy once we have verified nothing suss going on
+    self._default_attr_ids = vim.deepcopy(Screen._global_default_attr_ids)
   end
 end
 
