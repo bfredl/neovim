@@ -634,6 +634,15 @@ screen:redraw_debug() to show all intermediate screen states.]]
         end
       end
     end
+
+    -- wow, success, STATISTICS time
+    if self._options.ext_linegrid and self._options.rgb and not self._options.ext_hlstate then
+      if Screen.stats_doit then 
+        local seen_here = {}
+        local actual_rows = self:render(not expected.any, attr_state, false, seen_here)
+      end
+    end
+
   end, expected)
 end
 
@@ -1341,7 +1350,7 @@ function Screen:_clear_row_section(grid, rownum, startcol, stopcol, invalid)
   end
 end
 
-function Screen:_row_repr(gridnr, rownr, attr_state, cursor)
+function Screen:_row_repr(gridnr, rownr, attr_state, cursor, seen_here)
   local rv = {}
   local current_attr_id
   local i = 1
@@ -1382,6 +1391,19 @@ function Screen:_row_repr(gridnr, rownr, attr_state, cursor)
         -- open a new attribute bracket
         table.insert(rv, '{' .. attr_id .. ':')
         current_attr_id = attr_id
+        if seen_here then
+          if not seen_here[attr_id] then
+            seen_here[attr_id] = true
+            local attr = self._attr_table[row[i].hl_id][1]
+            local index = self:_attr_index(Screen.stat_table, attr)
+            if index == nil then
+              index = #Screen.stat_table + 1
+              Screen.stat_table[index] = attr
+              print("PUTTEN!!!!!!!!!!!!!\n")io.stdout:flush()
+            end
+            Screen.stat_counters[index] = (Screen.stat_counters[index] or 0) + 1
+          end
+        end
       end
       if not self._busy and cursor and self._cursor.col == i then
         table.insert(rv, '^')
@@ -1489,7 +1511,7 @@ end
 --- @param attr_state any
 --- @param preview? boolean
 --- @return string[]
-function Screen:render(headers, attr_state, preview)
+function Screen:render(headers, attr_state, preview, seen_here)
   headers = headers and (self._options.ext_multigrid or self._options._debug_float)
   local rv = {}
   for igrid, grid in vim.spairs(self._grids) do
@@ -1512,7 +1534,7 @@ function Screen:render(headers, attr_state, preview)
     for i = 1, height do
       local cursor = self._cursor.grid == igrid and self._cursor.row == i
       local prefix = (headers or preview) and '  ' or ''
-      table.insert(rv, prefix .. self:_row_repr(igrid, i, attr_state, cursor) .. '|')
+      table.insert(rv, prefix .. self:_row_repr(igrid, i, attr_state, cursor, seen_here) .. '|')
     end
   end
   return rv
@@ -1906,6 +1928,25 @@ function Screen:_attr_index(attrs, attr)
     end
   end
   return nil
+end
+
+-- from index to definition (rgb only)
+Screen.stat_table = {}
+-- from index to count (zero if missing)
+Screen.stat_counters = {}
+Screen.stats_doit = false
+
+function Screen.print_stats()
+  if not Screen.stats_doit then
+    return
+  end
+
+  local fil = io.open("/tmp/finfil.txt", "wb")
+  for i,n in ipairs(Screen.stat_counters) do
+    print(n, Screen:_pprint_attrs(Screen.stat_table[i]))
+    fil:write(n.."\t"..Screen:_pprint_attrs(Screen.stat_table[i]).."\n")
+  end
+  fil:close()
 end
 
 return Screen

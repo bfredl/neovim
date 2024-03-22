@@ -233,6 +233,10 @@ return function(options)
     local tests = (testCount == 1 and 'test' or 'tests')
     local files = (fileCount == 1 and 'file' or 'files')
     io.write(globalTeardown)
+
+    local Screen = require('test.functional.ui.screen')
+    Screen.print_stats()
+
     io.write(suiteEndString:format(testCount, tests, fileCount, files, elapsedTime_ms))
     io.write(getSummaryString())
     if failureCount > 0 or errorCount > 0 then
