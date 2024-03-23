@@ -297,6 +297,17 @@ function Screen:attach(options, session)
 
   if self._default_attr_ids == nil then
     self._default_attr_ids = Screen._global_default_attr_ids
+  else
+    -- wow, STATISTICS time
+    if self._options.ext_linegrid and self._options.rgb and not self._options.ext_hlstate then
+      local overflow = 0
+      for _,attr in pairs(self._default_attr_ids) do
+        if self:_attr_index(Screen._global_default_attr_ids, attr) == nil then
+          overflow = overflow + 1
+        end
+      end
+      Screen.stat_counters[overflow] = (Screen.stat_counters[overflow] or 0) + 1;
+    end
   end
 end
 
@@ -1950,6 +1961,23 @@ function Screen:_attr_index(attrs, attr)
     end
   end
   return nil
+end
+
+-- from overflow to count (zero if missing)
+Screen.stat_counters = {}
+Screen.stats_doit = true
+
+function Screen.print_stats()
+  if not Screen.stats_doit then
+    return
+  end
+
+  local fil = io.open("/tmp/finfil.txt", "wb")
+  for i,n in pairs(Screen.stat_counters) do
+    print(i, n)
+    fil:write(n.."\t"..i.."\n")
+  end
+  fil:close()
 end
 
 return Screen
