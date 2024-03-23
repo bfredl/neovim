@@ -1696,6 +1696,9 @@ function M.main(argv)
     end
   end
 
+  local Screen = require('test.functional.ui.screen')
+  Screen.print_stats()
+
   if not ran_any then
     exit_code = 1
   end
