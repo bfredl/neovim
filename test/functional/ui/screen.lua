@@ -115,6 +115,9 @@ end
 local Screen = {}
 Screen.__index = Screen
 
+Screen.cases = {}
+local any_case = false
+
 local default_timeout_factor = 1
 if os.getenv('VALGRIND') then
   default_timeout_factor = default_timeout_factor * 3
@@ -188,6 +191,11 @@ function Screen.new(width, height)
     _init_colors()
   end
 
+  if any_case then
+    table.insert(Screen.cases, {"RESET"})
+    any_case = false
+  end
+
   local self = setmetatable({
     timeout = default_screen_timeout,
     title = '',
@@ -256,6 +264,10 @@ end
 function Screen:set_default_attr_ids(attr_ids)
   self._default_attr_ids = attr_ids
   self._attrs_overridden = true
+  self._attr_at = debug.getinfo(2, "Sl")
+end
+
+function Screen:no_set_default_attr_ids(attr_ids)
 end
 
 function Screen:add_extra_attr_ids(extra_attr_ids)
@@ -267,6 +279,7 @@ function Screen:add_extra_attr_ids(extra_attr_ids)
     attr_ids[id] = attr
   end
   self._default_attr_ids = attr_ids
+  self._extended = true
 end
 
 function Screen:get_default_attr_ids()
@@ -375,6 +388,8 @@ for _, v in ipairs(ext_keys) do
   expect_keys[v] = true
 end
 
+local overflowerss = {}
+
 --- @class test.function.ui.screen.Expect
 ---
 --- Expected screen state (string). Each line represents a screen
@@ -475,6 +490,67 @@ function Screen:expect(expected, attr_ids, ...)
   --- @type string, fun()
   local grid, condition
 
+  if not self._did_the_check then
+    self._did_the_check = true
+    self.shadow = false
+
+    -- wow, STATISTICS time
+    if self._options.ext_linegrid and self._options.rgb and not self._options.ext_hlstate and self._default_attr_ids ~= Screen._global_default_attr_ids and self._default_attr_ids ~= nil and not self._extended then
+      attr_key = (self._attr_at.short_src..':'..(self._attr_at.currentline))
+      if overflowerss[attr_key] == nil then 
+        overflowerss[attr_key] = {
+          overflow = 0,
+          overflow_set = {},
+          overflow_id = 1,
+        }
+      else
+        Screen.stat_counters[overflowerss[attr_key].overflow] = Screen.stat_counters[overflowerss[attr_key].overflow] - 1
+      end
+      o = overflowerss[attr_key]
+      for id,attr in pairs(self._default_attr_ids) do
+        if self:_attr_index(Screen._global_default_attr_ids, attr) == nil and self:_attr_index(o.overflow_set, attr) == nil then
+          o.overflow = o.overflow + 1
+          if type(id) == "number" then
+            o.overflow_set[o.overflow_id] = attr
+            o.overflow_id = o.overflow_id + 1;
+          else
+            o.overflow_set[id] = attr
+          end
+        end
+      end
+      Screen.stat_counters[o.overflow] = (Screen.stat_counters[o.overflow] or 0) + 1;
+      if o.overflow < 5 then
+        if self._attr_at then
+          self.shadow = true
+          print("\n%%%ATTREN")
+          print(self._attr_at.short_src..':'..(self._attr_at.currentline))
+          local overflow_text = nil
+          if o.overflow > 0 then
+            local attrstrs = {}
+            local shadow_set = vim.deepcopy(Screen._global_default_attr_ids)
+            for i, a in pairs(o.overflow_set) do
+              if type(i) == "number" then
+                i = 99+i
+              end
+              shadow_set[i] = a
+              table.insert(attrstrs, self:_pprint_attrdef(i,a))
+            end
+            overflow_text = ('screen:add_extra_attr_ids {\n  ' .. table.concat(attrstrs, '\n  ') .. '\n}')
+            self.shadow_set = shadow_set
+            print("\n%%%OVERFLOW\n"..overflow_text)
+          else
+            self.shadow_set = Screen._global_default_attr_ids
+          end
+          table.insert(Screen.cases, {"attr", self._attr_at.short_src, self._attr_at.currentline, overflow_text})
+          any_case = true
+        end
+      end
+    end
+  end
+
+  local infon = debug.getinfo(2, "Sl")
+  local didthis = false
+
   assert(next({ ... }) == nil, 'invalid args to expect()')
 
   if type(expected) == 'table' then
@@ -502,10 +578,11 @@ function Screen:expect(expected, attr_ids, ...)
   end
 
   local expected_rows = {} --- @type string[]
+  local prefixen = ''
   if grid then
     -- Remove the last line and dedent. Note that gsub returns more then one
     -- value.
-    grid = dedent(grid:gsub('\n[ ]+$', ''), 0)
+    grid, prefixen = dedent(grid:gsub('\n[ ]+$', ''), 0, true)
     for row in grid:gmatch('[^\n]+') do
       table.insert(expected_rows, row)
     end
@@ -696,6 +773,29 @@ screen:redraw_debug() to show all intermediate screen states.]]
           return 'unexpected win_extmark for grid ' .. tostring(gridid)
         end
       end
+    end
+
+    -- PHANTOM SHADOW
+    if self.shadow and not didthis then
+      didthis = true
+      if grid then
+        print("\n%%%SHADOW")
+        print(infon.short_src..':'..(infon.currentline+1))
+        local save = self._default_attr_ids
+        self._default_attr_ids = self.shadow_set
+        local datan = self:get_snapshot(prefixen)
+        self._default_attr_ids = save
+        print(datan.grid.."\n%%%ENDSHADOW")
+        table.insert(Screen.cases, {"shadow", infon.short_src, infon.currentline,datan.grid})
+        any_case = true
+      end
+      if expected.any then
+        print("\n%%%ANYFAIL")
+        print(infon.short_src..':'..(infon.currentline+1))
+        table.insert(Screen.cases, {"anyfail", infon.short_src, infon.currentline})
+        any_case = true
+      end
+      io.stdout:flush()
     end
   end, expected)
 end
@@ -1572,8 +1672,9 @@ end
 --- @param attr_state any
 --- @param preview? boolean
 --- @return string[]
-function Screen:render(headers, attr_state, preview)
+function Screen:render(headers, attr_state, preview, multiprefix)
   headers = headers and (self._options.ext_multigrid or self._options._debug_float)
+  multiprefix = multiprefix or ''
   local rv = {}
   for igrid, grid in vim.spairs(self._grids) do
     if headers then
@@ -1586,7 +1687,7 @@ function Screen:render(headers, attr_state, preview)
       then
         suffix = ' (hidden)'
       end
-      table.insert(rv, '## grid ' .. igrid .. suffix)
+      table.insert(rv, multiprefix..'## grid ' .. igrid .. suffix)
     end
     local height = grid.height
     if igrid == self.msg_grid then
@@ -1595,7 +1696,7 @@ function Screen:render(headers, attr_state, preview)
     for i = 1, height do
       local cursor = self._cursor.grid == igrid and self._cursor.row == i
       local prefix = (headers or preview) and '  ' or ''
-      table.insert(rv, prefix .. self:_row_repr(igrid, i, attr_state, cursor) .. '|')
+      table.insert(rv, multiprefix..prefix .. self:_row_repr(igrid, i, attr_state, cursor) .. '|')
     end
   end
   return rv
@@ -1603,7 +1704,7 @@ end
 
 -- Returns the current screen state in the form of a screen:expect()
 -- keyword-args map.
-function Screen:get_snapshot()
+function Screen:get_snapshot(multiprefix)
   local attr_state = {
     ids = {},
     mutable = true, -- allow _row_repr to add missing highlights
@@ -1619,7 +1720,7 @@ function Screen:get_snapshot()
     attr_state.id_to_index = self:linegrid_check_attrs(attr_state.ids or {})
   end
 
-  local lines = self:render(true, attr_state, true)
+  local lines = self:render(true, attr_state, (multiprefix == nil), multiprefix)
 
   for i, row in ipairs(lines) do
     local count = 1
@@ -1704,25 +1805,29 @@ local function fmt_ext_state(name, state)
   end
 end
 
+function Screen:_pprint_attrdef(i, a)
+    local dict
+    if self._options.ext_linegrid then
+      dict = self:_pprint_hlitem(a)
+    else
+      dict = '{ ' .. self:_pprint_attrs(a) .. ' }'
+    end
+    local keyval = (type(i) == 'number') and '[' .. tostring(i) .. ']' or i
+    return '  ' .. keyval .. ' = ' .. dict .. ','
+end
+
 function Screen:_print_snapshot()
   local kwargs, ext_state, attr_state = self:get_snapshot()
   local attrstr = ''
   local modify_attrs = not self._attrs_overridden
   if attr_state.modified then
+    if modify_attrs then
+      self._default_attr_ids = attr_state.ids
+    end
     local attrstrs = {}
     for i, a in pairs(attr_state.ids) do
-      local dict
-      if self._options.ext_linegrid then
-        dict = self:_pprint_hlitem(a)
-      else
-        dict = '{ ' .. self:_pprint_attrs(a) .. ' }'
-      end
-      local keyval = (type(i) == 'number') and '[' .. tostring(i) .. ']' or i
       if not (type(i) == 'number' and modify_attrs and i <= 30) then
-        table.insert(attrstrs, '  ' .. keyval .. ' = ' .. dict .. ',')
-      end
-      if modify_attrs then
-        self._default_attr_ids = attr_state.ids
+        table.insert(attrstrs, self:_pprint_attrdef(i,a))
       end
     end
     local fn_name = modify_attrs and 'add_extra_attr_ids' or 'set_default_attr_ids'
@@ -1986,6 +2091,27 @@ function Screen:_attr_index(attrs, attr)
     end
   end
   return nil
+end
+
+-- from overflow to count (zero if missing)
+Screen.stat_counters = {}
+Screen.stats_doit = true
+
+function Screen.print_stats()
+  if not Screen.stats_doit then
+    return
+  end
+
+  local fil = io.open("/tmp/finfil.txt", "wb")
+  for i,n in pairs(Screen.stat_counters) do
+    print(i, n)
+    fil:write(n.."\t"..i.."\n")
+  end
+  fil:close()
+
+  local case_file = io.open("/tmp/case_file.json", "wb")
+  case_file:write(vim.json.encode(Screen.cases))
+  case_file:close()
 end
 
 return Screen
