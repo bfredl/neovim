@@ -621,13 +621,14 @@ function module.dedent(str, leave_indent, doit)
   if not indent or #indent == 0 then
     -- no minimum common indent
     if doit then
-      return str, 0
+      return str, ''
     else
       return str
     end
   end
 
   local left_indent = (' '):rep(leave_indent or 0)
+  local theindent = indent
   -- create a pattern for the indent
   indent = indent:gsub('%s', '[ \t]')
   -- strip it from the first line
@@ -635,7 +636,7 @@ function module.dedent(str, leave_indent, doit)
   -- strip it from the remaining lines
   str = str:gsub('[\n]' .. indent, '\n' .. left_indent)
   if doit then
-    return str, #indent
+    return str, theindent
   else
     return str
   end

@@ -113,6 +113,8 @@ end
 local Screen = {}
 Screen.__index = Screen
 
+Screen.cases = {}
+
 local default_timeout_factor = 1
 if os.getenv('VALGRIND') then
   default_timeout_factor = default_timeout_factor * 3
@@ -253,6 +255,9 @@ end
 function Screen:set_default_attr_ids(attr_ids)
   self._default_attr_ids = attr_ids
   self._attr_at = debug.getinfo(2, "S")
+end
+
+function Screen:DONT_set_default_attr_ids(attr_ids)
 end
 
 function Screen:get_default_attr_ids()
@@ -477,6 +482,7 @@ function Screen:expect(expected, attr_ids, ...)
         if self._attr_at then
           print("\n%%%ATTREN")
           print(self._attr_at.short_src..':'..(self._attr_at.linedefined+1))
+          table.insert(Screen.cases, {"attr", self._attr_at.short_src, self._attr_at.linedefined+1})
         end
       end
     end
@@ -511,11 +517,11 @@ function Screen:expect(expected, attr_ids, ...)
   end
 
   local expected_rows = {} --- @type string[]
-  local nummer
+  local prefixen = ''
   if grid then
     -- Remove the last line and dedent. Note that gsub returns more then one
     -- value.
-    grid, nummer = dedent(grid:gsub('\n[ ]+$', ''), 0, true)
+    grid, prefixen = dedent(grid:gsub('\n[ ]+$', ''), 0, true)
     for row in grid:gmatch('[^\n]+') do
       table.insert(expected_rows, row)
     end
@@ -707,9 +713,18 @@ screen:redraw_debug() to show all intermediate screen states.]]
 
     -- PHANTOM SHADOW
     if self.shadow then
-      print("\n%%%SHADOW")
-      print(infon.short_src..':'..(infon.linedefined+1))
-      print(self:_print_snapshot(Screen._global_default_attr_ids, nil, true).."\n")
+      if grid then
+        print("\n%%%SHADOW")
+        print(infon.short_src..':'..(infon.linedefined+1))
+        local datan = self:get_snapshot(Screen._global_default_attr_ids, nil, prefixen)
+        print(datan.grid.."\n%%%ENDSHADOW")
+        table.insert(Screen.cases, {"shadow", infon.short_src, infon.linedefined+1,datan.grid})
+      end
+      if expected.any then
+        print("\n%%%ANYFAIL")
+        print(infon.short_src..':'..(infon.linedefined+1))
+        table.insert(Screen.cases, {"anyfail", infon.short_src, infon.linedefined+1})
+      end
       io.stdout:flush()
     end
   end, expected)
@@ -1567,8 +1582,9 @@ end
 --- @param attr_state any
 --- @param preview? boolean
 --- @return string[]
-function Screen:render(headers, attr_state, preview)
+function Screen:render(headers, attr_state, preview, multiprefix)
   headers = headers and (self._options.ext_multigrid or self._options._debug_float)
+  multiprefix = multiprefix or ''
   local rv = {}
   for igrid, grid in vim.spairs(self._grids) do
     if headers then
@@ -1581,7 +1597,7 @@ function Screen:render(headers, attr_state, preview)
       then
         suffix = ' (hidden)'
       end
-      table.insert(rv, '## grid ' .. igrid .. suffix)
+      table.insert(rv, multiprefix..'## grid ' .. igrid .. suffix)
     end
     local height = grid.height
     if igrid == self.msg_grid then
@@ -1590,7 +1606,7 @@ function Screen:render(headers, attr_state, preview)
     for i = 1, height do
       local cursor = self._cursor.grid == igrid and self._cursor.row == i
       local prefix = (headers or preview) and '  ' or ''
-      table.insert(rv, prefix .. self:_row_repr(igrid, i, attr_state, cursor) .. '|')
+      table.insert(rv, multiprefix..prefix .. self:_row_repr(igrid, i, attr_state, cursor) .. '|')
     end
   end
   return rv
@@ -1598,7 +1614,7 @@ end
 
 -- Returns the current screen state in the form of a screen:expect()
 -- keyword-args map.
-function Screen:get_snapshot(attrs, ignore)
+function Screen:get_snapshot(attrs, ignore, multiprefix)
   if ignore == nil then
     ignore = self._default_attr_ignore
   end
@@ -1625,7 +1641,7 @@ function Screen:get_snapshot(attrs, ignore)
     attr_state.id_to_index = self:linegrid_check_attrs(attr_state.ids or {})
   end
 
-  local lines = self:render(true, attr_state, true)
+  local lines = self:render(true, attr_state, (multiprefix == nil), multiprefix)
 
   for i, row in ipairs(lines) do
     local count = 1
@@ -1710,11 +1726,10 @@ local function fmt_ext_state(name, state)
   end
 end
 
-function Screen:_print_snapshot(attrs, ignore, nomodify)
+function Screen:_print_snapshot(attrs, ignore)
   local kwargs, ext_state, attr_state = self:get_snapshot(attrs, ignore)
   local attrstr = ''
-  if nomodify then
-  elseif attr_state.modified then
+  if attr_state.modified then
     local attrstrs = {}
     for i, a in pairs(attr_state.ids) do
       local dict
@@ -2002,6 +2017,10 @@ function Screen.print_stats()
     fil:write(n.."\t"..i.."\n")
   end
   fil:close()
+
+  local case_file = io.open("/tmp/case_file.json", "wb")
+  case_file:write(vim.json.encode(Screen.cases))
+  case_file:close()
 end
 
 return Screen
