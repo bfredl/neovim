@@ -307,6 +307,9 @@ function Screen:attach(options, session)
         end
       end
       Screen.stat_counters[overflow] = (Screen.stat_counters[overflow] or 0) + 1;
+      if overflow > 0 then
+        self.shadow = true
+      end
     end
   end
 end
@@ -688,6 +691,12 @@ screen:redraw_debug() to show all intermediate screen states.]]
           return 'unexpected win_extmark for grid ' .. tostring(gridid)
         end
       end
+    end
+
+    -- PHANTOM SHADOW
+    if self.shadow then
+      print(self:_print_snapshot(Screen._global_default_attr_ids, nil, true).."\n")
+      io.stdout:flush()
     end
   end, expected)
 end
@@ -1687,10 +1696,11 @@ local function fmt_ext_state(name, state)
   end
 end
 
-function Screen:_print_snapshot(attrs, ignore)
+function Screen:_print_snapshot(attrs, ignore, nomodify)
   local kwargs, ext_state, attr_state = self:get_snapshot(attrs, ignore)
   local attrstr = ''
-  if attr_state.modified then
+  if nomodify then
+  elseif attr_state.modified then
     local attrstrs = {}
     for i, a in pairs(attr_state.ids) do
       local dict
