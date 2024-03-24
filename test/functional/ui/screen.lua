@@ -252,6 +252,7 @@ end
 
 function Screen:set_default_attr_ids(attr_ids)
   self._default_attr_ids = attr_ids
+  self._attr_at = debug.getinfo(2, "S")
 end
 
 function Screen:get_default_attr_ids()
@@ -297,20 +298,6 @@ function Screen:attach(options, session)
 
   if self._default_attr_ids == nil then
     self._default_attr_ids = Screen._global_default_attr_ids
-  else
-    -- wow, STATISTICS time
-    if self._options.ext_linegrid and self._options.rgb and not self._options.ext_hlstate then
-      local overflow = 0
-      for _,attr in pairs(self._default_attr_ids) do
-        if self:_attr_index(Screen._global_default_attr_ids, attr) == nil then
-          overflow = overflow + 1
-        end
-      end
-      Screen.stat_counters[overflow] = (Screen.stat_counters[overflow] or 0) + 1;
-      if overflow > 0 then
-        self.shadow = true
-      end
-    end
   end
 end
 
@@ -473,6 +460,30 @@ function Screen:expect(expected, attr_ids, ...)
   --- @type string, fun()
   local grid, condition
 
+  if not self._did_the_check then
+    self._did_the_check = true
+
+    -- wow, STATISTICS time
+    if self._options.ext_linegrid and self._options.rgb and not self._options.ext_hlstate and self._default_attr_ids ~= Screen._global_default_attr_ids and self._default_attr_ids ~= nil then
+      local overflow = 0
+      for _,attr in pairs(self._default_attr_ids) do
+        if self:_attr_index(Screen._global_default_attr_ids, attr) == nil then
+          overflow = overflow + 1
+        end
+      end
+      Screen.stat_counters[overflow] = (Screen.stat_counters[overflow] or 0) + 1;
+      if overflow == 0 then
+        self.shadow = true
+        if self._attr_at then
+          print("\n%%%ATTREN")
+          print(self._attr_at.short_src..':'..(self._attr_at.linedefined+1))
+        end
+      end
+    end
+  end
+
+  local infon = debug.getinfo(2, "S")
+
   assert(next({ ... }) == nil, 'invalid args to expect()')
 
   if type(expected) == 'table' then
@@ -500,10 +511,11 @@ function Screen:expect(expected, attr_ids, ...)
   end
 
   local expected_rows = {} --- @type string[]
+  local nummer
   if grid then
     -- Remove the last line and dedent. Note that gsub returns more then one
     -- value.
-    grid = dedent(grid:gsub('\n[ ]+$', ''), 0)
+    grid, nummer = dedent(grid:gsub('\n[ ]+$', ''), 0, true)
     for row in grid:gmatch('[^\n]+') do
       table.insert(expected_rows, row)
     end
@@ -695,6 +707,8 @@ screen:redraw_debug() to show all intermediate screen states.]]
 
     -- PHANTOM SHADOW
     if self.shadow then
+      print("\n%%%SHADOW")
+      print(infon.short_src..':'..(infon.linedefined+1))
       print(self:_print_snapshot(Screen._global_default_attr_ids, nil, true).."\n")
       io.stdout:flush()
     end

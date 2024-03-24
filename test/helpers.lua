@@ -608,7 +608,7 @@ end
 --- @param str string
 --- @param leave_indent? integer
 --- @return string
-function module.dedent(str, leave_indent)
+function module.dedent(str, leave_indent, doit)
   -- find minimum common indent across lines
   local indent --- @type string?
   for line in str:gmatch('[^\n]+') do
@@ -620,7 +620,11 @@ function module.dedent(str, leave_indent)
 
   if not indent or #indent == 0 then
     -- no minimum common indent
-    return str
+    if doit then
+      return str, 0
+    else
+      return str
+    end
   end
 
   local left_indent = (' '):rep(leave_indent or 0)
@@ -630,7 +634,11 @@ function module.dedent(str, leave_indent)
   str = str:gsub('^' .. indent, left_indent)
   -- strip it from the remaining lines
   str = str:gsub('[\n]' .. indent, '\n' .. left_indent)
-  return str
+  if doit then
+    return str, #indent
+  else
+    return str
+  end
 end
 
 function module.intchar2lua(ch)
