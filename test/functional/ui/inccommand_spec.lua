@@ -59,32 +59,34 @@ local long_multiline_text = [[
   t œ ¥
 ]]
 
-local function common_setup(screen, inccommand, text)
+local function common_setup(screen, inccommand, text, no_attrs)
   if screen then
     command('syntax on')
     command('set nohlsearch')
     command('hi Substitute guifg=red guibg=yellow')
     screen:attach()
-    screen:set_default_attr_ids({
-      [1] = { foreground = Screen.colors.Fuchsia },
-      [2] = { foreground = Screen.colors.Brown, bold = true },
-      [3] = { foreground = Screen.colors.SlateBlue },
-      [4] = { bold = true, foreground = Screen.colors.SlateBlue },
-      [5] = { foreground = Screen.colors.DarkCyan },
-      [6] = { bold = true },
-      [7] = { underline = true, bold = true, foreground = Screen.colors.SlateBlue },
-      [8] = { foreground = Screen.colors.Slateblue, underline = true },
-      [9] = { background = Screen.colors.Yellow },
-      [10] = { reverse = true },
-      [11] = { reverse = true, bold = true },
-      [12] = { foreground = Screen.colors.Red, background = Screen.colors.Yellow },
-      [13] = { bold = true, foreground = Screen.colors.SeaGreen },
-      [14] = { foreground = Screen.colors.White, background = Screen.colors.Red },
-      [15] = { bold = true, foreground = Screen.colors.Blue },
-      [16] = { background = Screen.colors.Grey90 }, -- cursorline
-      [17] = { foreground = Screen.colors.Blue1 },
-      vis = { background = Screen.colors.LightGrey },
-    })
+    if not no_attrs then
+      screen:set_default_attr_ids({
+        [1] = { foreground = Screen.colors.Fuchsia },
+        [2] = { foreground = Screen.colors.Brown, bold = true },
+        [3] = { foreground = Screen.colors.SlateBlue },
+        [4] = { bold = true, foreground = Screen.colors.SlateBlue },
+        [5] = { foreground = Screen.colors.DarkCyan },
+        [6] = { bold = true },
+        [7] = { underline = true, bold = true, foreground = Screen.colors.SlateBlue },
+        [8] = { foreground = Screen.colors.Slateblue, underline = true },
+        [9] = { background = Screen.colors.Yellow },
+        [10] = { reverse = true },
+        [11] = { reverse = true, bold = true },
+        [12] = { foreground = Screen.colors.Red, background = Screen.colors.Yellow },
+        [13] = { bold = true, foreground = Screen.colors.SeaGreen },
+        [14] = { foreground = Screen.colors.White, background = Screen.colors.Red },
+        [15] = { bold = true, foreground = Screen.colors.Blue },
+        [16] = { background = Screen.colors.Grey90 }, -- cursorline
+        [17] = { foreground = Screen.colors.Blue1 },
+        vis = { background = Screen.colors.LightGrey },
+      })
+    end
   end
 
   command('set inccommand=' .. (inccommand or ''))
