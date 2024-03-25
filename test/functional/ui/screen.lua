@@ -114,6 +114,7 @@ local Screen = {}
 Screen.__index = Screen
 
 Screen.cases = {}
+local any_case = false
 
 local default_timeout_factor = 1
 if os.getenv('VALGRIND') then
@@ -186,6 +187,11 @@ end
 function Screen.new(width, height)
   if not Screen.colors then
     _init_colors()
+  end
+
+  if any_case then
+    table.insert(Screen.cases, {"RESET"})
+    any_case = false
   end
 
   local self = setmetatable({
@@ -483,12 +489,14 @@ function Screen:expect(expected, attr_ids, ...)
           print("\n%%%ATTREN")
           print(self._attr_at.short_src..':'..(self._attr_at.linedefined+1))
           table.insert(Screen.cases, {"attr", self._attr_at.short_src, self._attr_at.linedefined+1})
+          any_case = true
         end
       end
     end
   end
 
   local infon = debug.getinfo(2, "S")
+  local didthis = false
 
   assert(next({ ... }) == nil, 'invalid args to expect()')
 
@@ -712,18 +720,21 @@ screen:redraw_debug() to show all intermediate screen states.]]
     end
 
     -- PHANTOM SHADOW
-    if self.shadow then
+    if self.shadow and not didthis then
+      didthis = true
       if grid then
         print("\n%%%SHADOW")
         print(infon.short_src..':'..(infon.linedefined+1))
         local datan = self:get_snapshot(Screen._global_default_attr_ids, nil, prefixen)
         print(datan.grid.."\n%%%ENDSHADOW")
         table.insert(Screen.cases, {"shadow", infon.short_src, infon.linedefined+1,datan.grid})
+        any_case = true
       end
       if expected.any then
         print("\n%%%ANYFAIL")
         print(infon.short_src..':'..(infon.linedefined+1))
         table.insert(Screen.cases, {"anyfail", infon.short_src, infon.linedefined+1})
+        any_case = true
       end
       io.stdout:flush()
     end
