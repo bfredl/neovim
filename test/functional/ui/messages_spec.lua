@@ -1596,15 +1596,6 @@ describe('ui/ext_messages', function()
     clear { args_rm = { '--headless' }, args = { '--cmd', 'set shortmess-=I' } }
     screen = Screen.new(80, 24)
     screen:attach({ rgb = true, ext_messages = true, ext_popupmenu = true })
-    screen:set_default_attr_ids({
-      [1] = { bold = true, foreground = Screen.colors.Blue1 },
-      [2] = { foreground = Screen.colors.Grey100, background = Screen.colors.Red },
-      [3] = { bold = true },
-      [4] = { bold = true, foreground = Screen.colors.SeaGreen4 },
-      [5] = { foreground = Screen.colors.Blue1 },
-      [6] = { reverse = true },
-      [7] = { bold = true, reverse = true },
-    })
   end)
 
   it('supports intro screen', function()
@@ -1618,15 +1609,15 @@ describe('ui/ext_messages', function()
       {1:~                 }Nvim is open source and freely distributable{1:                  }|
       {1:~                           }https://neovim.io/#chat{1:                             }|
       {1:~                                                                               }|
-      {1:~                }type  :help nvim{5:<Enter>}       if you are new! {1:                 }|
-      {1:~                }type  :checkhealth{5:<Enter>}     to optimize Nvim{1:                 }|
-      {1:~                }type  :q{5:<Enter>}               to exit         {1:                 }|
-      {1:~                }type  :help{5:<Enter>}            for help        {1:                 }|
+      {1:~                }type  :help nvim{18:<Enter>}       if you are new! {1:                 }|
+      {1:~                }type  :checkhealth{18:<Enter>}     to optimize Nvim{1:                 }|
+      {1:~                }type  :q{18:<Enter>}               to exit         {1:                 }|
+      {1:~                }type  :help{18:<Enter>}            for help        {1:                 }|
       {1:~                                                                               }|
-      {1:~{MATCH: +}}type  :help news{5:<Enter>} to see changes in v{MATCH:%d+%.%d+}{1:{MATCH: +}}|
+      {1:~{MATCH: +}}type  :help news{18:<Enter>} to see changes in v{MATCH:%d+%.%d+}{1:{MATCH: +}}|
       {1:~                                                                               }|
       {1:~                        }Help poor children in Uganda!{1:                          }|
-      {1:~                }type  :help iccf{5:<Enter>}       for information {1:                 }|
+      {1:~                }type  :help iccf{18:<Enter>}       for information {1:                 }|
       {1:~                                                                               }|*5
     ]])
 
@@ -1641,15 +1632,15 @@ describe('ui/ext_messages', function()
       {1:~                 }Nvim is open source and freely distributable{1:                  }|
       {1:~                           }https://neovim.io/#chat{1:                             }|
       {1:~                                                                               }|
-      {1:~                }type  :help nvim{5:<Enter>}       if you are new! {1:                 }|
-      {1:~                }type  :checkhealth{5:<Enter>}     to optimize Nvim{1:                 }|
-      {1:~                }type  :q{5:<Enter>}               to exit         {1:                 }|
-      {1:~                }type  :help{5:<Enter>}            for help        {1:                 }|
+      {1:~                }type  :help nvim{18:<Enter>}       if you are new! {1:                 }|
+      {1:~                }type  :checkhealth{18:<Enter>}     to optimize Nvim{1:                 }|
+      {1:~                }type  :q{18:<Enter>}               to exit         {1:                 }|
+      {1:~                }type  :help{18:<Enter>}            for help        {1:                 }|
       {1:~                                                                               }|
-      {1:~{MATCH: +}}type  :help news{5:<Enter>} to see changes in v{MATCH:%d+%.%d+}{1:{MATCH: +}}|
+      {1:~{MATCH: +}}type  :help news{18:<Enter>} to see changes in v{MATCH:%d+%.%d+}{1:{MATCH: +}}|
       {1:~                                                                               }|
       {1:~                        }Help poor children in Uganda!{1:                          }|
-      {1:~                }type  :help iccf{5:<Enter>}       for information {1:                 }|
+      {1:~                }type  :help iccf{18:<Enter>}       for information {1:                 }|
       {1:~                                                                               }|*5
     ]],
       showmode = { { '-- INSERT --', 3 } },
@@ -1675,15 +1666,15 @@ describe('ui/ext_messages', function()
                         Nvim is open source and freely distributable                  |
                                   https://neovim.io/#chat                             |
                                                                                       |
-                       type  :help nvim{5:<Enter>}       if you are new!                  |
-                       type  :checkhealth{5:<Enter>}     to optimize Nvim                 |
-                       type  :q{5:<Enter>}               to exit                          |
-                       type  :help{5:<Enter>}            for help                         |
+                       type  :help nvim{18:<Enter>}       if you are new!                  |
+                       type  :checkhealth{18:<Enter>}     to optimize Nvim                 |
+                       type  :q{18:<Enter>}               to exit                          |
+                       type  :help{18:<Enter>}            for help                         |
                                                                                       |
-      {MATCH: +}type  :help news{5:<Enter>} to see changes in v{MATCH:%d+%.%d+ +}|
+      {MATCH: +}type  :help news{18:<Enter>} to see changes in v{MATCH:%d+%.%d+ +}|
                                                                                       |
                                Help poor children in Uganda!                          |
-                       type  :help iccf{5:<Enter>}       for information                  |
+                       type  :help iccf{18:<Enter>}       for information                  |
                                                                                       |*5
     ]],
       messages = {
@@ -1711,7 +1702,7 @@ describe('ui/ext_messages', function()
       ────────────────────────────────────────────────────────────────────────────────|
                                                                                       |
       {1:~                                                                               }|*10
-      {7:[No Name]                                                                       }|
+      {3:[No Name]                                                                       }|
     ]],
       messages = {
         { content = { { '  cmdheight=0' } }, kind = '' },
@@ -1727,7 +1718,7 @@ describe('ui/ext_messages', function()
       ────────────────────────────────────────────────────────────────────────────────|
                                                                                       |
       {1:~                                                                               }|*9
-      {7:[No Name]                                                                       }|
+      {3:[No Name]                                                                       }|
     ]],
       messages = {
         { content = { { '  laststatus=3' } }, kind = '' },
@@ -1747,7 +1738,7 @@ describe('ui/ext_messages', function()
       ────────────────────────────────────────────────────────────────────────────────|
                                                                                       |
       {1:~                                                                               }|*10
-      {7:[No Name]                                                                       }|
+      {3:[No Name]                                                                       }|
     ]],
       messages = {
         { content = { { '  cmdheight=0' } }, kind = '' },
@@ -1760,13 +1751,6 @@ it('ui/ext_multigrid supports intro screen', function()
   clear { args_rm = { '--headless' }, args = { '--cmd', 'set shortmess-=I' } }
   local screen = Screen.new(80, 24)
   screen:attach({ rgb = true, ext_multigrid = true })
-  screen:set_default_attr_ids {
-    [1] = { bold = true, foreground = Screen.colors.Blue1 },
-    [2] = { foreground = Screen.colors.Grey100, background = Screen.colors.Red },
-    [3] = { bold = true },
-    [4] = { bold = true, foreground = Screen.colors.SeaGreen4 },
-    [5] = { foreground = Screen.colors.Blue1 },
-  }
 
   screen:expect {
     grid = [[
@@ -1781,15 +1765,15 @@ it('ui/ext_multigrid supports intro screen', function()
       {1:~                 }Nvim is open source and freely distributable{1:                  }|
       {1:~                           }https://neovim.io/#chat{1:                             }|
       {1:~                                                                               }|
-      {1:~                }type  :help nvim{5:<Enter>}       if you are new! {1:                 }|
-      {1:~                }type  :checkhealth{5:<Enter>}     to optimize Nvim{1:                 }|
-      {1:~                }type  :q{5:<Enter>}               to exit         {1:                 }|
-      {1:~                }type  :help{5:<Enter>}            for help        {1:                 }|
+      {1:~                }type  :help nvim{18:<Enter>}       if you are new! {1:                 }|
+      {1:~                }type  :checkhealth{18:<Enter>}     to optimize Nvim{1:                 }|
+      {1:~                }type  :q{18:<Enter>}               to exit         {1:                 }|
+      {1:~                }type  :help{18:<Enter>}            for help        {1:                 }|
       {1:~                                                                               }|
-      {1:~{MATCH: +}}type  :help news{5:<Enter>} to see changes in v{MATCH:%d+%.%d+}{1:{MATCH: +}}|
+      {1:~{MATCH: +}}type  :help news{18:<Enter>} to see changes in v{MATCH:%d+%.%d+}{1:{MATCH: +}}|
       {1:~                                                                               }|
       {1:~                        }Help poor children in Uganda!{1:                          }|
-      {1:~                }type  :help iccf{5:<Enter>}       for information {1:                 }|
+      {1:~                }type  :help iccf{18:<Enter>}       for information {1:                 }|
       {1:~                                                                               }|*4
     ## grid 3
                                                                                       |
@@ -1817,7 +1801,7 @@ it('ui/ext_multigrid supports intro screen', function()
       x^                                                                               |
       {1:~                                                                               }|*22
     ## grid 3
-      {3:-- INSERT --}                                                                    |
+      {5:-- INSERT --}                                                                    |
     ]],
     win_viewport = {
       [2] = {
