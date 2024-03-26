@@ -263,7 +263,7 @@ function Screen:set_default_attr_ids(attr_ids)
   self._attr_at = debug.getinfo(2, "Sl")
 end
 
-function Screen:DONT_set_default_attr_ids(attr_ids)
+function Screen:no_set_default_attr_ids(attr_ids)
 end
 
 function Screen:get_default_attr_ids()
