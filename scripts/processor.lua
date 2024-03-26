@@ -107,6 +107,17 @@ function begehen(items)
   end
 end
 
+require'luadev'.print("OK")
+for _,v in ipairs(verified) do
+  require'luadev'.print(v[1][2], v[1][3])
+end
+require'luadev'.print("FAIL")
+for _,v in ipairs(sussy) do
+  require'luadev'.print(v[1][2], v[1][3])
+end
+
+
+
 
 --[[
 --
