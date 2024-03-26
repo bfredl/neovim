@@ -48,6 +48,7 @@ for _,l in ipairs(loc_order) do
     elseif item[1] == "attr" then
       buf = vim.fn.bufadd(item[2])
       vim.fn.bufload(buf)
+      print(item[2], item[3])
       theline = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
       item.linematch = vim.fn.match(theline, ":set_default_attr_ids")
       item.buf = buf
@@ -89,7 +90,6 @@ end
 
 function begehen(items)
   for _, item in ipairs(loc) do
-    -- print(item[1])
     if item[1] == "attr" then
       if item.linematch >= 0 then
         line = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
@@ -120,9 +120,10 @@ end
 
 
 --[[
+verified[7]
 --
-for _,item in ipairs(verified) begehen(verified) end
-begehen(verified[1])
+for _,item in ipairs(verified) do begehen(item) end
+begehen(verified[7])
 verified[1]
 #verified
 

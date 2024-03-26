@@ -473,6 +473,7 @@ function Screen:expect(expected, attr_ids, ...)
 
   if not self._did_the_check then
     self._did_the_check = true
+    self.shadow = false
 
     -- wow, STATISTICS time
     if self._options.ext_linegrid and self._options.rgb and not self._options.ext_hlstate and self._default_attr_ids ~= Screen._global_default_attr_ids and self._default_attr_ids ~= nil then
