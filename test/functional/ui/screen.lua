@@ -260,7 +260,7 @@ end
 
 function Screen:set_default_attr_ids(attr_ids)
   self._default_attr_ids = attr_ids
-  self._attr_at = debug.getinfo(2, "S")
+  self._attr_at = debug.getinfo(2, "Sl")
 end
 
 function Screen:DONT_set_default_attr_ids(attr_ids)
@@ -487,15 +487,15 @@ function Screen:expect(expected, attr_ids, ...)
         self.shadow = true
         if self._attr_at then
           print("\n%%%ATTREN")
-          print(self._attr_at.short_src..':'..(self._attr_at.linedefined+1))
-          table.insert(Screen.cases, {"attr", self._attr_at.short_src, self._attr_at.linedefined+1})
+          print(self._attr_at.short_src..':'..(self._attr_at.currentline))
+          table.insert(Screen.cases, {"attr", self._attr_at.short_src, self._attr_at.currentline})
           any_case = true
         end
       end
     end
   end
 
-  local infon = debug.getinfo(2, "S")
+  local infon = debug.getinfo(2, "Sl")
   local didthis = false
 
   assert(next({ ... }) == nil, 'invalid args to expect()')
@@ -724,16 +724,16 @@ screen:redraw_debug() to show all intermediate screen states.]]
       didthis = true
       if grid then
         print("\n%%%SHADOW")
-        print(infon.short_src..':'..(infon.linedefined+1))
+        print(infon.short_src..':'..(infon.currentline+1))
         local datan = self:get_snapshot(Screen._global_default_attr_ids, nil, prefixen)
         print(datan.grid.."\n%%%ENDSHADOW")
-        table.insert(Screen.cases, {"shadow", infon.short_src, infon.linedefined+1,datan.grid})
+        table.insert(Screen.cases, {"shadow", infon.short_src, infon.currentline,datan.grid})
         any_case = true
       end
       if expected.any then
         print("\n%%%ANYFAIL")
-        print(infon.short_src..':'..(infon.linedefined+1))
-        table.insert(Screen.cases, {"anyfail", infon.short_src, infon.linedefined+1})
+        print(infon.short_src..':'..(infon.currentline+1))
+        table.insert(Screen.cases, {"anyfail", infon.short_src, infon.currentline})
         any_case = true
       end
       io.stdout:flush()

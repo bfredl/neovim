@@ -51,6 +51,23 @@ for _,l in ipairs(loc_order) do
       else
         newloc[locname] = true
       end
+      texten = vim.split(item[4], "\n")
+      item.texten = texten
+
+      buf = vim.fn.bufadd(item[2])
+      vim.fn.bufload(buf)
+      item.theline = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
+      -- TODO: [=[ and ]=]
+      matches = vim.fn.matchbufline(buf, "[[", item[3], item[3]+3)
+      if #matches > 0 then
+        pos = matches[1]
+        lnum_start = pos.lnum+1
+        endline = lnum_start + #texten
+        item.enline = vim.api.nvim_buf_get_lines(buf, endline-1,endline, true)[1]
+        if vim.fn.match(item.enline, "]]") >= 0 then
+          item.range = {lnum_start, endline-1}
+        end
+      end
     end
   end
 
@@ -61,3 +78,8 @@ for _,l in ipairs(loc_order) do
   end
 end
 
+--[[
+verified[1][2].range
+
+  vim.split(verified[1][1][4], "\n")
+--]]
