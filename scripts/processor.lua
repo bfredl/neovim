@@ -48,7 +48,8 @@ for _,l in ipairs(loc_order) do
     elseif item[1] == "attr" then
       buf = vim.fn.bufadd(item[2])
       vim.fn.bufload(buf)
-      print(item[2], item[3])
+      -- vim.bo[buf].buflisted = true
+      --print(item[2], item[3])
       theline = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
       item.linematch = vim.fn.match(theline, ":set_default_attr_ids")
       item.buf = buf
@@ -65,6 +66,7 @@ for _,l in ipairs(loc_order) do
 
       buf = vim.fn.bufadd(item[2])
       vim.fn.bufload(buf)
+      -- vim.bo[buf].buflisted = true
       item.theline = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
       item.buf = buf
       -- TODO: [=[ and ]=]
@@ -89,19 +91,18 @@ for _,l in ipairs(loc_order) do
 end
 
 function begehen(items)
-  for _, item in ipairs(loc) do
+  for _, item in ipairs(items) do
     if item[1] == "attr" then
       if item.linematch >= 0 then
-        line = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
+        line = vim.api.nvim_buf_get_lines(item.buf, item[3]-1,item[3], true)[1]
         line = vim.fn.substitute(line, ":set_default_attr_ids", ":no_set_default_attr_ids", "")
-        vim.api.nvim_buf_set_lines(buf, item[3]-1,item[3], true, {line})
+        vim.api.nvim_buf_set_lines(item.buf, item[3]-1,item[3], true, {line})
       end
-      item.linematch = vim.fn.match(theline, ":set_default_attr_ids")
-      item.buf = buf
     elseif item[1] == "shadow" then
       if item.range ~= nil then
         a, b = unpack(item.range)
-        vim.api.nvim_buf_set_lines(buf, a-1,b, true, item.texten)
+        print("mod", item.buf, item[2])
+        vim.api.nvim_buf_set_lines(item.buf, a-1,b, true, item.texten)
       end
     end
   end
@@ -118,8 +119,8 @@ end
 
 
 
-
 --[[
+verified[2]
 verified[7]
 --
 for _,item in ipairs(verified) do begehen(item) end
