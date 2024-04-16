@@ -1,5 +1,30 @@
 const std = @import("std");
 
+// pub fn generate_header_for(b: *std.Build, u8[] name) !*Compile.Step {
+//
+// }
+
+// TODO: this should be suggested to upstream
+pub fn run_preprocessor(b: *std.Build, src: std.Build.LazyPath, output_name: []const u8, include_dirs: []const []const u8, c_macros: []const []const u8) std.Build.LazyPath {
+    const run_step = std.Build.Step.Run.create(b, b.fmt("preprocess to get {s}", .{output_name}));
+    run_step.addArgs(&.{ b.graph.zig_exe, "cc", "-E" });
+    run_step.addFileArg(src);
+    run_step.addArg("-o");
+    const output = run_step.addOutputFileArg(output_name);
+    // TODO: arg logic for addCSourceFiles and TranslateC is _very_ different
+    for (include_dirs) |include_dir| {
+        run_step.addArg("-I");
+        run_step.addArg(include_dir);
+    }
+    for (c_macros) |c_macro| {
+        run_step.addArg(b.fmt("-D{s}", .{c_macro}));
+        run_step.addArg(c_macro);
+    }
+    run_step.addArgs(&.{ "-MMD", "-MF" });
+    _ = run_step.addDepFileOutputArg(b.fmt("{s}.d", .{output_name}));
+    return output;
+}
+
 pub fn build(b: *std.Build) void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -83,6 +108,10 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("nlua0", "Run nlua0 build tool");
     run_step.dependOn(&run_cmd.step);
+
+    const i_file = run_preprocessor(b, b.path("src/nvim/autocmd.c"), "nvim/autocmd.i", &.{ "src", "src/includes_fixmelater" }, &.{ "HAVE_UNIBILIUM", "_GNU_SOURCE" });
+    const wip_step = b.step("wip", "rearrange the power of it all");
+    wip_step.dependOn(i_file.generated.step);
 
     const exe_unit_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/nlua0.zig" },
