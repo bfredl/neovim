@@ -1,9 +1,5 @@
 const std = @import("std");
 
-// pub fn generate_header_for(b: *std.Build, u8[] name) !*Compile.Step {
-//
-// }
-
 // TODO: this should be suggested to upstream
 pub fn run_preprocessor(b: *std.Build, src: std.Build.LazyPath, output_name: []const u8, include_dirs: []const []const u8, c_macros: []const []const u8) std.Build.LazyPath {
     const run_step = std.Build.Step.Run.create(b, b.fmt("preprocess to get {s}", .{output_name}));
@@ -23,6 +19,17 @@ pub fn run_preprocessor(b: *std.Build, src: std.Build.LazyPath, output_name: []c
     run_step.addArgs(&.{ "-MMD", "-MF" });
     _ = run_step.addDepFileOutputArg(b.fmt("{s}.d", .{output_name}));
     return output;
+}
+
+pub fn generate_header_for(b: *std.Build, name: []u8, nlua0: *std.Build.LazyPath) !*std.Build.Step.Compile {
+    const i_file = run_preprocessor(b, b.path(name), b.fmt("{}.d", .{name}), &.{ "src", "src/includes_fixmelater" }, &.{ "HAVE_UNIBILIUM", "_GNU_SOURCE" });
+    const run_step = b.addRunArtifact(nlua0);
+    run_step.addFileArg(b.path("src/nvim/generators/gen_declarations.lua"));
+    run_step.addFilearg(b.path(name));
+    run_step.addOutputFileArg(b.fmt("{s}.generated.c", .{name}));
+    run_step.addOutputFileArg(b.fmt("{s}.generated.h", .{name}));
+    run_step.addFilearg(i_file);
+    return run_step;
 }
 
 pub fn build(b: *std.Build) void {
@@ -109,6 +116,7 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("nlua0", "Run nlua0 build tool");
     run_step.dependOn(&run_cmd.step);
 
+    // TODO: need .deps/usr/include and zig_lua include dirs
     const i_file = run_preprocessor(b, b.path("src/nvim/autocmd.c"), "nvim/autocmd.i", &.{ "src", "src/includes_fixmelater" }, &.{ "HAVE_UNIBILIUM", "_GNU_SOURCE" });
     const wip_step = b.step("wip", "rearrange the power of it all");
     wip_step.dependOn(i_file.generated.step);
