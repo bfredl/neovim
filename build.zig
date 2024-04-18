@@ -21,18 +21,22 @@ pub fn run_preprocessor(b: *std.Build, src: std.Build.LazyPath, output_name: []c
     return output;
 }
 
-pub fn generate_header_for(b: *std.Build, name: []u8, nlua0: *std.Build.LazyPath) !*std.Build.Step.Compile {
-    const i_file = run_preprocessor(b, b.path(name), b.fmt("{}.d", .{name}), &.{ "src", "src/includes_fixmelater" }, &.{ "HAVE_UNIBILIUM", "_GNU_SOURCE" });
+pub fn generate_header_for(b: *std.Build, name: []const u8, nlua0: *std.Build.Step.Compile) !*std.Build.Step.Run {
+    if (name.len < 2 or !std.mem.eql(u8, ".c", name[name.len - 2 ..])) return error.InvalidBaseName;
+    const basename = name[0 .. name.len - 2];
+    // TODO: need .deps/usr/include and zig_lua include dirs
+    const input_file = b.path(b.fmt("src/nvim/{s}", .{name}));
+    const i_file = run_preprocessor(b, input_file, b.fmt("{s}.i", .{basename}), &.{ "src", "src/includes_fixmelater" }, &.{ "HAVE_UNIBILIUM", "_GNU_SOURCE" });
     const run_step = b.addRunArtifact(nlua0);
     run_step.addFileArg(b.path("src/nvim/generators/gen_declarations.lua"));
-    run_step.addFilearg(b.path(name));
-    run_step.addOutputFileArg(b.fmt("{s}.generated.c", .{name}));
-    run_step.addOutputFileArg(b.fmt("{s}.generated.h", .{name}));
-    run_step.addFilearg(i_file);
+    run_step.addFileArg(input_file);
+    _ = run_step.addOutputFileArg(b.fmt("{s}.generated.c", .{basename}));
+    _ = run_step.addOutputFileArg(b.fmt("{s}.generated.h", .{basename}));
+    run_step.addFileArg(i_file);
     return run_step;
 }
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -116,10 +120,10 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("nlua0", "Run nlua0 build tool");
     run_step.dependOn(&run_cmd.step);
 
-    // TODO: need .deps/usr/include and zig_lua include dirs
-    const i_file = run_preprocessor(b, b.path("src/nvim/autocmd.c"), "nvim/autocmd.i", &.{ "src", "src/includes_fixmelater" }, &.{ "HAVE_UNIBILIUM", "_GNU_SOURCE" });
     const wip_step = b.step("wip", "rearrange the power of it all");
-    wip_step.dependOn(i_file.generated.step);
+
+    const gen_step = try generate_header_for(b, "autocmd.c", nlua0_exe);
+    wip_step.dependOn(&gen_step.step);
 
     const exe_unit_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/nlua0.zig" },
