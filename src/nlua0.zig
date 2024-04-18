@@ -6,6 +6,7 @@ const embedded_data = @import("embedded_data");
 const Lua = ziglua.Lua;
 
 extern "c" fn luaopen_mpack(ptr: *anyopaque) c_int;
+extern "c" fn luaopen_lpeg(ptr: *anyopaque) c_int;
 
 fn init() !*Lua {
     // Initialize the Lua vm
@@ -24,7 +25,11 @@ fn init() !*Lua {
     if (retval != 1) return error.LoadError;
     lua.setField(-2, "mpack");
 
-    lua.pop(1);
+    const retval2 = luaopen_lpeg(lua);
+    if (retval2 != 1) return error.LoadError;
+    lua.setField(-3, "lpeg");
+
+    lua.pop(2);
     return lua;
 }
 

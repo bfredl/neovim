@@ -59,6 +59,8 @@ pub fn build(b: *std.Build) !void {
         .shared = false,
     });
 
+    const lpeg = b.dependency("lpeg", .{});
+
     const nlua0_exe = b.addExecutable(.{
         .name = "nlua0",
         .root_source_file = .{ .path = "src/nlua0.zig" },
@@ -78,6 +80,14 @@ pub fn build(b: *std.Build) !void {
         "src/mpack/rpc.c",
     };
 
+    const lpeg_sources = [_][]const u8{
+        "lpcap.c",
+        "lpcode.c",
+        "lpprint.c",
+        "lptree.c",
+        "lpvm.c",
+    };
+
     const flags = [_][]const u8{
         // Standard version used in Lua Makefile
         "-std=gnu99",
@@ -90,8 +100,14 @@ pub fn build(b: *std.Build) !void {
 
     nlua0_mod.addIncludePath(b.path("src"));
     nlua0_mod.addIncludePath(b.path("src/includes_fixmelater"));
+    nlua0_mod.addIncludePath(lpeg.path(""));
     nlua0_mod.addCSourceFiles(.{
         .files = &nlua_modules_sources,
+        .flags = &flags,
+    });
+    nlua0_mod.addCSourceFiles(.{
+        .root = .{ .dependency = .{ .dependency = lpeg, .sub_path = "" } },
+        .files = &lpeg_sources,
         .flags = &flags,
     });
 
