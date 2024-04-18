@@ -7,7 +7,7 @@ pub fn run_preprocessor(b: *std.Build, src: std.Build.LazyPath, output_name: []c
     run_step.addFileArg(src);
     run_step.addArg("-o");
     const output = run_step.addOutputFileArg(output_name);
-    // TODO: arg logic for addCSourceFiles and TranslateC is _very_ different
+    // TODO: include path logic for addCSourceFiles and TranslateC is _very_ different
     for (include_dirs) |include_dir| {
         run_step.addArg("-I");
         run_step.addArg(include_dir);
@@ -30,8 +30,8 @@ pub fn generate_header_for(b: *std.Build, name: []const u8, nlua0: *std.Build.St
     const run_step = b.addRunArtifact(nlua0);
     run_step.addFileArg(b.path("src/nvim/generators/gen_declarations.lua"));
     run_step.addFileArg(input_file);
-    _ = run_step.addOutputFileArg(b.fmt("{s}.generated.c", .{basename}));
-    _ = run_step.addOutputFileArg(b.fmt("{s}.generated.h", .{basename}));
+    _ = run_step.addOutputFileArg(b.fmt("{s}.c.generated.h", .{basename}));
+    _ = run_step.addOutputFileArg(b.fmt("{s}.h.generated.h", .{basename}));
     run_step.addFileArg(i_file);
     return run_step;
 }
@@ -69,70 +69,59 @@ pub fn build(b: *std.Build) !void {
     });
     const nlua0_mod = &nlua0_exe.root_module;
 
+    const exe_unit_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/nlua0.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+
     // TODO: need mod.addLibraryPathFromDependency(ziglua)
     // nlua0_mod.include_dirs.append(nlua0_mod.owner.allocator, .{ .other_step = ziglua_mod }) catch @panic("OOM");
-
-    const nlua_modules_sources = [_][]const u8{
-        "src/mpack/lmpack.c",
-        "src/mpack/mpack_core.c",
-        "src/mpack/object.c",
-        "src/mpack/conv.c",
-        "src/mpack/rpc.c",
-    };
-
-    const lpeg_sources = [_][]const u8{
-        "lpcap.c",
-        "lpcode.c",
-        "lpprint.c",
-        "lptree.c",
-        "lpvm.c",
-    };
 
     const flags = [_][]const u8{
         // Standard version used in Lua Makefile
         "-std=gnu99",
     };
 
-    nlua0_mod.addImport("ziglua", ziglua.module("ziglua"));
-    nlua0_mod.addImport("embedded_data", embedded_data);
-    // addImport already links by itself. but we need headers as well..
-    nlua0_mod.linkLibrary(ziglua.artifact("lua"));
+    for ([2]*std.Build.Module{ nlua0_mod, &exe_unit_tests.root_module }) |mod| {
+        mod.addImport("ziglua", ziglua.module("ziglua"));
+        mod.addImport("embedded_data", embedded_data);
+        // addImport already links by itself. but we need headers as well..
+        mod.linkLibrary(ziglua.artifact("lua"));
 
-    nlua0_mod.addIncludePath(b.path("src"));
-    nlua0_mod.addIncludePath(b.path("src/includes_fixmelater"));
-    nlua0_mod.addIncludePath(lpeg.path(""));
-    nlua0_mod.addCSourceFiles(.{
-        .files = &nlua_modules_sources,
-        .flags = &flags,
-    });
-    nlua0_mod.addCSourceFiles(.{
-        .root = .{ .dependency = .{ .dependency = lpeg, .sub_path = "" } },
-        .files = &lpeg_sources,
-        .flags = &flags,
-    });
+        mod.addIncludePath(b.path("src"));
+        mod.addIncludePath(b.path("src/includes_fixmelater"));
+        mod.addIncludePath(lpeg.path(""));
+        mod.addCSourceFiles(.{
+            .files = &.{
+                "src/mpack/lmpack.c",
+                "src/mpack/mpack_core.c",
+                "src/mpack/object.c",
+                "src/mpack/conv.c",
+                "src/mpack/rpc.c",
+            },
+            .flags = &flags,
+        });
+        mod.addCSourceFiles(.{
+            .root = .{ .dependency = .{ .dependency = lpeg, .sub_path = "" } },
+            .files = &.{
+                "lpcap.c",
+                "lpcode.c",
+                "lpprint.c",
+                "lptree.c",
+                "lpvm.c",
+            },
+            .flags = &flags,
+        });
+    }
 
-    // This declares intent for the executable to be installed into the
-    // standard location when the user invokes the "install" step (the default
-    // step when running `zig build`).
-    // TODO: this should be deleted as nlua0 is only used as a build tool!
-    b.installArtifact(nlua0_exe);
-
-    // This *creates* a Run step in the build graph, to be executed when another
-    // step is evaluated that depends on it. The next line below will establish
-    // such a dependency.
+    // for debugging the nlua0 environment
+    // like this: `zig build nlua0 -- script.lua {args}`
     const run_cmd = b.addRunArtifact(nlua0_exe);
-
-    // By making the run step depend on the install step, it will be run from the
-    // installation directory rather than directly from within the cache directory.
-    // This is not necessary, however, if the application depends on other installed
-    // files, this ensures they will be present and in the expected location.
     run_cmd.step.dependOn(b.getInstallStep());
-
-    // like this: `zig build nlua0 -- arg1 arg2 etc`
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-
     const run_step = b.step("nlua0", "Run nlua0 build tool");
     run_step.dependOn(&run_cmd.step);
 
@@ -140,26 +129,6 @@ pub fn build(b: *std.Build) !void {
 
     const gen_step = try generate_header_for(b, "autocmd.c", nlua0_exe);
     wip_step.dependOn(&gen_step.step);
-
-    const exe_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/nlua0.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const test_mod = &exe_unit_tests.root_module;
-    // TODO: figure out how these should be shared :P
-    test_mod.addImport("ziglua", ziglua.module("ziglua"));
-    test_mod.addImport("embedded_data", embedded_data);
-    // addImport already links by itself. but we need headers as well..
-    test_mod.linkLibrary(ziglua.artifact("lua"));
-
-    test_mod.addIncludePath(b.path("src"));
-    test_mod.addIncludePath(b.path("src/includes_fixmelater"));
-    test_mod.addCSourceFiles(.{
-        .files = &nlua_modules_sources,
-        .flags = &flags,
-    });
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
