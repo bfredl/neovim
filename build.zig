@@ -44,8 +44,8 @@ pub fn build(b: *std.Build) !void {
 
     const lpeg = b.dependency("lpeg", .{});
 
-    // const lua = ziglua.artifact("lua");
-    const lua = lazyArtifact(ziglua, "lua") orelse return;
+    const lua = ziglua.artifact("lua");
+    //const lua = lazyArtifact(ziglua, "lua") orelse return;
 
     const libuv_dep = b.dependency("libuv", .{ .target = target, .optimize = optimize });
     const libuv = libuv_dep.artifact("uv");
@@ -124,10 +124,53 @@ pub fn build(b: *std.Build) !void {
         .NVIM_VERSION_MINOR = version.minor,
         .NVIM_VERSION_PATCH = version.patch,
         .NVIM_VERSION_PRERELEASE = version.prerelease,
-        .VERSION_STRING = "TODO", // TODO
+        .VERSION_STRING = "TODOx", // TODO
         .CONFIG = b.fmt("build.zig -Doptimize={s}", .{@tagName(optimize)}), // TODO: include optimize name
     });
     _ = gen_config.addCopyFile(versiondef_step.getOutput(), "auto/versiondef.h"); // run_preprocessor() workaronnd
+
+    const t = target.result;
+
+    const ptrwidth = t.ptrBitWidth() / 8;
+    const sysconfig_step = b.addConfigHeader(.{ .style = .{ .cmake = b.path("cmake.config/config.h.in") } }, .{
+        .SIZEOF_INT = t.c_type_byte_size(.int),
+        .SIZEOF_INTMAX_T = t.c_type_byte_size(.longlong), // TODO
+        .SIZEOF_LONG = t.c_type_byte_size(.long),
+        .SIZEOF_SIZE_T = ptrwidth,
+        .SIZEOF_VOID_PTR = ptrwidth,
+
+        .PROJECT_NAME = "nvim",
+
+        .HAVE__NSGETENVIRON = null,
+        .HAVE_FD_CLOEXEC = null,
+        .HAVE_FSEEKO = null,
+        .HAVE_LANGINFO_H = null,
+        .HAVE_NL_LANGINFO_CODESET = null,
+        .HAVE_NL_MSG_CAT_CNTR = null,
+        .HAVE_PWD_FUNCS = null,
+        .HAVE_READLINK = null,
+        .HAVE_STRNLEN = null,
+        .HAVE_STRCASECMP = null,
+        .HAVE_STRINGS_H = null,
+        .HAVE_STRNCASECMP = null,
+        .HAVE_STRPTIME = null,
+        .HAVE_XATTR = null,
+        .HAVE_SYS_SDT_H = null,
+        .HAVE_SYS_UTSNAME_H = null,
+        .HAVE_SYS_WAIT_H = null,
+        .HAVE_TERMIOS_H = null,
+        .HAVE_WORKING_LIBINTL = null,
+        .UNIX = null,
+        .CASE_INSENSITIVE_FILENAME = null,
+        .USE_FNAME_CASE = null,
+        .HAVE_SYS_UIO_H = null,
+        .HAVE_READV = null,
+        .HAVE_DIRFD_AND_FLOCK = null,
+        .HAVE_FORKPTY = null,
+    });
+
+    // TODO: not used yet
+    _ = gen_config.addCopyFile(sysconfig_step.getOutput(), "auto/config_WIP.h"); // run_preprocessor() workaronnd
 
     // TODO: actually run git :p
     const medium = b.fmt("v{}.{}.{}{s}+zig", .{ version.major, version.minor, version.patch, version.prerelease });
