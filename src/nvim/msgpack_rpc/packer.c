@@ -28,15 +28,19 @@ static void mpack_w8(char **b, const char *data)
 #endif
 }
 
-void mpack_integer(char **ptr, Integer i)
-{
-  if (i >= 0) {
+void mpack_uint64(char **ptr, uint64_t i) {
     if (i > 0xfffffff) {
       mpack_w(ptr, 0xcf);
       mpack_w8(ptr, (char *)&i);
     } else {
       mpack_uint(ptr, (uint32_t)i);
     }
+}
+
+void mpack_integer(char **ptr, Integer i)
+{
+  if (i >= 0) {
+    mpack_uint64(ptr, (uint64_t)i);
   } else {
     if (i < -0x80000000LL) {
       mpack_w(ptr, 0xd3);
