@@ -107,6 +107,7 @@ void rbuffer_produced(RBuffer *buf, size_t count) FUNC_ATTR_NONNULL_ALL
 
   buf->size += count;
   if (buf->full_cb && !rbuffer_space(buf)) {
+    // check_buffer(packer);
     buf->full_cb(buf, buf->data);
   }
 }

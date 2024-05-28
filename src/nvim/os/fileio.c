@@ -120,12 +120,10 @@ int file_open_fd(FileDescriptor *const ret_fp, const int fd, const int flags)
   assert(!ret_fp->wr || !ret_fp->non_blocking);
   ret_fp->fd = fd;
   ret_fp->eof = false;
-  ret_fp->rv = rbuffer_new(kRWBufferSize);
+  ret_fp->buffer = alloc_block();
   ret_fp->_error = 0;
-  if (ret_fp->wr) {
-    ret_fp->rv->data = ret_fp;
-    ret_fp->rv->full_cb = (rbuffer_callback)&file_rb_write_full_cb;
-  }
+  ret_fp->read_pos = ret_fp->buffer;
+  ret_fp->write_pos = ret_fp->buffer;
   ret_fp->bytes_read = 0;
   return 0;
 }
@@ -148,7 +146,9 @@ void file_open_buffer(FileDescriptor *ret_fp, char *data, size_t len)
   ret_fp->non_blocking = false;
   ret_fp->fd = -1;
   ret_fp->eof = true;
-  ret_fp->rv = rbuffer_new_wrap_buf(data, len);
+  ret_fp->buffer = NULL; // we don't take ownership
+  ret_fp->read_pos = data;
+  ret_fp->write_pos = data+len;
   ret_fp->_error = 0;
   ret_fp->bytes_read = 0;
 }
@@ -163,34 +163,16 @@ int file_close(FileDescriptor *const fp, const bool do_fsync)
   FUNC_ATTR_NONNULL_ALL
 {
   if (fp->fd < 0) {
-    rbuffer_free(fp->rv);
     return 0;
   }
 
   const int flush_error = (do_fsync ? file_fsync(fp) : file_flush(fp));
   const int close_error = os_close(fp->fd);
-  rbuffer_free(fp->rv);
+  free_block(fp->buffer);
   if (close_error != 0) {
     return close_error;
   }
   return flush_error;
-}
-
-/// Flush file modifications to disk
-///
-/// @param[in,out]  fp  File to work with.
-///
-/// @return 0 or error code.
-int file_flush(FileDescriptor *const fp)
-  FUNC_ATTR_NONNULL_ALL
-{
-  if (!fp->wr) {
-    return 0;
-  }
-  file_rb_write_full_cb(fp->rv, fp);
-  const int error = fp->_error;
-  fp->_error = 0;
-  return error;
 }
 
 /// Flush file modifications to disk and run fsync()
@@ -218,36 +200,29 @@ int file_fsync(FileDescriptor *const fp)
   return 0;
 }
 
-/// Buffer used for writing
+/// Flush file modifications to disk
 ///
-/// Like IObuff, but allows file_\* callers not to care about spoiling it.
-static char writebuf[kRWBufferSize];
-
-/// Function run when RBuffer is full when writing to a file
-///
-/// Actually does writing to the file, may also be invoked directly.
-///
-/// @param[in,out]  rv  RBuffer instance used.
 /// @param[in,out]  fp  File to work with.
-static void file_rb_write_full_cb(RBuffer *const rv, void *const fp_in)
+///
+/// @return 0 or error code.
+int file_flush(FileDescriptor *fp)
   FUNC_ATTR_NONNULL_ALL
 {
-  FileDescriptor *const fp = fp_in;
-  assert(fp->wr);
-  assert(rv->data == (void *)fp);
-  if (rbuffer_size(rv) == 0) {
-    return;
+  if (!fp->wr) {
+    return 0;
   }
-  const size_t read_bytes = rbuffer_read(rv, writebuf, kRWBufferSize);
-  const ptrdiff_t wres = os_write(fp->fd, writebuf, read_bytes,
+
+  ptrdiff_t to_write = fp->write_pos - fp->read_pos;
+  if (to_write == 0) {
+    return 0;
+  }
+  const ptrdiff_t wres = os_write(fp->fd, fp->read_pos, (size_t)to_write,
                                   fp->non_blocking);
-  if (wres != (ptrdiff_t)read_bytes) {
-    if (wres >= 0) {
-      fp->_error = UV_EIO;
-    } else {
-      fp->_error = (int)wres;
-    }
+  fp->read_pos = fp->write_pos = fp->buffer;
+  if (wres != to_write) {
+    return (wres >= 0) ? UV_EIO : (int)wres;
   }
+  return 0;
 }
 
 /// Read from file
@@ -348,6 +323,17 @@ ptrdiff_t file_write(FileDescriptor *const fp, const char *const buf, const size
   FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_NONNULL_ARG(1)
 {
   assert(fp->wr);
+  ptrdiff_t space = (fp->buffer + ARENA_BLOCK_SIZE) - fp->write_pos;
+  if (size > (size_t)space) {
+    int status = file_flush(fp);
+    if (status < 0) {
+      return status;
+    }
+  } else {
+    memcpy(fp->write_pos, buf, size);
+    a
+  }
+
   const size_t written = rbuffer_write(fp->rv, buf, size);
   if (fp->_error != 0) {
     const int error = fp->_error;
