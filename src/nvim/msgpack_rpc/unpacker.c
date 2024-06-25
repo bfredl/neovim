@@ -206,6 +206,7 @@ bool unpacker_parse_header(Unpacker *p)
 
   assert(!ERROR_SET(&p->unpack_error));
 
+  // TODO(bfredl): eliminate p->reader, we can use mpack_rtoken directly
 #define NEXT(tok) \
   result = mpack_read(&p->reader, &data, &size, &tok); \
   if (result) { goto error; }
@@ -521,4 +522,155 @@ bool unpacker_parse_redraw(Unpacker *p)
   default:
     abort();
   }
+}
+
+/// require complete string. safe to use e.g. in shada as we have loaded a complete shada item into
+/// a linear buffer.
+///
+/// data and size are preserved in cause of failure
+///
+/// @return "data" is NULL exact when failure (non-null data and size=0 for
+/// valid empty string)
+String unpack_string(const char **data, size_t *size) 
+{
+  const char *data2 = *data;
+  size_t size2 = *size;
+  mpack_token_t tok;
+
+  // TODO: this code is hot a f, specialize!
+  int result = mpack_rtoken(&data2, &size2, &tok);
+  if (result || (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN)) {
+    return (String)STRING_INIT;
+  }
+  if (*size < tok.length) {
+    // result = MPACK_EOF;
+    return (String)STRING_INIT;
+  }
+  (*data) = data2 + tok.length;
+  (*size) = size2 - tok.length;
+  return cbuf_as_string((char *)data2, tok.length);
+}
+
+/// @return -1 if not an array or EOF. otherwise size of valid array
+ssize_t unpack_array(const char **data, size_t *size) 
+{
+  // TODO: this code is hot, specialize!
+  mpack_token_t tok;
+  int result = mpack_rtoken(data, size, &tok);
+  if (result || tok.type != MPACK_TOKEN_ARRAY) {
+    return -1;
+  }
+  return tok.length;
+}
+
+/// does not keep "data" untouched on failure
+bool unpack_integer(const char **data, size_t *size, Integer *res) {
+  mpack_token_t tok;
+  int result = mpack_rtoken(data, size, &tok);
+  if (result) {
+    return false;
+  }
+  return unpack_uint_or_sint(tok, res);
+}
+
+bool unpack_uint_or_sint(mpack_token_t tok, Integer *res) {
+  if (tok.type == MPACK_TOKEN_UINT) {
+    *res = (Integer) mpack_unpack_uint(tok);
+    return true;
+  } else if (tok.type == MPACK_TOKEN_SINT) {
+    *res = (Integer) mpack_unpack_uint(tok);
+    return true;
+  }
+  return false;
+}
+
+// currently only used for shada, so not re-entrant like unpacker_parse_redraw
+bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const char **data, size_t *size, char **error)
+{
+  OptKeySet *ks = (OptKeySet *)retval;
+  mpack_token_t tok;
+  
+  int result = mpack_rtoken(data, size, &tok);
+  if (result || tok.type != MPACK_TOKEN_MAP) {
+    *error = "not a map";
+    return false;
+  }
+
+  size_t map_size = tok.length;
+
+  for (size_t i = 0; i < map_size; i++) {
+    String key = unpack_string(data, size);
+    if (!key.data) {
+      *error = "key is not a string";
+      return false;
+    }
+    KeySetLink *field = hashy(key.data, key.size);
+
+    if (!field) {
+      fprintf(stderr, "\n\nFOOKA %.*s\n", (int)key.size, key.data);
+      abort();  // extra data!
+      continue;
+    }
+
+    assert(field->opt_index >= 0);
+    uint64_t flag = (1ULL << field->opt_index);
+    if (ks->is_set_ & flag) {
+      *error = "duplicate key";
+      return false;  // duplicate key :<
+    }
+    ks->is_set_ |= flag;
+
+    char *mem = ((char *)retval + field->ptr_off);
+    switch (field->type) {
+      case kObjectTypeBoolean:
+        if (*size == 0 || (**data & 0xfe) != 0xc2) {
+          *error = "boolean expeted";
+          return false;
+        }
+      *(Boolean *)mem = **data & 0x01;
+      (*data)++; (*size)--;
+      break;
+
+      case kObjectTypeInteger:
+        if (!unpack_integer(data, size, (Integer *)mem)) {
+          *error = "integer expected";
+          return false;
+        }
+        break;
+
+      case kObjectTypeString: {
+        String val = unpack_string(data, size);
+        if (!val.data) {
+          *error = "string expected";
+          return false;
+        }
+        *(String *)mem = val;
+        break;
+      }
+
+      case kUnpackTypeStringArray: {
+       ssize_t len = unpack_array(data, size);
+       if (len < 0) {
+          *error = "array expected";
+          return false;
+       }
+       StringArray *a = (StringArray *)mem;
+       kv_ensure_space(*a, (size_t)len);
+       for (size_t j = 0; j < (size_t)len; j++) {
+         String item = unpack_string(data, size);
+         if (!item.data) {
+          *error = "array of strings expected";
+          return false;
+         }
+         kv_push(*a, item);
+       }
+       break;
+      }
+
+      default:
+        abort(); // not supported
+    }
+  }
+
+  return true;
 }
