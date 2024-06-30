@@ -3451,6 +3451,7 @@ shada_read_next_item_start:
   ShadaEntryType t = (ShadaEntryType)type_u64;
 
   if (t != 
+  kSDItemSubString && t != 
   kSDItemChange && t != 
   kSDItemJump && t != 
   kSDItemGlobalMark && t != 
@@ -3471,6 +3472,8 @@ shada_read_next_item_start:
     }
   }
 
+  const char *read_ptr = buf;
+  size_t read_size = length;
   entry->data = sd_default_values[type_u64].data;
   switch ((ShadaEntryType)type_u64) {
   case kSDItemHeader:
@@ -3524,8 +3527,6 @@ shada_read_next_item_start:
   case kSDItemGlobalMark:
   case kSDItemLocalMark: {
     Dict(shada_mark) it;
-    const char *read_ptr = buf;
-    size_t read_size = length;
     // TODO: hashy should special case when all possible keys have lenght one (strcmp can be
     // skipped)
     if (!unpack_keydict(&it, DictHash(shada_mark), NULL, &read_ptr, &read_size)) {
@@ -3748,27 +3749,29 @@ shada_read_next_item_start:
     }
     break;
   }
-  case kSDItemSubString:
-    if (unpacked.data.type != MSGPACK_OBJECT_ARRAY) {
+  case kSDItemSubString: {
+    ssize_t len = mpack_require_array(&read_ptr, &read_size);
+
+    if (len < 0) {
       semsg(_(READERR("sub string", "is not an array")), initial_fpos);
       goto shada_read_next_item_error;
-    }
-    if (unpacked.data.via.array.size < 1) {
+    } else if (len < 1) {
       semsg(_(READERR("sub string", "does not have enough elements")),
             initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (unpacked.data.via.array.ptr[0].type != MSGPACK_OBJECT_BIN) {
+
+    size_t datalen;
+    const char *data = mpack_require_string(&read_ptr, &read_size, &datalen);
+    if (!data) {
       semsg(_(READERR("sub string", "has wrong sub string type")),
             initial_fpos);
       goto shada_read_next_item_error;
     }
-    entry->data.sub_string.sub =
-      BIN_CONVERTED(unpacked.data.via.array.ptr[0].via.bin);
-    SET_ADDITIONAL_ELEMENTS(unpacked.data.via.array, 1,
-                            entry->data.sub_string.additional_elements,
-                            "sub string");
+    entry->data.sub_string.sub = xmemdupz(data, datalen);
+    // TODO: additional items
     break;
+    }
   case kSDItemBufferList:
     if (unpacked.data.type != MSGPACK_OBJECT_ARRAY) {
       semsg(_(READERR("buffer list", "is not an array")), initial_fpos);

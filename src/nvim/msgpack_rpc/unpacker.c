@@ -524,16 +524,37 @@ bool unpacker_parse_redraw(Unpacker *p)
   }
 }
 
-static const char *try_read_string(const char **data, size_t *size, size_t strlen) 
+/// require complete string. safe to use e.g. in shada as we have loaded a complete shada item into
+/// a linear buffer.
+const char *mpack_require_string(const char **data, size_t *size, size_t *strlen) 
 {
-    if (*size < strlen) {
-      // result = MPACK_EOF;
-      return NULL;
-    }
-    const char *retval = *data;
-    (*data) += strlen;
-    (*size) -= strlen;
-    return retval;
+  // TODO: this code is hot, specialize!
+  mpack_token_t tok;
+  int result = mpack_rtoken(data, size, &tok);
+  if (result || (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN)) {
+    return NULL;
+  }
+  if (*size < tok.length) {
+    // result = MPACK_EOF;
+    return NULL;
+  }
+  *strlen = tok.length;
+  const char *retval = *data;
+  (*data) += tok.length;
+  (*size) -= tok.length;
+  return retval;
+}
+
+/// @return -1 if not an array or EOF. otherwise size of valid array
+ssize_t mpack_require_array(const char **data, size_t *size) 
+{
+  // TODO: this code is hot, specialize!
+  mpack_token_t tok;
+  int result = mpack_rtoken(data, size, &tok);
+  if (result || tok.type != MPACK_TOKEN_ARRAY) {
+    return -1;
+  }
+  return tok.length;
 }
 
 // currently only used for shada, so not re-entrant like unpacker_parse_redraw
@@ -550,13 +571,8 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
   size_t map_size = tok.length;
 
   for (size_t i = 0; i < map_size; i++) {
-    result = mpack_rtoken(data, size, &tok);
-    if (result || (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN)) {
-      return false;
-    }
-
-    size_t key_len = tok.length;
-    const char *key = try_read_string(data, size, key_len);
+    size_t key_len;
+    const char *key = mpack_require_string(data, size, &key_len);
     if (!key) {
       return false;
     }
@@ -617,16 +633,15 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
         }
         break;
 
-      case kObjectTypeString:
-        if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) {
-          return false;
-        }
-        const char *val = try_read_string(data, size, tok.length);
+      case kObjectTypeString: {
+        size_t val_len;
+        const char *val = mpack_require_string(data, size, &val_len);
         if (!val) {
           return false;
         }
-        *(String *)mem = cbuf_to_string(val, tok.length);
+        *(String *)mem = cbuf_to_string(val, val_len);
         break;
+                              }
 
       case kObjectTypeArray:
       case kObjectTypeDictionary:
