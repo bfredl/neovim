@@ -392,3 +392,11 @@ typedef struct {
   OptionalKeys is_set__ns_opts_;
   Array wins;
 } Dict(ns_opts);
+
+typedef struct {
+  OptionalKeys is_set__shada_mark_;
+  Integer n;
+  Integer l;
+  Integer c;
+  String f;
+} Dict(shada_mark);

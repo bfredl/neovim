@@ -13,6 +13,7 @@
 #include <uv.h>
 
 #include "auto/config.h"
+#include "nvim/api/keysets_defs.h"
 #include "nvim/api/private/defs.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/ascii_defs.h"
@@ -43,6 +44,7 @@
 #include "nvim/memory.h"
 #include "nvim/message.h"
 #include "nvim/msgpack_rpc/packer.h"
+#include "nvim/msgpack_rpc/unpacker.h"
 #include "nvim/normal_defs.h"
 #include "nvim/ops.h"
 #include "nvim/option.h"
@@ -3443,14 +3445,32 @@ shada_read_next_item_start:
   }
 
   msgpack_unpacked unpacked;
+  msgpack_unpacked_init(&unpacked);
   char *buf = NULL;
 
-  const ShaDaReadResult spm_ret = shada_parse_msgpack(sd_reader, length,
-                                                      &unpacked, &buf);
-  if (spm_ret != kSDReadStatusSuccess) {
-    ret = spm_ret;
-    goto shada_read_next_item_error;
+  ShadaEntryType t = (ShadaEntryType)type_u64;
+
+  if (t != 
+  kSDItemChange && t != 
+  kSDItemJump && t != 
+  kSDItemGlobalMark && t != 
+  kSDItemLocalMark) {
+    const ShaDaReadResult spm_ret = shada_parse_msgpack(sd_reader, length,
+                                                        &unpacked, &buf);
+    if (spm_ret != kSDReadStatusSuccess) {
+      ret = spm_ret;
+      goto shada_read_next_item_error;
+    }
+  } else {
+    buf = xmalloc(length);
+    const ShaDaReadResult fl_ret = fread_len(sd_reader, buf, length);
+    if (fl_ret != kSDReadStatusSuccess) {
+      xfree(buf);
+      ret = fl_ret;
+      goto shada_read_next_item_error;
+    }
   }
+
   entry->data = sd_default_values[type_u64].data;
   switch ((ShadaEntryType)type_u64) {
   case kSDItemHeader:
@@ -3503,31 +3523,43 @@ shada_read_next_item_start:
   case kSDItemJump:
   case kSDItemGlobalMark:
   case kSDItemLocalMark: {
-    if (unpacked.data.type != MSGPACK_OBJECT_MAP) {
-      semsg(_(READERR("mark", "is not a dictionary")), initial_fpos);
+    Dict(shada_mark) it;
+    const char *read_ptr = buf;
+    size_t read_size = length;
+    // TODO: hashy should special case when all possible keys have lenght one (strcmp can be
+    // skipped)
+    if (!unpack_keydict(&it, DictHash(shada_mark), NULL, &read_ptr, &read_size)) {
+      // TODO: verbose errors!
+      semsg(_(READERR("mark", "did blubb blubb")), initial_fpos);
       goto shada_read_next_item_error;
     }
+    if (read_size) {
+      semsg(_(READERR("mark", "additional bytes")), initial_fpos);
+      goto shada_read_next_item_error;
+    }
+
     garray_T ad_ga;
     ga_init(&ad_ga, sizeof(*(unpacked.data.via.map.ptr)), 1);
-    for (size_t i = 0; i < unpacked.data.via.map.size; i++) {
-      CHECK_KEY_IS_STR(unpacked, "mark")
-      if (CHECK_KEY(unpacked.data.via.map.ptr[i].key, KEY_NAME_CHAR)) {
-        if (type_u64 == kSDItemJump || type_u64 == kSDItemChange) {
+
+    if (HAS_KEY(&it, shada_mark, n)) {
+      if (type_u64 == kSDItemJump || type_u64 == kSDItemChange) {
           semsg(_(READERR("mark", "has n key which is only valid for "
                           "local and global mark entries")), initial_fpos);
           CLEAR_GA_AND_ERROR_OUT(ad_ga);
         }
-        CHECKED_ENTRY((unpacked.data.via.map.ptr[i].val.type
-                       == MSGPACK_OBJECT_POSITIVE_INTEGER),
-                      "has n key value which is not an unsigned integer",
-                      "mark", unpacked.data.via.map.ptr[i].val,
-                      entry->data.filemark.name, u64, TOCHAR);
-      }
-      INTEGER_KEY(unpacked, "mark", KEY_LNUM, entry->data.filemark.mark.lnum)
-      INTEGER_KEY(unpacked, "mark", KEY_COL, entry->data.filemark.mark.col)
-      STRING_KEY(unpacked, "mark", KEY_FILE, entry->data.filemark.fname)
-      ADDITIONAL_KEY(unpacked)
+      entry->data.filemark.name = (char)it.n;
     }
+
+    if (HAS_KEY(&it, shada_mark, l)) {
+      entry->data.filemark.mark.lnum = (linenr_T)it.l;
+    }
+    if (HAS_KEY(&it, shada_mark, c)) {
+      entry->data.filemark.mark.col = (colnr_T)it.c;
+    }
+    if (HAS_KEY(&it, shada_mark, f)) {
+      entry->data.filemark.fname = it.f.data;
+    }
+
     if (entry->data.filemark.fname == NULL) {
       semsg(_(READERR("mark", "is missing file name")), initial_fpos);
       CLEAR_GA_AND_ERROR_OUT(ad_ga);

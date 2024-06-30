@@ -524,6 +524,18 @@ bool unpacker_parse_redraw(Unpacker *p)
   }
 }
 
+static const char *try_read_string(const char **data, size_t *size, size_t strlen) 
+{
+    if (*size < strlen) {
+      // result = MPACK_EOF;
+      return NULL;
+    }
+    const char *retval = *data;
+    (*data) += strlen;
+    (*size) -= strlen;
+    return retval;
+}
+
 // currently only used for shada, so not re-entrant like unpacker_parse_redraw
 bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const char **data, size_t *size)
 {
@@ -544,13 +556,11 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
     }
 
     size_t key_len = tok.length;
-    if (*size < key_len) {
-      // result = MPACK_EOF;
+    const char *key = try_read_string(data, size, key_len);
+    if (!key) {
       return false;
     }
-    KeySetLink *field = hashy(*data, key_len);
-    (*data) += key_len;
-    (*size) -= key_len;
+    KeySetLink *field = hashy(key, key_len);
 
     result = mpack_rtoken(data, size, &tok);
     if (result) {
@@ -561,10 +571,70 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
       abort();  // extra data!
       continue;
     }
-    switch (field->type) {
 
+    assert(field->opt_index >= 0);
+    uint64_t flag = (1ULL << field->opt_index);
+    if (ks->is_set_ & flag) {
+      return false;  // duplicate key :<
+    }
+    ks->is_set_ |= flag;
+
+    char *mem = ((char *)retval + field->ptr_off);
+    switch (field->type) {
+      case kObjectTypeBoolean:
+        if (tok.type != MPACK_TOKEN_BOOLEAN) {
+          return false;
+        }
+      *(Boolean *)mem = mpack_unpack_boolean(tok);
+      break;
+
+      case kObjectTypeInteger:
+        if (tok.type == MPACK_TOKEN_UINT) {
+          *(Integer *)mem = (Integer)mpack_unpack_uint(tok);
+        } else if (tok.type == MPACK_TOKEN_SINT) {
+          *(Integer *)mem = mpack_unpack_sint(tok);
+        } else {
+          return false;
+        }
+        break;
+
+      case kObjectTypeFloat:
+        if (tok.type != MPACK_TOKEN_FLOAT && tok.type != MPACK_TOKEN_UINT && tok.type != MPACK_TOKEN_SINT) {
+          return false;
+        }
+        *(Float *)mem = mpack_unpack_number(tok);
+        break;
+
+      case kObjectTypeBuffer:
+      case kObjectTypeWindow:
+      case kObjectTypeTabpage:
+        if (tok.type == MPACK_TOKEN_UINT) {
+          *(handle_T *)mem = (handle_T)mpack_unpack_uint(tok);
+        } else if (tok.type == MPACK_TOKEN_SINT) {
+          *(handle_T *)mem = (handle_T)mpack_unpack_sint(tok);
+        } else {
+          return false;
+        }
+        break;
+
+      case kObjectTypeString:
+        if (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN) {
+          return false;
+        }
+        const char *val = try_read_string(data, size, tok.length);
+        if (!val) {
+          return false;
+        }
+        *(String *)mem = cbuf_to_string(val, tok.length);
+        break;
+
+      case kObjectTypeArray:
+      case kObjectTypeDictionary:
+      case kObjectTypeNil:
+      case kObjectTypeLuaRef:
+        abort(); // not supported
     }
   }
 
-
+  return true;
 }
