@@ -558,15 +558,17 @@ ssize_t mpack_require_array(const char **data, size_t *size)
 }
 
 // currently only used for shada, so not re-entrant like unpacker_parse_redraw
-bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const char **data, size_t *size)
+bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const char **data, size_t *size, char **error)
 {
   OptKeySet *ks = (OptKeySet *)retval;
   mpack_token_t tok;
   
   int result = mpack_rtoken(data, size, &tok);
   if (result || tok.type != MPACK_TOKEN_MAP) {
+    *error = "not a map";
     return false;
   }
+
 
   size_t map_size = tok.length;
 
@@ -574,23 +576,29 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
     size_t key_len;
     const char *key = mpack_require_string(data, size, &key_len);
     if (!key) {
+      *error = "key is not a string";
       return false;
     }
     KeySetLink *field = hashy(key, key_len);
-
-    result = mpack_rtoken(data, size, &tok);
-    if (result) {
-      return false;
-    }
 
     if (!field) {
       abort();  // extra data!
       continue;
     }
 
+    if (field->type != kObjectTypeString) {
+      result = mpack_rtoken(data, size, &tok);
+      if (result) {
+        *error = "cannot read value";
+        return false;
+      }
+    }
+
+
     assert(field->opt_index >= 0);
     uint64_t flag = (1ULL << field->opt_index);
     if (ks->is_set_ & flag) {
+      *error = "duplicate key";
       return false;  // duplicate key :<
     }
     ks->is_set_ |= flag;
@@ -599,6 +607,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
     switch (field->type) {
       case kObjectTypeBoolean:
         if (tok.type != MPACK_TOKEN_BOOLEAN) {
+          *error = "boolean expeted";
           return false;
         }
       *(Boolean *)mem = mpack_unpack_boolean(tok);
@@ -610,12 +619,14 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
         } else if (tok.type == MPACK_TOKEN_SINT) {
           *(Integer *)mem = mpack_unpack_sint(tok);
         } else {
+          *error = "integer expected";
           return false;
         }
         break;
 
       case kObjectTypeFloat:
         if (tok.type != MPACK_TOKEN_FLOAT && tok.type != MPACK_TOKEN_UINT && tok.type != MPACK_TOKEN_SINT) {
+          *error = "float expected";
           return false;
         }
         *(Float *)mem = mpack_unpack_number(tok);
@@ -629,7 +640,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
         } else if (tok.type == MPACK_TOKEN_SINT) {
           *(handle_T *)mem = (handle_T)mpack_unpack_sint(tok);
         } else {
-          return false;
+          *error = "integer expected";
         }
         break;
 
@@ -637,6 +648,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
         size_t val_len;
         const char *val = mpack_require_string(data, size, &val_len);
         if (!val) {
+          *error = "string expected";
           return false;
         }
         *(String *)mem = cbuf_to_string(val, val_len);

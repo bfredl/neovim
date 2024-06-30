@@ -3452,6 +3452,7 @@ shada_read_next_item_start:
 
   if (t != 
   kSDItemSubString && t != 
+  kSDItemBufferList && t != 
   kSDItemChange && t != 
   kSDItemJump && t != 
   kSDItemGlobalMark && t != 
@@ -3526,12 +3527,13 @@ shada_read_next_item_start:
   case kSDItemJump:
   case kSDItemGlobalMark:
   case kSDItemLocalMark: {
-    Dict(shada_mark) it;
+    Dict(shada_mark) it = { 0 };
     // TODO: hashy should special case when all possible keys have lenght one (strcmp can be
     // skipped)
-    if (!unpack_keydict(&it, DictHash(shada_mark), NULL, &read_ptr, &read_size)) {
+    char *error;
+    if (!unpack_keydict(&it, DictHash(shada_mark), NULL, &read_ptr, &read_size, &error)) {
       // TODO: verbose errors!
-      semsg(_(READERR("mark", "did blubb blubb")), initial_fpos);
+      semsg(_(READERR("mark", "did blubb blubb: %s")), initial_fpos, error);
       goto shada_read_next_item_error;
     }
     if (read_size) {
@@ -3772,76 +3774,64 @@ shada_read_next_item_start:
     // TODO: additional items
     break;
     }
-  case kSDItemBufferList:
-    if (unpacked.data.type != MSGPACK_OBJECT_ARRAY) {
+  case kSDItemBufferList: {
+    ssize_t len = mpack_require_array(&read_ptr, &read_size);
+    if (len < 0) {
       semsg(_(READERR("buffer list", "is not an array")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (unpacked.data.via.array.size == 0) {
+    if (len == 0) {
       break;
     }
-    entry->data.buffer_list.buffers =
-      xcalloc(unpacked.data.via.array.size,
-              sizeof(*entry->data.buffer_list.buffers));
-    for (size_t i = 0; i < unpacked.data.via.array.size; i++) {
+    entry->data.buffer_list.buffers = xcalloc((size_t)len,
+                                              sizeof(*entry->data.buffer_list.buffers));
+    for (size_t i = 0; i < (size_t)len; i++) {
       entry->data.buffer_list.size++;
-      msgpack_unpacked unpacked_2 = (msgpack_unpacked) {
-        .data = unpacked.data.via.array.ptr[i],
-      };
-      {
-        if (unpacked_2.data.type != MSGPACK_OBJECT_MAP) {
+      Dict(shada_buflist_item) it = { 0 };
+      char *error;
+      if (!unpack_keydict(&it, DictHash(shada_buflist_item), NULL, &read_ptr, &read_size, &error)) {
           semsg(_(RERR "Error while reading ShaDa file: "
-                  "buffer list at position %" PRIu64 " "
-                  "contains entry that is not a dictionary"),
-                initial_fpos);
+                  "buffer list at position %" PRIu64 ": %s"
+                  ),
+                initial_fpos, error);
           goto shada_read_next_item_error;
-        }
-        entry->data.buffer_list.buffers[i].pos = default_pos;
-        garray_T ad_ga;
-        ga_init(&ad_ga, sizeof(*(unpacked_2.data.via.map.ptr)), 1);
-        {
-          // XXX: Temporarily reassign `i` because the macros depend on it.
-          const size_t j = i;
-          {
-            for (i = 0; i < unpacked_2.data.via.map.size; i++) {
-              CHECK_KEY_IS_STR(unpacked_2, "buffer list entry")
-              INTEGER_KEY(unpacked_2, "buffer list entry", KEY_LNUM,
-                          entry->data.buffer_list.buffers[j].pos.lnum)
-              INTEGER_KEY(unpacked_2, "buffer list entry", KEY_COL,
-                          entry->data.buffer_list.buffers[j].pos.col)
-              STRING_KEY(unpacked_2, "buffer list entry", KEY_FILE,
-                         entry->data.buffer_list.buffers[j].fname)
-              ADDITIONAL_KEY(unpacked_2)
-            }
-          }
-          i = j;  // XXX: Restore `i`.
-        }
-        if (entry->data.buffer_list.buffers[i].pos.lnum <= 0) {
-          semsg(_(RERR "Error while reading ShaDa file: "
-                  "buffer list at position %" PRIu64 " "
-                  "contains entry with invalid line number"),
-                initial_fpos);
-          CLEAR_GA_AND_ERROR_OUT(ad_ga);
-        }
-        if (entry->data.buffer_list.buffers[i].pos.col < 0) {
-          semsg(_(RERR "Error while reading ShaDa file: "
-                  "buffer list at position %" PRIu64 " "
-                  "contains entry with invalid column number"),
-                initial_fpos);
-          CLEAR_GA_AND_ERROR_OUT(ad_ga);
-        }
-        if (entry->data.buffer_list.buffers[i].fname == NULL) {
-          semsg(_(RERR "Error while reading ShaDa file: "
-                  "buffer list at position %" PRIu64 " "
-                  "contains entry that does not have a file name"),
-                initial_fpos);
-          CLEAR_GA_AND_ERROR_OUT(ad_ga);
-        }
-        SET_ADDITIONAL_DATA(entry->data.buffer_list.buffers[i].additional_data,
-                            "buffer list entry");
+      }
+      struct buffer_list_buffer *e = &entry->data.buffer_list.buffers[i];
+      e->pos = default_pos;
+      if (HAS_KEY(&it, shada_buflist_item, l)) {
+        e->pos.lnum = (linenr_T)it.l;
+      }
+      if (HAS_KEY(&it, shada_buflist_item, c)) {
+        e->pos.col = (colnr_T)it.c;
+      }
+      if (HAS_KEY(&it, shada_buflist_item, f)) {
+        e->fname = it.f.data;
+      }
+
+      if (e->pos.lnum <= 0) {
+        semsg(_(RERR "Error while reading ShaDa file: "
+                "buffer list at position %" PRIu64 " "
+                "contains entry with invalid line number"),
+              initial_fpos);
+        goto shada_read_next_item_error;
+      }
+      if (e->pos.col < 0) {
+        semsg(_(RERR "Error while reading ShaDa file: "
+                "buffer list at position %" PRIu64 " "
+                "contains entry with invalid column number"),
+              initial_fpos);
+        goto shada_read_next_item_error;
+      }
+      if (e->fname == NULL) {
+        semsg(_(RERR "Error while reading ShaDa file: "
+                "buffer list at position %" PRIu64 " "
+                "contains entry that does not have a file name"),
+              initial_fpos);
+        goto shada_read_next_item_error;
       }
     }
     break;
+  }
   case kSDItemMissing:
   case kSDItemUnknown:
     abort();

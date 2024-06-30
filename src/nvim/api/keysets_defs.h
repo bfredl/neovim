@@ -400,3 +400,10 @@ typedef struct {
   Integer c;
   String f;
 } Dict(shada_mark);
+
+typedef struct {
+  OptionalKeys is_set__shada_buflist_item_;
+  Integer l;
+  Integer c;
+  String f;
+} Dict(shada_buflist_item);
