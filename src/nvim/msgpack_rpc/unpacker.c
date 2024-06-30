@@ -206,6 +206,7 @@ bool unpacker_parse_header(Unpacker *p)
 
   assert(!ERROR_SET(&p->unpack_error));
 
+  // TODO(bfredl): eliminate p->reader, we can use mpack_rtoken directly
 #define NEXT(tok) \
   result = mpack_read(&p->reader, &data, &size, &tok); \
   if (result) { goto error; }
@@ -521,4 +522,49 @@ bool unpacker_parse_redraw(Unpacker *p)
   default:
     abort();
   }
+}
+
+// currently only used for shada, so not re-entrant like unpacker_parse_redraw
+bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const char **data, size_t *size)
+{
+  OptKeySet *ks = (OptKeySet *)retval;
+  mpack_token_t tok;
+  
+  int result = mpack_rtoken(data, size, &tok);
+  if (result || tok.type != MPACK_TOKEN_MAP) {
+    return false;
+  }
+
+  size_t map_size = tok.length;
+
+  for (size_t i = 0; i < map_size; i++) {
+    result = mpack_rtoken(data, size, &tok);
+    if (result || (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN)) {
+      return false;
+    }
+
+    size_t key_len = tok.length;
+    if (*size < key_len) {
+      // result = MPACK_EOF;
+      return false;
+    }
+    KeySetLink *field = hashy(*data, key_len);
+    (*data) += key_len;
+    (*size) -= key_len;
+
+    result = mpack_rtoken(data, size, &tok);
+    if (result) {
+      return false;
+    }
+
+    if (!field) {
+      abort();  // extra data!
+      continue;
+    }
+    switch (field->type) {
+
+    }
+  }
+
+
 }
