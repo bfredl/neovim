@@ -394,6 +394,20 @@ typedef struct {
 } Dict(ns_opts);
 
 typedef struct {
+  OptionalKeys is_set__shada_search_pat_;
+  Boolean sm;
+  Boolean sc;
+  Boolean sl;
+  Boolean se;
+  Boolean su;
+  Boolean ss;
+  Boolean sh;
+  Boolean sb;
+  Integer so;
+  String sp;
+} Dict(shada_search_pat);
+
+typedef struct {
   OptionalKeys is_set__shada_mark_;
   Integer n;
   Integer l;
@@ -402,8 +416,18 @@ typedef struct {
 } Dict(shada_mark);
 
 typedef struct {
+  OptionalKeys is_set__shada_register_;
+  StringArray rc;
+  Boolean ru;
+  Integer rt;
+  Integer n;
+  Integer rw;
+} Dict(shada_register);
+
+typedef struct {
   OptionalKeys is_set__shada_buflist_item_;
   Integer l;
   Integer c;
   String f;
 } Dict(shada_buflist_item);
+
