@@ -604,6 +604,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
     KeySetLink *field = hashy(key, key_len);
 
     if (!field) {
+      fprintf(stderr, "\n\nFOOKA %.*s\n", (int)key_len, key);
       abort();  // extra data!
       continue;
     }
