@@ -526,11 +526,16 @@ bool unpacker_parse_redraw(Unpacker *p)
 
 /// require complete string. safe to use e.g. in shada as we have loaded a complete shada item into
 /// a linear buffer.
-const char *mpack_require_string(const char **data, size_t *size, size_t *strlen) 
+///
+/// data and size are preserved in cause of failure
+const char *unpack_string(const char **data, size_t *size, size_t *strlen) 
 {
-  // TODO: this code is hot, specialize!
+  const char *data2 = *data;
+  size_t size2 = *size;
   mpack_token_t tok;
-  int result = mpack_rtoken(data, size, &tok);
+
+  // TODO: this code is hot a f, specialize!
+  int result = mpack_rtoken(&data2, &size2, &tok);
   if (result || (tok.type != MPACK_TOKEN_STR && tok.type != MPACK_TOKEN_BIN)) {
     return NULL;
   }
@@ -539,10 +544,9 @@ const char *mpack_require_string(const char **data, size_t *size, size_t *strlen
     return NULL;
   }
   *strlen = tok.length;
-  const char *retval = *data;
-  (*data) += tok.length;
-  (*size) -= tok.length;
-  return retval;
+  (*data) = data2 + tok.length;
+  (*size) = size2 - tok.length;
+  return data2;
 }
 
 /// @return -1 if not an array or EOF. otherwise size of valid array
@@ -556,6 +560,24 @@ ssize_t mpack_require_array(const char **data, size_t *size)
   }
   return tok.length;
 }
+
+/// does not keep "data" untouched on failure
+bool unpack_integer(const char **data, size_t *size, Integer *res) {
+  mpack_token_t tok;
+  int result = mpack_rtoken(data, size, &tok);
+  if (result) {
+    return false;
+  }
+  if (tok.type == MPACK_TOKEN_UINT) {
+    *res = (Integer) mpack_unpack_uint(tok);
+    return true;
+  } else if (tok.type == MPACK_TOKEN_SINT) {
+    *res = (Integer) mpack_unpack_uint(tok);
+    return true;
+  }
+  return false;
+}
+
 
 // currently only used for shada, so not re-entrant like unpacker_parse_redraw
 bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const char **data, size_t *size, char **error)
@@ -574,7 +596,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
 
   for (size_t i = 0; i < map_size; i++) {
     size_t key_len;
-    const char *key = mpack_require_string(data, size, &key_len);
+    const char *key = unpack_string(data, size, &key_len);
     if (!key) {
       *error = "key is not a string";
       return false;
@@ -646,7 +668,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
 
       case kObjectTypeString: {
         size_t val_len;
-        const char *val = mpack_require_string(data, size, &val_len);
+        const char *val = unpack_string(data, size, &val_len);
         if (!val) {
           *error = "string expected";
           return false;

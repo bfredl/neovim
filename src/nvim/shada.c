@@ -3278,32 +3278,6 @@ static ShaDaReadResult msgpack_read_uint64(FileDescriptor *const sd_reader, bool
     ad_ga.ga_len++; \
   }
 #define BIN_CONVERTED(b) (xmemdupz(((b).ptr), ((b).size)))
-#define SET_ADDITIONAL_DATA(tgt, name) \
-  do { \
-    if (ad_ga.ga_len) { \
-      msgpack_object obj = { \
-        .type = MSGPACK_OBJECT_MAP, \
-        .via = { \
-          .map = { \
-            .size = (uint32_t)ad_ga.ga_len, \
-            .ptr = ad_ga.ga_data, \
-          } \
-        } \
-      }; \
-      typval_T adtv; \
-      if (msgpack_to_vim(obj, &adtv) == FAIL \
-          || adtv.v_type != VAR_DICT) { \
-        semsg(_(READERR(name, \
-                        "cannot be converted to a Vimscript dictionary")), \
-              initial_fpos); \
-        ga_clear(&ad_ga); \
-        tv_clear(&adtv); \
-        goto shada_read_next_item_error; \
-      } \
-      (tgt) = adtv.vval.v_dict; \
-    } \
-    ga_clear(&ad_ga); \
-  } while (0)
 #define SET_ADDITIONAL_ELEMENTS(src, src_maxsize, tgt, name) \
   do { \
     if ((src).size > (size_t)(src_maxsize)) { \
@@ -3317,7 +3291,7 @@ static ShaDaReadResult msgpack_read_uint64(FileDescriptor *const sd_reader, bool
         } \
       }; \
       typval_T aetv; \
-      if (msgpack_to_vim(obj, &aetv) == FAIL) { \
+      if (FAIL == FAIL) { \
         semsg(_(READERR(name, "cannot be converted to a Vimscript list")), \
               initial_fpos); \
         tv_clear(&aetv); \
@@ -3452,6 +3426,8 @@ shada_read_next_item_start:
 
   if (t != 
   kSDItemSubString && t != 
+  kSDItemVariable && t != 
+  kSDItemHistoryEntry && t != 
   kSDItemBufferList && t != 
   kSDItemChange && t != 
   kSDItemJump && t != 
@@ -3519,8 +3495,8 @@ shada_read_next_item_start:
       semsg(_(READERR("search pattern", "has no pattern")), initial_fpos);
       CLEAR_GA_AND_ERROR_OUT(ad_ga);
     }
-    SET_ADDITIONAL_DATA(entry->data.search_pattern.additional_data,
-                        "search pattern");
+    // SET_ADDITIONAL_DATA(entry->data.search_pattern.additional_data,
+    //                     "search pattern");
     break;
   }
   case kSDItemChange:
@@ -3575,7 +3551,7 @@ shada_read_next_item_start:
       semsg(_(READERR("mark", "has invalid column number")), initial_fpos);
       CLEAR_GA_AND_ERROR_OUT(ad_ga);
     }
-    SET_ADDITIONAL_DATA(entry->data.filemark.additional_data, "mark");
+    // SET_ADDITIONAL_DATA(entry->data.filemark.additional_data, "mark");
     break;
   }
   case kSDItemRegister: {
@@ -3632,122 +3608,117 @@ shada_read_next_item_start:
             initial_fpos);
       CLEAR_GA_AND_ERROR_OUT(ad_ga);
     }
-    SET_ADDITIONAL_DATA(entry->data.reg.additional_data, "register");
+    // SET_ADDITIONAL_DATA(entry->data.reg.additional_data, "register");
     break;
   }
   case kSDItemHistoryEntry: {
-    if (unpacked.data.type != MSGPACK_OBJECT_ARRAY) {
+    ssize_t len = mpack_require_array(&read_ptr, &read_size);
+
+    if (len < 0) {
       semsg(_(READERR("history", "is not an array")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (unpacked.data.via.array.size < 2) {
+    if (len < 2) {
       semsg(_(READERR("history", "does not have enough elements")),
             initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (unpacked.data.via.array.ptr[0].type
-        != MSGPACK_OBJECT_POSITIVE_INTEGER) {
-      semsg(_(READERR("history", "has wrong history type type")),
-            initial_fpos);
+    Integer hist_type;
+    if (!unpack_integer(&read_ptr, &read_size, &hist_type)) {
+      semsg(_(READERR("history", "has wrong history type type")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (unpacked.data.via.array.ptr[1].type
-        != MSGPACK_OBJECT_BIN) {
-      semsg(_(READERR("history", "has wrong history string type")),
-            initial_fpos);
+    size_t item_len;
+    const char *item = unpack_string(&read_ptr, &read_size, &item_len);
+    if (!item) {
+      semsg(_(READERR("history", "has wrong history string type")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (memchr(unpacked.data.via.array.ptr[1].via.bin.ptr, 0,
-               unpacked.data.via.array.ptr[1].via.bin.size) != NULL) {
-      semsg(_(READERR("history", "contains string with zero byte inside")),
-            initial_fpos);
+    if (memchr(item, 0, item_len) != NULL) {
+      semsg(_(READERR("history", "contains string with zero byte inside")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    entry->data.history_item.histtype =
-      (uint8_t)unpacked.data.via.array.ptr[0].via.u64;
-    const bool is_hist_search =
-      entry->data.history_item.histtype == HIST_SEARCH;
+    entry->data.history_item.histtype = (uint8_t)hist_type;
+    const bool is_hist_search = entry->data.history_item.histtype == HIST_SEARCH;
     if (is_hist_search) {
-      if (unpacked.data.via.array.size < 3) {
+      if (len < 3) {
         semsg(_(READERR("search history",
                         "does not have separator character")), initial_fpos);
         goto shada_read_next_item_error;
       }
-      if (unpacked.data.via.array.ptr[2].type
-          != MSGPACK_OBJECT_POSITIVE_INTEGER) {
-        semsg(_(READERR("search history",
-                        "has wrong history separator type")), initial_fpos);
+      Integer sep_type;
+      if (!unpack_integer(&read_ptr, &read_size, &sep_type)) {
+        semsg(_(READERR("search history", "has wrong history separator type")), initial_fpos);
         goto shada_read_next_item_error;
       }
-      entry->data.history_item.sep =
-        (char)unpacked.data.via.array.ptr[2].via.u64;
+      entry->data.history_item.sep = (char)sep_type;
     }
-    size_t strsize;
-    strsize = (
-               unpacked.data.via.array.ptr[1].via.bin.size
-               + 1  // Zero byte
-               + 1);  // Separator character
+    size_t strsize = ( item_len
+                       + 1  // Zero byte
+                       + 1);  // Separator character
     entry->data.history_item.string = xmalloc(strsize);
-    memcpy(entry->data.history_item.string,
-           unpacked.data.via.array.ptr[1].via.bin.ptr,
-           unpacked.data.via.array.ptr[1].via.bin.size);
+    memcpy(entry->data.history_item.string, item, item_len);
     entry->data.history_item.string[strsize - 2] = 0;
-    entry->data.history_item.string[strsize - 1] =
-      entry->data.history_item.sep;
-    SET_ADDITIONAL_ELEMENTS(unpacked.data.via.array, (2 + is_hist_search),
-                            entry->data.history_item.additional_elements,
-                            "history");
+    entry->data.history_item.string[strsize - 1] = entry->data.history_item.sep;
+    // SET_ADDITIONAL_ELEMENTS(unpacked.data.via.array, (2 + is_hist_search),
+    //                         entry->data.history_item.additional_elements,
+    //                         "history");
     break;
   }
   case kSDItemVariable: {
-    if (unpacked.data.type != MSGPACK_OBJECT_ARRAY) {
+    ssize_t len = mpack_require_array(&read_ptr, &read_size);
+
+    if (len < 0) {
       semsg(_(READERR("variable", "is not an array")), initial_fpos);
       goto shada_read_next_item_error;
-    }
-    if (unpacked.data.via.array.size < 2) {
+    } else if (len < 2) {
       semsg(_(READERR("variable", "does not have enough elements")),
             initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (unpacked.data.via.array.ptr[0].type != MSGPACK_OBJECT_BIN) {
-      semsg(_(READERR("variable", "has wrong variable name type")),
-            initial_fpos);
+
+    size_t namelen;
+    const char *name = unpack_string(&read_ptr, &read_size, &namelen);
+
+    if (!name) {
+      semsg(_(READERR("variable", "has wrong variable name type")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    entry->data.global_var.name =
-      xmemdupz(unpacked.data.via.array.ptr[0].via.bin.ptr,
-               unpacked.data.via.array.ptr[0].via.bin.size);
-    SET_ADDITIONAL_ELEMENTS(unpacked.data.via.array, 2,
-                            entry->data.global_var.additional_elements,
-                            "variable");
-    bool is_blob = false;
-    // A msgpack BIN could be a String or Blob; an additional VAR_TYPE_BLOB
-    // element is stored with Blobs which can be used to differentiate them
-    if (unpacked.data.via.array.ptr[1].type == MSGPACK_OBJECT_BIN) {
-      const listitem_T *type_item
-        = tv_list_first(entry->data.global_var.additional_elements);
-      if (type_item != NULL) {
-        const typval_T *type_tv = TV_LIST_ITEM_TV(type_item);
-        if (type_tv->v_type != VAR_NUMBER
-            || type_tv->vval.v_number != VAR_TYPE_BLOB) {
+    entry->data.global_var.name = xmemdupz(name, namelen);
+
+    size_t valuelen;
+    const char *binval = unpack_string(&read_ptr, &read_size, &valuelen);
+
+    if (binval) {
+      bool is_blob = false;
+      // A msgpack BIN could be a String or Blob; an additional VAR_TYPE_BLOB
+      // element is stored with Blobs which can be used to differentiate them
+      mpack_token_t tok;
+      switch(mpack_rtoken(&read_ptr, &read_size, &tok)) {
+        case MPACK_EOF: // could be incomplete token, handled with additional below
+          break;
+
+        case MPACK_OK:
+          if ((tok.type == MPACK_TOKEN_UINT && mpack_unpack_uint(tok) == VAR_TYPE_BLOB)
+              || (tok.type == MPACK_TOKEN_SINT && mpack_unpack_sint(tok) == VAR_TYPE_BLOB)) {
+            is_blob = true;
+            break;
+          }
+          FALLTHROUGH;
+
+        default:
           semsg(_(READERR("variable", "has wrong variable type")),
                 initial_fpos);
           goto shada_read_next_item_error;
-        }
-        is_blob = true;
       }
-    }
-    if (is_blob) {
-      const msgpack_object_bin *const bin
-        = &unpacked.data.via.array.ptr[1].via.bin;
-      blob_T *const blob = tv_blob_alloc();
-      ga_concat_len(&blob->bv_ga, bin->ptr, (size_t)bin->size);
-      tv_blob_set_ret(&entry->data.global_var.value, blob);
-    } else if (msgpack_to_vim(unpacked.data.via.array.ptr[1],
-                              &(entry->data.global_var.value)) == FAIL) {
-      semsg(_(READERR("variable", "has value that cannot "
-                      "be converted to the Vimscript value")), initial_fpos);
-      goto shada_read_next_item_error;
+      entry->data.global_var.value = decode_string(binval, valuelen, is_blob, false);
+    } else {
+      int status = unpack_typval(&read_ptr, &read_size, &entry->data.global_var.value);
+      if (status != MPACK_OK) {
+        semsg(_(READERR("variable", "has value that cannot "
+                        "be converted to the Vimscript value")), initial_fpos);
+        goto shada_read_next_item_error;
+      }
     }
     break;
   }
@@ -3764,7 +3735,7 @@ shada_read_next_item_start:
     }
 
     size_t datalen;
-    const char *data = mpack_require_string(&read_ptr, &read_size, &datalen);
+    const char *data = unpack_string(&read_ptr, &read_size, &datalen);
     if (!data) {
       semsg(_(READERR("sub string", "has wrong sub string type")),
             initial_fpos);
@@ -3865,7 +3836,6 @@ shada_read_next_item_error:
 #undef INTEGER_KEY
 #undef TOU8
 #undef TOSIZE
-#undef SET_ADDITIONAL_DATA
 #undef SET_ADDITIONAL_ELEMENTS
 #undef CLEAR_GA_AND_ERROR_OUT
 

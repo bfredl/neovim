@@ -5622,7 +5622,7 @@ static void msgpackparse_unpack_blob(const blob_T *const blob, list_T *const ret
   size_t remaining = (size_t)len;
   while (remaining) {
     typval_T tv;
-    int status = typval_from_msgpack(&data, &remaining, &tv);
+    int status = unpack_typval(&data, &remaining, &tv);
     if (status != MPACK_OK) {
       emsg_mpack_error(status);
       return;

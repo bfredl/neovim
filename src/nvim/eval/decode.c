@@ -934,136 +934,6 @@ static void negative_integer_to_special_typval(typval_T *rettv, int64_t val) {
   }
 }
 
-/// Convert msgpack object to a Vimscript one
-int msgpack_to_vim(const msgpack_object mobj, typval_T *const rettv)
-  FUNC_ATTR_NONNULL_ALL FUNC_ATTR_WARN_UNUSED_RESULT
-{
-  switch (mobj.type) {
-  case MSGPACK_OBJECT_NIL:
-    *rettv = (typval_T) {
-      .v_type = VAR_SPECIAL,
-      .v_lock = VAR_UNLOCKED,
-      .vval = { .v_special = kSpecialVarNull },
-    };
-    break;
-  case MSGPACK_OBJECT_BOOLEAN:
-    *rettv = (typval_T) {
-      .v_type = VAR_BOOL,
-      .v_lock = VAR_UNLOCKED,
-      .vval = {
-        .v_bool = mobj.via.boolean ? kBoolVarTrue : kBoolVarFalse
-      },
-    };
-    break;
-  case MSGPACK_OBJECT_POSITIVE_INTEGER:
-    positive_integer_to_special_typval(rettv, mobj.via.u64);
-    break;
-  case MSGPACK_OBJECT_NEGATIVE_INTEGER:
-    negative_integer_to_special_typval(rettv, mobj.via.i64);
-    break;
-  case MSGPACK_OBJECT_FLOAT32:
-  case MSGPACK_OBJECT_FLOAT64:
-    *rettv = (typval_T) {
-      .v_type = VAR_FLOAT,
-      .v_lock = VAR_UNLOCKED,
-      .vval = { .v_float = mobj.via.f64 },
-    };
-    break;
-  case MSGPACK_OBJECT_STR:
-  case MSGPACK_OBJECT_BIN:
-    *rettv = decode_string(mobj.via.bin.ptr, mobj.via.bin.size, false, false);
-    break;
-  case MSGPACK_OBJECT_ARRAY: {
-    list_T *const list = tv_list_alloc((ptrdiff_t)mobj.via.array.size);
-    tv_list_ref(list);
-    *rettv = (typval_T) {
-      .v_type = VAR_LIST,
-      .v_lock = VAR_UNLOCKED,
-      .vval = { .v_list = list },
-    };
-    for (size_t i = 0; i < mobj.via.array.size; i++) {
-      // Not populated yet, need to create list item to push.
-      tv_list_append_owned_tv(list, (typval_T) { .v_type = VAR_UNKNOWN });
-      if (msgpack_to_vim(mobj.via.array.ptr[i],
-                         TV_LIST_ITEM_TV(tv_list_last(list)))
-          == FAIL) {
-        return FAIL;
-      }
-    }
-    break;
-  }
-  case MSGPACK_OBJECT_MAP: {
-    for (size_t i = 0; i < mobj.via.map.size; i++) {
-      if ((mobj.via.map.ptr[i].key.type != MSGPACK_OBJECT_STR
-           && mobj.via.map.ptr[i].key.type != MSGPACK_OBJECT_BIN)
-          || mobj.via.map.ptr[i].key.via.str.size == 0
-          || memchr(mobj.via.map.ptr[i].key.via.str.ptr, NUL,
-                    mobj.via.map.ptr[i].key.via.str.size) != NULL) {
-        goto msgpack_to_vim_generic_map;
-      }
-    }
-    dict_T *const dict = tv_dict_alloc();
-    dict->dv_refcount++;
-    *rettv = (typval_T) {
-      .v_type = VAR_DICT,
-      .v_lock = VAR_UNLOCKED,
-      .vval = { .v_dict = dict },
-    };
-    for (size_t i = 0; i < mobj.via.map.size; i++) {
-      dictitem_T *const di = xmallocz(offsetof(dictitem_T, di_key)
-                                      + mobj.via.map.ptr[i].key.via.str.size);
-      memcpy(&di->di_key[0], mobj.via.map.ptr[i].key.via.str.ptr,
-             mobj.via.map.ptr[i].key.via.str.size);
-      di->di_tv.v_type = VAR_UNKNOWN;
-      if (tv_dict_add(dict, di) == FAIL) {
-        // Duplicate key: fallback to generic map
-        tv_clear(rettv);
-        xfree(di);
-        goto msgpack_to_vim_generic_map;
-      }
-      if (msgpack_to_vim(mobj.via.map.ptr[i].val, &di->di_tv) == FAIL) {
-        return FAIL;
-      }
-    }
-    break;
-msgpack_to_vim_generic_map: {}
-    list_T *const list = decode_create_map_special_dict(rettv, (ptrdiff_t)mobj.via.map.size);
-    for (size_t i = 0; i < mobj.via.map.size; i++) {
-      list_T *const kv_pair = tv_list_alloc(2);
-      tv_list_append_list(list, kv_pair);
-
-      typval_T key_tv = { .v_type = VAR_UNKNOWN };
-      if (msgpack_to_vim(mobj.via.map.ptr[i].key, &key_tv) == FAIL) {
-        tv_clear(&key_tv);
-        return FAIL;
-      }
-      tv_list_append_owned_tv(kv_pair, key_tv);
-
-      typval_T val_tv = { .v_type = VAR_UNKNOWN };
-      if (msgpack_to_vim(mobj.via.map.ptr[i].val, &val_tv) == FAIL) {
-        tv_clear(&val_tv);
-        return FAIL;
-      }
-      tv_list_append_owned_tv(kv_pair, val_tv);
-    }
-    break;
-  }
-  case MSGPACK_OBJECT_EXT: {
-    list_T *const list = tv_list_alloc(2);
-    tv_list_ref(list);
-    tv_list_append_number(list, mobj.via.ext.type);
-    list_T *const ext_val_list = tv_list_alloc(kListLenMayKnow);
-    tv_list_append_list(list, ext_val_list);
-    create_special_dict(rettv, kMPExt, ((typval_T) { .v_type = VAR_LIST,
-                                                     .v_lock = VAR_UNLOCKED,
-                                                     .vval = { .v_list = list } }));
-    encode_list_write((void *)ext_val_list, mobj.via.ext.ptr, mobj.via.ext.size);
-    break;
-  }
-  }
-  return OK;
-}
-
 static void typval_parse_enter(mpack_parser_t *parser, mpack_node_t *node)
 {
   typval_T *result = NULL;
@@ -1255,7 +1125,7 @@ int mpack_parse_typval(mpack_parser_t *parser, const char **data, size_t *size) 
 }
 
 // does not support stream unpacking (restart after EOF), as we don't need to
-int typval_from_msgpack(const char** data, size_t *size, typval_T *ret)
+int unpack_typval(const char** data, size_t *size, typval_T *ret)
 {
   ret->v_type = VAR_UNKNOWN;
   mpack_parser_t parser;
