@@ -354,6 +354,8 @@ for _, k in ipairs(keysets) do
   local function typename(type)
     if type == 'HLGroupID' then
       return 'kObjectTypeInteger'
+    elseif type == 'StringArray' then
+      return 'kUnpackTypeStringArray'
     elseif type ~= nil then
       return 'kObjectType' .. type
     else
