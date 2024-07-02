@@ -584,8 +584,28 @@ bool unpack_uint_or_sint(mpack_token_t tok, Integer *res) {
   return false;
 }
 
+static void parse_nop(mpack_parser_t *parser, mpack_node_t *node) {
+}
+
+int unpack_skip(const char **data, size_t *size) {
+  mpack_parser_t parser;
+  mpack_parser_init(&parser, 0);
+
+  return mpack_parse(&parser, data, size, parse_nop, parse_nop);
+}
+void push_additional_data(AdditionalDataBuilder *ad, const char *data, size_t size) {
+  if (kv_size(*ad) == 0) {
+    AdditionalData init = { 0 };
+    kv_concat_len(*ad, &init, sizeof(init));
+  }
+  AdditionalData *a = (AdditionalData *)ad->items;
+  a->nitems++;
+  a->nbytes += size;
+  kv_concat_len(*ad, data, size);
+}
+
 // currently only used for shada, so not re-entrant like unpacker_parse_redraw
-bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const char **data, size_t *size, char **error)
+bool unpack_keydict(void *retval, FieldHashfn hashy, AdditionalDataBuilder *ad, const char **data, size_t *size, char **error)
 {
   OptKeySet *ks = (OptKeySet *)retval;
   mpack_token_t tok;
@@ -599,6 +619,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
   size_t map_size = tok.length;
 
   for (size_t i = 0; i < map_size; i++) {
+    const char *item_start = *data;
     String key = unpack_string(data, size);
     if (!key.data) {
       *error = "key is not a string";
@@ -607,8 +628,14 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, size_t *extra_items, const 
     KeySetLink *field = hashy(key.data, key.size);
 
     if (!field) {
-      fprintf(stderr, "\n\nFOOKA %.*s\n", (int)key.size, key.data);
-      abort();  // extra data!
+      int status = unpack_skip(data, size);
+      if (status) {
+        return false;
+      }
+
+      if (ad) {
+        push_additional_data(ad, item_start, (size_t)(*data - item_start));
+      }
       continue;
     }
 
