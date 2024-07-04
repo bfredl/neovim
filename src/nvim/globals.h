@@ -818,3 +818,6 @@ EXTERN bool skip_win_fix_cursor INIT( = false);
 EXTERN bool skip_win_fix_scroll INIT( = false);
 /// Skip update_topline() call while executing win_fix_scroll().
 EXTERN bool skip_update_topline INIT( = false);
+
+EXTERN uint32_t shada_count[4] INIT(= { 0 });
+EXTERN uint32_t shada_count2[12] INIT(= { 0 });

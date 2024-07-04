@@ -6,6 +6,7 @@
 #include "mpack/conv.h"
 #include "nvim/api/private/helpers.h"
 #include "nvim/ascii_defs.h"
+#include "nvim/globals.h"
 #include "nvim/grid.h"
 #include "nvim/macros_defs.h"
 #include "nvim/memory.h"
@@ -629,6 +630,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, AdditionalDataBuilder *ad, 
   for (size_t i = 0; i < map_size; i++) {
     const char *item_start = *data;
     // TODO(bfredl): we could specialize a hot path for FIXSTR here
+    shada_count[1]++;
     String key = unpack_string(data, size);
     if (!key.data) {
       *error = arena_printf(NULL, "has key value which is not a string").data;
@@ -672,6 +674,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, AdditionalDataBuilder *ad, 
       break;
 
     case kObjectTypeInteger:
+      shada_count[2]++;
       if (!unpack_integer(data, size, (Integer *)mem)) {
         *error = arena_printf(NULL, "has %.*s key value which is not an integer", (int)key.size,
                               key.data).data;
@@ -700,6 +703,7 @@ bool unpack_keydict(void *retval, FieldHashfn hashy, AdditionalDataBuilder *ad, 
       StringArray *a = (StringArray *)mem;
       kv_ensure_space(*a, (size_t)len);
       for (size_t j = 0; j < (size_t)len; j++) {
+        shada_count[3]++;
         String item = unpack_string(data, size);
         if (!item.data) {
           *error = arena_printf(NULL, "has %.*s array with non-binary value", (int)key.size,

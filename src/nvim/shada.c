@@ -3202,6 +3202,7 @@ shada_read_next_item_start:
     }
   }
 
+  shada_count[0]++;
   const char *read_ptr = buf;
   size_t read_size = length;
 
@@ -3235,6 +3236,8 @@ shada_read_next_item_start:
     entry->data.unknown_item.contents = buf_allocated ? buf : xmemdup(buf, length);
     return kSDReadStatusSuccess;
   }
+
+  if (type_u64 < 12) {shada_count2[type_u64]++;}
 
   entry->data = sd_default_values[type_u64].data;
   switch ((ShadaEntryType)type_u64) {
