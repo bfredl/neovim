@@ -21,6 +21,7 @@
 # define DictionaryOf(...) Dictionary
 # define Dict(name) KeyDict_##name
 # define DictHash(name) KeyDict_##name##_get_field
+# define DictKey(name)
 #endif
 
 // Basic types

@@ -103,7 +103,7 @@ typedef struct {
   Object nargs;
   Object preview;
   Object range;
-  Boolean register_;
+  Boolean register_ DictKey(register);
 } Dict(user_command);
 
 typedef struct {
@@ -170,7 +170,7 @@ typedef struct {
   Boolean reverse;
   Boolean altfont;
   Boolean nocombine;
-  Boolean default_;
+  Boolean default_ DictKey(default);
   Object cterm;
   Object foreground;
   Object fg;
