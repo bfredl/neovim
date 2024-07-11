@@ -395,16 +395,16 @@ typedef struct {
 
 typedef struct {
   OptionalKeys is_set__shada_search_pat_;
-  Boolean sm;
-  Boolean sc;
-  Boolean sl;
-  Boolean se;
-  Boolean su;
-  Boolean ss;
-  Boolean sh;
-  Boolean sb;
-  Integer so;
-  String sp;
+  Boolean magic DictKey(sm);
+  Boolean smartcase DictKey(sc);
+  Boolean has_line_offset DictKey(sl);
+  Boolean place_cursor_at_end DictKey(se);
+  Boolean is_last_used DictKey(su);
+  Boolean is_substitute_pattern DictKey(ss);
+  Boolean highlighted DictKey(sh);
+  Boolean search_backward DictKey(sb);
+  Integer offset DictKey(so);
+  String pat DictKey(sp);
 } Dict(shada_search_pat);
 
 typedef struct {

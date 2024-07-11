@@ -237,18 +237,7 @@ typedef struct {
       pos_T mark;
       char *fname;
     } filemark;
-    struct search_pattern {
-      bool magic;
-      bool smartcase;
-      bool has_line_offset;
-      bool place_cursor_at_end;
-      Integer offset;
-      bool is_last_used;
-      bool is_substitute_pattern;
-      bool highlighted;
-      bool search_backward;
-      char *pat;
-    } search_pattern;
+    Dict(shada_search_pat) search_pattern;
     struct history_item {
       uint8_t histtype;
       char *string;
@@ -379,7 +368,7 @@ static const ShadaEntry sd_default_values[] = {
           .is_substitute_pattern = false,
           .highlighted = false,
           .search_backward = false,
-          .pat = NULL),
+          .pat = NULL_STRING),
   DEF_SDE(SubString, sub_string, .sub = NULL),
   DEF_SDE(HistoryEntry, history_item,
           .histtype = HIST_CMD,
@@ -1042,8 +1031,8 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
           .end = cur_entry.data.search_pattern.place_cursor_at_end,
           .off = cur_entry.data.search_pattern.offset,
         },
-        .pat = cur_entry.data.search_pattern.pat,
-        .patlen = strlen(cur_entry.data.search_pattern.pat),
+        .pat = cur_entry.data.search_pattern.pat.data,
+        .patlen = cur_entry.data.search_pattern.pat.size,
         .additional_data = cur_entry.additional_data,
         .timestamp = cur_entry.timestamp,
       };
@@ -1443,7 +1432,7 @@ static ShaDaWriteResult shada_pack_entry(PackerBuffer *const packer, ShadaEntry 
                                + additional_data_len(entry.additional_data));
     mpack_map(&sbuf.ptr, entry_map_size);
     PACK_KEY(SEARCH_KEY_PAT);
-    mpack_bin(cstr_as_string(entry.data.search_pattern.pat), &sbuf);
+    mpack_bin(entry.data.search_pattern.pat, &sbuf);
     PACK_BOOL(entry, SEARCH_KEY_MAGIC, magic);
     PACK_BOOL(entry, SEARCH_KEY_IS_LAST_USED, is_last_used);
     PACK_BOOL(entry, SEARCH_KEY_SMARTCASE, smartcase);
@@ -2096,7 +2085,7 @@ static inline void add_search_pattern(PossiblyFreedShadaEntry *const ret_pse,
             .is_substitute_pattern = is_substitute_pattern,
             .highlighted = ((is_substitute_pattern ^ search_last_used)
                             && search_highlighted),
-            .pat = pat.pat,
+            .pat = cstr_as_string(pat.pat),
             .search_backward = (!is_substitute_pattern && pat.off.dir == '?'),
           }
         },
@@ -2931,7 +2920,7 @@ static void shada_free_shada_entry(ShadaEntry *const entry)
     xfree(entry->data.filemark.fname);
     break;
   case kSDItemSearchPattern:
-    xfree(entry->data.search_pattern.pat);
+    api_free_string(entry->data.search_pattern.pat);
     break;
   case kSDItemRegister:
     for (size_t i = 0; i < entry->data.reg.contents_size; i++) {
@@ -3244,35 +3233,20 @@ shada_read_next_item_start:
     // Dictionary, but that value was never used)
     break;
   case kSDItemSearchPattern: {
-    Dict(shada_search_pat) it = { 0 };
-    if (!unpack_keydict(&it, DictHash(shada_search_pat), &ad, &read_ptr, &read_size,
+    Dict(shada_search_pat) *it = &entry->data.search_pattern;
+    if (!unpack_keydict(it, DictHash(shada_search_pat), &ad, &read_ptr, &read_size,
                         &error_alloc)) {
       semsg(_(READERR("search pattern", "%s")), initial_fpos, error_alloc);
+      it->pat = NULL_STRING;
       goto shada_read_next_item_error;
     }
 
-    if (!HAS_KEY(&it, shada_search_pat, sp)) {  // SEARCH_KEY_PAT
+    if (!HAS_KEY(it, shada_search_pat, sp)) {  // SEARCH_KEY_PAT
       semsg(_(READERR("search pattern", "has no pattern")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    entry->data.search_pattern.pat = xmemdupz(it.sp.data, it.sp.size);
+    entry->data.search_pattern.pat =  copy_string(entry->data.search_pattern.pat, NULL);
 
-#define SEARCH_PAT_VAL(name, loc) \
-  if (HAS_KEY(&it, shada_search_pat, name)) { \
-    loc = it.name; \
-  } \
-
-    // TODO(bfredl): instead initializing "it" with default values would be more efficient
-    SEARCH_PAT_VAL(SEARCH_KEY_MAGIC, entry->data.search_pattern.magic)
-    SEARCH_PAT_VAL(SEARCH_KEY_SMARTCASE, entry->data.search_pattern.smartcase)
-    SEARCH_PAT_VAL(SEARCH_KEY_HAS_LINE_OFFSET, entry->data.search_pattern.has_line_offset)
-    SEARCH_PAT_VAL(SEARCH_KEY_PLACE_CURSOR_AT_END, entry->data.search_pattern.place_cursor_at_end)
-    SEARCH_PAT_VAL(SEARCH_KEY_IS_LAST_USED, entry->data.search_pattern.is_last_used)
-    SEARCH_PAT_VAL(SEARCH_KEY_IS_SUBSTITUTE_PATTERN,
-                   entry->data.search_pattern.is_substitute_pattern)
-    SEARCH_PAT_VAL(SEARCH_KEY_HIGHLIGHTED, entry->data.search_pattern.highlighted)
-    SEARCH_PAT_VAL(SEARCH_KEY_BACKWARD, entry->data.search_pattern.search_backward)
-    SEARCH_PAT_VAL(SEARCH_KEY_OFFSET, entry->data.search_pattern.offset)
     break;
   }
   case kSDItemChange:
