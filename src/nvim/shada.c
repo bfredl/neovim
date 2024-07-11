@@ -232,11 +232,7 @@ typedef struct {
   Timestamp timestamp;
   union {
     Dictionary header;
-    struct shada_filemark {
-      char name;
-      pos_T mark;
-      char *fname;
-    } filemark;
+    Dict(shada_mark) filemark;
     Dict(shada_search_pat) search_pattern;
     struct history_item {
       uint8_t histtype;
@@ -353,8 +349,8 @@ typedef struct {
       .attr = { __VA_ARGS__ } \
     } \
   }
-#define DEFAULT_POS { 1, 0, 0 }
-static const pos_T default_pos = DEFAULT_POS;
+#define DEFAULT_POS .lnum = 1, .col = 0
+static const pos_T default_pos = { 1, 0, 0 };
 static const ShadaEntry sd_default_values[] = {
   [kSDItemMissing] = { .type = kSDItemMissing, .timestamp = 0 },
   DEF_SDE(Header, header, .size = 0),
@@ -386,26 +382,30 @@ static const ShadaEntry sd_default_values[] = {
           .value = { .v_type = VAR_UNKNOWN, .vval = { .v_string = NULL } }),
   DEF_SDE(GlobalMark, filemark,
           .name = '"',
-          .mark = DEFAULT_POS,
-          .fname = NULL),
+          DEFAULT_POS,
+          .fname = NULL_STRING),
   DEF_SDE(Jump, filemark,
           .name = NUL,
-          .mark = DEFAULT_POS,
-          .fname = NULL),
+          DEFAULT_POS,
+          .fname = NULL_STRING),
   DEF_SDE(BufferList, buffer_list,
           .size = 0,
           .buffers = NULL),
   DEF_SDE(LocalMark, filemark,
           .name = '"',
-          .mark = DEFAULT_POS,
-          .fname = NULL),
+          DEFAULT_POS,
+          .fname = NULL_STRING),
   DEF_SDE(Change, filemark,
           .name = NUL,
-          .mark = DEFAULT_POS,
-          .fname = NULL),
+          DEFAULT_POS,
+          .fname = NULL_STRING),
 };
 #undef DEFAULT_POS
 #undef DEF_SDE
+
+static inline pos_T entry_pos(Dict(shada_mark) sm) {
+  return (pos_T){ (linenr_T)sm.lnum, (colnr_T)sm.col, 0 };
+}
 
 /// Initialize new linked list
 ///
@@ -897,7 +897,7 @@ static inline bool marks_equal(const pos_T a, const pos_T b)
     for (i = jl_len; i > 0; i--) { \
       const jumps_type jl_entry = (jumps)[i - 1]; \
       if (jl_entry.timestamp_attr <= (entry).timestamp) { \
-        if (marks_equal(jl_entry.mark_attr, (entry).data.filemark.mark) \
+        if (marks_equal(jl_entry.mark_attr, entry_pos((entry).data.filemark)) \
             && (fname_cond)) { \
           i = -1; \
         } \
@@ -1113,14 +1113,16 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
       break;
     case kSDItemJump:
     case kSDItemGlobalMark: {
-      buf_T *buf = find_buffer(&fname_bufs, cur_entry.data.filemark.fname);
+      Dict(shada_mark) *sm = &cur_entry.data.filemark;
+      buf_T *buf = find_buffer(&fname_bufs, sm->fname.data);
       if (buf != NULL) {
-        XFREE_CLEAR(cur_entry.data.filemark.fname);
+         api_free_string(sm->fname);
+         sm->fname= NULL_STRING;
       }
       xfmark_T fm = (xfmark_T) {
-        .fname = buf == NULL ? cur_entry.data.filemark.fname : NULL,
+        .fname = (buf == NULL) ? sm->fname.data : NULL,
         .fmark = {
-          .mark = cur_entry.data.filemark.mark,
+          .mark = entry_pos(*sm),
           .fnum = (buf == NULL ? 0 : buf->b_fnum),
           .timestamp = cur_entry.timestamp,
           .view = INIT_FMARKV,
@@ -1128,7 +1130,7 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
         },
       };
       if (cur_entry.type == kSDItemGlobalMark) {
-        if (!mark_set_global(cur_entry.data.filemark.name, fm, !force)) {
+        if (!mark_set_global((char)sm->name, fm, !force)) {
           shada_free_shada_entry(&cur_entry);
           break;
         }
@@ -1176,8 +1178,8 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
       break;
     case kSDItemChange:
     case kSDItemLocalMark: {
-      if (get_old_files && !set_has(cstr_t, &oldfiles_set, cur_entry.data.filemark.fname)) {
-        char *fname = cur_entry.data.filemark.fname;
+      if (get_old_files && !set_has(cstr_t, &oldfiles_set, cur_entry.data.filemark.fname.data)) {
+        char *fname = cur_entry.data.filemark.fname.data;
         if (want_marks) {
           // Do not bother with allocating memory for the string if already
           // allocated string from cur_entry can be used. It cannot be used if
@@ -1188,34 +1190,34 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
         tv_list_append_allocated_string(oldfiles_list, fname);
         if (!want_marks) {
           // Avoid free because this string was already used.
-          cur_entry.data.filemark.fname = NULL;
+          cur_entry.data.filemark.fname = NULL_STRING;
         }
       }
       if (!want_marks) {
         shada_free_shada_entry(&cur_entry);
         break;
       }
-      buf_T *buf = find_buffer(&fname_bufs, cur_entry.data.filemark.fname);
+      buf_T *buf = find_buffer(&fname_bufs, cur_entry.data.filemark.fname.data);
       if (buf == NULL) {
         shada_free_shada_entry(&cur_entry);
         break;
       }
       const fmark_T fm = (fmark_T) {
-        .mark = cur_entry.data.filemark.mark,
+        .mark = {(linenr_T)cur_entry.data.filemark.lnum, (colnr_T)cur_entry.data.filemark.lnum, 0},
         .fnum = 0,
         .timestamp = cur_entry.timestamp,
         .view = INIT_FMARKV,
         .additional_data = cur_entry.additional_data,
       };
       if (cur_entry.type == kSDItemLocalMark) {
-        if (!mark_set_local(cur_entry.data.filemark.name, buf, fm, !force)) {
+        if (!mark_set_local((char)cur_entry.data.filemark.name, buf, fm, !force)) {
           shada_free_shada_entry(&cur_entry);
           break;
         }
       } else {
         set_put(ptr_t, &cl_bufs, buf);
 #define SDE_TO_FMARK(entry) fm
-#define AFTERFREE(entry) (entry).data.filemark.fname = NULL
+#define AFTERFREE(entry) (entry).data.filemark.fname.data = NULL
 #define DUMMY_IDX_ADJ(i)
         MERGE_JUMPS(buf->b_changelistlen, buf->b_changelist, fmark_T,
                     timestamp, mark, cur_entry, true,
@@ -1226,7 +1228,7 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
       }
       // Do not free shada entry: except for fname, its allocated memory (i.e.
       // additional_data attribute contents if non-NULL) was saved above.
-      xfree(cur_entry.data.filemark.fname);
+      api_free_string(cur_entry.data.filemark.fname);
       break;
     }
     }
@@ -1454,20 +1456,20 @@ static ShaDaWriteResult shada_pack_entry(PackerBuffer *const packer, ShadaEntry 
   case kSDItemLocalMark:
   case kSDItemJump: {
     size_t entry_map_size = (1  // File name
-                             + ONE_IF_NOT_DEFAULT(entry, filemark.mark.lnum)
-                             + ONE_IF_NOT_DEFAULT(entry, filemark.mark.col)
+                             + ONE_IF_NOT_DEFAULT(entry, filemark.lnum)
+                             + ONE_IF_NOT_DEFAULT(entry, filemark.col)
                              + ONE_IF_NOT_DEFAULT(entry, filemark.name)
                              + additional_data_len(entry.additional_data));
     mpack_map(&sbuf.ptr, (uint32_t)entry_map_size);
     PACK_KEY(KEY_FILE);
-    mpack_bin(cstr_as_string(entry.data.filemark.fname), &sbuf);
-    if (!CHECK_DEFAULT(entry, filemark.mark.lnum)) {
+    mpack_bin(entry.data.filemark.fname, &sbuf);
+    if (!CHECK_DEFAULT(entry, filemark.lnum)) {
       PACK_KEY(KEY_LNUM);
-      mpack_integer(&sbuf.ptr, entry.data.filemark.mark.lnum);
+      mpack_integer(&sbuf.ptr, entry.data.filemark.lnum);
     }
-    if (!CHECK_DEFAULT(entry, filemark.mark.col)) {
+    if (!CHECK_DEFAULT(entry, filemark.col)) {
       PACK_KEY(KEY_COL);
-      mpack_integer(&sbuf.ptr, entry.data.filemark.mark.col);
+      mpack_integer(&sbuf.ptr, entry.data.filemark.col);
     }
     assert(entry.type == kSDItemJump || entry.type == kSDItemChange
            ? CHECK_DEFAULT(entry, filemark.name)
@@ -1649,89 +1651,6 @@ static ShaDaReadResult shada_check_status(uintmax_t initial_fpos, int status, si
   }
 }
 
-/// Format shada entry for debugging purposes
-///
-/// @param[in]  entry  ShaDa entry to format.
-///
-/// @return string representing ShaDa entry in a static buffer.
-static const char *shada_format_entry(const ShadaEntry entry)
-  FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_UNUSED FUNC_ATTR_NONNULL_RET
-{
-  static char ret[1024];
-  ret[0] = 0;
-  vim_snprintf(S_LEN(ret), "%s", "[ ] ts=%" PRIu64 " ");
-  //                         ^ Space for `can_free_entry`
-#define FORMAT_MARK_ENTRY(entry_name, name_fmt, name_fmt_arg) \
-  do { \
-    vim_snprintf_add(S_LEN(ret), \
-                     entry_name " {" name_fmt " file=[%zu]\"%.512s\", " \
-                     "pos={l=%" PRIdLINENR ",c=%" PRIdCOLNR ",a=%" PRIdCOLNR "}, " \
-                     "}", \
-                     name_fmt_arg, \
-                     strlen(entry.data.filemark.fname), \
-                     entry.data.filemark.fname, \
-                     entry.data.filemark.mark.lnum, \
-                     entry.data.filemark.mark.col, \
-                     entry.data.filemark.mark.coladd); \
-  } while (0)
-  switch (entry.type) {
-  case kSDItemMissing:
-    vim_snprintf_add(S_LEN(ret), "Missing");
-    break;
-  case kSDItemHeader:
-    vim_snprintf_add(S_LEN(ret), "Header { TODO }");
-    break;
-  case kSDItemBufferList:
-    vim_snprintf_add(S_LEN(ret), "BufferList { TODO }");
-    break;
-  case kSDItemUnknown:
-    vim_snprintf_add(S_LEN(ret), "Unknown { TODO }");
-    break;
-  case kSDItemSearchPattern:
-    vim_snprintf_add(S_LEN(ret), "SearchPattern { TODO }");
-    break;
-  case kSDItemSubString:
-    vim_snprintf_add(S_LEN(ret), "SubString { TODO }");
-    break;
-  case kSDItemHistoryEntry:
-    vim_snprintf_add(S_LEN(ret), "HistoryEntry { TODO }");
-    break;
-  case kSDItemRegister:
-    vim_snprintf_add(S_LEN(ret), "Register { TODO }");
-    break;
-  case kSDItemVariable:
-    vim_snprintf_add(S_LEN(ret), "Variable { TODO }");
-    break;
-  case kSDItemGlobalMark:
-    FORMAT_MARK_ENTRY("GlobalMark", " name='%c',", entry.data.filemark.name);
-    break;
-  case kSDItemChange:
-    FORMAT_MARK_ENTRY("Change", "%s", "");
-    break;
-  case kSDItemLocalMark:
-    FORMAT_MARK_ENTRY("LocalMark", " name='%c',", entry.data.filemark.name);
-    break;
-  case kSDItemJump:
-    FORMAT_MARK_ENTRY("Jump", "%s", "");
-    break;
-#undef FORMAT_MARK_ENTRY
-  }
-  return ret;
-}
-
-/// Format possibly freed shada entry for debugging purposes
-///
-/// @param[in]  entry  ShaDa entry to format.
-///
-/// @return string representing ShaDa entry in a static buffer.
-static const char *shada_format_pfreed_entry(const PossiblyFreedShadaEntry pfs_entry)
-  FUNC_ATTR_WARN_UNUSED_RESULT FUNC_ATTR_UNUSED FUNC_ATTR_NONNULL_RET
-{
-  char *ret = (char *)shada_format_entry(pfs_entry.data);
-  ret[1] = (pfs_entry.can_free_entry ? 'T' : 'F');
-  return ret;
-}
-
 /// Read and merge in ShaDa file, used when writing
 ///
 /// @param[in]      sd_reader   Structure containing file reader definition.
@@ -1845,7 +1764,7 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
       shada_free_shada_entry(&entry);
       break;
     case kSDItemGlobalMark:
-      if (ascii_isdigit(entry.data.filemark.name)) {
+      if (ascii_isdigit((char)entry.data.filemark.name)) {
         bool processed_mark = false;
         // Completely ignore numbered mark names, make a list sorted by
         // timestamp.
@@ -1858,10 +1777,10 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
           if (wms_entry.timestamp == entry.timestamp
               && (wms_entry.additional_data == NULL
                   && entry.additional_data == NULL)
-              && marks_equal(wms_entry.data.filemark.mark,
-                             entry.data.filemark.mark)
-              && strcmp(wms_entry.data.filemark.fname,
-                        entry.data.filemark.fname) == 0) {
+              && marks_equal(entry_pos(wms_entry.data.filemark),
+                             entry_pos(entry.data.filemark))
+              && strcmp(wms_entry.data.filemark.fname.data,
+                        entry.data.filemark.fname.data) == 0) {
             shada_free_shada_entry(&entry);
             processed_mark = true;
             break;
@@ -1880,7 +1799,7 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
           replace_numbered_mark(wms, 0, pfs_entry);
         }
       } else {
-        const int idx = mark_global_index(entry.data.filemark.name);
+        const int idx = mark_global_index((char)entry.data.filemark.name);
         if (idx < 0) {
           ret = shada_pack_entry(packer, entry, 0);
           shada_free_shada_entry(&entry);
@@ -1897,11 +1816,11 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
       break;
     case kSDItemChange:
     case kSDItemLocalMark: {
-      if (shada_removable(entry.data.filemark.fname)) {
+      if (shada_removable(entry.data.filemark.fname.data)) {
         shada_free_shada_entry(&entry);
         break;
       }
-      const char *const fname = entry.data.filemark.fname;
+      const char *const fname = entry.data.filemark.fname.data;
       cstr_t *key = NULL;
       ptr_t *val = pmap_put_ref(cstr_t)(&wms->file_marks, fname, &key, NULL);
       if (*val == NULL) {
@@ -1912,7 +1831,7 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
         filemarks->greatest_timestamp = entry.timestamp;
       }
       if (entry.type == kSDItemLocalMark) {
-        const int idx = mark_local_index(entry.data.filemark.name);
+        const int idx = mark_local_index((char)entry.data.filemark.name);
         if (idx < 0) {
           filemarks->additional_marks = xrealloc(filemarks->additional_marks,
                                                  (++filemarks->additional_marks_size
@@ -1928,15 +1847,15 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
               break;
             }
             if (wms_entry->can_free_entry) {
-              if (*key == wms_entry->data.data.filemark.fname) {
-                *key = entry.data.filemark.fname;
+              if (*key == wms_entry->data.data.filemark.fname.data) {
+                *key = entry.data.filemark.fname.data;
               }
               shada_free_shada_entry(&wms_entry->data);
             }
           } else {
             FOR_ALL_BUFFERS(buf) {
               if (buf->b_ffname != NULL
-                  && path_fnamecmp(entry.data.filemark.fname, buf->b_ffname) == 0) {
+                  && path_fnamecmp(entry.data.filemark.fname.data, buf->b_ffname) == 0) {
                 fmark_T fm;
                 mark_get(buf, curwin, &fm, kMarkBufLocal, (int)entry.data.filemark.name);
                 if (fm.timestamp >= entry.timestamp) {
@@ -3253,40 +3172,35 @@ shada_read_next_item_start:
   case kSDItemJump:
   case kSDItemGlobalMark:
   case kSDItemLocalMark: {
-    Dict(shada_mark) it = { 0 };
+    Dict(shada_mark) *it = &entry->data.filemark;
     if (!unpack_keydict(&it, DictHash(shada_mark), &ad, &read_ptr, &read_size, &error_alloc)) {
       semsg(_(READERR("mark", "%s")), initial_fpos, error_alloc);
+      it->fname = NULL_STRING;
       goto shada_read_next_item_error;
     }
 
-    if (HAS_KEY(&it, shada_mark, n)) {
+    if (entry->data.filemark.fname.data == NULL) {
+      semsg(_(READERR("mark", "is missing file name")), initial_fpos);
+      goto shada_read_next_item_error;
+    }
+
+    if (HAS_KEY(it, shada_mark, f)) {
+      it->fname = copy_string(it->fname, NULL);
+    }
+
+    if (HAS_KEY(it, shada_mark, n)) {
       if (type_u64 == kSDItemJump || type_u64 == kSDItemChange) {
         semsg(_(READERR("mark", "has n key which is only valid for "
                         "local and global mark entries")), initial_fpos);
         goto shada_read_next_item_error;
       }
-      entry->data.filemark.name = (char)it.n;
     }
 
-    if (HAS_KEY(&it, shada_mark, l)) {
-      entry->data.filemark.mark.lnum = (linenr_T)it.l;
-    }
-    if (HAS_KEY(&it, shada_mark, c)) {
-      entry->data.filemark.mark.col = (colnr_T)it.c;
-    }
-    if (HAS_KEY(&it, shada_mark, f)) {
-      entry->data.filemark.fname = xmemdupz(it.f.data, it.f.size);
-    }
-
-    if (entry->data.filemark.fname == NULL) {
-      semsg(_(READERR("mark", "is missing file name")), initial_fpos);
-      goto shada_read_next_item_error;
-    }
-    if (entry->data.filemark.mark.lnum <= 0) {
+    if (entry->data.filemark.lnum <= 0) {
       semsg(_(READERR("mark", "has invalid line number")), initial_fpos);
       goto shada_read_next_item_error;
     }
-    if (entry->data.filemark.mark.col < 0) {
+    if (entry->data.filemark.col < 0) {
       semsg(_(READERR("mark", "has invalid column number")), initial_fpos);
       goto shada_read_next_item_error;
     }

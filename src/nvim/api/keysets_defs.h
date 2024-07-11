@@ -409,10 +409,10 @@ typedef struct {
 
 typedef struct {
   OptionalKeys is_set__shada_mark_;
-  Integer n;
-  Integer l;
-  Integer c;
-  String f;
+  Integer name DictKey(n);
+  Integer lnum DictKey(l);
+  Integer col DictKey(c);
+  String fname DictKey(f);
 } Dict(shada_mark);
 
 typedef struct {
