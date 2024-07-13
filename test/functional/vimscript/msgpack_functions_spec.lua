@@ -388,11 +388,6 @@ describe('msgpack*() functions', function()
     eq({ '\n' }, eval('parsed'))
     eq(1, eval('dumped ==# dumped2'))
   end)
-
-  it('dump and restore special mapping with floating-point value', function()
-    command('let todump = {"_TYPE": v:msgpack_types.float, "_VAL": 0.125}')
-    eq({ 0.125 }, eval('msgpackparse(msgpackdump([todump]))'))
-  end)
 end)
 
 local blobstr = function(list)
@@ -590,29 +585,9 @@ describe('msgpackdump() function', function()
     dump_eq({ '\192' }, '[v:null]')
   end)
 
-  it('can dump special bool mapping (true)', function()
-    command('let todump = {"_TYPE": v:msgpack_types.boolean, "_VAL": 1}')
-    dump_eq({ '\195' }, '[todump]')
-  end)
-
-  it('can dump special bool mapping (false)', function()
-    command('let todump = {"_TYPE": v:msgpack_types.boolean, "_VAL": 0}')
-    dump_eq({ '\194' }, '[todump]')
-  end)
-
-  it('can dump special nil mapping', function()
-    command('let todump = {"_TYPE": v:msgpack_types.nil, "_VAL": 0}')
-    dump_eq({ '\192' }, '[todump]')
-  end)
-
   it('can dump special ext mapping', function()
     command('let todump = {"_TYPE": v:msgpack_types.ext, "_VAL": [5, ["",""]]}')
     dump_eq({ '\212\005', '' }, '[todump]')
-  end)
-
-  it('can dump special array mapping', function()
-    command('let todump = {"_TYPE": v:msgpack_types.array, "_VAL": [5, [""]]}')
-    dump_eq({ '\146\005\145\196\n' }, '[todump]')
   end)
 
   it('can dump special UINT64_MAX mapping', function()
@@ -682,15 +657,6 @@ describe('msgpackdump() function', function()
     dump_eq({ '\146\144\144' }, '[todump]')
   end)
 
-  it('fails to dump a recursive list in a special dict', function()
-    command('let todump = {"_TYPE": v:msgpack_types.array, "_VAL": []}')
-    command('call add(todump._VAL, todump)')
-    eq(
-      'Vim(call):E5005: Unable to dump msgpackdump() argument, index 0: container references itself in index 0',
-      exc_exec('call msgpackdump([todump])')
-    )
-  end)
-
   it('fails to dump a recursive (key) map in a special dict', function()
     command('let todump = {"_TYPE": v:msgpack_types.map, "_VAL": []}')
     command('call add(todump._VAL, [todump, 0])')
@@ -723,15 +689,6 @@ describe('msgpackdump() function', function()
     command('call add(todump._VAL[0][1], todump._VAL)')
     eq(
       'Vim(call):E5005: Unable to dump msgpackdump() argument, index 0: container references itself in key [] at index 0 from special map, index 0',
-      exc_exec('call msgpackdump([todump])')
-    )
-  end)
-
-  it('fails to dump a recursive (val) special list in a special dict', function()
-    command('let todump = {"_TYPE": v:msgpack_types.array, "_VAL": []}')
-    command('call add(todump._VAL, [0, todump._VAL])')
-    eq(
-      'Vim(call):E5005: Unable to dump msgpackdump() argument, index 0: container references itself in index 0, index 1',
       exc_exec('call msgpackdump([todump])')
     )
   end)

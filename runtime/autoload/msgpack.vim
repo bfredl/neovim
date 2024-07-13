@@ -326,17 +326,17 @@ endfunction
 
 ""
 " True boolean value.
-let g:msgpack#true = {'_TYPE': v:msgpack_types.boolean, '_VAL': 1}
+let g:msgpack#true = v:true
 lockvar! g:msgpack#true
 
 ""
 " False boolean value.
-let g:msgpack#false = {'_TYPE': v:msgpack_types.boolean, '_VAL': 0}
+let g:msgpack#false = v:false
 lockvar! g:msgpack#false
 
 ""
 " NIL value.
-let g:msgpack#nil = {'_TYPE': v:msgpack_types.nil, '_VAL': 0}
+let g:msgpack#nil = v:null
 lockvar! g:msgpack#nil
 
 ""
@@ -529,9 +529,9 @@ function s:msgpack_eval_str_sub(ch) abort
 endfunction
 
 let s:MSGPACK_SPECIAL_OBJECTS = {
-  \'NIL': '{''_TYPE'': v:msgpack_types.nil, ''_VAL'': 0}',
-  \'TRUE': '{''_TYPE'': v:msgpack_types.boolean, ''_VAL'': 1}',
-  \'FALSE': '{''_TYPE'': v:msgpack_types.boolean, ''_VAL'': 0}',
+  \'NIL': 'v:null',
+  \'TRUE': 'v:true',
+  \'FALSE': 'v:false',
   \'nan': '(-(1.0/0.0-1.0/0.0))',
   \'inf': '(1.0/0.0)',
 \}

@@ -208,20 +208,20 @@ describe('autoload/shada.vim', function()
           '  + su   is last used         FALSE',
         },
         ([[ [{'type': 1, 'timestamp': 0, 'data': {
-        'sm': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'sc': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'sl': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'se': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'sb': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
+        'sm': v:true,
+        'sc': v:false,
+        'sl': v:false,
+        'se': v:true,
+        'sb': v:true,
         'so': 10,
-        'su': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'ss': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'sh': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
+        'su': v:false,
+        'ss': v:true,
+        'sh': v:true,
         'sp': '100',
         'rt': 0,
         'rw': 10,
         'rc': ['abc', 'def'],
-        'ru': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
+        'ru': v:false,
         'n': 0x40,
         'l': 10,
         'c': 0,
@@ -257,7 +257,7 @@ describe('autoload/shada.vim', function()
         },
         ([[ [{'type': 1, 'timestamp': 0, 'data': {
         'sm': 'TRUE',
-        'sc': {'_TYPE': v:msgpack_types.nil, '_VAL': 0},
+        'sc': v:null,
         'so': 'TRUE',
         'sp': {'_TYPE': v:msgpack_types.string, '_VAL': ["abc"]},
         'rt': 10,
@@ -343,9 +343,9 @@ describe('autoload/shada.vim', function()
         },
         ([[ [{'type': 2, 'timestamp': 0, 'data': {
         'sp': 'abc',
-        'sZ': {'_TYPE': v:msgpack_types.nil, '_VAL': 0},
-        'sY': {'_TYPE': v:msgpack_types.nil, '_VAL': 0},
-        'sX': {'_TYPE': v:msgpack_types.nil, '_VAL': 0},
+        'sZ': v:null,
+        'sY': v:null,
+        'sX': v:null,
       }}] ]]):gsub('\n', '')
       )
       sd2strings_eq(
@@ -365,15 +365,15 @@ describe('autoload/shada.vim', function()
         },
         ([[ [{'type': 2, 'timestamp': 0, 'data': {
         'sp': 'abc',
-        'sh': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'ss': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'sb': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'sm': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'sc': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'sl': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'se': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
+        'sh': v:false,
+        'ss': v:false,
+        'sb': v:false,
+        'sm': v:true,
+        'sc': v:false,
+        'sl': v:false,
+        'se': v:false,
         'so': 0,
-        'su': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
+        'su': v:true,
       }}] ]]):gsub('\n', '')
       )
       sd2strings_eq(
@@ -411,15 +411,15 @@ describe('autoload/shada.vim', function()
         },
         ([[ [{'type': 2, 'timestamp': 0, 'data': {
         'sp': '',
-        'sh': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'ss': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'sb': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'sm': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
-        'sc': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'sl': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
-        'se': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
+        'sh': v:true,
+        'ss': v:true,
+        'sb': v:true,
+        'sm': v:false,
+        'sc': v:true,
+        'sl': v:true,
+        'se': v:true,
         'so': -10,
-        'su': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
+        'su': v:false,
       }}] ]]):gsub('\n', '')
       )
       sd2strings_eq(
@@ -776,7 +776,7 @@ describe('autoload/shada.vim', function()
         ([[ [{'type': 5, 'timestamp': 0, 'data': {
         'n': 0x20,
         'rc': ["abc", "def"],
-        'ru': {'_TYPE': v:msgpack_types.boolean, '_VAL': 0},
+        'ru': v:false,
       }}] ]]):gsub('\n', '')
       )
       sd2strings_eq(
@@ -794,7 +794,7 @@ describe('autoload/shada.vim', function()
         ([[ [{'type': 5, 'timestamp': 0, 'data': {
         'n': 0x20,
         'rc': ['abcdefghijklmnopqrstuvwxyz', 'abcdefghijklmnopqrstuvwxyz'],
-        'ru': {'_TYPE': v:msgpack_types.boolean, '_VAL': 1},
+        'ru': v:true,
       }}] ]]):gsub('\n', '')
       )
       sd2strings_eq(
@@ -962,7 +962,7 @@ describe('autoload/shada.vim', function()
         },
         ([[ [{'type': 6, 'timestamp': 0, 'data': [
         {'_TYPE': v:msgpack_types.string, '_VAL': ["foo"]},
-        {'_TYPE': v:msgpack_types.nil, '_VAL': ["foo"]},
+        v:null,
       ]}] ]]):gsub('\n', '')
       )
       sd2strings_eq(
@@ -975,8 +975,8 @@ describe('autoload/shada.vim', function()
         },
         ([[ [{'type': 6, 'timestamp': 0, 'data': [
         {'_TYPE': v:msgpack_types.string, '_VAL': ["foo"]},
-        {'_TYPE': v:msgpack_types.nil, '_VAL': ["foo"]},
-        {'_TYPE': v:msgpack_types.nil, '_VAL': ["foo"]},
+        v:null,
+        v:null,
       ]}] ]]):gsub('\n', '')
       )
     end)
@@ -1619,7 +1619,7 @@ describe('autoload/shada.vim', function()
             n = -64,
             rc = '10',
             rt = 10,
-            sc = { '!nil', 0 },
+            sc = vim.NIL,
             sm = 'TRUE',
             so = 'TRUE',
             sp = { '!string', { 'abc' } },
@@ -1714,7 +1714,7 @@ describe('autoload/shada.vim', function()
             n = -64,
             rc = '10',
             rt = 10,
-            sc = { '!nil', 0 },
+            sc = vim.NIL,
             sm = 'TRUE',
             so = 'TRUE',
             sp = { '!string', { 'abc' } },
@@ -1781,9 +1781,9 @@ describe('autoload/shada.vim', function()
           timestamp = 0,
           data = {
             sp = 'abc',
-            sX = { '!nil', 0 },
-            sY = { '!nil', 0 },
-            sZ = { '!nil', 0 },
+            sX = vim.NIL,
+            sY = vim.NIL,
+            sZ = vim.NIL,
           },
         },
       }, {
@@ -1821,13 +1821,13 @@ describe('autoload/shada.vim', function()
           timestamp = 0,
           data = {
             sp = '',
-            sh = { '!boolean', 1 },
-            ss = { '!boolean', 1 },
-            sc = { '!boolean', 1 },
-            sl = { '!boolean', 1 },
-            se = { '!boolean', 1 },
-            sm = { '!boolean', 0 },
-            su = { '!boolean', 0 },
+            sh = true,
+            ss = true,
+            sc = true,
+            sl = true,
+            se = true,
+            sm = false,
+            su = false,
             so = -10,
           },
         },
@@ -2203,7 +2203,7 @@ describe('autoload/shada.vim', function()
           timestamp = 0,
           data = {
             'foo',
-            { '!nil', 0 },
+            vim.NIL,
           },
         },
       }, {
@@ -2218,8 +2218,8 @@ describe('autoload/shada.vim', function()
           timestamp = 0,
           data = {
             'foo',
-            { '!nil', 0 },
-            { '!nil', 0 },
+            vim.NIL,
+            vim.NIL,
           },
         },
       }, {

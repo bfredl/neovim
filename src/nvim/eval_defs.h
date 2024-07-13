@@ -4,12 +4,8 @@
 
 /// All recognized msgpack types
 typedef enum {
-  kMPNil,
-  kMPBoolean,
   kMPInteger,
-  kMPFloat,
   kMPString,
-  kMPArray,
   kMPMap,
   kMPExt,
 } MessagePackType;

@@ -326,22 +326,14 @@ static uint64_t last_timer_id = 1;
 static PMap(uint64_t) timers = MAP_INIT;
 
 static const char *const msgpack_type_names[] = {
-  [kMPNil] = "nil",
-  [kMPBoolean] = "boolean",
   [kMPInteger] = "integer",
-  [kMPFloat] = "float",
   [kMPString] = "string",
-  [kMPArray] = "array",
   [kMPMap] = "map",
   [kMPExt] = "ext",
 };
 const list_T *eval_msgpack_type_lists[] = {
-  [kMPNil] = NULL,
-  [kMPBoolean] = NULL,
   [kMPInteger] = NULL,
-  [kMPFloat] = NULL,
   [kMPString] = NULL,
-  [kMPArray] = NULL,
   [kMPMap] = NULL,
   [kMPExt] = NULL,
 };

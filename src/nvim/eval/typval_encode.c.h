@@ -431,15 +431,6 @@ static int TYPVAL_ENCODE_CONVERT_ONE_VALUE(
         goto _convert_one_value_regular_dict;
       }
       switch ((MessagePackType)i) {
-      case kMPNil:
-        TYPVAL_ENCODE_CONV_NIL(tv);
-        break;
-      case kMPBoolean:
-        if (val_di->di_tv.v_type != VAR_NUMBER) {
-          goto _convert_one_value_regular_dict;
-        }
-        TYPVAL_ENCODE_CONV_BOOL(tv, val_di->di_tv.vval.v_number);
-        break;
       case kMPInteger: {
         const list_T *val_list;
         varnumber_T sign;
@@ -495,12 +486,6 @@ static int TYPVAL_ENCODE_CONVERT_ONE_VALUE(
         }
         break;
       }
-      case kMPFloat:
-        if (val_di->di_tv.v_type != VAR_FLOAT) {
-          goto _convert_one_value_regular_dict;
-        }
-        TYPVAL_ENCODE_CONV_FLOAT(tv, val_di->di_tv.vval.v_float);
-        break;
       case kMPString: {
         if (val_di->di_tv.v_type != VAR_LIST) {
           goto _convert_one_value_regular_dict;
@@ -513,29 +498,6 @@ static int TYPVAL_ENCODE_CONVERT_ONE_VALUE(
         }
         TYPVAL_ENCODE_CONV_STR_STRING(tv, buf, len);
         xfree(buf);
-        break;
-      }
-      case kMPArray: {
-        if (val_di->di_tv.v_type != VAR_LIST) {
-          goto _convert_one_value_regular_dict;
-        }
-        const int saved_copyID = tv_list_copyid(val_di->di_tv.vval.v_list);
-        TYPVAL_ENCODE_DO_CHECK_SELF_REFERENCE(val_di->di_tv.vval.v_list,
-                                              lv_copyID, copyID,
-                                              kMPConvList);
-        TYPVAL_ENCODE_CONV_LIST_START(tv, tv_list_len(val_di->di_tv.vval.v_list));
-        assert(saved_copyID != copyID && saved_copyID != copyID - 1);
-        kvi_push(*mpstack, ((MPConvStackVal) {
-              .tv = tv,
-              .type = kMPConvList,
-              .saved_copyID = saved_copyID,
-              .data = {
-                .l = {
-                  .list = val_di->di_tv.vval.v_list,
-                  .li = tv_list_first(val_di->di_tv.vval.v_list),
-                },
-              },
-        }));
         break;
       }
       case kMPMap: {
