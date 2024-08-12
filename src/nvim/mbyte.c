@@ -37,6 +37,7 @@
 #include <wctype.h>
 
 #include "auto/config.h"
+#include "nvim/api/private/helpers.h"
 #include "nvim/arabic.h"
 #include "nvim/ascii_defs.h"
 #include "nvim/buffer_defs.h"
@@ -507,6 +508,24 @@ int utf_char2cells(int c)
   }
 
   return 1;
+}
+
+void inspect_width(Dictionary *res, int c) {
+  if (intable(doublewidth, ARRAY_SIZE(doublewidth), c)) {
+    PUT_C(*res, "doublewidth", BOOLEAN_OBJ(true));
+  }
+  if (intable(emoji_all, ARRAY_SIZE(emoji_all), c)) {
+    PUT_C(*res, "emoji_all", BOOLEAN_OBJ(true));
+  }
+  if (intable(emoji_wide, ARRAY_SIZE(emoji_wide), c)) {
+    PUT_C(*res, "emoji_wide", BOOLEAN_OBJ(true));
+  }
+  if (intable(ambiguous, ARRAY_SIZE(ambiguous), c)) {
+    PUT_C(*res, "ambiguous", BOOLEAN_OBJ(true));  // among sus
+  }
+  if (intable(combining, ARRAY_SIZE(combining), c)) {
+    PUT_C(*res, "combining", BOOLEAN_OBJ(true));
+  }
 }
 
 /// Return the number of display cells character at "*p" occupies.

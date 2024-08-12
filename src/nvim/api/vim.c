@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <utf8proc.h>
 
 #include "klib/kvec.h"
 #include "nvim/api/buffer.h"
@@ -2439,4 +2440,32 @@ void nvim__redraw(Dict(redraw) *opts, Error *err)
 
   RedrawingDisabled = save_rd;
   p_lz = save_lz;
+}
+
+Dictionary nvim__inspect_char(Integer codepoint, Arena *arena) {
+  const utf8proc_property_t *prop = utf8proc_get_property((int)codepoint);
+  Dictionary rv = arena_dict(arena, 16);
+
+  PUT_C(rv, "proc_width", INTEGER_OBJ(prop->charwidth));
+  if (prop->ambiwidth) {
+    PUT_C(rv, "proc_ambiwidth", BOOLEAN_OBJ(true));
+  }
+  PUT_C(rv, "proc_boundclass", INTEGER_OBJ(prop->boundclass));
+  // PUT_C(rv, "proc_bidi_class", INTEGER_OBJ(prop->bidi_class));
+  // PUT_C(rv, "proc_combining_class", INTEGER_OBJ(prop->combining_class));
+  PUT_C(rv, "proc_category", INTEGER_OBJ(prop->category));
+  if (prop->category == UTF8PROC_CATEGORY_MN || prop->category == UTF8PROC_CATEGORY_ME) {
+    PUT_C(rv, "proc_combining", BOOLEAN_OBJ(true));
+  }
+
+  if (prop->boundclass == UTF8PROC_BOUNDCLASS_EXTENDED_PICTOGRAPHIC
+      || prop->boundclass == UTF8PROC_BOUNDCLASS_REGIONAL_INDICATOR) {
+    PUT_C(rv, "proc_emoji_all", BOOLEAN_OBJ(true));
+    if (codepoint >= 0x1f000 && prop->charwidth < 2 && !prop->ambiwidth) {
+      PUT_C(rv, "proc_emoji_wide", BOOLEAN_OBJ(true));
+    }
+  }
+
+  inspect_width(&rv, (int)codepoint);
+  return rv;
 }
