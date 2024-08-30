@@ -116,24 +116,45 @@ local function html_to_extmarks()
   exec [[silent! %s/¤span[^>]*>//g]]
 end
 
+local nlap, cur_time
+function lap(reset)
+  local uv = vim.uv
+  uv.update_time() -- Update cached value of luv.now() (libuv: uv_now()).
+  local next_time = uv.now()
+  if reset then
+    nlap = 1
+    print()
+  else
+    print("LAP ",nlap,"tid",next_time-cur_time)
+    nlap = nlap + 1
+  end
+  cur_time = next_time
+end
+
 ---@param screen test.functional.ui.screen
 ---@param func function?
 local function run_tohtml_and_assert(screen, func)
+  lap(true)
   exec('norm! ggO-;')
   screen:expect({ any = vim.pesc('-^;') })
   exec('norm! :\rh')
   screen:expect({ any = vim.pesc('^-;') })
   local expected = screen:get_snapshot()
+  lap()
+
   do
     (func or exec)('TOhtml')
   end
+  lap()
   exec('only')
   html_syntax_match()
   html_to_extmarks()
+  lap()
   exec('norm! gg0f;')
   screen:expect({ any = vim.pesc('-^;') })
   exec('norm! :\rh')
   screen:expect({ grid = expected.grid, attr_ids = expected.attr_ids })
+  lap()
 end
 
 describe(':TOhtml', function()
@@ -375,7 +396,7 @@ describe(':TOhtml', function()
     run_tohtml_and_assert(screen)
   end)
 
-  it('folds', function()
+  it('folds #thetest', function()
     insert([[
     line1
     line2
