@@ -138,6 +138,9 @@ jobs:
       - if: ${{ matrix.test != 'unittest' }}
         name: Set up interpreter packages
         run: |
+          echo "test"
+          ./nvim_test --help || echo "whatever"
+
           echo "Install neovim RubyGem."
           gem install --no-document --bindir "$BIN_DIR" --user-install --pre neovim
 
