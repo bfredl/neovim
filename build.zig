@@ -34,6 +34,9 @@ pub fn build(b: *std.Build) !void {
     const target_host = if (cross_compiling) b.host else target;
     const optimize_host = .ReleaseSafe;
 
+    const t = target.result;
+    const tag = t.os.tag;
+
     // puc lua 5.1 is not ReleaseSafe "safe"
     const optimize_lua = if (optimize == .Debug) .ReleaseSmall else optimize;
 
@@ -55,8 +58,10 @@ pub fn build(b: *std.Build) !void {
 
     const lpeg = b.dependency("lpeg", .{});
 
-    const lua = ziglua.artifact("lua");
-    //const lua = lazyArtifact(ziglua, "lua") orelse return;
+    const iconv_apple = if (cross_compiling and tag.isDarwin()) b.lazyDependency("iconv_apple", .{ .target = target, .optimize = optimize }) else null;
+
+    // const lua = ziglua.artifact("lua");
+    const lua = lazyArtifact(ziglua, "lua") orelse return;
 
     const libuv_dep = b.dependency("libuv", .{ .target = target, .optimize = optimize });
     const libuv = libuv_dep.artifact("uv");
@@ -144,9 +149,6 @@ pub fn build(b: *std.Build) !void {
     });
     _ = gen_config.addCopyFile(versiondef_step.getOutput(), "auto/versiondef.h"); // run_preprocessor() workaronnd
 
-    const t = target.result;
-    const tag = t.os.tag;
-
     const isLinux = tag == .linux;
     const modernUnix = tag.isDarwin() or tag.isBSD() or isLinux;
 
@@ -184,7 +186,7 @@ pub fn build(b: *std.Build) !void {
         .HAVE_SYS_UIO_H = modernUnix,
         .HAVE_READV = modernUnix,
         .HAVE_DIRFD_AND_FLOCK = modernUnix,
-        .HAVE_FORKPTY = modernUnix,
+        .HAVE_FORKPTY = modernUnix and !tag.isDarwin(), // TODO: also on darwin but we lack the headers :(buil
 
         .HAVE_BE64TOH = isLinux,
         .ORDER_BIG_ENDIAN = false,
@@ -196,7 +198,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     // TODO: not used yet
-    _ = gen_config.addCopyFile(sysconfig_step.getOutput(), "auto/config_WIP.h"); // run_preprocessor() workaronnd
+    _ = gen_config.addCopyFile(sysconfig_step.getOutput(), "auto/config.h"); // run_preprocessor() workaronnd
 
     // TODO: actually run git :p
     const medium = b.fmt("v{}.{}.{}{s}+zig", .{ version.major, version.minor, version.patch, version.prerelease });
@@ -351,6 +353,9 @@ pub fn build(b: *std.Build) !void {
     nvim_exe.linkLibrary(lua);
     nvim_exe.linkLibrary(libuv);
     nvim_exe.linkLibrary(libluv);
+    if (iconv_apple) |iconv| {
+        nvim_exe.linkLibrary(iconv.artifact("iconv"));
+    }
     nvim_exe.linkLibrary(utf8proc.artifact("utf8proc"));
     nvim_exe.linkLibrary(unibilium.artifact("unibilium"));
     nvim_exe.linkLibrary(treesitter.artifact("tree-sitter"));
@@ -358,7 +363,7 @@ pub fn build(b: *std.Build) !void {
     nvim_exe.addIncludePath(b.path("src/includes_fixmelater"));
     nvim_exe.addIncludePath(gen_config.getDirectory());
     nvim_exe.addIncludePath(gen_headers.getDirectory());
-    add_lua_modules(&nvim_exe.root_module, lpeg, use_luajit);
+    add_lua_modules(&nvim_exe.root_module, lpeg, use_luajit, false);
 
     const src_paths = try b.allocator.alloc([]u8, nvim_sources.items.len);
     for (nvim_sources.items, 0..) |s, i| {
@@ -558,7 +563,7 @@ pub fn build_nlua0(
 
         mod.addIncludePath(b.path("src"));
         mod.addIncludePath(b.path("src/includes_fixmelater"));
-        add_lua_modules(mod, lpeg, use_luajit);
+        add_lua_modules(mod, lpeg, use_luajit, true);
     }
 
     // for debugging the nlua0 environment
@@ -580,10 +585,11 @@ pub fn build_nlua0(
     return nlua0_exe;
 }
 
-pub fn add_lua_modules(mod: *std.Build.Module, lpeg: *std.Build.Dependency, use_luajit: bool) void {
+pub fn add_lua_modules(mod: *std.Build.Module, lpeg: *std.Build.Dependency, use_luajit: bool, is_nlua0: bool) void {
     const flags = [_][]const u8{
         // Standard version used in Lua Makefile
         "-std=gnu99",
+        if (is_nlua0) "-DNVIM_NLUA0" else "",
     };
 
     mod.addIncludePath(lpeg.path(""));

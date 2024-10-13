@@ -27,12 +27,13 @@
             .hash = "1220e75685f00c242fbf6c1c60e98dd1b24ba99e38277970a10636e44ed08cf2af8a",
         },
         .treesitter = .{
-            .url = "https://github.com/tree-sitter/tree-sitter/archive/99dbbbcbe9d7f3c286057e9f3bcc6e0b42690606.tar.gz",
-            .hash = "1220bd07c41cdca9510693c6035107e121f658650eb96669b81746cb4328395a7fca",
+            .url = "https://github.com/tree-sitter/tree-sitter/archive/v0.24.3.tar.gz",
+            .hash = "1220d7730b4b548db37a9c352adc8bda88d9cada68c02883fcef2c6dca3b83fb642e",
         },
         .libuv = .{ .path = "./deps/libuv" },
         .utf8proc = .{ .path = "./deps/utf8proc/" },
         .unibilium = .{ .path = "./deps/unibilium/" },
+        .iconv_apple = .{ .path = "./deps/iconv_apple/", .lazy = true },
     },
     .paths = .{
         // This makes *all* files, recursively, included in this package. It is generally
