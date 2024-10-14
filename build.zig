@@ -3,7 +3,7 @@ const LazyPath = std.Build.LazyPath;
 
 const version = struct {
     const major = 0;
-    const minor = 10;
+    const minor = 11;
     const patch = 0;
     const prerelease = "-dev";
 
@@ -139,13 +139,18 @@ pub fn build(b: *std.Build) !void {
 
     const version_lua = gen_config.add("nvim_version.lua", lua_version_info(b));
 
+    var config_str = b.fmt("build.zig -Doptimize={s}", .{@tagName(optimize)});
+    if (cross_compiling) {
+        config_str = b.fmt("{s} -Dtarget={s} (host: {s})", .{ config_str, try t.linuxTriple(b.allocator), try b.host.result.linuxTriple(b.allocator) });
+    }
+
     const versiondef_step = b.addConfigHeader(.{ .style = .{ .cmake = b.path("src/versiondef.h.in") } }, .{
         .NVIM_VERSION_MAJOR = version.major,
         .NVIM_VERSION_MINOR = version.minor,
         .NVIM_VERSION_PATCH = version.patch,
         .NVIM_VERSION_PRERELEASE = version.prerelease,
         .VERSION_STRING = "TODOx", // TODO
-        .CONFIG = b.fmt("build.zig -Doptimize={s}", .{@tagName(optimize)}), // TODO: include optimize name
+        .CONFIG = config_str, // TODO: include optimize name
     });
     _ = gen_config.addCopyFile(versiondef_step.getOutput(), "auto/versiondef.h"); // run_preprocessor() workaronnd
 
@@ -188,8 +193,8 @@ pub fn build(b: *std.Build) !void {
         .HAVE_DIRFD_AND_FLOCK = modernUnix,
         .HAVE_FORKPTY = modernUnix and !tag.isDarwin(), // TODO: also on darwin but we lack the headers :(buil
 
-        .HAVE_BE64TOH = isLinux,
-        .ORDER_BIG_ENDIAN = false,
+        .HAVE_BE64TOH = isLinux or tag.isBSD(),
+        .ORDER_BIG_ENDIAN = t.cpu.arch.endian() == .big,
         .ENDIAN_INCLUDE_FILE = "endian.h",
         .HAVE_EXECINFO_BACKTRACE = modernUnix,
         .HAVE_BUILTIN_ADD_OVERFLOW = true,
