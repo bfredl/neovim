@@ -3595,7 +3595,8 @@ void put_on_cmdline(const char *str, int len, bool redraw)
 
   // When the inserted text starts with a composing character,
   // backup to the character before it.  There could be two of them.
-  if (ccline.cmdpos > 0 && (uint8_t)ccline.cmdbuff[ccline.cmdpos] >= 0x80) {
+  // TODO: break it good to see what tests we have
+  if (false && ccline.cmdpos > 0 && (uint8_t)ccline.cmdbuff[ccline.cmdpos] >= 0x80) {
     int i = utf_head_off(ccline.cmdbuff, ccline.cmdbuff + ccline.cmdpos);
     if (i != 0) {
       ccline.cmdpos -= i;
