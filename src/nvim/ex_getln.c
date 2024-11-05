@@ -3351,6 +3351,7 @@ color_cmdline_error:
 // when cmdline_star is true.
 static void draw_cmdline(int start, int len)
 {
+  fprintf(stderr, "REDRAW %d with %d\n", start, len);
   if (!color_cmdline(&ccline)) {
     return;
   }
@@ -3605,6 +3606,9 @@ void put_on_cmdline(const char *str, int len, bool redraw)
     }
   }
 
+  fprintf(stderr, "\nSITUATIONEN: buf[%d] = %d (%x)\n", ccline.cmdpos, (int)(uint8_t)ccline.cmdbuff[ccline.cmdpos], utf_ptr2char(ccline.cmdbuff+ccline.cmdpos));
+  fprintf(stderr, "ock då: %d %d\n", redraw, cmd_silent);
+
   if (redraw && !cmd_silent) {
     msg_no_more = true;
     int i = cmdline_row;
@@ -3806,6 +3810,7 @@ static void redrawcmdprompt(void)
 // Redraw what is currently on the command line.
 void redrawcmd(void)
 {
+  fprintf(stderr, "VEM VARE\n");
   if (cmd_silent) {
     return;
   }
