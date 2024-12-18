@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "nvim/grid.h"
+#include "nvim/mbyte.h"
+
 #define strneq(a,b,n) (strncmp(a,b,n)==0)
 
 #if defined(DEBUG) && DEBUG > 1
@@ -11,10 +14,21 @@
 
 /* Some convenient wrappers to make callback functions easier */
 
-static void putglyph(VTermState *state, const uint32_t chars[], int width, VTermPos pos)
+// This is just just a hack. relies on assumptions fon not buffer overflow.
+static schar_T schar_from_combine_chars(const uint32_t chars[]) {
+    char buf[MAX_SCHAR_SIZE];
+    size_t size = 0;
+    for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && chars[i]; i++) {
+      size += utf_char2bytes(chars[i], buf+size);
+    }
+
+    return schar_from_buf(buf, size);
+}
+
+static void putglyph(VTermState *state, const schar_T schar, int width, VTermPos pos)
 {
   VTermGlyphInfo info = {
-    .chars = chars,
+    .schar = schar,
     .width = width,
     .protected_cell = state->protected_cell,
     .dwl = state->lineinfo[pos.row].doublewidth,
@@ -337,7 +351,8 @@ static int on_text(const char bytes[], size_t len, void *user)
 #endif
 
       /* Now render it */
-      putglyph(state, state->combine_chars, state->combine_width, state->combine_pos);
+      schar_T sc = schar_from_combine_chars(state->combine_chars);
+      putglyph(state, sc, state->combine_width, state->combine_pos);
     }
     else {
       DEBUG_LOG("libvterm: TODO: Skip over split char+combining\n");
@@ -405,7 +420,8 @@ static int on_text(const char bytes[], size_t len, void *user)
       scroll(state, rect, 0, -1);
     }
 
-    putglyph(state, chars, width, state->pos);
+    schar_T sc = schar_from_combine_chars(chars);
+    putglyph(state, sc, width, state->pos);
 
     if(i == npoints - 1) {
       /* End of the buffer. Save the chars in case we have to combine with
