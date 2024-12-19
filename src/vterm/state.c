@@ -14,17 +14,6 @@
 
 /* Some convenient wrappers to make callback functions easier */
 
-// This is just just a hack. relies on assumptions fon not buffer overflow.
-static schar_T schar_from_combine_chars(const uint32_t chars[]) {
-    char buf[MAX_SCHAR_SIZE];
-    size_t size = 0;
-    for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && chars[i]; i++) {
-      size += utf_char2bytes(chars[i], buf+size);
-    }
-
-    return schar_from_buf(buf, size);
-}
-
 static void putglyph(VTermState *state, const schar_T schar, int width, VTermPos pos)
 {
   VTermGlyphInfo info = {
@@ -96,8 +85,8 @@ static VTermState *vterm_state_new(VTerm *vt)
 
   state->bold_is_highbright = 0;
 
-  state->combine_chars_size = 16;
-  state->combine_chars = vterm_allocator_malloc(state->vt, state->combine_chars_size * sizeof(state->combine_chars[0]));
+  state->grapheme_capacity = MAX_SCHAR_SIZE;
+  state->grapheme_buf = vterm_allocator_malloc(state->vt, state->grapheme_capacity * sizeof(state->grapheme_buf[0]));
 
   state->tabstops = vterm_allocator_malloc(state->vt, (state->cols + 7) / 8);
 
@@ -119,7 +108,6 @@ INTERNAL void vterm_state_free(VTermState *state)
   vterm_allocator_free(state->vt, state->lineinfos[BUFIDX_PRIMARY]);
   if(state->lineinfos[BUFIDX_ALTSCREEN])
     vterm_allocator_free(state->vt, state->lineinfos[BUFIDX_ALTSCREEN]);
-  vterm_allocator_free(state->vt, state->combine_chars);
   vterm_allocator_free(state->vt, state);
 }
 
@@ -183,19 +171,6 @@ static void linefeed(VTermState *state)
   }
   else if(state->pos.row < state->rows-1)
     state->pos.row++;
-}
-
-static void grow_combine_buffer(VTermState *state)
-{
-  size_t    new_size = state->combine_chars_size * 2;
-  uint32_t *new_chars = vterm_allocator_malloc(state->vt, new_size * sizeof(new_chars[0]));
-
-  memcpy(new_chars, state->combine_chars, state->combine_chars_size * sizeof(new_chars[0]));
-
-  vterm_allocator_free(state->vt, state->combine_chars);
-
-  state->combine_chars = new_chars;
-  state->combine_chars_size = new_size;
 }
 
 static void set_col_tabstop(VTermState *state, int col)
@@ -315,89 +290,33 @@ static int on_text(const char bytes[], size_t len, void *user)
     state->gsingle_set = 0;
 
   int i = 0;
+  GraphemeState grapheme_state = GRAPHEME_STATE_INIT;
+  size_t grapheme_len = 0;
 
+  /* See if the cursor has moved since */
+  if(state->pos.row == state->combine_pos.row && state->pos.col == state->combine_pos.col + state->combine_width) {
   /* This is a combining char. that needs to be merged with the previous
    * glyph output */
-  if(vterm_unicode_is_combining(codepoints[i])) {
-    /* See if the cursor has moved since */
-    if(state->pos.row == state->combine_pos.row && state->pos.col == state->combine_pos.col + state->combine_width) {
-#ifdef DEBUG_GLYPH_COMBINE
-      int printpos;
-      printf("DEBUG: COMBINING SPLIT GLYPH of chars {");
-      for(printpos = 0; state->combine_chars[printpos]; printpos++)
-        printf("U+%04x ", state->combine_chars[printpos]);
-      printf("} + {");
-#endif
-
+    if(utf_iscomposing(state->grapheme_last, codepoints[i], &state->grapheme_state)) {
       /* Find where we need to append these combining chars */
-      int saved_i = 0;
-      while(state->combine_chars[saved_i])
-        saved_i++;
-
-      /* Add extra ones */
-      while(i < npoints && vterm_unicode_is_combining(codepoints[i])) {
-        if(saved_i >= state->combine_chars_size)
-          grow_combine_buffer(state);
-        state->combine_chars[saved_i++] = codepoints[i++];
-      }
-      if(saved_i >= state->combine_chars_size)
-        grow_combine_buffer(state);
-      state->combine_chars[saved_i] = 0;
-
-#ifdef DEBUG_GLYPH_COMBINE
-      for(; state->combine_chars[printpos]; printpos++)
-        printf("U+%04x ", state->combine_chars[printpos]);
-      printf("}\n");
-#endif
-
-      /* Now render it */
-      schar_T sc = schar_from_combine_chars(state->combine_chars);
-      putglyph(state, sc, state->combine_width, state->combine_pos);
-    }
-    else {
+      grapheme_len = state->grapheme_len;
+      grapheme_state = state->grapheme_state;
+      state->pos.col = state->combine_pos.col;
+    } else {
       DEBUG_LOG("libvterm: TODO: Skip over split char+combining\n");
     }
   }
 
   for(; i < npoints; i++) {
     // Try to find combining characters following this
-    int glyph_starts = i;
-    int glyph_ends;
-    for(glyph_ends = i + 1;
-        (glyph_ends < npoints) && (glyph_ends < glyph_starts + VTERM_MAX_CHARS_PER_CELL);
-        glyph_ends++)
-      if(!vterm_unicode_is_combining(codepoints[glyph_ends]))
-        break;
-
-    int width = 0;
-
-    uint32_t chars[VTERM_MAX_CHARS_PER_CELL + 1];
-
-    for( ; i < glyph_ends; i++) {
-      chars[i - glyph_starts] = codepoints[i];
-      int this_width = vterm_unicode_width(codepoints[i]);
-#ifdef DEBUG
-      if(this_width < 0) {
-        fprintf(stderr, "Text with negative-width codepoint U+%04x\n", codepoints[i]);
-        abort();
+    do {
+      if (grapheme_len < sizeof(state->grapheme_buf) - 4) {
+        grapheme_len += utf_char2bytes(codepoints[i], state->grapheme_buf + grapheme_len);
       }
-#endif
-      width += this_width;
-    }
-
-    while(i < npoints && vterm_unicode_is_combining(codepoints[i]))
       i++;
+    } while(i < npoints && utf_iscomposing(codepoints[i-1], codepoints[i], &grapheme_state));
 
-    chars[glyph_ends - glyph_starts] = 0;
-    i--;
-
-#ifdef DEBUG_GLYPH_COMBINE
-    int printpos;
-    printf("DEBUG: COMBINED GLYPH of %d chars {", glyph_ends - glyph_starts);
-    for(printpos = 0; printpos < glyph_ends - glyph_starts; printpos++)
-      printf("U+%04x ", chars[printpos]);
-    printf("}, onscreen width %d\n", width);
-#endif
+    int width = utf_ptr2cells(state->grapheme_buf);
 
     if(state->at_phantom || state->pos.col + width > THISROWWIDTH(state)) {
       linefeed(state);
@@ -420,21 +339,15 @@ static int on_text(const char bytes[], size_t len, void *user)
       scroll(state, rect, 0, -1);
     }
 
-    schar_T sc = schar_from_combine_chars(chars);
+    schar_T sc = schar_from_buf(state->grapheme_buf, grapheme_len);
     putglyph(state, sc, width, state->pos);
 
-    if(i == npoints - 1) {
+    if(i == npoints) {
       /* End of the buffer. Save the chars in case we have to combine with
        * more on the next call */
-      int save_i;
-      for(save_i = 0; chars[save_i]; save_i++) {
-        if(save_i >= state->combine_chars_size)
-          grow_combine_buffer(state);
-        state->combine_chars[save_i] = chars[save_i];
-      }
-      if(save_i >= state->combine_chars_size)
-        grow_combine_buffer(state);
-      state->combine_chars[save_i] = 0;
+      state->grapheme_len = grapheme_len;
+      state->grapheme_last = codepoints[i-1];
+      state->grapheme_state = grapheme_state;
       state->combine_width = width;
       state->combine_pos = state->pos;
     }
@@ -1250,8 +1163,9 @@ static int on_csi(const char *leader, const long args[], int argcount, const cha
     count = CSI_ARG_COUNT(args[0]);
     col = state->pos.col + count;
     UBOUND(col, row_width);
+    schar_T sc = schar_from_buf(state->grapheme_buf, state->grapheme_len);
     while (state->pos.col < col) {
-      putglyph(state, state->combine_chars, state->combine_width, state->pos);
+      putglyph(state, sc, state->combine_width, state->pos);
       state->pos.col += state->combine_width;
     }
     if (state->pos.col + state->combine_width >= row_width) {
