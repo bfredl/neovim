@@ -625,6 +625,52 @@ describe('terminal input', function()
       ]]):format(key))
     end
   end)
+
+  -- TODO(bfredl): getcharstr() erases the distinction between <C-I> and <Tab>.
+  -- If it was enhanced or replaced this could get folded into the test above.
+  it('can send TAB and C-I separately', function()
+    clear()
+    local screen = tt.setup_child_nvim({
+      '-u',
+      'NONE',
+      '-i',
+      'NONE',
+      '--cmd',
+      'colorscheme vim',
+      '--cmd',
+      'set notermguicolors',
+      '--cmd',
+      'noremap <tab> <cmd>echo "Tab!"<cr>',
+      '--cmd',
+      'noremap <c-i> <cmd>echo "Ctrl-I!"<cr>',
+    })
+
+    screen:expect([[
+      ^                                                  |
+      {4:~                                                 }|*3
+      {5:[No Name]                       0,0-1          All}|
+                                                        |
+      {3:-- TERMINAL --}                                    |
+    ]])
+
+    feed('<tab>')
+    screen:expect([[
+      ^                                                  |
+      {4:~                                                 }|*3
+      {5:[No Name]                       0,0-1          All}|
+      Tab!                                              |
+      {3:-- TERMINAL --}                                    |
+    ]])
+
+    feed('<c-i>')
+    screen:expect([[
+      ^                                                  |
+      {4:~                                                 }|*3
+      {5:[No Name]                       0,0-1          All}|
+      Ctrl-I!                                           |
+      {3:-- TERMINAL --}                                    |
+    ]])
+  end)
 end)
 
 if is_os('win') then
