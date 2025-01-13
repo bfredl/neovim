@@ -34,6 +34,7 @@ describe(':terminal buffer', function()
 
   it('terminal-mode forces various options', function()
     feed([[<C-\><C-N>]])
+    eq('nt', eval('mode(1)'))
     command('setlocal cursorline cursorlineopt=both cursorcolumn scrolloff=4 sidescrolloff=7')
     eq(
       { 'both', 1, 1, 4, 7 },
