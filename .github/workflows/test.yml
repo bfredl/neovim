@@ -218,7 +218,10 @@ jobs:
       - uses: mlugg/setup-zig@v1
         with:
          version: 2024.11.0-mach
-      - run: zig build nvim_bin
+      # TODO: in the end we want "local" caching inside a PR as well, but wanna compare "first build"
+      # timing right now.
+      - run: ZIG_LOCAL_CACHE_DIR=./.zig-cache zig env
+      - run: ZIG_LOCAL_CACHE_DIR=./.zig-cache zig build nvim_bin
       - run: ./zig-out/bin/nvim --version
 
   windows:
