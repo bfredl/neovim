@@ -45,6 +45,7 @@ pub fn build(b: *std.Build) !void {
     const optimize_lua = if (optimize == .Debug) .ReleaseSmall else optimize;
 
     const use_luajit = b.option(bool, "luajit", "use luajit") orelse false;
+    const wasm = b.option(bool, "wasm", "use wasm in tree-sitter") orelse false;
     const host_use_luajit = if (cross_compiling) false else use_luajit;
     const E = enum { luajit, lua51 }; // E-E-E-H
 
@@ -78,7 +79,10 @@ pub fn build(b: *std.Build) !void {
 
     const utf8proc = b.dependency("utf8proc", .{ .target = target, .optimize = optimize });
     const unibilium = b.dependency("unibilium", .{ .target = target, .optimize = optimize });
-    const treesitter = b.dependency("treesitter", .{ .target = target, .optimize = .ReleaseFast }); // TODO: fix upstream bugs with UBSAN
+    const treesitter = if (wasm)
+        b.lazyDependency("treesitter_with_wasm", .{ .target = target, .optimize = .ReleaseFast, .@"enable-neowasm" = true }) orelse return
+    else
+        b.dependency("treesitter", .{ .target = target, .optimize = .ReleaseFast }); // TODO: fix upstream bugs with UBSAN
 
     const nlua0 = build_lua.build_nlua0(b, target_host, optimize_host, host_use_luajit, ziglua_host, lpeg);
 
@@ -282,6 +286,7 @@ pub fn build(b: *std.Build) !void {
         "-DZIG_BUILD",
         "-D_GNU_SOURCE",
         if (use_luajit) "" else "-DNVIM_VENDOR_BIT",
+        if (wasm) "-DNEOWASM" else "",
     };
     nvim_exe.addCSourceFiles(.{ .files = src_paths, .flags = &flags });
 
