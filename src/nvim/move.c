@@ -1006,7 +1006,7 @@ void curs_columns(win_T *wp, int may_scroll)
     extra = (prev_skipcol - wp->w_skipcol) / width2;
     // TODO(bfredl): this is very suspicious when not called by win_update()
     // We should not randomly alter screen state outside of update_screen() :(
-    if (wp->w_grid.target) {
+    if (wp->w_grid.target && wp->w_grid.target->chars) {
       win_scroll_lines(wp, 0, extra);
     }
   } else if (!wp->w_p_sms) {
