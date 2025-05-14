@@ -2120,7 +2120,7 @@ static void patch_terminfo_bugs(TUIData *tui, const char *term, const char *colo
       unibi_set_if_empty(ut, unibi_set_lr_margin, "\x1b[%i%p1%d;%p2%ds");
       unibi_set_if_empty(ut, unibi_set_left_margin_parm, "\x1b[%i%p1%ds");
       unibi_set_if_empty(ut, unibi_set_right_margin_parm, "\x1b[%i;%p2%ds");
-    } else {
+    } else if (hterm) {
       // Fix things advertised via TERM=xterm, for non-xterm.
       //
       // TODO(aktau): stop patching this out for hterm when it gains support
