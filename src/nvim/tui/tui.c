@@ -97,6 +97,7 @@ struct TUIData {
   int out_fd;
   bool scroll_region_is_full_screen;
   bool can_change_scroll_region;
+  bool has_left_and_right_margin_mode;
   bool can_set_lr_margin;  // smglr
   bool can_set_left_right_margin;
   bool can_scroll;
@@ -239,6 +240,9 @@ void tui_handle_term_mode(TUIData *tui, TermMode mode, TermModeState state)
     FALLTHROUGH;
   case kTermModeReset:
     // The terminal supports changing the given mode
+    if (tui->verbose >= 3) {
+      show_verbose_detected_mode(tui, (int)mode);
+    }
     switch (mode) {
     case kTermModeSynchronizedOutput:
       // Ref: https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036
@@ -258,6 +262,8 @@ void tui_handle_term_mode(TUIData *tui, TermMode mode, TermModeState state)
       signal_watcher_stop(&tui->winch_handle);
       tui_set_term_mode(tui, mode, true);
       break;
+    case kTermModeLeftAndRightMargins:
+      tui->has_left_and_right_margin_mode = true;
     }
   }
 }
@@ -435,6 +441,7 @@ static void terminfo_start(TUIData *tui)
   augment_terminfo(tui, term, vtev, konsolev, weztermv, iterm_env, nsterm);
   tui->can_change_scroll_region =
     !!unibi_get_str(tui->ut, unibi_change_scroll_region);
+  // note: also gated by tui->has_left_and_right_margin_mode
   tui->can_set_lr_margin =
     !!unibi_get_str(tui->ut, unibi_set_lr_margin);
   tui->can_set_left_right_margin =
@@ -463,9 +470,12 @@ static void terminfo_start(TUIData *tui)
   // Enable bracketed paste
   unibi_out_ext(tui, tui->unibi_ext.enable_bracketed_paste);
 
+  tui->has_left_and_right_margin_mode = false;
+
   // Query support for private DEC modes that Nvim can take advantage of.
   // Some terminals (such as Terminal.app) do not support DECRQM, so skip the query.
   if (!nsterm) {
+    tui_request_term_mode(tui, kTermModeLeftAndRightMargins);
     tui_request_term_mode(tui, kTermModeSynchronizedOutput);
     tui_request_term_mode(tui, kTermModeGraphemeClusters);
     tui_request_term_mode(tui, kTermModeThemeUpdates);
@@ -1436,12 +1446,13 @@ void tui_grid_scroll(TUIData *tui, Integer g, Integer startrow, Integer endrow, 
 
   ugrid_scroll(grid, top, bot, left, right, (int)rows);
 
+  bool has_lr_margins = tui->has_left_and_right_margin_mode
+                        && (tui->can_set_lr_margin || tui->can_set_left_right_margin);
+
   bool can_scroll = tui->can_scroll
                     && (tui->scroll_region_is_full_screen
                         || (tui->can_change_scroll_region
-                            && ((left == 0 && right == tui->width - 1)
-                                || tui->can_set_lr_margin
-                                || tui->can_set_left_right_margin)));
+                            && ((left == 0 && right == tui->width - 1) || has_lr_margins)));
 
   if (can_scroll) {
     // Change terminal scroll region and move cursor to the top
@@ -1597,7 +1608,7 @@ static void show_verbose_terminfo(TUIData *tui)
   ADD_C(title, CSTR_AS_OBJ("\n\n--- Terminal info --- {{{\n"));
   ADD_C(title, CSTR_AS_OBJ("Title"));
   ADD_C(chunks, ARRAY_OBJ(title));
-  MAXSIZE_TEMP_ARRAY(info, 2);
+  MAXSIZE_TEMP_ARRAY(info, 1);
   String str = terminfo_info_msg(ut, tui->term);
   ADD_C(info, STRING_OBJ(str));
   ADD_C(chunks, ARRAY_OBJ(info));
@@ -1614,6 +1625,26 @@ static void show_verbose_terminfo(TUIData *tui)
   ADD_C(args, DICT_OBJ(opts));
   rpc_send_event(ui_client_channel_id, "nvim_echo", args);
   xfree(str.data);
+}
+
+/// Dumps termcap info to the messages area, if 'verbose' >= 3.
+static void show_verbose_detected_mode(TUIData *tui, int mode)
+{
+  MAXSIZE_TEMP_ARRAY(chunks, 1);
+  MAXSIZE_TEMP_ARRAY(info, 2);
+  String str = arena_printf(NULL, "TUI: terminal mode %d available\n", mode);
+  ADD_C(info, STRING_OBJ(str));
+  ADD_C(chunks, ARRAY_OBJ(info));
+
+  MAXSIZE_TEMP_ARRAY(args, 3);
+  ADD_C(args, ARRAY_OBJ(chunks));
+  ADD_C(args, BOOLEAN_OBJ(true));  // history
+  MAXSIZE_TEMP_DICT(opts, 1);
+  PUT_C(opts, "verbose", BOOLEAN_OBJ(true));
+  ADD_C(args, DICT_OBJ(opts));
+  rpc_send_event(ui_client_channel_id, "nvim_echo", args);
+  xfree(str.data);
+    abort();
 }
 
 void tui_suspend(TUIData *tui)
@@ -2115,29 +2146,12 @@ static void patch_terminfo_bugs(TUIData *tui, const char *term, const char *colo
     unibi_set_if_empty(ut, unibi_enter_italics_mode, "\x1b[3m");
     unibi_set_if_empty(ut, unibi_exit_italics_mode, "\x1b[23m");
 
-    if (true_xterm) {
-      // 2017-04 terminfo.src lacks these.  genuine Xterm has them.
-      unibi_set_if_empty(ut, unibi_set_lr_margin, "\x1b[%i%p1%d;%p2%ds");
-      unibi_set_if_empty(ut, unibi_set_left_margin_parm, "\x1b[%i%p1%ds");
-      unibi_set_if_empty(ut, unibi_set_right_margin_parm, "\x1b[%i;%p2%ds");
-    } else if (hterm) {
-      // Fix things advertised via TERM=xterm, for non-xterm.
-      //
-      // TODO(aktau): stop patching this out for hterm when it gains support
-      // (https://crbug.com/1175065).
-      if (unibi_get_str(ut, unibi_set_lr_margin)) {
-        ILOG("Disabling smglr with TERM=xterm for non-xterm.");
-        unibi_set_str(ut, unibi_set_lr_margin, NULL);
-      }
-      if (unibi_get_str(ut, unibi_set_left_margin_parm)) {
-        ILOG("Disabling smglp with TERM=xterm for non-xterm.");
-        unibi_set_str(ut, unibi_set_left_margin_parm, NULL);
-      }
-      if (unibi_get_str(ut, unibi_set_right_margin_parm)) {
-        ILOG("Disabling smgrp with TERM=xterm for non-xterm.");
-        unibi_set_str(ut, unibi_set_right_margin_parm, NULL);
-      }
-    }
+    // 2017-04 terminfo.src lacks these.  genuine Xterm has them.
+    // 2025: these are not supported by all xterm-alikes, but support
+    // is detected as kTermModeLeftAndRightMargins
+    unibi_set_if_empty(ut, unibi_set_lr_margin, "\x1b[%i%p1%d;%p2%ds");
+    unibi_set_if_empty(ut, unibi_set_left_margin_parm, "\x1b[%i%p1%ds");
+    unibi_set_if_empty(ut, unibi_set_right_margin_parm, "\x1b[%i;%p2%ds");
 
 #ifdef MSWIN
     // XXX: workaround libuv implicit LF => CRLF conversion. #10558
