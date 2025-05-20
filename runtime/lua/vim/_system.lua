@@ -226,7 +226,7 @@ local function setup_env(env, clear_env)
   return renv
 end
 
-local is_win = vim.fn.has('win32') == 1
+local is_win = (vim.fn ~= nil) and (vim.fn.has('win32') == 1)
 
 local M = {}
 
