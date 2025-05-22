@@ -494,6 +494,12 @@ if(MSVC)
   list(APPEND gen_cflags -wd4003)
 endif()
 
+message(STATUS "!!!!!! GENERATED FLAGS")
+foreach(flagg ${gen_cflags})
+message(STATUS ${flagg})
+endforeach()
+message(STATUS "!!!!!! FIN")
+
 set(NVIM_VERSION_GIT_H ${PROJECT_BINARY_DIR}/cmake.config/auto/versiondef_git.h)
 add_custom_target(update_version_stamp
   COMMAND ${CMAKE_COMMAND}
