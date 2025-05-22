@@ -19,6 +19,13 @@ for _, p in ipairs(paths.include_paths) do
   Preprocess.add_to_include_path(p)
 end
 
+-- every other platform: WHY CAN'T YOU JUST BE NORMAL? apple:
+-- add some nonstandard header locations
+if paths.apple_sysroot ~= "" then
+  print('GOOD LORD IT HAPPENED:', paths.apple_sysroot)io.stdout:flush()
+  Preprocess.add_apple_sysroot(paths.apple_sysroot)
+end
+
 local child_pid = nil --- @type integer?
 --- @generic F: function
 --- @param func F
