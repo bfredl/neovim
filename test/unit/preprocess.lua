@@ -158,6 +158,9 @@ function Gcc:add_apple_sysroot(sysroot)
 
   table.insert(ef, '-isysroot')
   table.insert(ef, sysroot)
+  -- NOTE: This should already been part of the include path via add_to_include_path()
+  -- but for reasons best kept between the cmake devs and God almighty, it is not.
+  table.insert(ef, '-I'..sysroot..'/usr/include')
 end
 
 -- returns a list of the headers files upon which this file relies
