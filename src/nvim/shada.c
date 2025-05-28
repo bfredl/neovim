@@ -1250,18 +1250,28 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
         }
       } else {
         set_put(ptr_t, &cl_bufs, buf);
-#define SDE_TO_FMARK(entry) fm
-#define AFTERFREE(entry) (entry).data.filemark.fname = NULL
-#define DUMMY_IDX_ADJ(i)
-        MERGE_JUMPS(buf->b_changelistlen, buf->b_changelist, fmark_T,
-                    timestamp, mark, cur_entry, true,
-                    free_fmark, SDE_TO_FMARK, DUMMY_IDX_ADJ, AFTERFREE);
-#undef SDE_TO_FMARK
-#undef AFTERFREE
-#undef DUMMY_IDX_ADJ
+        int i;
+        for (i = buf->b_changelistlen; i > 0; i--) {
+          const fmark_T jl_entry = buf->b_changelist[i - 1];
+          if (jl_entry.timestamp <= cur_entry.timestamp) {
+            if (marks_equal(jl_entry.mark, cur_entry.data.filemark.mark)) {
+              i = -1;
+            }
+            break;
+          }
+        }
+        insert_in_jumplist(buf->b_changelist, sizeof(*buf->b_changelist), buf->b_changelistlen, i);
+        if (i != -1) {
+          buf->b_changelist[i] = fm;
+          if (buf->b_changelistlen < JUMPLISTSIZE) {
+            buf->b_changelistlen++;
+          }
+        } else {
+          xfree(fm.additional_data);
+        }
+
       }
-      // Do not free shada entry: except for fname, its allocated memory (i.e.
-      // additional_data attribute contents if non-NULL) was saved above.
+      // only free fname part of shada entry, as additional_data was saved or freed above.
       xfree(cur_entry.data.filemark.fname);
       break;
     }
