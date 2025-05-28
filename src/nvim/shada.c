@@ -1260,6 +1260,9 @@ static void shada_read(FileDescriptor *const sd_reader, const int flags)
             break;
           }
         }
+        if (i > 0 && buf->b_changelistlen == JUMPLISTSIZE) {
+          free_fmark(buf->b_changelist[0]);
+        }
         insert_in_jumplist(buf->b_changelist, sizeof(*buf->b_changelist), buf->b_changelistlen, i);
         if (i != -1) {
           buf->b_changelist[i] = fm;
@@ -2009,27 +2012,64 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
           }
         }
       } else {
-#define AFTERFREE_DUMMY(entry)
-#define DUMMY_IDX_ADJ(i)
-        MERGE_JUMPS(filemarks->changes_size, filemarks->changes,
-                    PossiblyFreedShadaEntry, data.timestamp,
-                    data.data.filemark.mark, entry, true,
-                    FREE_POSSIBLY_FREED_SHADA_ENTRY, SDE_TO_PFSDE,
-                    DUMMY_IDX_ADJ, AFTERFREE_DUMMY);
+        int i;
+        for (i = (int)filemarks->changes_size; i > 0; i--) {
+          const PossiblyFreedShadaEntry jl_entry = filemarks->changes[i - 1];
+          if (jl_entry.data.timestamp <= (entry).timestamp) {
+            if (marks_equal(jl_entry.data.data.filemark.mark, entry.data.filemark.mark)) {
+              i = -1;
+            }
+            break;
+          }
+        }
+        if (i > 0 && filemarks->changes_size == JUMPLISTSIZE) {
+          if (filemarks->changes[0].can_free_entry) {
+            shada_free_shada_entry(&filemarks->changes[0].data);
+          }
+        }
+        i = insert_in_jumplist(filemarks->changes, sizeof(*filemarks->changes),
+                               (int)filemarks->changes_size, i);
+        if (i != -1) {
+          filemarks->changes[i] = (PossiblyFreedShadaEntry) { .can_free_entry = true,
+                                                              .data = (entry) };
+          if (filemarks->changes_size < JUMPLISTSIZE) {
+            filemarks->changes_size++;
+          }
+        } else {
+          shada_free_shada_entry(&(entry));
+        }
       }
       break;
     }
-    case kSDItemJump:
-      MERGE_JUMPS(wms->jumps_size, wms->jumps, PossiblyFreedShadaEntry,
-                  data.timestamp, data.data.filemark.mark, entry,
-                  strcmp(jl_entry.data.data.filemark.fname,
-                         entry.data.filemark.fname) == 0,
-                  FREE_POSSIBLY_FREED_SHADA_ENTRY, SDE_TO_PFSDE,
-                  DUMMY_IDX_ADJ, AFTERFREE_DUMMY);
-#undef FREE_POSSIBLY_FREED_SHADA_ENTRY
-#undef SDE_TO_PFSDE
-#undef DUMMY_IDX_ADJ
-#undef AFTERFREE_DUMMY
+    case kSDItemJump:;
+      int i;
+      for (i = (int)wms->jumps_size; i > 0; i--) {
+        const PossiblyFreedShadaEntry jl_entry = wms->jumps[i - 1];
+        if (jl_entry.data.timestamp <= entry.timestamp) {
+          if (marks_equal(jl_entry.data.data.filemark.mark, entry.data.filemark.mark)
+              && strcmp(jl_entry.data.data.filemark.fname,
+                        entry.data.filemark.fname) == 0) {
+            i = -1;
+          }
+          break;
+        }
+      }
+      if (i > 0 && wms->jumps_size == JUMPLISTSIZE) {
+        if (wms->jumps[0].can_free_entry) {
+          shada_free_shada_entry(&wms->jumps[0].data);
+        }
+      }
+      i = insert_in_jumplist(wms->jumps, sizeof(*wms->jumps),
+                             (int)wms->jumps_size, i);
+      if (i != -1) {
+        wms->jumps[i] = (PossiblyFreedShadaEntry) { .can_free_entry = true,
+                                                                .data = (entry) };
+        if (wms->jumps_size < JUMPLISTSIZE) {
+          wms->jumps_size++;
+        }
+      } else {
+        shada_free_shada_entry(&(entry));
+      }
       break;
     }
   }
