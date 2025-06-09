@@ -465,9 +465,7 @@ static inline void hmll_remove(HMLList *const hmll, HMLListEntry *const hmll_ent
     hmll_entry->prev->next = hmll_entry->next;
   }
   hmll->num_entries--;
-  if (hmll_entry->data.can_free_entry) {
-    shada_free_shada_entry(&hmll_entry->data);
-  }
+  shada_free_shada_entry(&hmll_entry->data);
 }
 
 /// Insert entry to the linked list
@@ -691,9 +689,7 @@ static void hms_insert(HistoryMergerState *const hms_p, const ShadaEntry entry, 
       hmll_remove(hmll, existing_entry);
     } else if (!do_iter && entry.timestamp == existing_entry->data.timestamp) {
       // Prefer entry from the current Neovim instance.
-      if (existing_entry->data.can_free_entry) {
-        shada_free_shada_entry(&existing_entry->data);
-      }
+      shada_free_shada_entry(&existing_entry->data);
       existing_entry->data = entry;
       // Previous key was freed above, as part of freeing the ShaDa entry.
       *key_alloc = entry.data.history_item.string;
@@ -1591,11 +1587,8 @@ static inline ShaDaWriteResult shada_pack_pfreed_entry(PackerBuffer *const packe
                                                        const size_t max_kbyte)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_ALWAYS_INLINE
 {
-  ShaDaWriteResult ret = kSDWriteSuccessful;
-  ret = shada_pack_entry(packer, entry, max_kbyte);
-  if (entry.can_free_entry) {
-    shada_free_shada_entry(&entry);
-  }
+  ShaDaWriteResult ret = shada_pack_entry(packer, entry, max_kbyte);
+  shada_free_shada_entry(&entry);
   return ret;
 }
 
@@ -1744,12 +1737,10 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
     ShadaEntry *const wms_entry = (wms_entry_); \
     if (wms_entry->type != kSDItemMissing) { \
       if (wms_entry->timestamp >= (entry).timestamp) { \
-        shada_free_shada_entry(&(entry)); \
+        shada_free_shada_entry(&entry); \
         break; \
       } \
-      if (wms_entry->can_free_entry) { \
-        shada_free_shada_entry(wms_entry); \
-      } \
+      shada_free_shada_entry(wms_entry); \
     } \
     *wms_entry = entry; \
   } while (0)
@@ -1940,9 +1931,7 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
           }
         }
         if (i > 0 && filemarks->changes_size == JUMPLISTSIZE) {
-          if (filemarks->changes[0].can_free_entry) {
-            shada_free_shada_entry(&filemarks->changes[0]);
-          }
+          shada_free_shada_entry(&filemarks->changes[0]);
         }
         i = marklist_insert(filemarks->changes, sizeof(*filemarks->changes),
                             (int)filemarks->changes_size, i);
@@ -1971,9 +1960,7 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
         }
       }
       if (i > 0 && wms->jumps_size == JUMPLISTSIZE) {
-        if (wms->jumps[0].can_free_entry) {
-          shada_free_shada_entry(&wms->jumps[0]);
-        }
+        shada_free_shada_entry(&wms->jumps[0]);
       }
       i = marklist_insert(wms->jumps, sizeof(*wms->jumps), (int)wms->jumps_size, i);
       if (i != -1) {
@@ -1982,7 +1969,7 @@ static inline ShaDaWriteResult shada_read_when_writing(FileDescriptor *const sd_
           wms->jumps_size++;
         }
       } else {
-        shada_free_shada_entry(&(entry));
+        shada_free_shada_entry(&entry);
       }
       break;
     }
@@ -2155,9 +2142,7 @@ static inline void replace_numbered_mark(WriteMergerState *const wms, const size
                                          const ShadaEntry entry)
   FUNC_ATTR_NONNULL_ALL FUNC_ATTR_ALWAYS_INLINE
 {
-  if (ARRAY_LAST_ENTRY(wms->numbered_marks).can_free_entry) {
-    shada_free_shada_entry(&ARRAY_LAST_ENTRY(wms->numbered_marks));
-  }
+  shada_free_shada_entry(&ARRAY_LAST_ENTRY(wms->numbered_marks));
   for (size_t i = idx; i < ARRAY_SIZE(wms->numbered_marks) - 1; i++) {
     if (wms->numbered_marks[i].type == kSDItemGlobalMark) {
       wms->numbered_marks[i].data.filemark.name = (char)('0' + (int)i + 1);
@@ -2462,7 +2447,7 @@ static ShaDaWriteResult shada_write(FileDescriptor *const sd_writer,
         }
         fname = buf->b_ffname;
       }
-      const ShadaEntry pf_entry = {
+      const ShadaEntry entry = {
         .can_free_entry = false,
           .type = kSDItemGlobalMark,
           .timestamp = fm.fmark.timestamp,
@@ -2476,9 +2461,9 @@ static ShaDaWriteResult shada_write(FileDescriptor *const sd_writer,
           .additional_data = fm.fmark.additional_data,
       };
       if (ascii_isdigit(name)) {
-        replace_numbered_mark(wms, digit_mark_idx++, pf_entry);
+        replace_numbered_mark(wms, digit_mark_idx++, entry);
       } else {
-        wms->global_marks[mark_global_index(name)] = pf_entry;
+        wms->global_marks[mark_global_index(name)] = entry;
       }
     } while (global_mark_iter != NULL);
   }
