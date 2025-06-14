@@ -1886,6 +1886,75 @@ describe('API/extmarks', function()
   end)
 end)
 
+describe('fuzzy sussy', function()
+  it('do be', function()
+
+    math.randomseed(19)
+    clear()
+    local ns = api.nvim_create_namespace'fuzzy'
+    local ns2 = api.nvim_create_namespace'sussy'
+    for jter = 1, 10000 do
+
+      if jter%100 == 0 then print(jter) io.stdout:flush() end
+      insert([[
+Lorem ipsum dolor sit amet, consectetur adipiscing
+elit, sed do eiusmod tempor incididunt ut labore et
+dolore magna aliqua. Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut
+aliquip ex ea commodo consequat. Duis aute irure
+dolor in reprehenderit in voluptate velit esse
+cillum dolore eu fugiat nulla pariatur. Excepteur
+sint occaecat cupidatat non proident, sunt in culpa
+qui officia deserunt mollit anim id est laborum.]])
+      --for g = 1, 10 do
+        for i = 0,8 do
+          for j = 0,9 do
+            api.nvim_buf_set_extmark(0, ns, i, 3*j, {})
+          end
+        end
+      --end
+      lista = {}
+      for i = 0,100 do
+        row1 = math.random(0,8)
+        col1 = math.random(0,30)
+        row2, col2 = row1, col2
+        if math.random(2) == 1 then
+          row2 = math.random(0,8)
+        end
+        if math.random(2) == 1 then
+          col2 = math.random(0,30)
+        end
+        id = api.nvim_buf_set_extmark(0, ns2, row1, col1, {end_row=row2, end_col=col2})
+        table.insert(lista, id)
+      end
+      for i = 0,50 do
+        punkt = math.random(1, #lista)
+        val = table.remove(lista, punkt)
+        api.nvim_buf_del_extmark(0, ns2, val)
+      end
+      while true do
+        len = api.nvim_buf_line_count(0)
+        if len <= 1 then break end
+        deded = math.random(0,len-1)
+        api.nvim_buf_set_lines(0, deded, deded+1, true, {})
+      end
+      if false then
+        row1 = math.random(1,5)
+        col1 = math.random(0,30)
+        row2 = math.random(row1+1,8)
+        col1 = math.random(0,30)
+        api.nvim_buf_set_text(0, row1, col1, row2, col2, {})
+      end
+
+      --eq({}, api.nvim_buf_get_lines(0, 0, -1, true))
+      --eq({}, api.nvim_buf_get_extmarks(0, ns2, 0, -1, {details=true}))
+      api.nvim_buf_clear_namespace(0, ns, 0, -1)
+      api.nvim_buf_clear_namespace(0, ns2, 0, -1)
+      api.nvim_buf_set_lines(0, 0, -1, true, {})
+    end
+  end)
+end)
+
 describe('Extmarks buffer api with many marks', function()
   local ns1
   local ns2
