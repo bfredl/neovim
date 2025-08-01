@@ -71,19 +71,27 @@ end
 --- @return string[] static
 --- @return string[] non_static
 --- @return boolean any_static
-local function gen_declarations(fname, text)
+local function gen_declarations(fname, text, neo, fulnamn)
   local non_static = {} --- @type string[]
   local static = {} --- @type string[]
 
   local neededfile = fname:match('[^/]+$')
   local curfile = nil
   local any_static = false
+  local fulfil = io.open('/home/bfredl/dev/neovim/'..tostring(neo)..'/'..fulnamn, 'w')
   for _, node in ipairs(grammar:match(text)) do
+    --print(node[1])
+    --print(vim.inspect(node))
+    if node.pos and node.endpos then
+      local node_text = text:sub(node.pos, node.endpos - 1)
+      --print(node_text)
+    end
     if node[1] == 'preproc' then
       curfile = node.content:match('^%a* %d+ "[^"]-/?([^"/]+)"') or curfile
-    elseif node[1] == 'proto' and curfile == neededfile then
+    elseif node[1] == 'proto' and (curfile == neededfile or neo) then
       local node_text = text:sub(node.pos, node.endpos - 1)
       local declaration = process_decl(node_text)
+      fulfil:write(node.name..'\n')
 
       if node.static then
         if not any_static and declaration:find('FUNC_ATTR_') then
@@ -95,6 +103,7 @@ local function gen_declarations(fname, text)
       end
     end
   end
+  fulfil:close()
 
   return static, non_static, any_static
 end
@@ -124,9 +133,15 @@ local function main()
     os.exit()
   end
 
-  local text = assert(read_file(preproc_fname))
+  local neo = true
 
-  local static_decls, non_static_decls, any_static = gen_declarations(fname, text)
+  local fulnamn = vim.split(fname, '/src/')[2]
+  fulnamn = string.gsub(fulnamn, '/', '_')
+  print(fulnamn)
+
+  local text = assert(read_file(neo and fname or preproc_fname))
+
+  local static_decls, non_static_decls, any_static = gen_declarations(fname, text, neo, fulnamn)
 
   local static = {} --- @type string[]
   if fname:find('.*/src/nvim/.*%.h$') then
