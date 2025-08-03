@@ -135,9 +135,7 @@ enum {
   EDIT_QF = 4,     // start in quickfix mode
 };
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "main.c.generated.h"
-#endif
 
 Loop main_loop;
 

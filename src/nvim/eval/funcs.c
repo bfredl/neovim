@@ -141,7 +141,6 @@ typedef enum {
   kSomeMatchStrPos,  ///< Data for matchstrpos().
 } SomeMatchType;
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "eval/funcs.c.generated.h"
 
 # ifdef _MSC_VER
@@ -157,7 +156,6 @@ PRAGMA_DIAG_PUSH_IGNORE_IMPLICIT_FALLTHROUGH
 
 PRAGMA_DIAG_POP
 PRAGMA_DIAG_POP
-#endif
 
 static const char *e_listblobarg = N_("E899: Argument of %s must be a List or Blob");
 static const char *e_invalwindow = N_("E957: Invalid window number");

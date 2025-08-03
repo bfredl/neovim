@@ -34,9 +34,7 @@ static SignalWatcher spwr;
 
 static bool rejecting_deadly;
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "os/signal.c.generated.h"
-#endif
 
 void signal_init(void)
 {

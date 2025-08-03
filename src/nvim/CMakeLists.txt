@@ -180,8 +180,6 @@ if(HAS_DIAG_COLOR_FLAG)
   endif()
 endif()
 
-target_compile_definitions(main_lib INTERFACE INCLUDE_GENERATED_DECLARATIONS)
-
 # Remove --sort-common from linker flags, as this seems to cause bugs (see #2641, #3374).
 # TODO: Figure out the root cause.
 if(CMAKE_EXE_LINKER_FLAGS MATCHES "--sort-common" OR

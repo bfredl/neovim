@@ -12,9 +12,7 @@
 # include ENDIAN_INCLUDE_FILE
 #endif
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "base64.c.generated.h"
-#endif
 
 static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 

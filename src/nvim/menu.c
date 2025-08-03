@@ -46,9 +46,7 @@
 
 #define MENUDEPTH   10          // maximum depth of menus
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "menu.c.generated.h"
-#endif
 
 /// The character for each menu mode
 static char *menu_mode_chars[] = { "n", "v", "s", "o", "i", "c", "tl", "t" };

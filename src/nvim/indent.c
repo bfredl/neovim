@@ -49,9 +49,7 @@
 #include "nvim/undo.h"
 #include "nvim/vim_defs.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "indent.c.generated.h"
-#endif
 
 /// Set the integer values corresponding to the string setting of 'vartabstop'.
 /// "array" will be set, caller must free it if needed.

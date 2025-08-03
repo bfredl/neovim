@@ -118,10 +118,8 @@ typedef enum {
   YREG_PUT,
 } yreg_mode_t;
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "ops.h.generated.h"
 # include "ops.h.inline.generated.h"
-#endif
 
 /// Convert register name into register index
 ///

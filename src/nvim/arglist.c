@@ -64,9 +64,7 @@ typedef struct {
   tabpage_T *new_curtab;
 } arg_all_state_T;
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "arglist.c.generated.h"
-#endif
 
 static const char e_window_layout_changed_unexpectedly[]
   = N_("E249: Window layout changed unexpectedly");

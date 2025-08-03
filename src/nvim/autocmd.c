@@ -63,10 +63,8 @@
 #include "nvim/window.h"
 #include "nvim/winfloat.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "auevents_name_map.generated.h"
 # include "autocmd.c.generated.h"
-#endif
 
 static const char e_autocommand_nesting_too_deep[]
   = N_("E218: Autocommand nesting too deep");

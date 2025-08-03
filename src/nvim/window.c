@@ -82,9 +82,7 @@
 #include "nvim/window.h"
 #include "nvim/winfloat.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "window.c.generated.h"
-#endif
 
 #define NOWIN           ((win_T *)-1)   // non-existing window
 

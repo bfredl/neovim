@@ -33,9 +33,7 @@
 #include "nvim/window.h"
 #include "nvim/winfloat.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "winfloat.c.generated.h"
-#endif
 
 /// Create a new float.
 ///

@@ -24,9 +24,7 @@ struct diffcmppath_S {
   size_t df_optimal_choice;
 };
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "linematch.c.generated.h"
-#endif
 
 static size_t line_len(const mmfile_t *m)
 {

@@ -15,7 +15,6 @@
 
 #define ERROR_SET(e) ((e)->type != kErrorTypeNone)
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # define ArrayOf(...) Array
 # define DictOf(...) Dict
 # define DictAs(name) Dict
@@ -27,7 +26,6 @@
 # define Union(...) Object
 # define Tuple(...) Array
 # include "api/private/defs.h.inline.generated.h"
-#endif
 
 // Basic types
 typedef enum {

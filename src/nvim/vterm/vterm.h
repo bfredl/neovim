@@ -10,9 +10,7 @@
 #include "nvim/vterm/vterm_defs.h"
 #include "nvim/vterm/vterm_keycodes_defs.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "vterm/vterm.h.generated.h"
-#endif
 
 #define VTERM_VERSION_MAJOR 0
 #define VTERM_VERSION_MINOR 3

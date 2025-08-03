@@ -32,9 +32,7 @@
 #include "nvim/pos_defs.h"
 #include "nvim/sign.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/extmark.c.generated.h"
-#endif
 
 void api_extmark_free_all_mem(void)
 {

@@ -23,9 +23,7 @@
 #include "nvim/os/time.h"
 #include "nvim/ui_client.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "event/proc.c.generated.h"
-#endif
 
 // Time for a process to exit cleanly before we send KILL.
 // For PTY processes SIGTERM is sent first (in case SIGHUP was not enough).

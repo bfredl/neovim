@@ -13,9 +13,7 @@
 #include "nvim/msgpack_rpc/packer.h"
 #include "nvim/types_defs.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "msgpack_rpc/packer.c.generated.h"
-#endif
 
 void mpack_check_buffer(PackerBuffer *packer)
 {

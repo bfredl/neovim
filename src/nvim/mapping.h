@@ -13,9 +13,7 @@
 #include "nvim/regexp_defs.h"  // IWYU pragma: keep
 #include "nvim/types_defs.h"  // IWYU pragma: keep
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "mapping.h.generated.h"
-#endif
 
 /// Used for the first argument of do_map()
 enum {

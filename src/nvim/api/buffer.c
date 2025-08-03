@@ -46,9 +46,7 @@
 #include "nvim/undo_defs.h"
 #include "nvim/vim_defs.h"
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "api/buffer.c.generated.h"
-#endif
 
 /// @brief <pre>help
 /// For more information on buffers, see |buffers|.

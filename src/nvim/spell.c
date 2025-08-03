@@ -186,9 +186,7 @@ typedef struct {
 spelltab_T spelltab;
 bool did_set_spelltab;
 
-#ifdef INCLUDE_GENERATED_DECLARATIONS
 # include "spell.c.generated.h"
-#endif
 
 /// mode values for find_word
 enum {
