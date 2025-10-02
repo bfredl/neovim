@@ -60,6 +60,8 @@ int libuv_proc_spawn(LibuvProc *uvproc)
     uvproc->uvopts.env = NULL;
   }
 
+  int to_close[3] = {-1, -1, -1};
+
   if (!proc->in.closed) {
     uv_file pipe_pair[2];
     int client_flags = 0;
@@ -71,6 +73,7 @@ int libuv_proc_spawn(LibuvProc *uvproc)
 
     uvproc->uvstdio[0].flags = UV_INHERIT_FD;
     uvproc->uvstdio[0].data.fd = pipe_pair[0];
+    to_close[0] = pipe_pair[0];
 
     uv_pipe_open(&proc->in.uv.pipe, pipe_pair[1]);
   }
@@ -89,6 +92,7 @@ int libuv_proc_spawn(LibuvProc *uvproc)
 
     uvproc->uvstdio[1].flags = UV_INHERIT_FD;
     uvproc->uvstdio[1].data.fd = pipe_pair[1];
+    to_close[1] = pipe_pair[1];
 
     uv_pipe_open(&proc->out.s.uv.pipe, pipe_pair[0]);
 
@@ -101,6 +105,7 @@ int libuv_proc_spawn(LibuvProc *uvproc)
 
     uvproc->uvstdio[2].flags = UV_INHERIT_FD;
     uvproc->uvstdio[2].data.fd = pipe_pair[1];
+    to_close[2] = pipe_pair[1];
 
     uv_pipe_open(&proc->err.s.uv.pipe, pipe_pair[0]);
   } else if (proc->fwd_err) {
@@ -114,10 +119,16 @@ int libuv_proc_spawn(LibuvProc *uvproc)
     if (uvproc->uvopts.env) {
       os_free_fullenv(uvproc->uvopts.env);
     }
-    return status;
+    goto exit;
   }
 
   proc->pid = uvproc->uv.pid;
+exit:
+  for (int i = 0; i < 3; i ++) {
+    if (to_close[i] > -1) {
+      close(to_close[i]);
+    }
+  }
   return status;
 }
 
