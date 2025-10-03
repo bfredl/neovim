@@ -62,13 +62,12 @@ int libuv_proc_spawn(LibuvProc *uvproc)
 
   int to_close[3] = {-1, -1, -1};
 
-  int client_flags = 0;
-#ifdef MSWIN
-  client_flags |= proc->overlapped ? UV_NONBLOCK_PIPE : 0;
-#endif
-
   if (!proc->in.closed) {
     uv_file pipe_pair[2];
+    int client_flags = 0;
+#ifdef MSWIN
+    client_flags |= proc->overlapped ? UV_NONBLOCK_PIPE : 0;
+#endif
 
     uv_pipe(pipe_pair, client_flags, UV_NONBLOCK_PIPE);
 
@@ -80,14 +79,24 @@ int libuv_proc_spawn(LibuvProc *uvproc)
   }
 
   if (!proc->out.s.closed) {
+#ifdef MSWIN
+    // TODO: make the branch below work with IOCP (python tests should cover this)
+    uvproc->uvstdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
+    // pipe must be readable for IOCP to work on Windows.
+    uvproc->uvstdio[1].flags |= proc->overlapped
+                                ? (UV_READABLE_PIPE | UV_OVERLAPPED_PIPE) : 0;
+    uvproc->uvstdio[1].data.stream = (uv_stream_t *)(&proc->out.s.uv.pipe);
+#else
     uv_file pipe_pair[2];
-    uv_pipe(pipe_pair, UV_NONBLOCK_PIPE, client_flags);
+    uv_pipe(pipe_pair, UV_NONBLOCK_PIPE, 0);
 
     uvproc->uvstdio[1].flags = UV_INHERIT_FD;
     uvproc->uvstdio[1].data.fd = pipe_pair[1];
     to_close[1] = pipe_pair[1];
 
     uv_pipe_open(&proc->out.s.uv.pipe, pipe_pair[0]);
+
+#endif
   }
 
   if (!proc->err.s.closed) {
