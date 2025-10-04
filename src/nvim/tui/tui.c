@@ -1702,17 +1702,24 @@ void tui_screenshot(TUIData *tui, String path)
 
   tui->screenshot = f;
   fprintf(f, "%d,%d\n", grid->height, grid->width);
-  unibi_out(tui, unibi_clear_screen);
-  for (int i = 0; i < grid->height; i++) {
-    cursor_goto(tui, i, 0);
-    for (int j = 0; j < grid->width; j++) {
-      UCell cell = grid->cells[i][j];
-      char buf[MAX_SCHAR_SIZE];
-      schar_get(buf, cell.data);
-      print_cell(tui, buf, cell.attr);
+
+  uint64_t tstart = os_hrtime();
+  for (size_t cnt = 0; cnt < 10000; cnt++) {
+    unibi_out(tui, unibi_clear_screen);
+    for (int i = 0; i < grid->height; i++) {
+      cursor_goto(tui, i, 0);
+      for (int j = 0; j < grid->width; j++) {
+        UCell cell = grid->cells[i][j];
+        char buf[MAX_SCHAR_SIZE];
+        schar_get(buf, cell.data);
+        print_cell(tui, buf, cell.attr);
+      }
     }
   }
+  uint64_t timelen = os_hrtime() - tstart;
+  fprintf(f, "atime %lu\n", timelen/1000);
   flush_buf(tui);
+
   tui->screenshot = NULL;
 
   fclose(f);
@@ -2598,8 +2605,10 @@ static void flush_buf(TUIData *tui)
   bufs[2].len = UV_BUF_LEN(flush_buf_end(tui, post, sizeof(post)));
 
   if (tui->screenshot) {
-    for (size_t i = 0; i < ARRAY_SIZE(bufs); i++) {
-      fwrite(bufs[i].base, bufs[i].len, 1, tui->screenshot);
+    if (false) {
+      for (size_t i = 0; i < ARRAY_SIZE(bufs); i++) {
+        fwrite(bufs[i].base, bufs[i].len, 1, tui->screenshot);
+      }
     }
   } else {
     int ret
