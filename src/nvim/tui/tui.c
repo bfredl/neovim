@@ -1716,6 +1716,16 @@ void tui_screenshot(TUIData *tui, String path)
   flush_buf(tui);
   tui->screenshot = NULL;
 
+  fprintf(f, "natterss %lu\n", tui->attrs.size);
+  uint64_t tstart = os_hrtime();
+  for (size_t cnt = 0; cnt < 10000; cnt++) {
+    for (size_t boll = 0; boll < tui->attrs.size; boll++) {
+      update_attrs(tui, (int)boll);
+    }
+   }
+  uint64_t timelen = os_hrtime() - tstart;
+  fprintf(f, "atime %lu\n", timelen/1000);
+
   fclose(f);
 }
 
