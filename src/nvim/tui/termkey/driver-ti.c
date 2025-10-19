@@ -8,8 +8,10 @@
 
 #include "nvim/memory.h"
 #include "nvim/tui/terminfo.h"
+#include "nvim/tui/terminfo_defs.h"
 #include "nvim/tui/termkey/driver-ti.h"
 #include "nvim/tui/termkey/termkey-internal.h"
+#include "nvim/tui/termkey/termkey.h"
 #include "nvim/tui/termkey/termkey_defs.h"
 
 #ifndef _WIN32
@@ -562,4 +564,87 @@ static int insert_seq(TermKeyTI *ti, const char *seq, struct trie_node *node)
   }
 
   return 1;
+}
+
+
+struct { const char *nam; const TerminfoEntry *entry; } foo[] = {
+  { "ansi", &ansi_terminfo },
+  { "interix", &interix_8colour_terminfo },
+  { "iterm2", &iterm_256colour_terminfo },
+  { "linux", &linux_16colour_terminfo },
+  { "putty-256color", &putty_256colour_terminfo },
+  { "rxvt-256color", &rxvt_256colour_terminfo },
+  { "screen-256color", &screen_256colour_terminfo },
+  { "st-256color", &st_256colour_terminfo },
+  { "tmux-256color", &tmux_256colour_terminfo },
+  { "vte-256color", &vte_256colour_terminfo },
+  { "xterm-256color", &xterm_256colour_terminfo },
+  { "cygwin", &cygwin_terminfo },
+  { "win32con", &win32con_terminfo },
+  { "conemu", &conemu_terminfo },
+  { "vtpcon", &vtpcon_terminfo },
+};
+
+extern struct TermKeyDriver termkey_driver_csi;
+int metatester(int q) {
+  const TerminfoEntry *ti = &xterm_256colour_terminfo;
+  TermKey *tk = termkey_new_abstract(ti, (TERMKEY_FLAG_UTF8 | TERMKEY_FLAG_NOSTART
+                                          | TERMKEY_FLAG_KEEPC0));
+
+  struct TermKeyDriverNode *p;
+  for (p = tk->drivers; p; p = p->next) {
+    if (p->driver == &termkey_driver_csi) {
+      break;
+    }
+  }
+
+  for (int ifunc = 0; funcs[ifunc].funcname != NULL; ifunc++) {
+    TerminfoKey i = funcs[ifunc].ti_key;
+    const char **entry = &ti->keys[i][0];
+    test_drive(tk, p, funcs[ifunc].funcname, ((char *)entry) - (char *)ti, 0, funcs[ifunc].sym);
+  }
+
+  for (int j = 1; j < kTerminfoFuncKeyMax; j++) {
+    char namm[20];
+    snprintf(namm, 20, "F%d", j);
+    const char **entry = &ti->f_keys[j-1];
+    test_drive(tk, p, namm, ((char *)entry) - (char *)ti, 2, j);
+  }
+
+
+  return 0;
+}
+
+static int test_drive(TermKey *tk, struct TermKeyDriverNode *p, char *name, ptrdiff_t ptr_offsett, int kind, int sym) {
+  int cplus = 0, cdid = 0;
+  for (size_t g = 0; g < ARRAY_SIZE(foo); g++) {
+    const TerminfoEntry *ti = foo[g].entry;
+    const char *entry = *(const char **)(((const char*)ti) + ptr_offsett);
+
+    if (entry == NULL) { continue; }
+    tk->buffer = entry;
+    tk->buffcount = tk->buffsize = strlen(entry);
+    tk->buffstart = tk->hightide = 0;
+
+    size_t nbytep = 0;
+    bool force = false;
+    TermKeyKey key = { 0 };
+    TermKeyResult peak = p->driver->peekkey(tk, p->info, &key, force, &nbytep);
+    cdid++;
+    if (peak == TERMKEY_RES_KEY) {
+      if (kind == 0) {
+        if (key.type == TERMKEY_TYPE_KEYSYM && key.code.sym == sym) {
+          cplus++;
+        }
+      } else if (kind == 2) {
+        if (key.type == TERMKEY_TYPE_FUNCTION && key.code.sym == sym) {
+          cplus++;
+        }
+      }
+    }
+  }
+  if (cdid > 0) {
+    fprintf(stderr, "DID %s with RESULÅLT %d OUT OF %d\n", name, cplus, cdid);
+  }
+  return 0;
 }
