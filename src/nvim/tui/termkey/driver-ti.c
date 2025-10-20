@@ -643,8 +643,6 @@ static int test_drive(TermKey *tk, struct TermKeyDriverNode *p, char *name, ptrd
       }
     }
   }
-  if (cdid > 0) {
-    fprintf(stderr, "DID %s with RESULÅLT %d OUT OF %d\n", name, cplus, cdid);
-  }
+  fprintf(stderr, "%10s | %2d | %2d\n", name, cplus, cdid);
   return 0;
 }
