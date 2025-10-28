@@ -2,7 +2,10 @@
 
 #include <stdbool.h>
 #include <string.h>
-#include <unibilium.h>
+
+#ifdef HAVE_UNIBILIUM
+# include <unibilium.h>
+#endif
 
 #include "klib/kvec.h"
 #include "nvim/api/private/defs.h"
@@ -119,20 +122,9 @@ const TerminfoEntry *terminfo_from_builtin(const char *term, char **termname)
   }
 }
 
-static ssize_t unibi_find_ext_str(unibi_term *ut, const char *name)
+bool terminfo_from_database(TerminfoEntry *ti, char *termname, Arena *arena)
 {
-  size_t max = unibi_count_ext_str(ut);
-  for (size_t i = 0; i < max; i++) {
-    const char *n = unibi_get_ext_str_name(ut, i);
-    if (n && 0 == strcmp(n, name)) {
-      return (ssize_t)i;
-    }
-  }
-  return -1;
-}
-
-bool terminfo_from_unibilium(TerminfoEntry *ti, char *termname, Arena *arena)
-{
+#ifdef HAVE_UNIBILIUM
   unibi_term *ut = unibi_from_term(termname);
   if (!ut) {
     return false;
@@ -172,11 +164,16 @@ bool terminfo_from_unibilium(TerminfoEntry *ti, char *termname, Arena *arena)
 #undef X
   };
 
+  size_t max = unibi_count_ext_str(ut);
   for (size_t i = 0; i < ARRAY_SIZE(uni_ext); i++) {
-    ssize_t val = unibi_find_ext_str(ut, uni_ext[i]);
-    if (val >= 0) {
-      const char *data = unibi_get_ext_str(ut, (size_t)val);
-      ti->defs[kTermExtOffset + i] = data ? arena_strdup(arena, data) : NULL;
+    const char *name = uni_ext[i];
+    for (size_t val = 0; val < max; val++) {
+      const char *n = unibi_get_ext_str_name(ut, val);
+      if (n && strequal(n, name)) {
+        const char *data = unibi_get_ext_str(ut, val);
+        ti->defs[kTermExtOffset + i] = data ? arena_strdup(arena, data) : NULL;
+        break;
+      }
     }
   }
 
@@ -212,6 +209,9 @@ bool terminfo_from_unibilium(TerminfoEntry *ti, char *termname, Arena *arena)
 
   unibi_destroy(ut);
   return true;
+#else
+  return false;
+#endif
 }
 
 static const char *fmt(bool val)

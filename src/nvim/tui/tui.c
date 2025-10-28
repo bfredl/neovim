@@ -383,7 +383,7 @@ static void terminfo_start(TUIData *tui)
   // Set up terminfo.
   bool found_in_db = false;
   if (term) {
-    if (terminfo_from_unibilium(&tui->ti, term, &tui->ti_arena)) {
+    if (terminfo_from_database(&tui->ti, term, &tui->ti_arena)) {
       if (!tui->term) {
         tui->term = arena_strdup(&tui->ti_arena, term);
       }

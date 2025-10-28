@@ -30,7 +30,11 @@
             .hash = "libuv-1.51.0-htqqv6liAADxBLIBCZT-qUh_3nRRwtNYsOFQOUmrd_sx",
         },
         .utf8proc = .{ .path = "./deps/utf8proc/" },
-        .unibilium = .{ .path = "./deps/unibilium/" },
+        .unibilium = .{
+            .url = "git+https://github.com/neovim/unibilium?ref=v2.1.2#bfcb0350129dd76893bc90399cf37c45812268a2",
+            .hash = "N-V-__8AADO1CgCggvx73yptnBlXbEm7TjOSO6VGIqc0CvYR",
+            .lazy = true,
+        },
         .libiconv = .{
             .url = "git+https://github.com/allyourcodebase/libiconv#9def4c8a1743380e85bcedb80f2c15b455e236f3",
             .hash = "libiconv-1.18.0-p9sJwWnqAACzVYeWgXB5r5lOQ74XwTPlptixV0JPRO28",

@@ -46,6 +46,8 @@ pub fn build(b: *std.Build) !void {
     // without cross_compiling we like to reuse libluv etc at the same optimize level
     const optimize_host = if (cross_compiling) .ReleaseSafe else optimize;
 
+    const use_unibilium = b.option(bool, "unibilium", "use unibilium") orelse true;
+
     // puc lua 5.1 is not ReleaseSafe "safe"
     const optimize_lua = if (optimize == .Debug or optimize == .ReleaseSafe) .ReleaseSmall else optimize;
 
@@ -92,7 +94,7 @@ pub fn build(b: *std.Build) !void {
     } else libluv;
 
     const utf8proc = b.dependency("utf8proc", .{ .target = target, .optimize = optimize });
-    const unibilium = b.dependency("unibilium", .{ .target = target, .optimize = optimize });
+    const unibilium = if (use_unibilium) build_unibilium(b, target, optimize) else null;
     // TODO(bfredl): fix upstream bugs with UBSAN
     const treesitter = b.dependency("treesitter", .{ .target = target, .optimize = .ReleaseFast });
 
@@ -250,7 +252,7 @@ pub fn build(b: *std.Build) !void {
         libuv.getEmittedIncludeTree(),
         libluv.getEmittedIncludeTree(),
         utf8proc.artifact("utf8proc").getEmittedIncludeTree(),
-        unibilium.artifact("unibilium").getEmittedIncludeTree(),
+        if (unibilium) |u| u.getEmittedIncludeTree() else b.path("UNUSED_PATH/"), // :p
         treesitter.artifact("tree-sitter").getEmittedIncludeTree(),
         if (iconv) |dep| dep.artifact("iconv").getEmittedIncludeTree() else b.path("UNUSED_PATH/"),
     };
@@ -279,7 +281,7 @@ pub fn build(b: *std.Build) !void {
     nvim_exe.linkLibrary(libluv);
     if (iconv) |dep| nvim_exe.linkLibrary(dep.artifact("iconv"));
     nvim_exe.linkLibrary(utf8proc.artifact("utf8proc"));
-    nvim_exe.linkLibrary(unibilium.artifact("unibilium"));
+    if (unibilium) |u| nvim_exe.linkLibrary(u);
     nvim_exe.linkLibrary(treesitter.artifact("tree-sitter"));
     if (is_windows) {
         nvim_exe.linkSystemLibrary("netapi32");
@@ -476,4 +478,32 @@ pub fn test_config(b: *std.Build) ![]u8 {
         \\
         \\return M
     , .{ .bin_dir = try esc(b, b.install_path), .src_path = try esc(b, src_path) });
+}
+
+pub fn build_unibilium(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) ?*std.Build.Step.Compile {
+    const upstream = b.lazyDependency("unibilium", .{}) orelse return null;
+    const lib = b.addLibrary(.{
+        .name = "unibilium",
+        .linkage = .static,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    lib.addIncludePath(upstream.path(""));
+    lib.installHeader(upstream.path("unibilium.h"), "unibilium.h");
+    lib.linkLibC();
+
+    lib.addCSourceFiles(.{ .root = upstream.path(""), .files = &.{
+        "unibilium.c",
+        "uninames.c",
+        "uniutil.c",
+    }, .flags = &.{"-DTERMINFO_DIRS=\"/etc/terminfo:/usr/share/terminfo\""} });
+
+    return lib;
 }
