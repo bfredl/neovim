@@ -89,7 +89,6 @@ struct TUIData {
   bool can_change_scroll_region;
   bool has_left_and_right_margin_mode;
   bool has_sync_mode;
-  bool can_set_lr_margin;  // smglr
   bool can_scroll;
   bool can_erase_chars;
   bool immediate_wrap_after_last_column;
@@ -428,8 +427,6 @@ static void terminfo_start(TUIData *tui)
 
 #define TI_HAS(name) (tui->ti.defs[name] != NULL)
   tui->can_change_scroll_region = TI_HAS(kTerm_change_scroll_region);
-  // note: also gated by tui->has_left_and_right_margin_mode
-  tui->can_set_lr_margin = TI_HAS(kTerm_set_lr_margin);
   tui->can_scroll =
     TI_HAS(kTerm_delete_line)
     && TI_HAS(kTerm_parm_delete_line)
@@ -958,7 +955,7 @@ static void cursor_goto(TUIData *tui, int row, int col)
   }
 
   if (0 == row && 0 == col) {
-    terminfo_out(tui, kTerm_cursor_home);
+    out(tui, S_LEN("\x1b[H"));
     ugrid_goto(grid, row, col);
     return;
   }
@@ -993,18 +990,16 @@ static void cursor_goto(TUIData *tui, int row, int col)
           terminfo_out(tui, kTerm_cursor_left);
         }
       } else {
-        terminfo_print_num1(tui, kTerm_parm_left_cursor, n);
+        out_printf(tui, 16, "\x1b[%dD", n);
       }
       ugrid_goto(grid, row, col);
       return;
     } else if (col > grid->col) {
       int n = col - grid->col;
-      if (n <= 2) {
-        while (n--) {
-          terminfo_out(tui, kTerm_cursor_right);
-        }
+      if (n == 1) {
+        out(tui, S_LEN("\x1b[C")); // cursor_right
       } else {
-        terminfo_print_num1(tui, kTerm_parm_right_cursor, n);
+        out_printf(tui, 16, "\x1b[%dC", n); // parm_right_cursor
       }
       ugrid_goto(grid, row, col);
       return;
@@ -1018,18 +1013,16 @@ static void cursor_goto(TUIData *tui, int row, int col)
           terminfo_out(tui, kTerm_cursor_down);
         }
       } else {
-        terminfo_print_num1(tui, kTerm_parm_down_cursor, n);
+        out_printf(tui, 16, "\x1b[%dB", n); // parm_down_cursor
       }
       ugrid_goto(grid, row, col);
       return;
     } else if (row < grid->row) {
       int n = grid->row - row;
-      if (n <= 2) {
-        while (n--) {
-          terminfo_out(tui, kTerm_cursor_up);
-        }
+      if (n == 1) {
+        out(tui, S_LEN("\x1b[A")); // cursor_up
       } else {
-        terminfo_print_num1(tui, kTerm_parm_up_cursor, n);
+        out_printf(tui, 16, "\x1b[%dA", n);  // parm_up_cursor
       }
       ugrid_goto(grid, row, col);
       return;
@@ -1037,7 +1030,7 @@ static void cursor_goto(TUIData *tui, int row, int col)
   }
 
 safe_move:
-  terminfo_print_num2(tui, kTerm_cursor_address, row, col);
+  out_printf(tui, 32, "\x1b[%d;%dH", row+1, col+1);
   ugrid_goto(grid, row, col);
 }
 
@@ -1154,8 +1147,10 @@ static void set_scroll_region(TUIData *tui, int top, int bot, int left, int righ
 
   terminfo_print_num2(tui, kTerm_change_scroll_region, top, bot);
   if (left != 0 || right != tui->width - 1) {
+    // 2025: This are not supported by all xterm-alikes, but it is only
+    // used when kTermModeLeftAndRightMargins is detected
     tui_set_term_mode(tui, kTermModeLeftAndRightMargins, true);
-    terminfo_print_num2(tui, kTerm_set_lr_margin, left, right);
+    out_printf(tui, 32, "\x1b[%d;%ds", left+1, right+1);
   }
   grid->row = -1;
 }
@@ -1170,7 +1165,7 @@ static void reset_scroll_region(TUIData *tui, bool fullwidth)
     terminfo_print_num2(tui, kTerm_change_scroll_region, 0, tui->height - 1);
   }
   if (!fullwidth) {
-    terminfo_print_num2(tui, kTerm_set_lr_margin, 0, tui->width - 1);
+    out_printf(tui, 32, "\x1b[%d;%ds", 1, tui->width);
     tui_set_term_mode(tui, kTermModeLeftAndRightMargins, false);
   }
   grid->row = -1;
@@ -1400,7 +1395,7 @@ void tui_grid_scroll(TUIData *tui, Integer g, Integer startrow, Integer endrow, 
 
   ugrid_scroll(grid, top, bot, left, right, (int)rows);
 
-  bool has_lr_margins = tui->has_left_and_right_margin_mode && tui->can_set_lr_margin;
+  bool has_lr_margins = tui->has_left_and_right_margin_mode;
 
   bool can_scroll = tui->can_scroll
                     && (full_screen_scroll
@@ -2074,10 +2069,6 @@ static void patch_terminfo_bugs(TUIData *tui, const char *term, const char *colo
       terminfo_set_if_empty(tui, kTerm_from_status_line, "\x07");
     }
 
-    // 2025: This are not supported by all xterm-alikes, but it is only
-    // used when kTermModeLeftAndRightMargins is detected
-    terminfo_set_if_empty(tui, kTerm_set_lr_margin, "\x1b[%i%p1%d;%p2%ds");
-
 #ifdef MSWIN
     // XXX: workaround libuv implicit LF => CRLF conversion. #10558
     terminfo_set_str(tui, kTerm_cursor_down, "\x1b[B");
@@ -2099,11 +2090,6 @@ static void patch_terminfo_bugs(TUIData *tui, const char *term, const char *colo
   } else if (terminfo_is_term_family(term, "interix")) {
     // 2017-04 terminfo.src lacks this.
     terminfo_set_if_empty(tui, kTerm_carriage_return, "\x0d");
-  } else if (linuxvt) {
-    terminfo_set_if_empty(tui, kTerm_parm_up_cursor, "\x1b[%p1%dA");
-    terminfo_set_if_empty(tui, kTerm_parm_down_cursor, "\x1b[%p1%dB");
-    terminfo_set_if_empty(tui, kTerm_parm_right_cursor, "\x1b[%p1%dC");
-    terminfo_set_if_empty(tui, kTerm_parm_left_cursor, "\x1b[%p1%dD");
   } else if (putty) {
     // No bugs in the vanilla terminfo for our purposes.
   } else if (iterm) {
