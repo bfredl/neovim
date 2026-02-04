@@ -94,6 +94,7 @@ typedef struct {
 typedef struct {
   char *path;
   bool after;
+  bool dbg_pack_inserted;
   TriState has_lua;
   size_t pos_in_rtp;
 } SearchPathItem;
@@ -533,7 +534,7 @@ static RuntimeSearchPath copy_runtime_search_path(const RuntimeSearchPath src)
   RuntimeSearchPath dst = KV_INITIAL_VALUE;
   for (size_t j = 0; j < kv_size(src); j++) {
     SearchPathItem src_item = kv_A(src, j);
-    kv_push(dst, ((SearchPathItem){ xstrdup(src_item.path), src_item.after, src_item.has_lua, src_item.pos_in_rtp }));
+    kv_push(dst, ((SearchPathItem){ xstrdup(src_item.path), src_item.after, src_item.dbg_pack_inserted, src_item.has_lua, src_item.pos_in_rtp }));
   }
 
   return dst;
@@ -643,12 +644,11 @@ Array runtime_inspect(Arena *arena)
 
   for (size_t i = 0; i < kv_size(path); i++) {
     SearchPathItem *item = &kv_A(path, i);
-    Array entry = arena_array(arena, 4);
+    Array entry = arena_array(arena, 6);
     ADD_C(entry, CSTR_AS_OBJ(item->path));
     ADD_C(entry, BOOLEAN_OBJ(item->after));
-    if (item->has_lua != kNone) {
-      ADD_C(entry, BOOLEAN_OBJ(item->has_lua == kTrue));
-    }
+    ADD_C(entry, CSTR_AS_OBJ(item->dbg_pack_inserted ? "pack_inserted" : "(nil)"));
+    ADD_C(entry, (item->has_lua != kNone) ? BOOLEAN_OBJ(item->has_lua == kTrue) : CSTR_AS_OBJ("(don't know :3)"));
     ADD_C(entry, INTEGER_OBJ((Integer)item->pos_in_rtp));
     ADD_C(rv, ARRAY_OBJ(entry));
   }
@@ -760,7 +760,7 @@ static bool push_path(RuntimeSearchPath *search_path, Set(String) *rtp_used, cha
   String *key_alloc;
   if (set_put_ref(String, rtp_used, cstr_as_string(entry), &key_alloc)) {
     *key_alloc = cstr_to_string(entry);
-    kv_push(*search_path, ((SearchPathItem){ key_alloc->data, after, kNone, pos_in_rtp }));
+    kv_push(*search_path, ((SearchPathItem){ key_alloc->data, after, false, kNone, pos_in_rtp }));
     return true;
   }
   return false;
@@ -1146,8 +1146,32 @@ static int add_pack_dir_to_rtp(char *fname, bool is_pack)
     xstrlcat(new_rtp, ",", new_rtp_capacity);
     xstrlcat(new_rtp, afterdir, new_rtp_capacity);
   }
-
+  
+  bool was_valid = runtime_search_path_valid;
   set_option_value_give_err(kOptRuntimepath, CSTR_AS_OPTVAL(new_rtp), 0);
+
+  assert(!runtime_search_path_valid);
+  if (was_valid) {
+    runtime_search_path_valid = true;
+    ssize_t i = (ssize_t)(kv_size(runtime_search_path))-1;
+    kv_pushp(runtime_search_path);
+
+    if (afterlen > 0) {
+      abort();
+    }
+
+    for (; i >= 0; i--) {
+      if (kv_A(runtime_search_path, i).pos_in_rtp > keep) {
+        kv_A(runtime_search_path, i+1) = kv_A(runtime_search_path, i);
+        kv_A(runtime_search_path, i+1).pos_in_rtp += addlen;
+      } else {
+        // need to fudge "pos" depending on comma before or after???
+        kv_A(runtime_search_path, i+1) = (SearchPathItem){strdup(fname), false, true, kNone, keep };
+        break;
+      }
+    }
+    // TODO: runtime_search_path_thread
+  }
   xfree(new_rtp);
   retval = OK;
 
@@ -1295,6 +1319,10 @@ static bool add_pack_start_dir(int num_fnames, char **fnames, bool all, void *co
 void load_start_packages(void)
 {
   did_source_packages = true;
+  // TODO: This is to disable incremental update, as if start packages are used
+  // a complete rebuild is likely faster than many many incremental changes
+  // pass in a flag instead of fudging this global!!
+  runtime_search_path_valid = false;
   do_in_path(p_pp, "", "pack/*/start/*", DIP_ALL + DIP_DIR,  // NOLINT
              add_start_pack_plugins, &APP_LOAD);
   do_in_path(p_pp, "", "start/*", DIP_ALL + DIP_DIR,  // NOLINT
