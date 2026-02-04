@@ -294,6 +294,7 @@ void f_getstacktrace(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
 }
 
 static bool runtime_search_path_valid = false;
+static bool runtime_search_path_valid_thread = false;
 static int *runtime_search_path_ref = NULL;
 static RuntimeSearchPath runtime_search_path;
 static RuntimeSearchPath runtime_search_path_thread;
@@ -644,13 +645,20 @@ Array runtime_inspect(Arena *arena)
 
   for (size_t i = 0; i < kv_size(path); i++) {
     SearchPathItem *item = &kv_A(path, i);
-    Array entry = arena_array(arena, 6);
-    ADD_C(entry, CSTR_AS_OBJ(item->path));
-    ADD_C(entry, BOOLEAN_OBJ(item->after));
-    ADD_C(entry, CSTR_AS_OBJ(item->dbg_pack_inserted ? "pack_inserted" : "(nil)"));
-    ADD_C(entry, (item->has_lua != kNone) ? BOOLEAN_OBJ(item->has_lua == kTrue) : CSTR_AS_OBJ("(don't know :3)"));
-    ADD_C(entry, INTEGER_OBJ((Integer)item->pos_in_rtp));
-    ADD_C(rv, ARRAY_OBJ(entry));
+    Dict entry = arena_dict(arena, 5);
+    PUT_C(entry, "path", CSTR_AS_OBJ(item->path));
+    if (item->after) {
+      PUT_C(entry, "after", BOOLEAN_OBJ(true));
+    }
+    if (item->dbg_pack_inserted) {
+      PUT_C(entry, "pack_inserted", BOOLEAN_OBJ(true));
+    }
+    if (item->has_lua != kNone) {
+      PUT_C(entry, "has_lua",  BOOLEAN_OBJ(item->has_lua == kTrue));
+    }
+    PUT_C(entry, "pos_in_rtp", INTEGER_OBJ((Integer)item->pos_in_rtp));
+
+    ADD_C(rv, DICT_OBJ(entry));
   }
   return rv;
 }
@@ -933,11 +941,20 @@ void runtime_search_path_validate(void)
     runtime_search_path = runtime_search_path_build();
     runtime_search_path_valid = true;
     runtime_search_path_ref = NULL;  // initially unowned
-    uv_mutex_lock(&runtime_search_path_mutex);
-    runtime_search_path_free(runtime_search_path_thread);
-    runtime_search_path_thread = copy_runtime_search_path(runtime_search_path);
-    uv_mutex_unlock(&runtime_search_path_mutex);
+    update_runtime_search_path_thread(true);
   }
+}
+
+void update_runtime_search_path_thread(bool force) {
+  if (!force && !(runtime_search_path_valid && !runtime_search_path_valid_thread)) {
+    return;
+  }
+  
+  uv_mutex_lock(&runtime_search_path_mutex);
+  runtime_search_path_free(runtime_search_path_thread);
+  runtime_search_path_thread = copy_runtime_search_path(runtime_search_path);
+  uv_mutex_unlock(&runtime_search_path_mutex);
+  runtime_search_path_valid_thread = true;
 }
 
 /// Just like do_in_path_and_pp(), using 'runtimepath' for "path".
@@ -1110,6 +1127,7 @@ static int add_pack_dir_to_rtp(char *fname, bool is_pack)
   // We now have 'rtp' parts: {keep}{keep_after}{rest}.
   // Create new_rtp, first: {keep},{fname}
   size_t keep = (size_t)(insp - p_rtp);
+  const size_t keep_first = keep;
   memmove(new_rtp, p_rtp, keep);
   size_t new_rtp_len = keep;
   if (*insp == NUL) {
@@ -1153,23 +1171,37 @@ static int add_pack_dir_to_rtp(char *fname, bool is_pack)
   assert(!runtime_search_path_valid);
   if (was_valid) {
     runtime_search_path_valid = true;
-    ssize_t i = (ssize_t)(kv_size(runtime_search_path))-1;
+    runtime_search_path_valid_thread = false;
     kv_pushp(runtime_search_path);
+    ssize_t i = (ssize_t)(kv_size(runtime_search_path))-1;
 
     if (afterlen > 0) {
-      abort();
+      kv_pushp(runtime_search_path);
+      i += 1;
+      for (; i >= 1; i--) {
+        if (i > 1 && kv_A(runtime_search_path, i-2).pos_in_rtp > keep) {
+          kv_A(runtime_search_path, i) = kv_A(runtime_search_path, i-2);
+          kv_A(runtime_search_path, i).pos_in_rtp += addlen + afterlen;
+        } else {
+          // need to fudge "pos" depending on comma before or after???
+          kv_A(runtime_search_path, i) = (SearchPathItem){strdup(afterdir), true, true, kNone, keep + addlen };
+          i--;
+          break;
+        }
+      }
     }
 
     for (; i >= 0; i--) {
-      if (kv_A(runtime_search_path, i).pos_in_rtp > keep) {
-        kv_A(runtime_search_path, i+1) = kv_A(runtime_search_path, i);
-        kv_A(runtime_search_path, i+1).pos_in_rtp += addlen;
+      if (i > 0 && kv_A(runtime_search_path, i-1).pos_in_rtp > keep_first) {
+        kv_A(runtime_search_path, i) = kv_A(runtime_search_path, i-1);
+        kv_A(runtime_search_path, i).pos_in_rtp += addlen;
       } else {
         // need to fudge "pos" depending on comma before or after???
-        kv_A(runtime_search_path, i+1) = (SearchPathItem){strdup(fname), false, true, kNone, keep };
+        kv_A(runtime_search_path, i) = (SearchPathItem){strdup(fname), false, true, kNone, keep_first };
         break;
       }
     }
+
     // TODO: runtime_search_path_thread
   }
   xfree(new_rtp);
@@ -1327,6 +1359,9 @@ void load_start_packages(void)
              add_start_pack_plugins, &APP_LOAD);
   do_in_path(p_pp, "", "start/*", DIP_ALL + DIP_DIR,  // NOLINT
              add_start_pack_plugins, &APP_LOAD);
+
+
+  update_runtime_search_path_thread(false);
 }
 
 // ":packloadall"
@@ -1393,6 +1428,8 @@ void ex_packadd(exarg_T *eap)
   vim_snprintf(pat, len, plugpat, "opt", eap->arg);
   do_in_path(p_pp, "", pat, DIP_ALL + DIP_DIR + (res == FAIL ? DIP_ERR : 0),
              add_opt_pack_plugins, cookie);
+
+  update_runtime_search_path_thread(false);
 
   xfree(pat);
 }
