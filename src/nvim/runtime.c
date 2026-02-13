@@ -94,7 +94,7 @@ typedef struct {
 typedef struct {
   char *path;
   bool after;
-  bool dbg_pack_inserted;
+  bool pack_inserted;
   TriState has_lua;
   size_t pos_in_rtp;
 } SearchPathItem;
@@ -535,7 +535,7 @@ static RuntimeSearchPath copy_runtime_search_path(const RuntimeSearchPath src)
   RuntimeSearchPath dst = KV_INITIAL_VALUE;
   for (size_t j = 0; j < kv_size(src); j++) {
     SearchPathItem item = kv_A(src, j);
-    kv_push(dst, ((SearchPathItem){ xstrdup(item.path), item.after, item.dbg_pack_inserted,
+    kv_push(dst, ((SearchPathItem){ xstrdup(item.path), item.after, item.pack_inserted,
                                     item.has_lua, item.pos_in_rtp }));
   }
 
@@ -651,7 +651,7 @@ Array runtime_inspect(Arena *arena)
     if (item->after) {
       PUT_C(entry, "after", BOOLEAN_OBJ(true));
     }
-    if (item->dbg_pack_inserted) {
+    if (item->pack_inserted) {
       PUT_C(entry, "pack_inserted", BOOLEAN_OBJ(true));
     }
     if (item->has_lua != kNone) {
@@ -873,19 +873,20 @@ static RuntimeSearchPath runtime_search_path_build(void)
 
   // The following entries were not explicit in rtp. this is fine, but keep pos_in_rtp monotonic
   size_t sentinel_pos_in_rtp = (size_t)(rtp_entry - p_rtp);
+  sentinel_pos_in_rtp -= (sentinel_pos_in_rtp > 0) ? 1 : 0;
 
   for (size_t i = 0; i < kv_size(pack_entries); i++) {
     String item = kv_A(pack_entries, i);
     handle_T h = map_get(String, int)(&pack_used, item);
     if (h == 0) {
       expand_pack_entry(&search_path, &rtp_used, &after_path, item.data, item.size,
-                        sentinel_pos_in_rtp);
+                        sentinel_pos_in_rtp-1);
     }
   }
 
   // "after" packages
   for (size_t i = 0; i < kv_size(after_path); i++) {
-    expand_rtp_entry(&search_path, &rtp_used, kv_A(after_path, i), true, sentinel_pos_in_rtp);
+    expand_rtp_entry(&search_path, &rtp_used, kv_A(after_path, i), true, sentinel_pos_in_rtp-1);
     xfree(kv_A(after_path, i));
   }
 
@@ -1183,7 +1184,10 @@ static int add_pack_dir_to_rtp(char *fname, bool is_pack)
     if (afterlen > 0) {
       kv_pushp(runtime_search_path);
       i += 1;
+
+      fprintf(stderr, "\n\nwhat is afterpos but FOR REAL: %lu\n", after_pos);
       for (; i >= 1; i--) {
+        if (i > 1) { fprintf(stderr, "KOMPARATOR %lu\n", kv_A(runtime_search_path, i - 2).pos_in_rtp); }
         if (i > 1 && kv_A(runtime_search_path, i - 2).pos_in_rtp >= after_pos) {
           kv_A(runtime_search_path, i) = kv_A(runtime_search_path, i - 2);
           kv_A(runtime_search_path, i).pos_in_rtp += addlen + afterlen;

@@ -1073,6 +1073,60 @@ describe('startup', function()
     }, exec_lua [[ return _G.test_loadorder ]])
   end)
 
+  it('does an incremental update for packadd #thetest', function()
+    pack_clear [[ lua _G.test_loadorder = {} ]]
+    local first_valde = eval'&rtp'
+    print("FIRST VILDE: ".. first_valde)io.stdout:flush()
+    print("FIRST VILDE ATT 237: ".. string.sub(first_valde, 237+1))io.stdout:flush()
+    command [[
+      " need to use the runtime to make the initial cache:
+      runtime! non_exist_ent
+      ]] local precek = api.nvim__runtime_inspect() command [[  
+      " this should now incrementally update it:
+      packadd! superspecial
+    ]]
+
+    print("RECK: "..vim.inspect(precek))
+
+    local valde = eval'&rtp'
+    print(valde)io.stdout:flush()
+    print("ATT 288: "..string.sub(valde, 288+1))
+    print("ATT 345: "..string.sub(valde, 345+1))
+    io.stdout:flush()
+
+    local check = api.nvim__runtime_inspect()
+    print("RAW CHECK: "..vim.inspect(check))
+    local check_copy = vim.deepcopy(check)
+    local any_incremental = false
+    for i, item in ipairs(check_copy) do
+      any_incremental = any_incremental or item.pack_inserted
+      item.pack_inserted = nil
+    end
+    eq(true, any_incremental, "no pack_inserted in "..vim.inspect(check))
+
+    command [[
+      let &rtp = &rtp
+      runtime! phantom_ghost
+    ]]
+
+    local new_check = api.nvim__runtime_inspect()
+    print("RAW NEO: "..vim.inspect(new_check))
+    eq(check_copy, new_check)
+
+
+    command [[ runtime! filen.lua ]]
+    eq({
+      'ordinary',
+      'SuperSpecial',
+      'FANCY',
+      'mittel',
+      'FANCY after',
+      'SuperSpecial after',
+      'ordinary after',
+    }, exec_lua [[ return _G.test_loadorder ]])
+
+  end)
+
   it('handles the correct order with opt packages and globpath(&rtp, ...)', function()
     pack_clear [[ set loadplugins | lua _G.test_loadorder = {} ]]
     command [[
