@@ -370,6 +370,7 @@ static void unintersect_node(MarkTree *b, MTNode *x, uint64_t id, bool strict)
     }
   }
   if (strict) {
+    fprintf(stderr, "fooca amnitel %lu %lu %d\n", id >> 33, (id & ((1UL<<33) - 1)) >> 1, seen);
 #ifndef RELDEBUG
     // TODO(bfredl): This assert has been seen to fail for end users
     // using RelWithDebInfo builds. While indicating an invalid state for
