@@ -1861,7 +1861,6 @@ bool marktree_itr_step_overlap(MarkTree *b, MarkTreeIter *itr, MTPair *pair)
 
 static void swap_keys(MarkTree *b, MarkTreeIter *itr1, MarkTreeIter *itr2, DamageList *damage)
 {
-  if (itr1->x != itr2->x) {
     if (mt_paired(rawkey(itr1))) {
       kvi_push(*damage, ((Damage){ mt_lookup_key(rawkey(itr1)), itr1->x, itr2->x,
                                    itr1->i, itr2->i }));
@@ -1871,6 +1870,7 @@ static void swap_keys(MarkTree *b, MarkTreeIter *itr1, MarkTreeIter *itr2, Damag
                                    itr2->i, itr1->i }));
     }
 
+  if (itr1->x != itr2->x) {
     uint32_t meta_inc_1[kMTMetaCount];
     meta_describe_key(meta_inc_1, rawkey(itr1));
     uint32_t meta_inc_2[kMTMetaCount];
@@ -2072,6 +2072,18 @@ past_continue_same_node:
     marktree_itr_next_skip(b, itr, true, false, NULL, NULL);
   }
 
+  String im = mt_inspect(b, true, true);
+  FILE *hong = fopen("/tmp/honghong", "w");
+  if (hong) {
+    fwrite(im.data, im.size, 1, hong);
+    fclose(hong);
+  }
+
+  for (size_t i = 0; i < kv_size(damage); i++) {
+    Damage d = kv_A(damage, i);
+    fprintf(stderr, "NOW YOU DONE IT: %lu %lu wha what %d %d\n", mt_dbg_id(d.id), d.id&1, d.old_i, d.new_i);
+  }
+
   if (kv_size(damage)) {
     // TODO(bfredl): a full sort is not really needed. we just need a "start" node to find
     // its corresponding "end" node. Set up some dedicated hash for this later (c.f. the
@@ -2118,6 +2130,9 @@ past_continue_same_node:
         if (startpos->x) {
           *itr = *startpos;
           marktree_itr_set_node(b, enditr, d.old, d.old_i);
+          fprintf(stderr, "it was time: %lu\n", mt_dbg_id(d.id));
+          fprintf(stderr, "levels: %d %d\n", itr->lvl, enditr->lvl);
+          fprintf(stderr, "poss: %d,  (%d,%d)\n", itr->i, enditr->s[0].i, enditr->i);
           marktree_intersect_pair(b, start_id, itr, enditr, true);
           *itr = *startpos;
           marktree_itr_set_node(b, enditr, d.new, d.new_i);
