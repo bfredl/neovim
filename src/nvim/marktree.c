@@ -1920,6 +1920,7 @@ static int damage_cmp(const void *s1, const void *s2)
 bool marktree_splice(MarkTree *b, int32_t start_line, int start_col, int old_extent_line,
                      int old_extent_col, int new_extent_line, int new_extent_col)
 {
+  fprintf(stderr, "splice %d %d, %d %d, %d %d\n", start_line, start_col, old_extent_line, old_extent_col, new_extent_line, new_extent_col);
   MTPos start = { start_line, start_col };
   MTPos old_extent = { old_extent_line, old_extent_col };
   MTPos new_extent = { new_extent_line, new_extent_col };

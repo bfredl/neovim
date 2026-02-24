@@ -929,6 +929,9 @@ Integer nvim_buf_set_extmark(Buffer buffer, Integer ns_id, Integer line, Integer
       decor_flags |= MT_FLAG_DECOR_HL;
     }
 
+#define g(foo) ((foo) ? "true" : "false")
+    fprintf(stderr, "put(tree, %ld, %ld, %s, %d, %d, %s)\n", line, col, g(right_gravity), line2, col2, g(opts->end_right_gravity));
+
     extmark_set(buf, (uint32_t)ns_id, &id, (int)line, (colnr_T)col, line2, col2,
                 decor, decor_flags, right_gravity, opts->end_right_gravity,
                 !GET_BOOL_OR_TRUE(opts, set_extmark, undo_restore),
