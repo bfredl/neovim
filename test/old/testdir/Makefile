@@ -79,7 +79,7 @@ test1.out: $(NVIM_PRG)
 # In vim, if the -u command line option is specified, compatible is turned on
 # and viminfo is not read. Unlike vim, neovim reads viminfo and requires the
 # -i command line option.
-NO_INITS = -i NONE --noplugin --headless
+NO_INITS = -u NONE -i NONE --noplugin --headless
 
 # TODO: find a way to avoid changing the distributed files.
 fixff:
@@ -157,7 +157,7 @@ newtestssilent: $(NEW_TESTS_RES)
 GEN_OPT_DEPS = gen_opt_test.vim ../../../src/nvim/options.lua ../../../runtime/doc/options.txt
 
 opt_test.vim: $(GEN_OPT_DEPS)
-	$(NVIM_PRG) -e -s -u NONE $(NO_INITS) -S $(GEN_OPT_DEPS)
+	$(NVIM_PRG) -e -s $(NO_INITS) -S $(GEN_OPT_DEPS)
 	@if test -f gen_opt_test.log; then \
 		cat gen_opt_test.log; \
 		exit 1; \
@@ -170,4 +170,4 @@ test_options_all.res: opt_test.vim
 	@echo "[OLDTEST] Running" $*
 	@rm -rf $*.failed test.ok $(RM_ON_RUN)
 	@mkdir -p $(TMPDIR)
-	@/bin/sh runnvim.sh $(ROOT) $(NVIM_PRG) $* $(RUN_VIMTEST) $(NO_INITS) --cmd "set shortmess-=F" -S runtest.vim $*.vim
+	@/bin/sh runnvim.sh $(ROOT) $(NVIM_PRG) $* $(RUN_VIMTEST) $(NO_INITS) --cmd "set shortmess-=F backupdir=. undodir=. viewdir=." -S runtest.vim $*.vim
