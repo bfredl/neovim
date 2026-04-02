@@ -76,11 +76,10 @@ report:
 
 test1.out: $(NVIM_PRG)
 
-NO_PLUGINS = --noplugin --headless
 # In vim, if the -u command line option is specified, compatible is turned on
 # and viminfo is not read. Unlike vim, neovim reads viminfo and requires the
 # -i command line option.
-NO_INITS = -U NONE -i NONE $(NO_PLUGINS)
+NO_INITS = -i NONE --noplugin --headless
 
 # TODO: find a way to avoid changing the distributed files.
 fixff:
@@ -171,4 +170,4 @@ test_options_all.res: opt_test.vim
 	@echo "[OLDTEST] Running" $*
 	@rm -rf $*.failed test.ok $(RM_ON_RUN)
 	@mkdir -p $(TMPDIR)
-	@/bin/sh runnvim.sh $(ROOT) $(NVIM_PRG) $* $(RUN_VIMTEST) $(NO_INITS) -u NONE --cmd "set shortmess-=F" -S runtest.vim $*.vim
+	@/bin/sh runnvim.sh $(ROOT) $(NVIM_PRG) $* $(RUN_VIMTEST) $(NO_INITS) --cmd "set shortmess-=F" -S runtest.vim $*.vim
