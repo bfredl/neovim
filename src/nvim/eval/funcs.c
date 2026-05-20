@@ -165,13 +165,6 @@ static const char e_string_list_or_blob_required[]
 static const char e_missing_function_argument[]
   = N_("E1132: Missing function argument");
 
-/// Dummy va_list for passing to vim_snprintf
-///
-/// Used because:
-/// - passing a NULL pointer doesn't work when va_list isn't a pointer
-/// - locally in the function results in a "used before set" warning
-/// - using va_start() to initialize it gives "function with fixed args" error
-static va_list dummy_ap;
 
 /// Function given to ExpandGeneric() to obtain the list of internal
 /// or user defined function names.
@@ -3157,10 +3150,10 @@ static void f_isnan(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
 static void f_id(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
   FUNC_ATTR_NONNULL_ALL
 {
-  const int len = vim_vsnprintf_typval(NULL, 0, "%p", dummy_ap, argvars);
+  const int len = vim_vsnprintf_typval(NULL, 0, "%p", argvars);
   rettv->v_type = VAR_STRING;
   rettv->vval.v_string = xmalloc((size_t)len + 1);
-  vim_vsnprintf_typval(rettv->vval.v_string, (size_t)len + 1, "%p", dummy_ap, argvars);
+  vim_vsnprintf_typval(rettv->vval.v_string, (size_t)len + 1, "%p", argvars);
 }
 
 /// "jobpid(id)" function
@@ -4756,11 +4749,11 @@ static void f_printf(typval_T *argvars, typval_T *rettv, EvalFuncData fptr)
     did_emsg = false;
     char buf[NUMBUFLEN];
     const char *fmt = tv_get_string_buf(&argvars[0], buf);
-    int len = vim_vsnprintf_typval(NULL, 0, fmt, dummy_ap, argvars + 1);
+    int len = vim_vsnprintf_typval(NULL, 0, fmt, argvars + 1);
     if (!did_emsg) {
       char *s = xmalloc((size_t)len + 1);
       rettv->vval.v_string = s;
-      vim_vsnprintf_typval(s, (size_t)len + 1, fmt, dummy_ap, argvars + 1);
+      vim_vsnprintf_typval(s, (size_t)len + 1, fmt, argvars + 1);
     }
     did_emsg |= saved_did_emsg;
   }

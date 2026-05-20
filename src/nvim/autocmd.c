@@ -436,7 +436,7 @@ void augroup_del(char *name, bool stupid_legacy_mode)
 {
   int group = augroup_find(name);
   if (group == AUGROUP_ERROR) {  // the group doesn't exist
-    semsg(_("E367: No such group: \"%s\""), name);
+    semsg(_("E367: No such group: \"%s\""), name ? name : "[INVALID ID]");
     return;
   } else if (group == current_augroup) {
     emsg(_("E936: Cannot delete the current group"));

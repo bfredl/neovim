@@ -772,7 +772,7 @@ int vim_snprintf_add(char *str, size_t str_m, const char *fmt, ...)
   }
   va_list ap;
   va_start(ap, fmt);
-  const int str_l = vim_vsnprintf(str + len, space, fmt, ap);
+  const int str_l = vsnprintf(str + len, space, fmt, ap);
   va_end(ap);
   return str_l;
 }
@@ -790,7 +790,7 @@ int vim_snprintf(char *str, size_t str_m, const char *fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
-  const int str_l = vim_vsnprintf(str, str_m, fmt, ap);
+  const int str_l = vsnprintf(str, str_m, fmt, ap);
   va_end(ap);
   return str_l;
 }
@@ -819,6 +819,7 @@ static const char *infinity_str(bool positive, char fmt_spec, int force_sign,
 /// length because the destination may be shorter than the source. This function
 /// guarantees the returned length will never be greater than the destination length.
 size_t vim_snprintf_safelen(char *str, size_t str_m, const char *fmt, ...)
+  FUNC_ATTR_PRINTF(3, 4)
 {
   va_list ap;
   int str_l;
@@ -828,7 +829,7 @@ size_t vim_snprintf_safelen(char *str, size_t str_m, const char *fmt, ...)
   }
 
   va_start(ap, fmt);
-  str_l = vim_vsnprintf_typval(str, str_m, fmt, ap, NULL);
+  str_l = vsnprintf(str, str_m, fmt, ap);
   va_end(ap);
 
   if (str_l < 0) {
@@ -836,11 +837,6 @@ size_t vim_snprintf_safelen(char *str, size_t str_m, const char *fmt, ...)
     return 0;
   }
   return ((size_t)str_l >= str_m) ? str_m - 1 : (size_t)str_l;
-}
-
-int vim_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap)
-{
-  return vim_vsnprintf_typval(str, str_m, fmt, ap, NULL);
 }
 
 enum {
@@ -1388,7 +1384,7 @@ static void skip_to_arg(const char **ap_types, va_list ap_start, va_list *ap, in
 
   for (*arg_cur = arg_min; *arg_cur < *arg_idx - 1; (*arg_cur)++) {
     if (ap_types == NULL || ap_types[*arg_cur] == NULL) {
-      siemsg(e_aptypes_is_null_nr_str, fmt, *arg_cur);
+      siemsg(e_aptypes_is_null_nr_str, *arg_cur, fmt);
       return;
     }
 
@@ -1459,6 +1455,7 @@ static void skip_to_arg(const char **ap_types, va_list ap_start, va_list *ap, in
   (*arg_idx)++;
 }
 
+static va_list dummy_ap;
 /// Write formatted value to the string
 ///
 /// @param[out]  str  String to write to.
@@ -1470,7 +1467,7 @@ static void skip_to_arg(const char **ap_types, va_list ap_start, va_list *ap, in
 ///
 /// @return Number of bytes excluding NUL byte that would be written to the
 ///         string if str_m was greater or equal to the return value.
-int vim_vsnprintf_typval(char *str, size_t str_m, const char *fmt, va_list ap_start,
+int vim_vsnprintf_typval(char *str, size_t str_m, const char *fmt,
                          typval_T *const tvs)
 {
   size_t str_l = 0;
@@ -1479,14 +1476,15 @@ int vim_vsnprintf_typval(char *str, size_t str_m, const char *fmt, va_list ap_st
   int arg_cur = 0;
   int num_posarg = 0;
   int arg_idx = 1;
-  va_list ap;
+  va_list ap, ap_start;
   const char **ap_types = NULL;
 
   if (parse_fmt_types(&ap_types, &num_posarg, fmt, tvs) == FAIL) {
     return 0;
   }
 
-  va_copy(ap, ap_start);
+  va_copy(ap, dummy_ap);
+  va_copy(ap_start, dummy_ap);
 
   if (!p) {
     p = "";

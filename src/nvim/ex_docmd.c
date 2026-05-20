@@ -2411,7 +2411,7 @@ char *ex_errmsg(const char *const msg, ...)
 {
   va_list ap;
   va_start(ap, msg);
-  vim_vsnprintf(ex_error_buf, MSG_BUF_LEN, _(msg), ap);
+  vsnprintf(ex_error_buf, MSG_BUF_LEN, _(msg), ap);
   va_end(ap);
   return ex_error_buf;
 }

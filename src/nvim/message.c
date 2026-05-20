@@ -627,7 +627,7 @@ int smsg(int hl_id, const char *s, ...)
   va_list arglist;
 
   va_start(arglist, s);
-  vim_vsnprintf(IObuff, IOSIZE, s, arglist);
+  vsnprintf(IObuff, IOSIZE, s, arglist);
   va_end(arglist);
   return msg(IObuff, hl_id);
 }
@@ -638,7 +638,7 @@ int smsg_keep(int hl_id, const char *s, ...)
   va_list arglist;
 
   va_start(arglist, s);
-  vim_vsnprintf(IObuff, IOSIZE, s, arglist);
+  vsnprintf(IObuff, IOSIZE, s, arglist);
   va_end(arglist);
   return msg_keep(IObuff, hl_id, true, false);
 }
@@ -923,6 +923,7 @@ bool semsg(const char *const fmt, ...)
 #define MULTILINE_BUFSIZE 8192
 
 bool semsg_multiline(const char *kind, const char *const fmt, ...)
+  FUNC_ATTR_PRINTF(2, 3)
 {
   bool ret;
   va_list ap;
@@ -933,7 +934,7 @@ bool semsg_multiline(const char *kind, const char *const fmt, ...)
   }
 
   va_start(ap, fmt);
-  vim_vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
+  vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
   va_end(ap);
 
   ret = emsg_multiline(errbuf, kind, HLF_E, true);
@@ -943,13 +944,14 @@ bool semsg_multiline(const char *kind, const char *const fmt, ...)
 
 /// Print an error message with unknown number of arguments
 static bool semsgv(const char *fmt, va_list ap)
+  FUNC_ATTR_PRINTF(1, 0)
 {
   static char errbuf[IOSIZE];
   if (emsg_not_now()) {
     return true;
   }
 
-  vim_vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
+  vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
 
   return emsg(errbuf);
 }
@@ -976,6 +978,7 @@ void iemsg(const char *s)
 /// defined. It is used for internal errors only, so that they can be
 /// detected when fuzzing vim.
 void siemsg(const char *s, ...)
+  FUNC_ATTR_PRINTF(1, 2)
 {
   if (emsg_not_now()) {
     return;
@@ -1010,7 +1013,7 @@ void msg_schedule_semsg(const char *const fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
-  vim_vsnprintf(IObuff, IOSIZE, fmt, ap);
+  vsnprintf(IObuff, IOSIZE, fmt, ap);
   va_end(ap);
 
   char *s = xstrdup(IObuff);
@@ -1025,10 +1028,11 @@ static void msg_semsg_multiline_event(void **argv)
 }
 
 void msg_schedule_semsg_multiline(const char *const fmt, ...)
+  FUNC_ATTR_PRINTF(1, 2)
 {
   va_list ap;
   va_start(ap, fmt);
-  vim_vsnprintf(IObuff, IOSIZE, fmt, ap);
+  vsnprintf(IObuff, IOSIZE, fmt, ap);
   va_end(ap);
 
   char *s = xstrdup(IObuff);
@@ -3672,7 +3676,7 @@ void swmsg(bool hl, const char *const fmt, ...)
   va_list args;
 
   va_start(args, fmt);
-  vim_vsnprintf(IObuff, IOSIZE, fmt, args);
+  vsnprintf(IObuff, IOSIZE, fmt, args);
   va_end(args);
 
   give_warning(IObuff, hl, true);

@@ -1674,10 +1674,10 @@ describe('autocmd api', function()
       eq('Vim:E367: No such group: "--Deleted--"', pcall_err(api.nvim_del_augroup_by_id, -12312))
 
       eq(false, exec_lua [[return pcall(vim.api.nvim_del_augroup_by_id, 0)]])
-      eq('Vim:E367: No such group: "[NULL]"', pcall_err(api.nvim_del_augroup_by_id, 0))
+      eq('Vim:E367: No such group: "[INVALID ID]"', pcall_err(api.nvim_del_augroup_by_id, 0))
 
       eq(false, exec_lua [[return pcall(vim.api.nvim_del_augroup_by_id, 12342)]])
-      eq('Vim:E367: No such group: "[NULL]"', pcall_err(api.nvim_del_augroup_by_id, 12312))
+      eq('Vim:E367: No such group: "[INVALID ID]"', pcall_err(api.nvim_del_augroup_by_id, 12312))
     end)
 
     it('groups work with once', function()

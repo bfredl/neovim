@@ -2398,13 +2398,14 @@ static lcs_chars_T lcs_chars;
 #undef CHARSTAB_ENTRY
 
 static char *field_value_err(char *errbuf, size_t errbuflen, const char *fmt, ...)
+  FUNC_ATTR_PRINTF(3, 4)
 {
   if (errbuf == NULL) {
     return "";
   }
   va_list arglist;
   va_start(arglist, fmt);
-  vim_vsnprintf(errbuf, errbuflen, _(fmt), arglist);
+  vsnprintf(errbuf, errbuflen, _(fmt), arglist);
   va_end(arglist);
   return errbuf;
 }
