@@ -2144,10 +2144,13 @@ func Test_mod_file()
   " RAPID supports umlauts in module names, leading spaces,
   " the .mod extension is not case sensitive.
   call writefile(['  module ÜmlautModule'], 'Xfile.Mod', 'D')
+  call chansend(2, "\nZUGSWANG\n")
   split Xfile.Mod
+  call chansend(2, "\nRUMSPRINGA\n")
   call assert_equal('  module ÜmlautModule', getline(1))
   call assert_equal('utf-8', &fileencoding)
   call assert_equal('rapid', &filetype)
+  call assert_equal('Ü', luaeval("('Ü'):lower()")) " paradoxally, this is what we want
   bwipe!
 
   " RAPID is not case sensitive, embedded spaces, sysmodule,

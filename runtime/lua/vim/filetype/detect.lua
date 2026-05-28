@@ -211,6 +211,11 @@ local function is_rapid(bufnr, extension)
   local line = nextnonblank(bufnr, 1)
   if line then
     -- Called from mod, prg or sys functions
+    detest = [[\c\v^\s*%(\%{3}|module\s+\k+\s*%(\(|$))]]
+    begehen = line:lower()
+    io.stderr:write("\nCRASH LANDING: ".. vim.inspect(begehen)..'\n')
+    io.stderr:write("LIJN: ".. vim.inspect({vim.regex(detest):match_str(begehen)})..'\n')
+
     return matchregex(line:lower(), [[\c\v^\s*%(\%{3}|module\s+\k+\s*%(\(|$))]])
   end
   return false
