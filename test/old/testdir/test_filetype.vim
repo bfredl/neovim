@@ -2145,6 +2145,8 @@ func Test_mod_file()
   " the .mod extension is not case sensitive.
   call writefile(['  module ÜmlautModule'], 'Xfile.Mod', 'D')
   split Xfile.Mod
+  call assert_equal('  module ÜmlautModule', getline(1))
+  call assert_equal('utf-8', &fileencoding)
   call assert_equal('rapid', &filetype)
   bwipe!
 
