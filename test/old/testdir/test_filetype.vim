@@ -2151,6 +2151,7 @@ func Test_mod_file()
   call assert_equal('utf-8', &fileencoding)
   call assert_equal('rapid', &filetype)
   call assert_equal('Ü', luaeval("('Ü'):lower()")) " paradoxally, this is what we want
+  call assert_equal('', execute("lang")) " LANG should be set based on LANGUAGE
   bwipe!
 
   " RAPID is not case sensitive, embedded spaces, sysmodule,
