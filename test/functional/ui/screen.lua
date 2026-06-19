@@ -272,6 +272,7 @@ function Screen:set_default_attr_ids(attr_ids)
   self._default_attr_ids = attr_ids
   self._attrs_overridden = true
   self._attr_at = debug.getinfo(2, "Sl")
+  self._attr_at.short_src = string.sub(self._attr_at.source,2)
 end
 
 function Screen:no_set_default_attr_ids(attr_ids)
@@ -562,6 +563,7 @@ function Screen:expect(expected, attr_ids, ...)
   end
 
   local infon = debug.getinfo(2, "Sl")
+  infon.short_src = string.sub(infon.source,2)
   local didthis = false
 
   assert(next({ ... }) == nil, 'invalid args to expect()')

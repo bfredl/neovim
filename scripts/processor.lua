@@ -49,7 +49,7 @@ for _,l in ipairs(loc_order) do
       buf = vim.fn.bufadd(item[2])
       vim.fn.bufload(buf)
       -- vim.bo[buf].buflisted = true
-      --print(item[2], item[3])
+      -- print(item[2], buf, item[3])
       theline = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
       item.linematch = vim.fn.match(theline, ":set_default_attr_ids")
       item.prefix = vim.fn.matchlist(theline,"^\\s*")[1]
@@ -73,6 +73,7 @@ for _,l in ipairs(loc_order) do
       buf = vim.fn.bufadd(item[2])
       vim.fn.bufload(buf)
       -- vim.bo[buf].buflisted = true
+      print(item[2], buf)
       item.theline = vim.api.nvim_buf_get_lines(buf, item[3]-1,item[3], true)[1]
       item.buf = buf
       -- TODO: [=[ and ]=]
