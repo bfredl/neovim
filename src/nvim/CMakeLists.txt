@@ -9,6 +9,8 @@ set_target_properties(nvim_bin
   EXPORT_COMPILE_COMMANDS ON
   ENABLE_EXPORTS TRUE
   OUTPUT_NAME nvim)
+set_property(TARGET nvim_bin PROPERTY POSITION_INDEPENDENT_CODE FALSE)
+target_link_libraries(nvim_bin PRIVATE -fno-pic -fno-pie)
 
 #-------------------------------------------------------------------------------
 # Dependencies
@@ -207,6 +209,7 @@ if(CMAKE_EXE_LINKER_FLAGS MATCHES "--sort-common" OR
   string(REGEX REPLACE "-Wl($| )" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
   string(REGEX REPLACE "-Wl($| )" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
 endif()
+set(CMAKE_EXE_LINKER_FLAGS "-Wl,--no-pie ${CMAKE_EXE_LINKER_FLAGS}")
 
 #-------------------------------------------------------------------------------
 # Cmake options
@@ -224,6 +227,7 @@ if(ENABLE_ASAN_UBSAN)
     target_compile_options(nvim_bin PRIVATE
       -fno-omit-frame-pointer
       -fno-optimize-sibling-calls
+      -fno-pic -fno-pie
       -fsanitize=undefined)
   endif()
 
