@@ -208,6 +208,7 @@ function Screen.new(width, height, options, session)
     win_viewport = {},
     win_viewport_margins = {},
     float_pos = {},
+    pos_counter = {},
     msg_grid = nil,
     msg_grid_pos = nil,
     _session = nil,
@@ -1032,7 +1033,18 @@ function Screen:_handle_msg_set_pos(grid, row, scrolled, char, zindex, compindex
   self.msg_compindex = compindex
 end
 
-function Screen:_handle_flush() end
+function Screen:_handle_flush()
+  if next(self.pos_counter) then print("\nboooka\n") end
+  for g, count in pairs(self.pos_counter) do
+    if count <= 1 then
+      self.pos_counter[g] = nil
+    end
+  end
+  if next(self.pos_counter) then
+    error("fooka "..vim.inspect(self.pos_counter))
+  end
+  -- self.pos_counter = {}
+end
 
 function Screen:_reset()
   -- TODO: generalize to multigrid later
@@ -1163,6 +1175,8 @@ end
 function Screen:_handle_win_float_pos(grid, ...)
   self.win_position[grid] = nil
   self.float_pos[grid] = { ... }
+  print("\nheej", grid, vim.inspect({ ... }))
+  self.pos_counter[grid] = (self.pos_counter[grid] or 0) + 1
 end
 
 function Screen:_handle_win_external_pos(grid)
