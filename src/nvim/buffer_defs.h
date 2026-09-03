@@ -1385,6 +1385,9 @@ struct window_S {
   WinKind w_kind;                       ///< mutually-exclusive window role
   WinConfig w_config;
 
+  GridView w_grid_status;               // area to draw statusline+2
+  // ScreenGrid w_grid_status_alloc;       // the grid specific to the window
+
   // w_fraction is the fractional row of the cursor within the window, from
   // 0 at the top row to FRACTION_MULT at the last row.
   // w_prev_fraction_row was the actual cursor row when w_fraction was last
