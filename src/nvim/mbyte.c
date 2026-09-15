@@ -683,8 +683,12 @@ size_t mb_string2cells(const char *str)
 {
   size_t clen = 0;
 
-  for (const char *p = str; *p != NUL; p += utfc_ptr2len(p)) {
-    clen += (size_t)utf_ptr2cells(p);
+  StrCharInfo ci = utf_ptr2StrCharInfo((char *)str);
+  while (*ci.ptr != NUL) {
+    ClusterInfo cli = utf_ClusterInfo(ci);
+    // TODO(bfredl): moar unification, allowing dy_escape_width should be fine
+    clen += ci.chr.value < 0x80 ? 1 : (size_t)cli.cells;
+    ci = cli.next;
   }
 
   return clen;
@@ -1920,31 +1924,55 @@ int utf_head_off(const char *base_in, const char *p_in)
   return 0;
 }
 
-/// Assumes caller already handles ascii. see `utfc_next`
-StrCharInfo utfc_next_impl(StrCharInfo cur)
-  FUNC_ATTR_PURE
-{
+ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur) {
+  int cells = cur.chr.value > 0x80 ? utf_char2cells(cur.chr.value) : ascii2cells(cur.chr.value);
   int32_t prev_code = cur.chr.value;
   uint8_t *next = (uint8_t *)(cur.ptr + cur.chr.len);
   GraphemeState state = GRAPHEME_STATE_INIT;
   assert(*next >= 0x80);
 
+  bool check_emoji = cells == 1 && p_emoji
+        && prop_is_emojilike(utf8proc_get_property(cur.chr.value));
+
   while (true) {
     uint8_t const next_len = utf8len_tab[*next];
     int32_t const next_code = utf_ptr2CharInfo_impl(next, (uintptr_t)next_len);
     if (!utf_iscomposing(prev_code, next_code, &state)) {
-      return (StrCharInfo){
-        .ptr = (char *)next,
-        .chr = (CharInfo){ .value = next_code, .len = (next_code < 0 ? 1 : next_len) },
+      return (ClusterInfo){
+        .next = (StrCharInfo){
+          .ptr = (char *)next,
+          .chr = (CharInfo){ .value = next_code, .len = (next_code < 0 ? 1 : next_len) },
+        },
+        .cells = cells,
       };
+    }
+
+    if (check_emoji) {
+      if (next_code == 0xFE0F) {
+        cells = 2;
+      }
+      check_emoji = false;
+    }
+
+    // note: we are still strenuously holding on to the limitation that a
+    // valid grapheme cluster is either one or two cells wide. This is a limitation
+    // we might wish to lift eventually
+    if (cells == 1) {
+      if (utf8proc_get_property(next_code)->boundclass == UTF8PROC_BOUNDCLASS_SPACINGMARK
+          || (next_code & ~1) == 0xFF9E) {  // halfwidth katakana voiced sound marks
+        cells = 2;
+      }
     }
 
     prev_code = next_code;
     next += next_len;
     if (EXPECT(*next < 0x80U, true)) {
-      return (StrCharInfo){
-        .ptr = (char *)next,
-        .chr = (CharInfo){ .value = *next, .len = 1 },
+      return (ClusterInfo){
+        .next = (StrCharInfo){
+          .ptr = (char *)next,
+          .chr = (CharInfo){ .value = *next, .len = 1 },
+        },
+        .cells = cells,
       };
     }
   }
