@@ -110,3 +110,22 @@ static inline StrCharInfo utf_ptr2StrCharInfo(char *ptr)
 {
   return (StrCharInfo){ .ptr = ptr, .chr = utf_ptr2CharInfo(ptr) };
 }
+
+
+static inline ClusterInfo utf_ClusterInfo(StrCharInfo cur)
+  FUNC_ATTR_NONNULL_ALL FUNC_ATTR_ALWAYS_INLINE FUNC_ATTR_PURE
+{
+  // handle ASCII case inline
+  uint8_t *next = (uint8_t *)(cur.ptr + cur.chr.len);
+  if (EXPECT(*next < 0x80U, true)) {
+    int cells = cur.chr.value <0x80 ? 1 : utf_char2cells(cur.chr.value);
+    return (ClusterInfo) {
+      .after = (StrCharInfo){
+        .ptr = (char *)next,
+        .chr = (CharInfo){ .value = *next, .len = 1 },
+      },
+      .cells = cells
+    };
+  }
+  return utf_ClusterInfo_impl(cur);
+}

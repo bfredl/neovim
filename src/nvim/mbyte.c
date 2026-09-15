@@ -1950,6 +1950,43 @@ StrCharInfo utfc_next_impl(StrCharInfo cur)
   }
 }
 
+ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur) {
+  int cells = utf_char2cells(cur.chr.value);
+  int32_t prev_code = cur.chr.value;
+  uint8_t *next = (uint8_t *)(cur.ptr + cur.chr.len);
+  GraphemeState state = GRAPHEME_STATE_INIT;
+  assert(*next >= 0x80);
+
+  bool check_emoji = cells == 1 && p_emoji
+        && prop_is_emojilike(utf8proc_get_property(cur.chr.value));
+
+  while (true) {
+    uint8_t const next_len = utf8len_tab[*next];
+    int32_t const next_code = utf_ptr2CharInfo_impl(next, (uintptr_t)next_len);
+    if (!utf_iscomposing(prev_code, next_code, &state)) {
+      return (ClusterInfo){
+        .after = (StrCharInfo){
+          .ptr = (char *)next,
+          .chr = (CharInfo){ .value = next_code, .len = (next_code < 0 ? 1 : next_len) },
+        },
+        .cells = cells,
+      };
+    }
+
+    prev_code = next_code;
+    next += next_len;
+    if (EXPECT(*next < 0x80U, true)) {
+      return (ClusterInfo){
+        .after = (StrCharInfo){
+          .ptr = (char *)next,
+          .chr = (CharInfo){ .value = *next, .len = 1 },
+        },
+        .cells = cells,
+      };
+    }
+  }
+}
+
 // Whether space is NOT allowed before/after 'c'.
 bool utf_eat_space(int cc)
   FUNC_ATTR_CONST FUNC_ATTR_WARN_UNUSED_RESULT
