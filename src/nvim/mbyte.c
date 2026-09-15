@@ -1973,6 +1973,13 @@ ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur) {
       };
     }
 
+    if (check_emoji) {
+      if (next_code == 0xFE0F) {
+        cells = 2;
+      }
+      check_emoji = false;
+    }
+
     prev_code = next_code;
     next += next_len;
     if (EXPECT(*next < 0x80U, true)) {
