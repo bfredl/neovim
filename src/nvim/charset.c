@@ -64,8 +64,6 @@ static uint8_t g_chartab[256];
 /// The contents of g_chartab[]:
 /// - The lower two bits, masked by CT_CELL_MASK, give the number of display
 ///   cells the character occupies (1 or 2).  Not valid for UTF-8 above 0x80.
-/// - CT_PRINT_CHAR bit is set when the character is printable (no need to
-///   translate the character before displaying it).
 /// - CT_FNAME_CHAR bit is set when the character can be in a file name.
 /// - CT_ID_CHAR bit is set when the character can be in an identifier.
 ///
@@ -87,15 +85,11 @@ int buf_init_chartab(buf_T *buf, bool global)
   if (global) {
     // This inits all 'isident' and 'isfname' flags to false, except visible latin-1 for some reason
 
-    // TODO(bfredl): CT_PRINT_CHAR is also criiiinge in the enc_utf8 only world
+    // TODO(bfredl): split g_chartab into separate 'isident' and 'isfname' bitsets
     memset(g_chartab, 0, sizeof g_chartab);
-    memset(&g_chartab[' '], CT_PRINT_CHAR, '~' - ' ' + 1);
-    memset(&g_chartab[0xa0], CT_PRINT_CHAR | CT_FNAME_CHAR, 0x100 - 0xa0);
+    memset(&g_chartab[0xa0], CT_FNAME_CHAR, 0x100 - 0xa0);
 
     if (parse_isopt(p_isi, buf, false) == FAIL) {  // 'isident'
-      return FAIL;
-    }
-    if (parse_isopt(p_isp, buf, false) == FAIL) {  // 'isprint'
       return FAIL;
     }
     if (parse_isopt(p_isf, buf, false) == FAIL) {  // 'isfname'
@@ -204,14 +198,6 @@ static int parse_isopt(const char *var, buf_T *buf, bool only_check)
             g_chartab[c] &= (uint8_t) ~CT_ID_CHAR;
           } else {
             g_chartab[c] |= CT_ID_CHAR;
-          }
-        } else if (var == p_isp) {  // (re)set printable
-          if (c < ' ' || c > '~') {
-            if (tilde) {
-              g_chartab[c] &= (uint8_t) ~CT_PRINT_CHAR;
-            } else {
-              g_chartab[c] |= CT_PRINT_CHAR;
-            }
           }
         } else if (var == p_isf) {  // (re)set fname flag
           if (tilde) {
@@ -845,7 +831,7 @@ bool vim_isprintc(int c)
   if (c >= 0x100) {
     return utf_printable(c);
   }
-  return c > 0 && (g_chartab[c] & CT_PRINT_CHAR);
+  return c > 0 && ((c & 0x60) != 0 && c != 0x7f);
 }
 
 /// skipwhite: skip over ' ' and '\t'.

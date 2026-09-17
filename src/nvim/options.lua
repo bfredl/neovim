@@ -5091,7 +5091,6 @@ local options = {
     },
     {
       abbreviation = 'isp',
-      cb = 'did_set_isopt',
       defaults = '@,161-255',
       deny_duplicates = true,
       desc = [=[
@@ -5129,6 +5128,7 @@ local options = {
       short_desc = N_('printable characters'),
       type = 'string',
       varname = 'p_isp',
+      immutable = true,
     },
     {
       abbreviation = 'js',
