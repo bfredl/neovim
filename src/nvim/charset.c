@@ -662,6 +662,7 @@ static inline unsigned nr2hex(unsigned n)
 int char2cells(int c)
 {
   if (IS_SPECIAL(c)) {  // c < 0
+    abort(); // not like this, but let ci tell me if this ever happens
     return char2cells(K_SECOND(c)) + 2;
   }
 
