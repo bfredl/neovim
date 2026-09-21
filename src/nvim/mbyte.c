@@ -536,32 +536,15 @@ int utf_ptr2cells(const char *p_in)
   const uint8_t *p = (const uint8_t *)p_in;
   // Need to convert to a character number.
   if ((*p) >= 0x80) {
-    int len = utf8len_tab[*p];
-    int32_t c = utf_ptr2CharInfo_impl(p, (uintptr_t)len);
-    // An illegal byte is displayed as <xx>.
-    if (c <= 0) {
-      return 4;
-    }
-    // If the char is ASCII it must be an overlong sequence.
-    if (c < 0x80) {
-      return char2cells(c);
-    }
-    int cells = utf_char2cells(c);
-    if (cells == 1 && p_emoji
-        && prop_is_emojilike(utf8proc_get_property(c))) {
-      int c2 = utf_ptr2char(p_in + len);
-      if (c2 == 0xFE0F) {
-        return 2;  // emoji presentation
-      }
-    }
-    if (cells >= 2) {
-      return cells;  // unprintable or already known to be doublewidth
-    }
-    // currently, the grid allows maximum two cells per cluster
-    int extra = utf_cluster_spacing_cells(p_in, len, -1);
-    return MIN(cells + extra, 2);
+    return ptr2cells(p_in);
   }
-  return 1;
+  return 1; // TODO: this is an awkward special case:p
+}
+
+// TODO(bfredl): no longer sunder the cell world in twain
+int ptr2cells(const char *p_in)
+{
+  return utf_ClusterInfo_or_NUL(utf_ptr2StrCharInfo((char *)p_in)).cells;
 }
 
 /// Convert a UTF-8 byte sequence to a character number.

@@ -673,24 +673,6 @@ int char2cells(int c)
   return ascii2cells(c);
 }
 
-/// Return number of display cells occupied by character at "*p".
-/// A TAB is counted as two cells: "^I" or four: "<09>".
-///
-/// @param p
-///
-/// @return number of display cells.
-int ptr2cells(const char *p_in)
-{
-  uint8_t *p = (uint8_t *)p_in;
-  // For UTF-8 we need to look at more bytes if the first byte is >= 0x80.
-  if (*p >= 0x80) {
-    return utf_ptr2cells(p_in);
-  }
-
-  // For ASCII we can tell the cell count from the first byte.
-  return ascii2cells(*p);
-}
-
 /// Return the number of character cells string "s" will take on the screen,
 /// counting TABs as two characters: "^I".
 ///
