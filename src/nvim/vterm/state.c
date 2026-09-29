@@ -370,7 +370,8 @@ static int on_text(const char bytes[], size_t len, void *user)
     } while (i < npoints && utf_iscomposing((int)codepoints[i - 1], (int)codepoints[i],
                                             &grapheme_state));
 
-    int width = utf_ptr2cells_len(state->grapheme_buf, (int)grapheme_len);
+    int scratch; // libvterm is staged for replacement, no refactor!
+    int width = utf_ptr2cells_len(state->grapheme_buf, (int)grapheme_len, &scratch);
 
     if (state->at_phantom || state->pos.col + width > THISROWWIDTH(state)) {
       linefeed(state);

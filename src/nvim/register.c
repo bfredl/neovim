@@ -2647,19 +2647,20 @@ static void str_to_reg(yankreg_T *y_ptr, MotionType yank_type, const char *str, 
       int charlen = 0;
 
       const char *line_end = start;
-      while (line_end < end) {  // find the end of the line
+      int ilen = (int)(end - line_end);
+      while (ilen > 0) {  // find the end of the line
         if (*line_end == '\n') {
           break;
         }
+        int blen;
+        // *line_end can be NUL, in case both these functions gives 1 for "blen"
         if (yank_type == kMTBlockWise) {
-          charlen += utf_ptr2cells_len(line_end, (int)(end - line_end));
-        }
-
-        if (*line_end == NUL) {
-          line_end++;  // registers can have NUL chars
+          charlen += utf_ptr2cells_len(line_end, ilen, &blen);
         } else {
-          line_end += utf_ptr2len_len(line_end, (int)(end - line_end));
+          blen = utf_ptr2len_len(line_end, ilen);
         }
+        line_end += blen;
+        ilen -= blen;
       }
       assert(line_end - start >= 0);
       line_len = (size_t)(line_end - start);

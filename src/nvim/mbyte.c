@@ -587,23 +587,31 @@ ret:
 
 /// Like utf_ptr2cells(), but limit string length to "size".
 /// For an empty string or truncated character returns 1.
-int utf_ptr2cells_len(const char *p_in, int size)
+///
+///
+/// @param[out] char_len length of char in bytes. Always positive.
+/// Always one for a truncated sequence. this is different from utf_ptr2len_len !
+/// 
+int utf_ptr2cells_len(const char *p_in, int size, int *char_len)
   FUNC_ATTR_PURE
 {
   const uint8_t *p = (const uint8_t *)p_in;
   if (size == 0 || *p < 0x80) {
+    *char_len = (size < 1 || *p == NUL) ? 1 : utfc_ptr2len_len(p_in, size);
     return 1;
   }
 
   // Need to convert to a wide character.
   int len = utf_ptr2len_len(p_in, size);
   if (len < utf8len_tab[*p]) {
+    *char_len = 1;
     return 1;        // truncated
   }
   int c = utf_ptr2char(p_in);
 
+  *char_len = utf_ptr2len(p_in);
   // An illegal byte is displayed as <xx>.
-  if (utf_ptr2len(p_in) == 1 || c == NUL) {
+  if (*char_len == 1 || c == NUL) {
     return 4;
   }
   // If the char is ASCII it must be an overlong sequence.
@@ -618,6 +626,7 @@ int utf_ptr2cells_len(const char *p_in, int size)
     // byte length the caller could use instead of utfc_ptr2len_len()
     StrCharInfo cur = {.ptr = p_in, .chr = (CharInfo){.value = c, .len = len}};
     ClusterInfo ci = utf_ClusterInfo_impl(cur, size - len);
+    *char_len = (int)(ci.next.ptr - p_in);
     return ci.cells;
   }
 }
@@ -654,9 +663,11 @@ size_t mb_string2cells_len(const char *str, size_t size)
 {
   size_t clen = 0;
 
-  for (const char *p = str; *p != NUL && p < str + size;
-       p += utfc_ptr2len_len(p, (int)size - (int)(p - str))) {
-    clen += (size_t)utf_ptr2cells_len(p, (int)size - (int)(p - str));
+
+  for (const char *p = str; *p != NUL && p < str + size;) {
+    int blen;
+    clen += (size_t)utf_ptr2cells_len(p, (int)size - (int)(p - str), &blen);
+    p += blen;
   }
 
   return clen;

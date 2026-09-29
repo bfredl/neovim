@@ -439,28 +439,20 @@ void grid_line_put_schar(int col, schar_T schar, int attr)
 int grid_line_puts(int col, const char *text, int textlen, int attr)
 {
   const char *ptr = text;
-  int len = textlen;
+  int len = textlen >= 0 ? textlen : INT_MAX;
 
   assert(grid_line_grid);
 
   int start_col = col;
 
   const int max_col = grid_line_maxcol;
-  while (col < max_col && (len < 0 || (int)(ptr - text) < len) && *ptr != NUL) {
+  while (col < max_col && len > 0 && *ptr != NUL) {
     // check if this is the first byte of a multibyte
     int mbyte_blen;
-    if (len >= 0) {
-      int maxlen = (int)((text + len) - ptr);
-      mbyte_blen = utfc_ptr2len_len(ptr, maxlen);
-      if (mbyte_blen > maxlen) {
-        mbyte_blen = 1;
-      }
-    } else {
-      mbyte_blen = utfc_ptr2len(ptr);
-    }
+    int mbyte_cells = utf_ptr2cells_len(ptr, len, &mbyte_blen);
     int firstc;
+    // TODO(bfredl): reintegrating schar:s into the new world is the next step
     schar_T schar = utfc_ptrlen2schar(ptr, mbyte_blen, &firstc);
-    int mbyte_cells = utf_ptr2cells_len(ptr, mbyte_blen);
     if (mbyte_cells > 2 || schar == 0) {
       mbyte_cells = 1;
       schar = schar_from_char(0xFFFD);
@@ -491,6 +483,7 @@ int grid_line_puts(int col, const char *text, int textlen, int attr)
 
     col += mbyte_cells;
     ptr += mbyte_blen;
+    len -= mbyte_blen;
   }
 
   if (col > start_col) {
