@@ -296,7 +296,10 @@ describe('mbyte', function()
   describe('utf_ptr2cells', function()
     local function check(str, expected)
       eq(expected, lib.utf_ptr2cells(to_cstr(str)))
-      eq(expected, lib.utf_ptr2cells_len(to_cstr(str), #str))
+      local blen = ffi.new('int[1]')
+      blen[0] = -14
+      eq(expected, lib.utf_ptr2cells_len(to_cstr(str), #str, blen))
+      eq(#str, blen[0]) -- only sometimes!!
     end
 
     itp('gives a spacing mark its own cell', function()

@@ -2647,20 +2647,22 @@ static void str_to_reg(yankreg_T *y_ptr, MotionType yank_type, const char *str, 
       int charlen = 0;
 
       const char *line_end = start;
-      while (line_end < end) {  // find the end of the line
-        if (*line_end == '\n') {
+      int ilen = (int)(end - line_end);
+      // TODO: without kMTBlockWise this is just strchr('\n') ???????
+
+      StrCharInfo ci = utf_ptr2StrCharInfo_len((char *)str, ilen);
+      while (ilen > 0) {  // find the end of the line
+        if (*ci.ptr == '\n') {
           break;
         }
-        if (yank_type == kMTBlockWise) {
-          charlen += utf_ptr2cells_len(line_end, (int)(end - line_end));
-        }
+        ClusterInfo cli = utf_ClusterInfo_len(ci, &ilen);
 
-        if (*line_end == NUL) {
-          line_end++;  // registers can have NUL chars
-        } else {
-          line_end += utf_ptr2len_len(line_end, (int)(end - line_end));
+        // *line_end can be NUL, in case both these functions gives 1 for "blen"
+        if (yank_type == kMTBlockWise) {
+          charlen += cli.cells;
         }
       }
+      line_end = ci.ptr;
       assert(line_end - start >= 0);
       line_len = (size_t)(line_end - start);
       maxlen = MAX(maxlen, (size_t)charlen);

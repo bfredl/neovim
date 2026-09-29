@@ -585,43 +585,6 @@ ret:
 #undef CHECK
 }
 
-/// Like utf_ptr2cells(), but limit string length to "size".
-/// For an empty string or truncated character returns 1.
-int utf_ptr2cells_len(const char *p_in, int size)
-  FUNC_ATTR_PURE
-{
-  const uint8_t *p = (const uint8_t *)p_in;
-  if (size == 0 || *p < 0x80) {
-    return 1;
-  }
-
-  // Need to convert to a wide character.
-  int len = utf_ptr2len_len(p_in, size);
-  if (len < utf8len_tab[*p]) {
-    return 1;        // truncated
-  }
-  int c = utf_ptr2char(p_in);
-
-  // An illegal byte is displayed as <xx>.
-  if (utf_ptr2len(p_in) == 1 || c == NUL) {
-    return 4;
-  }
-  // If the char is ASCII it must be an overlong sequence.
-  if (c < 0x80) {
-    return char2cells(c);
-  }
-
-  if (EXPECT(size <= len || p[len] < 0x80, true)) {
-    return utf_char2cells(c);
-  } else {
-    // TODO(bfredl): half-way refactor roadstone. This also gives us the valid
-    // byte length the caller could use instead of utfc_ptr2len_len()
-    StrCharInfo cur = {.ptr = p_in, .chr = (CharInfo){.value = c, .len = len}};
-    ClusterInfo ci = utf_ClusterInfo_impl(cur, size - len);
-    return ci.cells;
-  }
-}
-
 /// Calculate the number of cells occupied by string `str`.
 ///
 /// @param str The source string, may not be NULL, must be a NUL-terminated
@@ -654,9 +617,13 @@ size_t mb_string2cells_len(const char *str, size_t size)
 {
   size_t clen = 0;
 
-  for (const char *p = str; *p != NUL && p < str + size;
-       p += utfc_ptr2len_len(p, (int)size - (int)(p - str))) {
-    clen += (size_t)utf_ptr2cells_len(p, (int)size - (int)(p - str));
+  int len = (int)size;
+
+  StrCharInfo ci = utf_ptr2StrCharInfo_len((char *)str, len);
+  while (*ci.ptr != NUL && len > 0) {
+    ClusterInfo cli = utf_ClusterInfo_len(ci, &len);
+    clen += (size_t)cli.cells;
+    ci = cli.next;
   }
 
   return clen;
@@ -1875,20 +1842,20 @@ int utf_head_off(const char *base_in, const char *p_in)
   return 0;
 }
 
-ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur, int max_len)
+ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur, int *max_len)
 {
   int cells = basechar_cells_impl(cur.chr);
   int32_t prev_code = cur.chr.value;
   uint8_t *next = (uint8_t *)(cur.ptr + cur.chr.len);
   GraphemeState state = GRAPHEME_STATE_INIT;
-  assert(*next >= 0x80 && max_len > 0);
+  assert(*next >= 0x80 && *max_len > 0);
 
   bool check_emoji = cells == 1 && p_emoji
                      && prop_is_emojilike(utf8proc_get_property(cur.chr.value));
 
   while (true) {
     uint8_t const next_len = utf8len_tab[*next];
-    if (next_len > max_len) {
+    if (next_len > *max_len) {
       return (ClusterInfo){
         .next = (StrCharInfo){
           .ptr = (char *)next,
@@ -1927,8 +1894,8 @@ ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur, int max_len)
 
     prev_code = next_code;
     next += next_len;
-    max_len -= next_len;
-    if (EXPECT(max_len > 0 && *next < 0x80U, true)) {
+    *max_len -= next_len;
+    if (EXPECT(*max_len > 0 && *next < 0x80U, true)) {
       return (ClusterInfo){
         .next = (StrCharInfo){
           .ptr = (char *)next,
