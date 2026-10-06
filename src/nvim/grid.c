@@ -448,13 +448,14 @@ int grid_line_puts(int col, const char *text, int textlen, int attr)
   while (col < max_col && len > 0 && *ci.ptr != NUL) {
     ClusterInfo cli = utf_ClusterInfo_len(ci, &len);
     // check if this is the first byte of a multibyte
+    schar_T schar;
     int mbyte_cells = cli.cells;
-    int firstc;
-    // TODO(bfredl): reintegrating schar:s into the new world is the next step
-    schar_T schar = utfc_ptrlen2schar(ci.ptr, (int)(cli.next.ptr - ci.ptr), &firstc);
-    if (mbyte_cells > 2 || schar == 0) {
+    if (mbyte_cells > 2 || ci.chr.value < 0x20) {
+      // caller should have translated invalid bytes but barg out safely
       mbyte_cells = 1;
       schar = schar_from_char(0xFFFD);
+    } else {
+      schar = schar_from_cluster(ci, cli);
     }
 
     if (col + mbyte_cells > max_col) {

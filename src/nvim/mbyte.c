@@ -849,29 +849,6 @@ schar_T utfc_ptr2schar(const char *p, int *firstc)
   return schar_from_buf_first(p, len, first_compose);
 }
 
-/// Get the screen char from a char with a known length
-///
-/// Like utfc_ptr2schar but use no more than p[maxlen].
-schar_T utfc_ptrlen2schar(const char *p, int len, int *firstc)
-  FUNC_ATTR_NONNULL_ALL
-{
-  if ((len == 1 && (uint8_t)(*p) >= 0x80) || len == 0) {
-    // invalid or truncated sequence
-    *firstc = (uint8_t)(*p);
-    return 0;
-  }
-
-  int c = utf_ptr2char(p);
-  *firstc = c;
-  bool first_compose = utf_iscomposing_first(c);
-  int maxlen = MAX_SCHAR_SIZE - 1 - first_compose;
-  if (len > maxlen) {
-    len = utfc_ptr2len_len(p, maxlen);
-  }
-
-  return schar_from_buf_first(p, (size_t)len, first_compose);
-}
-
 /// Caller must ensure there is space for `first_compose`
 static schar_T schar_from_buf_first(const char *buf, size_t len, bool first_compose)
   FUNC_ATTR_NONNULL_ALL
@@ -885,6 +862,18 @@ static schar_T schar_from_buf_first(const char *buf, size_t len, bool first_comp
     return schar_from_buf(buf, len);
   }
 }
+
+schar_T schar_from_cluster_impl(const char *buf, size_t len, bool first_compose) {
+  size_t maxlen = MAX_SCHAR_SIZE - 1 - first_compose;
+  if (len > maxlen) {
+    len = maxlen;
+    while ((buf[len] & 0xC0) != 0x80) { // find start byte
+      len--;
+    }
+  }
+  return schar_from_buf_first(buf, len, first_compose); // TODO: inline as only user!
+}
+
 
 /// Get the length of a UTF-8 byte sequence representing a single codepoint
 ///
@@ -1858,6 +1847,7 @@ ClusterInfo utf_ClusterInfo_impl(StrCharInfo base, int *max_len)
   uint8_t *next = (uint8_t *)(base.ptr + base.chr.len);
   GraphemeState state = GRAPHEME_STATE_INIT;
   assert(*next >= 0x80 && *max_len > 0);
+  int cluster_len = base.chr.len;
 
   bool check_emoji = cells == 1 && p_emoji
                      && prop_is_emojilike(utf8proc_get_property(base.chr.value));
@@ -1892,6 +1882,7 @@ ClusterInfo utf_ClusterInfo_impl(StrCharInfo base, int *max_len)
       check_emoji = false;
     }
 
+    cluster_len += next_len;
     if (cells == 1) {
       /// A SpacingMark does not break the cluster (UAX#29 GB9a) but has positive
       /// advance width (Unicode core spec D55), so it needs a cell of its own.
@@ -1899,7 +1890,9 @@ ClusterInfo utf_ClusterInfo_impl(StrCharInfo base, int *max_len)
           || (next_code & ~1) == 0xFF9E) {  // halfwidth katakana voiced sound marks
         // TODO(bfredl): too many places assume ASCII lead byte can never
         // be promoted to double width. Later on we should allow this
-        if (base.chr.len != 1) {
+        // TODO: hazard: exact cutoff actually depends on "first_compose", all the more reason
+        // to get it done early?
+        if (base.chr.len != 1 && cluster_len < MAX_SCHAR_SIZE - 1) {
           cells = 2;
         }
       }

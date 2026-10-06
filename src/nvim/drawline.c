@@ -377,54 +377,72 @@ static void draw_virt_text(win_T *wp, buf_T *buf, int col_off, int *end_col, int
 static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode, int max_col,
                                int vcol, int skip_cells, bool eol_hl)
 {
-  const char *virt_str = "";
   int virt_attr = 0;
   size_t virt_pos = 0;
   eol_hl &= kv_size(vt) && *kv_A(vt, kv_size(vt) - 1).text == NUL;
 
+  StrCharInfo s = {.ptr = "", .chr = {.value = -1, .len = 0}};
+
   while (col < max_col) {
+    assert (skip_cells >= 0);
     // extending last highlight till the end of line
-    if (eol_hl && *virt_str == NUL && virt_pos == kv_size(vt)) {
-      virt_str = " ";
-    }
-    if (skip_cells >= 0 && *virt_str == NUL) {
+    while (*s.ptr == NUL) {
       if (virt_pos >= kv_size(vt)) {
-        break;
-      }
-      virt_attr = 0;
-      virt_str = next_virt_text_chunk(vt, &virt_pos, &virt_attr);
-      if (virt_str == NULL) {
-        break;
+        if (eol_hl) {
+          s = utf_ptr2StrCharInfo(" ");
+        } else {
+          break;
+        }
+      } else {
+        virt_attr = 0;
+        char *next = next_virt_text_chunk(vt, &virt_pos, &virt_attr);
+        if (next == NULL) {
+          break;
+        }
+        s = utf_ptr2StrCharInfo(next);
       }
     }
-    // Skip cells in the text.
-    while (skip_cells > 0 && *virt_str != NUL) {
-      int c_len = utfc_ptr2len(virt_str);
-      int cells = *virt_str == TAB
-                  ? tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array)
-                  : utf_ptr2cells(virt_str);
-      skip_cells -= cells;
-      vcol += cells;
-      virt_str += c_len;
+
+    if (*s.ptr == NUL) {
+      break; // DOUBLE BREK FROM ABOVE
     }
+
+    ClusterInfo ci =utf_ClusterInfo(s) ;
+    int draw_cells = ci.cells;
+    if (s.chr.value == TAB){
+      draw_cells = tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array);
+    }
+    if (skip_cells > 0) {
+      skip_cells -= draw_cells;
+      vcol += draw_cells;
+      s = ci.next;
+      // careful, might have skipped to much, in case we insert spaces
+      if (skip_cells < 0) {
+        draw_cells = -skip_cells;
+      } else {
+        continue; // ate all of the char, try again
+      }
+    }
+
+    int maxcells = max_col - col;
     // If a double-width char or TAB doesn't fit, pad with spaces.
-    const char *draw_str = skip_cells < 0 ? " " : virt_str;
-    if (*draw_str == NUL) {
-      continue;
+    schar_T sc = schar_from_ascii(' ');
+    if (!(skip_cells < 0) && s.chr.value != TAB && ci.cells <= maxcells) {
+      sc = schar_from_cluster(s, ci);
     }
-    assert(skip_cells <= 0);
+    draw_cells = MIN(draw_cells, maxcells);
+
     int attr;
     bool through = false;
     if (hl_mode == kHlModeCombine) {
       attr = hl_combine_attr(linebuf_attr[col], virt_attr);
     } else if (hl_mode == kHlModeBlend) {
-      through = (*draw_str == ' ');
+      // TODO: add test for " " + nonspacingmark is not "through"
+      through = sc == schar_from_ascii(' ');
       attr = hl_blend_attrs(linebuf_attr[col], virt_attr, &through);
     } else {
       attr = virt_attr;
     }
-    schar_T dummy[2] = { schar_from_ascii(' '), schar_from_ascii(' ') };
-    int maxcells = max_col - col;
     // When overwriting the right half of a double-width char, clear the left half.
     if (!through && linebuf_char[col] == 0) {
       assert(col > 0);
@@ -432,17 +450,32 @@ static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode,
       // Clear the right half as well for the assertion in line_putchar().
       linebuf_char[col] = schar_from_ascii(' ');
     }
-    int cells = line_putchar(buf, &draw_str, through ? dummy : &linebuf_char[col],
-                             maxcells, vcol);
-    for (int c = 0; c < cells; c++) {
+
+    if (!through) {
+      if (sc == schar_from_ascii(' ')) {
+        for (int c = 0; c < draw_cells; c++) {
+          linebuf_char[col+c] = schar_from_ascii(' ');
+        }
+      } else {
+        assert(draw_cells <= 2);
+        linebuf_char[col] = sc;
+        if (draw_cells == 2) {
+          linebuf_char[col+1] = 0;
+        }
+      }
+      if (draw_cells < maxcells && linebuf_char[col+draw_cells] == 0) {
+        linebuf_char[col+draw_cells] = schar_from_ascii(' ');
+      }
+    }
+    for (int c = 0; c < draw_cells; c++) {
       linebuf_attr[col] = attr;
       col++;
     }
     if (skip_cells < 0) {
-      skip_cells++;
+      skip_cells = 0;
     } else {
-      vcol += cells;
-      virt_str = draw_str;
+      vcol += draw_cells;
+      s = ci.next;
     }
   }
   return col;
