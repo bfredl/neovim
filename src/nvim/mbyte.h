@@ -10,6 +10,7 @@
 #include "nvim/ascii_defs.h"
 #include "nvim/cmdexpand_defs.h"  // IWYU pragma: keep
 #include "nvim/eval/typval_defs.h"  // IWYU pragma: keep
+#include "nvim/grid.h" // TODO: or move?????
 #include "nvim/macros_defs.h"
 #include "nvim/mbyte_defs.h"  // IWYU pragma: keep
 #include "nvim/option_vars.h"
@@ -190,6 +191,19 @@ static inline ClusterInfo utf_ClusterInfo_len(StrCharInfo cur, int *size)
     };
   }
   return utf_ClusterInfo_impl(cur, size);
+}
+
+static inline schar_T schar_from_cluster(StrCharInfo cur, ClusterInfo ci) {
+  // TODO: maybe free as ci.first_compose ??
+  bool first_compose = utf_iscomposing_first(cur.chr.value);
+  ptrdiff_t len = ci.next.ptr - cur.ptr;
+  // TODO: for optimization purposes, the division should rather be
+  // any "low" schar_T (without first_compose) should be inline
+  // anything else a function call
+  if (first_compose || len > MAX_SCHAR_SIZE-1) {
+    return schar_from_cluster_impl(cur.ptr, first_compose, len);
+  }
+  return schar_from_buf(cur.ptr, (size_t)len);
 }
 
 /// Return number of display cells occupied by ASCII byte "b".

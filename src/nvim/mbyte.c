@@ -886,6 +886,18 @@ static schar_T schar_from_buf_first(const char *buf, size_t len, bool first_comp
   }
 }
 
+schar_T schar_from_cluster_impl(const char *buf, size_t len, bool first_compose) {
+  size_t maxlen = MAX_SCHAR_SIZE - 1 - first_compose;
+  if (len > maxlen) {
+    len = maxlen;
+    while ((buf[len] & 0xC0) != 0x80) { // find start byte
+      len--;
+    }
+  }
+  return schar_from_buf_first(buf, len, first_compose); // TODO: inline as only user!
+}
+
+
 /// Get the length of a UTF-8 byte sequence representing a single codepoint
 ///
 /// @param[in]  p  UTF-8 string.
@@ -1858,6 +1870,7 @@ ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur, int *max_len)
   uint8_t *next = (uint8_t *)(cur.ptr + cur.chr.len);
   GraphemeState state = GRAPHEME_STATE_INIT;
   assert(*next >= 0x80 && *max_len > 0);
+  int cluster_len = cur.chr.len;
 
   bool check_emoji = cells == 1 && p_emoji
                      && prop_is_emojilike(utf8proc_get_property(cur.chr.value));
@@ -1892,12 +1905,15 @@ ClusterInfo utf_ClusterInfo_impl(StrCharInfo cur, int *max_len)
       check_emoji = false;
     }
 
+    cluster_len += next_len;
     if (cells == 1) {
       /// A SpacingMark does not break the cluster (UAX#29 GB9a) but has positive
       /// advance width (Unicode core spec D55), so it needs a cell of its own.
       if (utf8proc_get_property(next_code)->boundclass == UTF8PROC_BOUNDCLASS_SPACINGMARK
           || (next_code & ~1) == 0xFF9E) {  // halfwidth katakana voiced sound marks
-        cells = 2;
+        if (cluster_len < MAX_SCHAR_SIZE - 1) {
+          cells = 2;
+        }
       }
     }
 
