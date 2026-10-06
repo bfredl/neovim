@@ -433,18 +433,18 @@ static void compose_line(Integer row, Integer startcol, Integer endcol, LineFlag
       }
     }
 
+    assert(braille_space == schar_from_char(L'\u2800'));
+
     // 'pumblend' and 'winblend'
     if (grid->blending) {
       int width;
       for (int i = col - (int)startcol; i < until - startcol; i += width) {
         width = 1;
         // negative space
-        bool thru = (linebuf[i] == schar_from_ascii(' ')
-                     || linebuf[i] == schar_from_char(L'\u2800')) && bg_line[i] != NUL;
+        bool thru = (schar_seethrough(linebuf[i]) && bg_line[i] != NUL);
         if (i + 1 < endcol - startcol && bg_line[i + 1] == NUL) {
           width = 2;
-          thru &= (linebuf[i + 1] == schar_from_ascii(' ')
-                   || linebuf[i + 1] == schar_from_char(L'\u2800'));
+          thru &= schar_seethrough(linebuf[i + 1]);
         }
         attrbuf[i] = (sattr_T)hl_blend_attrs(bg_attrs[i], attrbuf[i], &thru);
         if (width == 2) {
