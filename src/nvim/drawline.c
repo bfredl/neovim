@@ -384,55 +384,51 @@ static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode,
   StrCharInfo s = {.ptr = "", .chr = {.value = -1, .len = 0}};
 
   while (col < max_col) {
+    assert (skip_cells >= 0);
     // extending last highlight till the end of line
-    if (eol_hl && *s.ptr == NUL && virt_pos == kv_size(vt)) {
-      s = utf_ptr2StrCharInfo(" ");
-    }
-    if (skip_cells >= 0 && *s.ptr == NUL) {
+    while (*s.ptr == NUL) {
       if (virt_pos >= kv_size(vt)) {
-        break;
-      }
-      virt_attr = 0;
-      char *next = next_virt_text_chunk(vt, &virt_pos, &virt_attr);
-      if (next == NULL) {
-        break;
-      }
-      s = utf_ptr2StrCharInfo(next);
-    }
-
-    ClusterInfo ci;
-    int draw_cells;
-    // skip as needed
-    while (*s.ptr != NUL) {
-      ci = utf_ClusterInfo(s);
-      draw_cells = (s.chr.value == TAB) ? tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array) : ci.cells;
-    // Skip cells in the text.
-      if (skip_cells > 0) {
-        skip_cells -= draw_cells;
-        vcol += draw_cells;
-        s = ci.next;
+        if (eol_hl) {
+          s = utf_ptr2StrCharInfo(" ");
+        } else {
+          break;
+        }
       } else {
-        break;
+        virt_attr = 0;
+        char *next = next_virt_text_chunk(vt, &virt_pos, &virt_attr);
+        if (next == NULL) {
+          break;
+        }
+        s = utf_ptr2StrCharInfo(next);
       }
     }
 
+    if (*s.ptr == NUL) {
+      break; // DOUBLE BREK FROM ABOVE
+    }
+
+    ClusterInfo ci =utf_ClusterInfo(s) ;
+    int draw_cells = ci.cells;
+    if (s.chr.value == TAB){
+      draw_cells = tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array);
+    }
     if (skip_cells > 0) {
-      continue;
+      skip_cells -= draw_cells;
+      vcol += draw_cells;
+      s = ci.next;
+      // careful, might have skipped to much, in case we insert spaces
+      if (skip_cells < 0) {
+        draw_cells = -skip_cells;
+      } else {
+        continue; // ate all of the char, try again
+      }
     }
 
     int maxcells = max_col - col;
     // If a double-width char or TAB doesn't fit, pad with spaces.
     schar_T sc = schar_from_ascii(' ');
-    if (!(skip_cells < 0) && *s.ptr == NUL) {
-      continue;
-    } else if (skip_cells < 0) {
-      draw_cells = -skip_cells;
-    } else if (s.chr.value == TAB) {
-
-    } else {
-      if (ci.cells <= maxcells) {
-        sc = schar_from_cluster(s, ci);
-      }
+    if (!(skip_cells < 0) && s.chr.value != TAB && ci.cells <= maxcells) {
+      sc = schar_from_cluster(s, ci);
     }
     draw_cells = MIN(draw_cells, maxcells);
 
