@@ -447,7 +447,7 @@ static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode,
     if (!through && linebuf_char[col] == 0) {
       assert(col > 0);
       linebuf_char[col - 1] = schar_from_ascii(' ');
-      // Clear the right half as well for the assertion in line_putchar().
+      // Clear the right half as well
       linebuf_char[col] = schar_from_ascii(' ');
     }
 
