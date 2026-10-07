@@ -225,51 +225,6 @@ static void margin_columns_win(win_T *wp, int *left_col, int *right_col)
   saved_w_virtcol = wp->w_virtcol;
 }
 
-/// Put a single char from an UTF-8 buffer into a line buffer.
-///
-/// If `*pp` is a double-width char and only one cell is left, emit a space,
-/// and don't advance *pp
-///
-/// Handles composing chars
-static int line_putchar(buf_T *buf, const char **pp, schar_T *dest, int maxcells, int vcol)
-{
-  // Caller should handle overwriting the right half of a double-width char.
-  assert(dest[0] != 0);
-
-  const char *p = *pp;
-  int cells = utf_ptr2cells(p);
-  int c_len = utfc_ptr2len(p);
-  assert(maxcells > 0);
-  if (cells > maxcells) {
-    dest[0] = schar_from_ascii(' ');
-    return 1;
-  }
-
-  if (*p == TAB) {
-    cells = tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array);
-    cells = MIN(cells, maxcells);
-  }
-
-  // When overwriting the left half of a double-width char, clear the right half.
-  if (cells < maxcells && dest[cells] == 0) {
-    dest[cells] = schar_from_ascii(' ');
-  }
-  if (*p == TAB) {
-    for (int c = 0; c < cells; c++) {
-      dest[c] = schar_from_ascii(' ');
-    }
-  } else {
-    int u8c;
-    dest[0] = utfc_ptr2schar(p, &u8c);
-    if (cells > 1) {
-      dest[1] = 0;
-    }
-  }
-
-  *pp += c_len;
-  return cells;
-}
-
 static void draw_virt_text(win_T *wp, buf_T *buf, int col_off, int *end_col, int win_row)
 {
   DecorState *const state = &decor_state;
@@ -407,7 +362,7 @@ static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode,
       break; // DOUBLE BREK FROM ABOVE
     }
 
-    ClusterInfo ci =utf_ClusterInfo(s) ;
+    ClusterInfo ci = utf_ClusterInfo(s);
     int draw_cells = ci.cells;
     if (s.chr.value == TAB){
       draw_cells = tabstop_padding(vcol, buf->b_p_ts, buf->b_p_vts_array);
@@ -485,10 +440,23 @@ static int draw_virt_text_item(buf_T *buf, int col, VirtText vt, HlMode hl_mode,
 static void draw_col_buf(win_T *wp, winlinevars_T *wlv, const char *text, size_t len, int attr,
                          const colnr_T *fold_vcol, bool inc_vcol)
 {
-  const char *ptr = text;
-  while (ptr < text + len && wlv->off < wp->w_view_width) {
-    int cells = line_putchar(wp->w_buffer, &ptr, &linebuf_char[wlv->off],
-                             wp->w_view_width - wlv->off, wlv->off);
+  StrCharInfo s = utf_ptr2StrCharInfo(text);
+  while (s.ptr < text + len && wlv->off < wp->w_view_width) {
+    ClusterInfo ci = utf_ClusterInfo(s);  // TODO: ci vs cli madness
+    const int maxcells = wp->w_view_width - wlv->off;
+    // caller used transstr(.., untab=true)
+    assert(ci.cells <= 2 && s.chr.value >= 0x20);
+    int cells = ci.cells;
+    if (ci.cells > maxcells) {
+      linebuf_char[wlv->off] = schar_from_ascii(' ');
+      cells = 1;
+    } else {
+      linebuf_char[wlv->off] = schar_from_cluster(s, ci);
+      if (cells == 2) {
+        linebuf_char[wlv->off + 1] = 0;
+      }
+    }
+
     int myattr = attr;
     if (inc_vcol) {
       advance_color_col(wlv, wlv->vcol);
@@ -501,6 +469,7 @@ static void draw_col_buf(win_T *wp, winlinevars_T *wlv, const char *text, size_t
       linebuf_vcol[wlv->off] = inc_vcol ? wlv->vcol++ : fold_vcol ? *(fold_vcol++) : -1;
       wlv->off++;
     }
+    s = ci.next;
   }
 }
 
