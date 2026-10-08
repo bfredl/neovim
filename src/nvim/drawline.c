@@ -1105,6 +1105,18 @@ static int get_rightmost_vcol(win_T *wp, const int *color_cols)
   return ret;
 }
 
+static inline int schar_get_single_width(schar_T mb_schar, int *mb_schar_width)
+  FUNC_ATTR_ALWAYS_INLINE
+{
+  // TODO: inline schar_get_first_codepoint, schar_cells
+  // do we even need to "correct" mb_c???
+#ifndef NDEBUG
+  assert(schar_cells(mb_schar) == 1);
+#endif
+  *mb_schar_width = 1;
+  return schar_get_first_codepoint(mb_schar);
+}
+
 /// Display line "lnum" of window "wp" on the screen.
 /// wp->w_virtcol needs to be valid.
 ///
@@ -1167,6 +1179,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
   int mb_l = 1;                         // multi-byte byte length
   int mb_c = 0;                         // decoded multi-byte character
   schar_T mb_schar = 0;                 // complete screen char
+  int mb_schar_width = 0;               // width of scree char
   int change_start = MAXCOL;            // first col of changed area
   int change_end = -1;                  // last col of changed area
   bool in_multispace = false;           // in multiple consecutive spaces
@@ -2079,12 +2092,17 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
     if (wlv.n_extra > 0) {
       if (wlv.sc_extra != NUL || (wlv.n_extra == 1 && wlv.sc_final != NUL)) {
         mb_schar = (wlv.n_extra == 1 && wlv.sc_final != NUL) ? wlv.sc_final : wlv.sc_extra;
-        mb_c = schar_get_first_codepoint(mb_schar);
+        mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
         wlv.n_extra--;
       } else {
         assert(wlv.p_extra != NULL);
-        mb_l = utfc_ptr2len(wlv.p_extra);
-        mb_schar = utfc_ptr2schar(wlv.p_extra, &mb_c);
+        {
+          StrCharInfo ci = utf_ptr2StrCharInfo(wlv.p_extra);
+          ClusterInfo cli = utf_ClusterInfo(ci);
+          mb_l = (int)(cli.next.ptr - ci.ptr);
+          mb_schar = schar_from_cluster(ci, cli);
+          mb_schar_width = cli.cells;
+        }
         // mb_l=0 at the end-of-line NUL
         if (mb_l > wlv.n_extra || mb_l == 0) {
           mb_l = 1;
@@ -2092,10 +2110,11 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
 
         // If a double-width char doesn't fit display a '>' in the last column.
         // Don't advance the pointer but put the character at the start of the next line.
-        if (wlv.col >= view_width - 1 && schar_cells(mb_schar) == 2) {
+        if (wlv.col >= view_width - 1 && mb_schar_width == 2) {
           mb_c = '>';
           mb_l = 1;
           mb_schar = schar_from_ascii(mb_c);
+          mb_schar_width = 1;
           multi_attr = win_hl_attr(wp, HLF_AT);
 
           if (wlv.cul_attr) {
@@ -2118,6 +2137,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           wlv.sc_extra = schar_from_ascii(MB_FILLER_CHAR);
           wlv.sc_final = NUL;
           mb_schar = schar_from_ascii(' ');
+          mb_schar_width = 1;
           mb_c = ' ';
           mb_l = 1;
           (void)mb_l;
@@ -2165,6 +2185,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
       // initialize these.
       mb_c = ' ';
       mb_schar = schar_from_ascii(' ');
+      mb_schar_width = 1;
     } else if (has_foldtext || (has_fold && wlv.col >= view_width)) {
       // skip writing the buffer line itself
       mb_schar = NUL;
@@ -2178,9 +2199,16 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         wlv.skip_cells = 0;
       }
 
-      // Get a character from the line itself.
-      mb_l = utfc_ptr2len(ptr);
-      mb_schar = utfc_ptr2schar(ptr, &mb_c);
+      {
+        // TODO(bfredl): refactor roadpost. it would be cool if the main
+        // loop used "ci.ptr" insted of "ptr" but this function is a mess
+        StrCharInfo ci = utf_ptr2StrCharInfo(ptr);
+        ClusterInfo cli = utf_ClusterInfo(ci);
+        mb_l = (int)(cli.next.ptr - ci.ptr);
+        mb_schar = schar_from_cluster(ci, cli);
+        mb_schar_width = cli.cells;
+        mb_c = ci.chr.value > 0 ? ci.chr.value : c0;
+      }
 
       // Overlong encoded ASCII or ASCII with composing char
       // is displayed normally, except a NUL.
@@ -2199,8 +2227,17 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         }
 
         wlv.p_extra = wlv.extra;
-        mb_c = mb_ptr2char_adv((const char **)&wlv.p_extra);
-        mb_schar = schar_from_char(mb_c);
+        {
+          // TODO(bfredl): use wlv.ci_extra.ptr instead of wlv.p_extra as loop variable
+          StrCharInfo ci = utf_ptr2StrCharInfo(wlv.p_extra);
+          ClusterInfo cli = utf_ClusterInfo(ci);
+          wlv.p_extra = (char *)cli.next.ptr;
+          mb_schar = schar_from_cluster(ci, cli);
+          mb_schar_width = cli.cells;
+          // TODO: is it always just ci.chr.value here???
+          mb_c = ci.chr.value > 0 ? ci.chr.value : c0;
+        }
+
         wlv.n_extra = (int)strlen(wlv.p_extra);
         wlv.sc_extra = NUL;
         wlv.sc_final = NUL;
@@ -2215,7 +2252,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
       // If a double-width char doesn't fit display a '>' in the
       // last column; the character is displayed at the start of the
       // next line.
-      if (wlv.col >= view_width - 1 && schar_cells(mb_schar) == 2) {
+      if (wlv.col >= view_width - 1 && mb_schar_width == 2) {
         mb_schar = schar_from_ascii('>');
         mb_c = '>';
         mb_l = 1;
@@ -2465,7 +2502,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           wlv.n_attr = 1;
           wlv.extra_attr = win_hl_attr(wp, HLF_0);
           saved_attr2 = wlv.char_attr;  // save current attr
-          mb_c = schar_get_first_codepoint(mb_schar);
+          mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
         }
 
         if (mb_c == ' ' && mb_l == 1 && ((trailcol != MAXCOL && ptr > line + trailcol)
@@ -2487,7 +2524,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           wlv.n_attr = 1;
           wlv.extra_attr = win_hl_attr(wp, HLF_0);
           saved_attr2 = wlv.char_attr;  // save current attr
-          mb_c = schar_get_first_codepoint(mb_schar);
+          mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
         }
       }
 
@@ -2547,7 +2584,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
                 len += (size_t)(wlv.n_extra - tab_len);
               }
               mb_schar = lcs_tab1;
-              mb_c = schar_get_first_codepoint(mb_schar);
+              mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
               char *p = get_extra_buf(len + 1);
               memset(p, ' ', len);
               p[len] = NUL;
@@ -2611,7 +2648,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
             wlv.sc_extra = schar_from_ascii(' ');
             mb_schar = schar_from_ascii(' ');
           }
-          mb_c = schar_get_first_codepoint(mb_schar);
+          mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
         } else if (mb_schar == NUL
                    && (wp->w_p_list
                        || (wlv.fromcol >= 0
@@ -2641,7 +2678,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           ptr--;  // put it back at the NUL
           wlv.extra_attr = win_hl_attr(wp, HLF_AT);
           wlv.n_attr = 1;
-          mb_c = schar_get_first_codepoint(mb_schar);
+          mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
         } else if (mb_schar != NUL) {
           xstrlcpy(wlv.extra, transchar_buf(wp->w_buffer, mb_c), sizeof(wlv.extra));
           wlv.p_extra = wlv.extra;
@@ -2668,6 +2705,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           wlv.extra_attr = win_hl_attr(wp, HLF_8);
           saved_attr2 = wlv.char_attr;  // save current attr
           mb_schar = schar_from_ascii(mb_c);
+          mb_schar_width = 1;
         } else if (Visual.active
                    && (Visual.mode == Ctrl_V || Visual.mode == 'v')
                    && virtual_active(wp)
@@ -2675,7 +2713,8 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
                    && wlv.vcol < wlv.tocol
                    && wlv.col < view_width) {
           mb_c = ' ';
-          mb_schar = schar_from_char(mb_c);
+          mb_schar = schar_from_ascii(mb_c);
+          mb_schar_width = 1;
           ptr--;  // put it back at the NUL
         }
       }
@@ -2693,7 +2732,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
                 || (decor_conceal && decor_state.conceal_char)
                 || wp->w_p_cole == 1)
             && wp->w_p_cole != 3) {
-          if (schar_cells(mb_schar) > 1) {
+          if (mb_schar_width > 1) {
             // When the first char to be concealed is double-width,
             // need to advance one more virtual column.
             wlv.n_extra++;
@@ -2716,7 +2755,9 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
             mb_schar = schar_from_ascii(' ');
           }
 
+          // TODO: the special case, this can be DIBBL-width right?
           mb_c = schar_get_first_codepoint(mb_schar);
+          mb_schar_width = schar_cells(mb_schar);
 
           prev_syntax_id = syntax_seqnr;
 
@@ -2792,7 +2833,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         && wlv.skip_cells <= 0
         && mb_schar != NUL) {
       lcs_prec_todo = NUL;
-      if (schar_cells(mb_schar) > 1) {
+      if (mb_schar_width > 1) {
         // Double-width character being overwritten by the "precedes"
         // character, need to fill up half the character.
         wlv.sc_extra = schar_from_ascii(MB_FILLER_CHAR);
@@ -2809,7 +2850,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         wlv.extra_attr = win_hl_attr(wp, HLF_AT);
       }
       mb_schar = wp->w_p_lcs_chars.prec;
-      mb_c = schar_get_first_codepoint(mb_schar);
+      mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
       saved_attr3 = wlv.char_attr;  // save current attr
       wlv.char_attr = win_hl_attr(wp, HLF_AT);  // overwriting char_attr
       n_attr3 = 1;
@@ -2987,8 +3028,8 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           || (wlv.n_extra > 0 && (wlv.sc_extra != NUL || *wlv.p_extra != NUL))
           || (may_have_inline_virt && has_more_inline_virt(&wlv, ptr - line))) {
         mb_schar = lcs_ext;
+        mb_c = schar_get_single_width(mb_schar, &mb_schar_width);
         wlv.char_attr = win_hl_attr(wp, HLF_AT);
-        mb_c = schar_get_first_codepoint(mb_schar);
       }
     }
 
@@ -3061,7 +3102,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
 
       linebuf_vcol[wlv.off] = wlv.vcol;
 
-      if (schar_cells(mb_schar) > 1) {
+      if (mb_schar_width > 1) {
         // Need to fill two screen columns.
         wlv.off++;
         wlv.col++;
@@ -3080,7 +3121,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
       wlv.off++;
       wlv.col++;
     } else if (wp->w_p_cole > 0 && is_concealing) {
-      bool concealed_wide = schar_cells(mb_schar) > 1;
+      bool concealed_wide = mb_schar_width > 1;
 
       wlv.skip_cells--;
       wlv.vcol_off_co++;
