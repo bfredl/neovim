@@ -867,7 +867,7 @@ schar_T schar_from_cluster_impl(const char *buf, size_t len, bool first_compose)
   size_t maxlen = MAX_SCHAR_SIZE - 1 - first_compose;
   if (len > maxlen) {
     len = maxlen;
-    while ((buf[len] & 0xC0) != 0x80) { // find start byte
+    while ((buf[len] & 0xC0) != 0xC0) { // find start byte
       len--;
     }
   }
