@@ -2201,11 +2201,11 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
       ClusterInfo cli = utf_ClusterInfo(ci);
       int mb_l = (int)(cli.next.ptr - ci.ptr);  // byte length of full grapheme
       int mb_c = ci.chr.value;  // valid first codepoint or -1 for invalid byte
-      bool transhex_early = false;
+      bool unprintable_ascii = false;
 
       if (mb_c < 0
           || (mb_l >= 1 && mb_c == 0)
-          || (mb_l > 1 && (!vim_isprintc(mb_c)))) {
+          || (mb_l > 1 && cli.cells > 2)) {
         // Illegal UTF-8 byte: display as <xx>.
         // Non-printable character : display as <uuuu>
         // Overlong encoded ASCII or ASCII with composing char
@@ -2218,7 +2218,6 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         wlv.p_extra = wlv.extra + 1;
         mb_schar = schar_from_ascii(wlv.extra[0]);
         mb_schar_width = 1;
-        transhex_early = true;
 
         wlv.n_extra = (int)strlen(wlv.p_extra);
         wlv.sc_extra = NUL;
@@ -2235,7 +2234,11 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
       } else {
         // valid UTF-8 (NB: unprintable chars are checked later)
         mb_schar = schar_from_cluster(ci, cli);
-        mb_schar_width = ci.chr.value > 0x20 ? cli.cells : 1;
+        mb_schar_width = cli.cells;
+        if (ci.chr.value < 0x80 && mb_schar_width >= 1) {
+          mb_schar_width = 1;
+          unprintable_ascii = true;  // handled later
+        }
       }
 
       // If a double-width char doesn't fit display a '>' in the
@@ -2518,8 +2521,8 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         }
       }
 
-      // Handling of non-printable characters.
-      if (!transhex_early && !vim_isprintc(mb_c)) {
+      // Handling of non-printable ASCII characters.
+      if (unprintable_ascii) {
         // when getting a character from the file, we may have to
         // turn it into something else on the way to putting it on the screen.
         if (mb_c == TAB && (!wp->w_p_list || wp->w_p_lcs_chars.tab1)) {
