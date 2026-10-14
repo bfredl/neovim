@@ -2231,11 +2231,12 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         mb_l = 1;
         mb_schar = 0;
         mb_schar_width = 1;  // needed?
+        unprintable_ascii = true;
       } else {
         // valid UTF-8 (NB: unprintable chars are checked later)
         mb_schar = schar_from_cluster(ci, cli);
         mb_schar_width = cli.cells;
-        if (ci.chr.value < 0x80 && mb_schar_width >= 1) {
+        if (ci.chr.value < 0x80 && mb_schar_width > 1) {
           mb_schar_width = 1;
           unprintable_ascii = true;  // handled later
         }
